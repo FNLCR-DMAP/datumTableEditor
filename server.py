@@ -42,6 +42,9 @@ def create_server(input, output, session):
     # Column customization - track which columns to display and their order
     active_columns = reactive.Value(list(display_columns))
     
+    # Pagination state
+    current_page = reactive.Value(1)
+    
     # Load initial approval status from log
     initial_status, initial_timestamp = _get_latest_approval_status()
     approval_status = reactive.Value(initial_status)
@@ -195,10 +198,9 @@ def create_server(input, output, session):
         bars = []
         for status, count in counts.items():
             pct = (count / total) * 100
-            emoji = {"unprocessed": "⭕", "edited": "✏️", "approved": "✅", "rejected": "❌"}.get(status, "")
             bars.append(
                 ui.div(
-                    ui.span(f"{emoji} {status.capitalize()}", class_="histogram-label"),
+                    ui.span(f"{status.capitalize()}", class_=f"histogram-label status-label-{status}"),
                     ui.div(
                         ui.div(style=f"width: {pct}%;", class_=f"histogram-fill {status}"),
                         class_="histogram-track"
@@ -305,17 +307,131 @@ def create_server(input, output, session):
             funcs = ["all"] + sorted(df["Exonic_Functions"].dropna().unique().tolist())
             ui.update_select("exonic_filter", choices={f: f if f != "all" else "All Functions" for f in funcs})
     
+    # Output: Pagination controls
+    @output
+    @render.ui
+    def pagination_controls():
+        """Render pagination controls"""
+        filtered_indices = _get_filtered_rows()
+        total_rows = len(filtered_indices)
+        
+        rows_per_page_val = input.rows_per_page()
+        if rows_per_page_val == "all":
+            return ui.div(
+                ui.span(f"Showing all {total_rows} rows", class_="pagination-info"),
+                class_="pagination-bar"
+            )
+        
+        rows_per_page = int(rows_per_page_val)
+        total_pages = max(1, (total_rows + rows_per_page - 1) // rows_per_page)
+        page = min(current_page.get(), total_pages)
+        
+        start_row = (page - 1) * rows_per_page + 1
+        end_row = min(page * rows_per_page, total_rows)
+        
+        return ui.div(
+            ui.span(f"Showing {start_row}-{end_row} of {total_rows} rows", class_="pagination-info"),
+            ui.div(
+                ui.input_action_button("first_page_btn", "« First", class_="btn btn-sm btn-outline-secondary", disabled=(page <= 1)),
+                ui.input_action_button("prev_page_btn", "‹ Prev", class_="btn btn-sm btn-outline-secondary", disabled=(page <= 1)),
+                ui.span(f"Page {page} of {total_pages}", class_="page-indicator"),
+                ui.input_action_button("next_page_btn", "Next ›", class_="btn btn-sm btn-outline-secondary", disabled=(page >= total_pages)),
+                ui.input_action_button("last_page_btn", "Last »", class_="btn btn-sm btn-outline-secondary", disabled=(page >= total_pages)),
+                class_="pagination-buttons"
+            ),
+            ui.div(
+                ui.span("Go to: "),
+                ui.input_numeric("page_jump_input", label=None, value=page, min=1, max=total_pages, width="60px"),
+                ui.input_action_button("page_jump_btn", "Go", class_="btn btn-sm btn-primary"),
+                class_="page-jump"
+            ),
+            class_="pagination-bar"
+        )
+    
+    # Pagination event handlers
+    @reactive.Effect
+    @reactive.event(input.first_page_btn)
+    def _first_page():
+        current_page.set(1)
+    
+    @reactive.Effect
+    @reactive.event(input.prev_page_btn)
+    def _prev_page():
+        page = current_page.get()
+        if page > 1:
+            current_page.set(page - 1)
+    
+    @reactive.Effect
+    @reactive.event(input.next_page_btn)
+    def _next_page():
+        filtered_indices = _get_filtered_rows()
+        rows_per_page_val = input.rows_per_page()
+        if rows_per_page_val != "all":
+            rows_per_page = int(rows_per_page_val)
+            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            page = current_page.get()
+            if page < total_pages:
+                current_page.set(page + 1)
+    
+    @reactive.Effect
+    @reactive.event(input.last_page_btn)
+    def _last_page():
+        filtered_indices = _get_filtered_rows()
+        rows_per_page_val = input.rows_per_page()
+        if rows_per_page_val != "all":
+            rows_per_page = int(rows_per_page_val)
+            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            current_page.set(total_pages)
+    
+    @reactive.Effect
+    @reactive.event(input.page_jump_btn)
+    def _page_jump():
+        filtered_indices = _get_filtered_rows()
+        rows_per_page_val = input.rows_per_page()
+        if rows_per_page_val != "all":
+            rows_per_page = int(rows_per_page_val)
+            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            try:
+                target_page = int(input.page_jump_input())
+                target_page = max(1, min(target_page, total_pages))
+                current_page.set(target_page)
+            except:
+                pass
+    
+    # Reset to page 1 when filters change
+    @reactive.Effect
+    @reactive.event(input.rows_per_page)
+    def _reset_page_on_rows_change():
+        current_page.set(1)
+    
+    @reactive.Effect
+    @reactive.event(input.search_input, input.status_filter_multi, input.gene_filter, input.status_value_filter, input.exonic_filter)
+    def _reset_page_on_filter_change():
+        current_page.set(1)
+
     # Output: Data table
     @output
     @render.ui
     def table_container():
-        """Render the editable data table"""
+        """Render the editable data table with pagination"""
         _ = mods_log.get()
         _ = approval_status.get()
         
         current_df = data.get()
         filtered_indices = _get_filtered_rows()
         cols = active_columns.get()
+        
+        # Apply pagination
+        rows_per_page_val = input.rows_per_page()
+        if rows_per_page_val == "all":
+            paginated_indices = filtered_indices
+        else:
+            rows_per_page = int(rows_per_page_val)
+            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            page = min(current_page.get(), total_pages)
+            start_idx = (page - 1) * rows_per_page
+            end_idx = start_idx + rows_per_page
+            paginated_indices = filtered_indices[start_idx:end_idx]
         
         # Create header
         header_cells = [
@@ -328,9 +444,9 @@ def create_server(input, output, session):
         
         header = ui.tags.thead(ui.tags.tr(*header_cells))
         
-        # Create rows
+        # Create rows - only for current page
         table_rows = []
-        for idx in filtered_indices:
+        for idx in paginated_indices:
             row = current_df.iloc[idx]
             cells = []
             
@@ -348,10 +464,10 @@ def create_server(input, output, session):
             # Status badge
             current_status = _get_row_status(idx)
             status_text = {
-                "edited": "✏️ Edited",
-                "approved": "✅ Approved",
-                "rejected": "❌ Rejected",
-                "unprocessed": "⭕ New"
+                "edited": "Edited",
+                "approved": "Approved",
+                "rejected": "Rejected",
+                "unprocessed": "New"
             }.get(current_status, current_status)
             cells.append(
                 ui.tags.td(
@@ -383,10 +499,15 @@ def create_server(input, output, session):
         
         total_rows = len(current_df)
         filtered_count = len(filtered_indices)
-        rows_text = f"Displaying {filtered_count} of {total_rows} rows" if filtered_count < total_rows else f"Displaying {filtered_count} rows"
+        displayed_count = len(paginated_indices)
+        
+        if filtered_count < total_rows:
+            rows_text = f"Loaded {displayed_count} rows (filtered {filtered_count} of {total_rows} total)"
+        else:
+            rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
         
         return ui.div(
-            ui.div(rows_text, style="margin-bottom: 10px; color: #666;"),
+            ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),
             table_html,
         )
     
@@ -402,17 +523,17 @@ def create_server(input, output, session):
         
         if status == "approved":
             return ui.div(
-                ui.div(f"✅ APPROVED on {timestamp}", class_="status-approved-banner"),
+                ui.div(f"APPROVED on {timestamp}", class_="status-approved-banner"),
                 ui.div(
-                    ui.input_action_button("clear_approval_btn", "x Clear", class_="btn btn-sm btn-secondary"),
+                    ui.input_action_button("clear_approval_btn", "Clear", class_="btn btn-sm btn-secondary"),
                     style="text-align: center; margin-top: 10px;"
                 )
             )
         elif status == "rejected":
             return ui.div(
-                ui.div(f"❌ REJECTED on {timestamp}", class_="status-rejected-banner"),
+                ui.div(f"REJECTED on {timestamp}", class_="status-rejected-banner"),
                 ui.div(
-                    ui.input_action_button("clear_approval_btn", "x Clear", class_="btn btn-sm btn-secondary"),
+                    ui.input_action_button("clear_approval_btn", "Clear", class_="btn btn-sm btn-secondary"),
                     style="text-align: center; margin-top: 10px;"
                 )
             )

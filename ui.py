@@ -119,7 +119,7 @@ def create_app_ui():
                 transition: width 0.3s ease;
             }
             .histogram-fill.unprocessed { background: #6c757d; }
-            .histogram-fill.edited { background: #ffc107; }
+            .histogram-fill.edited { background: #8B4513; }
             .histogram-fill.approved { background: #28a745; }
             .histogram-fill.rejected { background: #dc3545; }
             .histogram-count {
@@ -321,15 +321,21 @@ def create_app_ui():
             /* Status Badges */
             .row-status-badge {
                 display: inline-block;
-                padding: 2px 6px;
+                padding: 3px 8px;
                 border-radius: 3px;
-                font-size: 10px;
+                font-size: 11px;
                 font-weight: bold;
             }
-            .status-edited { background-color: #fff3cd; color: #856404; }
-            .status-approved { background-color: #d4edda; color: #155724; }
-            .status-rejected { background-color: #f8d7da; color: #721c24; }
+            .status-edited { background-color: #8B4513; color: white; }
+            .status-approved { background-color: #28a745; color: white; }
+            .status-rejected { background-color: #dc3545; color: white; }
             .status-unprocessed { background-color: #e2e3e5; color: #383d41; }
+            
+            /* Histogram label colors */
+            .status-label-edited { color: #8B4513; font-weight: 600; }
+            .status-label-approved { color: #28a745; font-weight: 600; }
+            .status-label-rejected { color: #dc3545; font-weight: 600; }
+            .status-label-unprocessed { color: #6c757d; }
             
             /* Approval Status Banners */
             .status-approved-banner {
@@ -351,6 +357,67 @@ def create_app_ui():
                 border-radius: 5px;
                 text-align: center;
                 margin: 10px 0;
+            }
+            
+            /* Pagination Controls */
+            .pagination-controls-section {
+                margin-bottom: 10px;
+            }
+            .pagination-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 15px;
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+            }
+            .pagination-info {
+                font-size: 13px;
+                color: #495057;
+            }
+            .pagination-buttons {
+                display: flex;
+                gap: 5px;
+                align-items: center;
+            }
+            .pagination-buttons button {
+                padding: 6px 12px;
+                font-size: 13px;
+                border: 1px solid #dee2e6;
+                background: white;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .pagination-buttons button:hover:not(:disabled) {
+                background: #e9ecef;
+            }
+            .pagination-buttons button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .pagination-buttons .page-indicator {
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #495057;
+            }
+            .page-jump {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .page-jump input {
+                width: 60px;
+                padding: 5px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                text-align: center;
+                font-size: 13px;
+            }
+            .page-jump button {
+                padding: 5px 10px;
+                font-size: 12px;
             }
             
             /* Log Container */
@@ -487,7 +554,7 @@ def create_app_ui():
                 ui.div(
                     # Table Name Section
                     ui.div(
-                        ui.h3("📊 Epitopes Table", class_="table-name"),
+                        ui.h3("Epitopes Table", class_="table-name"),
                         ui.p("dummy_data_50rows.csv", class_="table-subtitle"),
                         ui.output_text("data_summary"),
                         class_="table-name-section"
@@ -502,17 +569,17 @@ def create_app_ui():
                     
                     # Status Filter (Multi-select)
                     ui.div(
-                        ui.h4("🔍 Filters"),
+                        ui.h4("Filters"),
                         ui.div(
                             ui.tags.label("Filter by Status"),
                             ui.input_checkbox_group(
                                 "status_filter_multi",
                                 label=None,
                                 choices={
-                                    "unprocessed": "⭕ Unprocessed",
-                                    "edited": "✏️ Edited",
-                                    "approved": "✅ Approved",
-                                    "rejected": "❌ Rejected"
+                                    "unprocessed": "Unprocessed",
+                                    "edited": "Edited",
+                                    "approved": "Approved",
+                                    "rejected": "Rejected"
                                 },
                                 selected=["unprocessed", "edited", "approved", "rejected"]
                             ),
@@ -526,9 +593,31 @@ def create_app_ui():
                         class_="filter-section"
                     ),
                     
+                    # Pagination Controls
+                    ui.div(
+                        ui.h4("Pagination"),
+                        ui.div(
+                            ui.tags.label("Rows per page"),
+                            ui.input_select(
+                                "rows_per_page",
+                                label=None,
+                                choices={
+                                    "10": "10 rows",
+                                    "25": "25 rows",
+                                    "50": "50 rows",
+                                    "100": "100 rows",
+                                    "all": "All rows"
+                                },
+                                selected="25"
+                            ),
+                            class_="filter-group"
+                        ),
+                        class_="filter-section"
+                    ),
+                    
                     # Column Filters
                     ui.div(
-                        ui.h4("📋 Column Filters"),
+                        ui.h4("Column Filters"),
                         ui.div(
                             ui.tags.label("Gene Name"),
                             ui.input_select(
@@ -571,13 +660,12 @@ def create_app_ui():
             ui.div(
                 # Action Buttons Row
                 ui.div(
-                    ui.input_action_button("save_btn", "💾 Save", class_="btn btn-success"),
-                    ui.input_action_button("export_btn", "📥 Export CSV", class_="btn btn-info"),
-                    ui.input_action_button("export_status_btn", "📊 Status Report", class_="btn btn-primary"),
-                    ui.input_action_button("reload_btn", "🔄 Reload", class_="btn btn-warning"),
-                    ui.input_action_button("clear_log_btn", "🗑️ Clear Log", class_="btn btn-danger"),
-                    ui.input_action_button("approve_btn", "✅ Approve", class_="btn btn-success"),
-                    ui.input_action_button("reject_btn", "❌ Reject", class_="btn btn-danger"),
+                    ui.input_action_button("save_btn", "Save", class_="btn btn-success"),
+                    ui.input_action_button("export_btn", "Export CSV", class_="btn btn-info"),
+                    ui.input_action_button("reload_btn", "Reload", class_="btn btn-warning"),
+                    ui.input_action_button("clear_log_btn", "Clear Log", class_="btn btn-danger"),
+                    ui.input_action_button("approve_btn", "Approve", class_="btn btn-success"),
+                    ui.input_action_button("reject_btn", "Reject", class_="btn btn-danger"),
                     class_="action-buttons"
                 ),
                 
@@ -587,12 +675,18 @@ def create_app_ui():
                 # Column Customization Section
                 ui.div(
                     ui.div(
-                        ui.h4("🔧 Display Columns (drag to reorder)"),
+                        ui.h4("Display Columns (drag to reorder)"),
                         ui.input_action_button("reset_columns_btn", "Reset", class_="btn btn-sm btn-secondary"),
                         class_="column-config-header"
                     ),
                     ui.output_ui("column_selector"),
                     class_="column-config-section"
+                ),
+                
+                # Pagination Controls
+                ui.div(
+                    ui.output_ui("pagination_controls"),
+                    class_="pagination-controls-section"
                 ),
                 
                 # Data Table
@@ -606,7 +700,7 @@ def create_app_ui():
                 
                 # Modifications Log
                 ui.div(
-                    ui.h3("📝 Modifications Log"),
+                    ui.h3("Modifications Log"),
                     ui.div(
                         ui.output_ui("modifications_log_ui"),
                         class_="log-container"
