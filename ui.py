@@ -23,7 +23,8 @@ def create_app_ui():
                 width: 25%;
                 min-width: 280px;
                 max-width: 400px;
-                background: #f8f9fa;
+                background: #e9ecef;
+                color: #495057;
                 border-right: 2px solid #dee2e6;
                 padding: 15px;
                 overflow-y: auto;
