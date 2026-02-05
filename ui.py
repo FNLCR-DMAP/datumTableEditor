@@ -14,7 +14,7 @@ def create_app_ui():
             /* Main Layout */
             .main-container {
                 display: flex;
-                height: calc(100vh - 60px);
+                height: 100vh;
                 gap: 0;
             }
             
@@ -63,8 +63,10 @@ def create_app_ui():
             .right-panel {
                 flex: 1;
                 padding: 15px;
-                overflow-y: auto;
+                overflow: hidden;
                 background: white;
+                display: flex;
+                flex-direction: column;
             }
             
             /* Table Name Section */
@@ -216,9 +218,14 @@ def create_app_ui():
             }
             .toolbar-left {
                 display: flex;
-                gap: 8px;
+                gap: 6px;
                 flex-wrap: wrap;
                 align-items: center;
+            }
+            .toolbar-left .btn {
+                padding: 4px 10px;
+                font-size: 12px;
+                line-height: 1.4;
             }
             .toolbar-right {
                 display: flex;
@@ -328,6 +335,20 @@ def create_app_ui():
             }
             .save-layout-btn:hover {
                 background: #138496;
+            }
+            
+            /* Mod Log Button */
+            .mod-log-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+                border: 1px solid #6c757d;
+                background: #6c757d;
+                color: white;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .mod-log-btn:hover {
+                background: #5a6268;
             }
             
             /* Modal Styles */
@@ -524,12 +545,13 @@ def create_app_ui():
             
             /* Table Styles */
             .table-container-frame {
-                height: calc(100vh - 380px);
-                min-height: 300px;
+                flex: 1;
+                min-height: 200px;
                 border: 2px solid #ddd;
                 border-radius: 5px;
                 background: white;
                 position: relative;
+                overflow: hidden;
             }
             .table-scroll-wrapper {
                 height: 100%;
@@ -662,32 +684,33 @@ def create_app_ui():
             
             /* Pagination Controls */
             .pagination-controls-section {
-                margin-bottom: 10px;
+                margin-top: 8px;
+                flex-shrink: 0;
             }
             .pagination-bar {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 10px 15px;
+                padding: 4px 10px;
                 background: #f8f9fa;
                 border: 1px solid #dee2e6;
-                border-radius: 6px;
+                border-radius: 4px;
             }
             .pagination-info {
-                font-size: 13px;
+                font-size: 11px;
                 color: #495057;
             }
             .pagination-buttons {
                 display: flex;
-                gap: 5px;
+                gap: 3px;
                 align-items: center;
             }
             .pagination-buttons button {
-                padding: 6px 12px;
-                font-size: 13px;
+                padding: 3px 8px;
+                font-size: 11px;
                 border: 1px solid #dee2e6;
                 background: white;
-                border-radius: 4px;
+                border-radius: 3px;
                 cursor: pointer;
             }
             .pagination-buttons button:hover:not(:disabled) {
@@ -698,27 +721,27 @@ def create_app_ui():
                 cursor: not-allowed;
             }
             .pagination-buttons .page-indicator {
-                padding: 6px 12px;
-                font-size: 13px;
+                padding: 3px 8px;
+                font-size: 11px;
                 font-weight: 600;
                 color: #495057;
             }
             .page-jump {
                 display: flex;
                 align-items: center;
-                gap: 5px;
+                gap: 3px;
             }
             .page-jump input {
-                width: 60px;
-                padding: 5px;
+                width: 45px;
+                padding: 3px;
                 border: 1px solid #dee2e6;
-                border-radius: 4px;
+                border-radius: 3px;
                 text-align: center;
-                font-size: 13px;
+                font-size: 11px;
             }
             .page-jump button {
-                padding: 5px 10px;
-                font-size: 12px;
+                padding: 3px 6px;
+                font-size: 10px;
             }
             
             /* Editable Cell Styles */
@@ -1085,6 +1108,15 @@ def create_app_ui():
                 document.getElementById('add-column-modal').classList.remove('show');
             };
             
+            // Log Modal functions
+            window.openLogModal = function() {
+                document.getElementById('log-modal').classList.add('show');
+            };
+            
+            window.closeLogModal = function() {
+                document.getElementById('log-modal').classList.remove('show');
+            };
+            
             // Modal column drag and drop for reordering
             let modalDraggedCol = null;
             
@@ -1434,12 +1466,6 @@ def create_app_ui():
             """)
         ),
         
-        # App Title Header
-        ui.div(
-            ui.h1("Epitopes Data Editor", style="margin: 10px 0; font-size: 20px;"),
-            style="padding: 10px 15px; background: #2c3e50; color: white;"
-        ),
-        
         # Main Container with Split Panels
         ui.div(
             # Left Panel - Sidebar
@@ -1552,12 +1578,12 @@ def create_app_ui():
                 ui.div(
                     # Left side - Action Buttons
                     ui.div(
-                        ui.input_action_button("save_btn", "Save", class_="btn btn-success"),
-                        ui.input_action_button("export_btn", "Export CSV", class_="btn btn-info"),
-                        ui.input_action_button("reload_btn", "Reload", class_="btn btn-warning"),
-                        ui.input_action_button("clear_log_btn", "Clear Log", class_="btn btn-danger"),
-                        ui.input_action_button("approve_btn", "Approve", class_="btn btn-success"),
-                        ui.input_action_button("reject_btn", "Reject", class_="btn btn-danger"),
+                        ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success"),
+                        ui.input_action_button("export_btn", "Export CSV", class_="btn btn-sm btn-info"),
+                        ui.input_action_button("reload_btn", "Reload", class_="btn btn-sm btn-warning"),
+                        ui.input_action_button("clear_log_btn", "Clear Log", class_="btn btn-sm btn-danger"),
+                        ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success"),
+                        ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger"),
                         class_="toolbar-left"
                     ),
                     # Right side - Preset dropdown + Add Column button
@@ -1601,6 +1627,8 @@ def create_app_ui():
                         ui.tags.button("Save Layout", class_="save-layout-btn", onclick="saveLayoutPrompt()"),
                         # Manage Layout Button
                         ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal()"),
+                        # Modifications Log Button
+                        ui.tags.button("📋 Mod Log", class_="mod-log-btn", onclick="openLogModal()"),
                         class_="toolbar-right"
                     ),
                     class_="top-toolbar"
@@ -1628,12 +1656,6 @@ def create_app_ui():
                 # Approval Status Display
                 ui.output_ui("approval_status_ui"),
                 
-                # Pagination Controls
-                ui.div(
-                    ui.output_ui("pagination_controls"),
-                    class_="pagination-controls-section"
-                ),
-                
                 # Data Table
                 ui.div(
                     ui.div(
@@ -1643,14 +1665,35 @@ def create_app_ui():
                     class_="table-container-frame"
                 ),
                 
-                # Modifications Log
+                # Pagination Controls (at bottom)
                 ui.div(
-                    ui.h3("Modifications Log"),
+                    ui.output_ui("pagination_controls"),
+                    class_="pagination-controls-section"
+                ),
+                
+                # Modifications Log Modal
+                ui.div(
                     ui.div(
-                        ui.output_ui("modifications_log_ui"),
-                        class_="log-container"
+                        ui.div(
+                            ui.h3("Modifications Log"),
+                            ui.tags.button("×", class_="modal-close", onclick="closeLogModal()"),
+                            class_="modal-header"
+                        ),
+                        ui.div(
+                            ui.div(
+                                ui.output_ui("modifications_log_ui"),
+                                class_="log-container"
+                            ),
+                            class_="modal-body"
+                        ),
+                        ui.div(
+                            ui.tags.button("Cancel", class_="btn btn-secondary", onclick="closeLogModal()"),
+                            style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;"
+                        ),
+                        class_="modal-content"
                     ),
-                    class_="log-section"
+                    class_="modal-overlay",
+                    id="log-modal"
                 ),
                 
                 class_="right-panel"
