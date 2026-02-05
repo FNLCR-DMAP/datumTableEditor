@@ -42,19 +42,31 @@ def create_server(input, output, session):
     # Column customization - track which columns to display and their order
     active_columns = reactive.Value(list(display_columns))
     
+    # Column widths storage
+    column_widths = reactive.Value({})
+    
     # Pagination state
     current_page = reactive.Value(1)
     
     # Presets storage - load from file if exists
+    # Preset format: {"name": {"columns": [...], "widths": {...}}}
     presets_file = data_dir / "column_presets.json"
     def _load_presets():
         if presets_file.exists():
             try:
                 with open(presets_file) as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    # Handle old format (list) and new format (dict with columns/widths)
+                    result = {}
+                    for name, value in data.items():
+                        if isinstance(value, list):
+                            result[name] = {"columns": value, "widths": {}}
+                        else:
+                            result[name] = value
+                    return result
             except:
                 pass
-        return {"Default": list(display_columns)}
+        return {"Default": {"columns": list(display_columns), "widths": {}}}
     
     def _save_presets(presets_dict):
         with open(presets_file, "w") as f:
@@ -213,12 +225,29 @@ def create_server(input, output, session):
         if total == 0:
             total = 1
         
+        # Get current filter selections
+        try:
+            selected = list(input.status_filter_multi())
+        except:
+            selected = ["unprocessed", "edited", "approved", "rejected"]
+        
         bars = []
         for status, count in counts.items():
             pct = (count / total) * 100
+            is_checked = status in selected
             bars.append(
                 ui.div(
-                    ui.span(f"{status.capitalize()}", class_=f"histogram-label status-label-{status}"),
+                    ui.tags.label(
+                        ui.tags.input(
+                            type="checkbox",
+                            checked="checked" if is_checked else None,
+                            value=status,
+                            class_="status-checkbox",
+                            **{"data-status": status}
+                        ),
+                        ui.span(f"{status.capitalize()}", class_=f"histogram-label status-label-{status}"),
+                        class_="histogram-checkbox-label"
+                    ),
                     ui.div(
                         ui.div(style=f"width: {pct}%;", class_=f"histogram-fill {status}"),
                         class_="histogram-track"
@@ -320,7 +349,16 @@ def create_server(input, output, session):
     @reactive.event(input.reset_columns)
     def _reset_columns():
         active_columns.set(list(display_columns))
+        column_widths.set({})
         active_preset.set("Default")
+    
+    # Handle column widths from JS
+    @reactive.Effect
+    @reactive.event(input.column_widths)
+    def _update_column_widths():
+        widths = input.column_widths()
+        if widths and isinstance(widths, dict):
+            column_widths.set(widths)
     
     # Handle loading a preset
     @reactive.Effect
@@ -330,7 +368,14 @@ def create_server(input, output, session):
         if preset_name:
             presets = column_presets.get()
             if preset_name in presets:
-                active_columns.set(list(presets[preset_name]))
+                preset_data = presets[preset_name]
+                # Handle both old format (list) and new format (dict)
+                if isinstance(preset_data, list):
+                    active_columns.set(list(preset_data))
+                    column_widths.set({})
+                else:
+                    active_columns.set(list(preset_data.get("columns", [])))
+                    column_widths.set(preset_data.get("widths", {}))
                 active_preset.set(preset_name)
     
     # Handle saving a new preset (from JS)
@@ -341,7 +386,10 @@ def create_server(input, output, session):
         if name and name.strip():
             name = name.strip()
             presets = column_presets.get().copy()
-            presets[name] = list(active_columns.get())
+            presets[name] = {
+                "columns": list(active_columns.get()),
+                "widths": column_widths.get().copy()
+            }
             column_presets.set(presets)
             _save_presets(presets)
             active_preset.set(name)
@@ -360,7 +408,13 @@ def create_server(input, output, session):
                 _save_presets(presets)
                 if active_preset.get() == name:
                     active_preset.set("Default")
-                    active_columns.set(list(presets.get("Default", display_columns)))
+                    default_preset = presets.get("Default", {"columns": list(display_columns), "widths": {}})
+                    if isinstance(default_preset, list):
+                        active_columns.set(list(default_preset))
+                        column_widths.set({})
+                    else:
+                        active_columns.set(list(default_preset.get("columns", display_columns)))
+                        column_widths.set(default_preset.get("widths", {}))
                 ui.notification_show(f"Preset '{name}' deleted!", type="message", duration=2)
     
     # Update filter dropdowns based on data
@@ -496,6 +550,7 @@ def create_server(input, output, session):
         current_df = data.get()
         filtered_indices = _get_filtered_rows()
         cols = active_columns.get()
+        widths = column_widths.get()
         
         # Apply pagination
         rows_per_page_val = input.rows_per_page()
@@ -516,6 +571,8 @@ def create_server(input, output, session):
             ui.tags.th("Status", style="width: 80px;"),
         ]
         for col in cols:
+            # Apply saved width if available
+            width_style = f"width: {widths[col]}px; min-width: {widths[col]}px;" if col in widths else ""
             header_cells.append(
                 ui.tags.th(
                     col,
@@ -524,8 +581,10 @@ def create_server(input, output, session):
                         class_="remove-header-btn",
                         **{"data-column": col}
                     ),
+                    ui.tags.span(class_="resize-handle"),
                     class_="draggable-header",
                     draggable="true",
+                    style=width_style,
                     **{"data-column": col}
                 )
             )

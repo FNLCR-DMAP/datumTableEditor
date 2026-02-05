@@ -129,6 +129,28 @@ def create_app_ui():
                 text-align: right;
             }
             
+            /* Histogram checkbox styling */
+            .histogram-checkbox-label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                width: 110px;
+                cursor: pointer;
+            }
+            .histogram-checkbox-label input[type="checkbox"] {
+                cursor: pointer;
+                width: 14px;
+                height: 14px;
+            }
+            .histogram-checkbox-label .histogram-label {
+                width: auto;
+            }
+            
+            /* Hide the actual shiny checkbox group - we use custom checkboxes */
+            .stats-section > .shiny-input-checkboxgroup {
+                display: none;
+            }
+            
             /* Filter Section */
             .filter-section {
                 margin-bottom: 20px;
@@ -465,30 +487,46 @@ def create_app_ui():
                 z-index: 10;
             }
             .edit-table th {
-                background-color: #2c3e50;
+                background-color: #495057;
                 color: white;
                 padding: 10px 8px;
                 text-align: left;
                 font-weight: 600;
                 white-space: nowrap;
                 user-select: none;
-                border-bottom: 2px solid #1a252f;
+                border-bottom: 2px solid #343a40;
+                border-right: 1px solid #6c757d;
+                position: relative;
             }
             .edit-table th.draggable-header {
                 cursor: grab;
-                position: relative;
-                padding-right: 28px;
+                padding-right: 35px;
+                min-width: 100px;
+                width: 100px;
             }
             .edit-table th.draggable-header:active {
                 cursor: grabbing;
             }
             .edit-table th.draggable-header.drag-over {
-                background-color: #1a252f;
+                background-color: #343a40;
                 box-shadow: inset 0 0 0 2px #3498db;
+            }
+            /* Column resize handle */
+            .resize-handle {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 5px;
+                cursor: col-resize;
+                background: transparent;
+            }
+            .resize-handle:hover {
+                background: #3498db;
             }
             .remove-header-btn {
                 position: absolute;
-                right: 6px;
+                right: 12px;
                 top: 50%;
                 transform: translateY(-50%);
                 background: transparent;
@@ -744,6 +782,60 @@ def create_app_ui():
                 }
             }
             
+            // Column resizing
+            let resizing = null;
+            let startX = 0;
+            let startWidth = 0;
+            
+            window.initColumnResize = function() {
+                document.querySelectorAll('.resize-handle').forEach(handle => {
+                    handle.addEventListener('mousedown', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const th = this.parentElement;
+                        resizing = th;
+                        startX = e.pageX;
+                        startWidth = th.offsetWidth;
+                        document.body.style.cursor = 'col-resize';
+                        document.body.style.userSelect = 'none';
+                    });
+                });
+            };
+            
+            document.addEventListener('mousemove', function(e) {
+                if (resizing) {
+                    const diff = e.pageX - startX;
+                    const newWidth = Math.max(80, startWidth + diff);
+                    resizing.style.width = newWidth + 'px';
+                    resizing.style.minWidth = newWidth + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseup', function(e) {
+                if (resizing) {
+                    // Save column widths
+                    saveColumnWidths();
+                    resizing = null;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+            
+            function saveColumnWidths() {
+                const headers = document.querySelectorAll('.draggable-header');
+                const widths = {};
+                headers.forEach(h => {
+                    const col = h.dataset.column;
+                    const width = h.offsetWidth;
+                    if (col && width) {
+                        widths[col] = width;
+                    }
+                });
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('column_widths', widths, {priority: 'event'});
+                }
+            }
+            
             // Remove column from header - use event delegation
             document.addEventListener('click', function(e) {
                 if (e.target.classList.contains('remove-header-btn')) {
@@ -847,9 +939,34 @@ def create_app_ui():
             // Initialize header drag after Shiny renders
             $(document).on('shiny:value', function(event) {
                 if (event.name === 'table_container') {
-                    setTimeout(initHeaderDrag, 100);
+                    setTimeout(function() {
+                        initHeaderDrag();
+                        initColumnResize();
+                    }, 100);
+                }
+                // Initialize histogram checkbox sync
+                if (event.name === 'stats_histogram') {
+                    setTimeout(initHistogramCheckboxes, 50);
                 }
             });
+            
+            // Sync histogram checkboxes with Shiny checkbox group
+            function initHistogramCheckboxes() {
+                const histogramCheckboxes = document.querySelectorAll('.status-checkbox');
+                histogramCheckboxes.forEach(function(checkbox) {
+                    checkbox.addEventListener('change', function() {
+                        // Get all checked statuses
+                        const checked = [];
+                        document.querySelectorAll('.status-checkbox:checked').forEach(function(cb) {
+                            checked.push(cb.value);
+                        });
+                        // Update the hidden Shiny checkbox group
+                        if (typeof Shiny !== 'undefined') {
+                            Shiny.setInputValue('status_filter_multi', checked);
+                        }
+                    });
+                });
+            }
             """)
         ),
         
@@ -873,33 +990,29 @@ def create_app_ui():
                         class_="table-name-section"
                     ),
                     
-                    # Stats Histogram Section
+                    # Stats Histogram Section (with filter checkboxes)
                     ui.div(
                         ui.h4("Status Distribution"),
                         ui.output_ui("stats_histogram"),
+                        # Hidden input to store selected statuses
+                        ui.input_checkbox_group(
+                            "status_filter_multi",
+                            label=None,
+                            choices={
+                                "unprocessed": "Unprocessed",
+                                "edited": "Edited",
+                                "approved": "Approved",
+                                "rejected": "Rejected"
+                            },
+                            selected=["unprocessed", "edited", "approved", "rejected"]
+                        ),
                         class_="stats-section"
                     ),
                     
-                    # Status Filter (Multi-select)
+                    # Search Filter
                     ui.div(
-                        ui.h4("Filters"),
+                        ui.h4("Search"),
                         ui.div(
-                            ui.tags.label("Filter by Status"),
-                            ui.input_checkbox_group(
-                                "status_filter_multi",
-                                label=None,
-                                choices={
-                                    "unprocessed": "Unprocessed",
-                                    "edited": "Edited",
-                                    "approved": "Approved",
-                                    "rejected": "Rejected"
-                                },
-                                selected=["unprocessed", "edited", "approved", "rejected"]
-                            ),
-                            class_="filter-group"
-                        ),
-                        ui.div(
-                            ui.tags.label("Search"),
                             ui.input_text("search_input", label=None, placeholder="Search all fields..."),
                             class_="filter-group"
                         ),
