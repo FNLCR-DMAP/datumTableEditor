@@ -948,35 +948,129 @@ def create_server(input, output, session):
             )
         
         log_items = []
-        # Only show field modifications (not approvals/rejections)
-        field_mods = [m for m in log if m.get("type") == "field_modification"]
-        for i, mod in enumerate(reversed(field_mods[-20:])):
-            # Calculate actual index in the log for undo
-            actual_idx = len(log) - 1 - log[::-1].index(mod)
+        # Show all log entries with newest at top
+        displayable = [(i, m) for i, m in enumerate(log)]
+        
+        # Show all entries with newest at top
+        for actual_idx, mod in reversed(displayable):
             timestamp = mod.get("timestamp", "Unknown")
             details = mod.get("details", {})
+            mod_type = mod.get("type")
+            is_undone = mod.get("undone", False)
             
-            log_items.append(
-                ui.div(
+            if mod_type == "undo":
+                # Display undo entry (no undo button for undo entries)
+                log_items.append(
                     ui.div(
-                        ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
-                        ui.tags.button(
-                            "Undo",
-                            class_="btn btn-xs btn-outline-warning undo-btn",
-                            onclick=f"undoModification({actual_idx})",
-                            style="float: right; padding: 2px 8px; font-size: 10px;"
+                        ui.div(
+                            ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
+                            ui.tags.span("UNDO", style="color: #ffc107; font-size: 10px; font-weight: bold;"),
+                            style="display: flex; justify-content: space-between; align-items: center;"
                         ),
-                        style="display: flex; justify-content: space-between; align-items: center;"
-                    ),
-                    ui.tags.span(
-                        f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
-                        f"'{details.get('old_value', '')}' → '{details.get('new_value', '')}'",
-                        class_="change-detail",
-                        style="font-size: 11px; display: block; margin-top: 4px;"
-                    ),
-                    class_="log-entry",
-                    style="padding: 8px; border-bottom: 1px solid #eee;"
+                        ui.tags.span(
+                            f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+                            f"reverted to '{details.get('reverted_to', '')}'",
+                            class_="change-detail",
+                            style="font-size: 11px; display: block; margin-top: 4px; color: #888;"
+                        ),
+                        class_="log-entry",
+                        style="padding: 8px; border-bottom: 1px solid #eee; background: #fffdf0;"
+                    )
                 )
+            elif mod_type == "approval":
+                # Display approval entry
+                row_count = details.get('approved_row_count', 0)
+                rows = details.get('approved_rows', [])
+                rows_str = ', '.join(str(r + 1) for r in rows[:5])
+                if len(rows) > 5:
+                    rows_str += f"... (+{len(rows) - 5} more)"
+                log_items.append(
+                    ui.div(
+                        ui.div(
+                            ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
+                            ui.tags.span("APPROVED", style="color: #28a745; font-size: 10px; font-weight: bold;"),
+                            style="display: flex; justify-content: space-between; align-items: center;"
+                        ),
+                        ui.tags.span(
+                            f"{row_count} row(s): {rows_str}",
+                            class_="change-detail",
+                            style="font-size: 11px; display: block; margin-top: 4px; color: #28a745;"
+                        ),
+                        class_="log-entry",
+                        style="padding: 8px; border-bottom: 1px solid #eee; background: #f0fff0;"
+                    )
+                )
+            elif mod_type == "rejection":
+                # Display rejection entry
+                row_count = details.get('rejected_row_count', 0)
+                rows = details.get('rejected_rows', [])
+                rows_str = ', '.join(str(r + 1) for r in rows[:5])
+                if len(rows) > 5:
+                    rows_str += f"... (+{len(rows) - 5} more)"
+                log_items.append(
+                    ui.div(
+                        ui.div(
+                            ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
+                            ui.tags.span("REJECTED", style="color: #dc3545; font-size: 10px; font-weight: bold;"),
+                            style="display: flex; justify-content: space-between; align-items: center;"
+                        ),
+                        ui.tags.span(
+                            f"{row_count} row(s): {rows_str}",
+                            class_="change-detail",
+                            style="font-size: 11px; display: block; margin-top: 4px; color: #dc3545;"
+                        ),
+                        class_="log-entry",
+                        style="padding: 8px; border-bottom: 1px solid #eee; background: #fff0f0;"
+                    )
+                )
+            elif is_undone:
+                # Display undone field modification with red UN-DONE flag (no undo button)
+                log_items.append(
+                    ui.div(
+                        ui.div(
+                            ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp", style="text-decoration: line-through; color: #999;"),
+                            ui.tags.span("UN-DONE", style="color: #dc3545; font-size: 10px; font-weight: bold;"),
+                            style="display: flex; justify-content: space-between; align-items: center;"
+                        ),
+                        ui.tags.span(
+                            f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+                            f"'{details.get('old_value', '')}' → '{details.get('new_value', '')}'",
+                            class_="change-detail",
+                            style="font-size: 11px; display: block; margin-top: 4px; text-decoration: line-through; color: #999;"
+                        ),
+                        class_="log-entry",
+                        style="padding: 8px; border-bottom: 1px solid #eee; background: #fff5f5;"
+                    )
+                )
+            elif mod_type == "field_modification":
+                # Display field modification with undo button
+                log_items.append(
+                    ui.div(
+                        ui.div(
+                            ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
+                            ui.tags.button(
+                                "Undo",
+                                class_="btn btn-xs btn-outline-warning undo-btn",
+                                onclick=f"undoModification({actual_idx})",
+                                style="float: right; padding: 2px 8px; font-size: 10px;"
+                            ),
+                            style="display: flex; justify-content: space-between; align-items: center;"
+                        ),
+                        ui.tags.span(
+                            f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+                            f"'{details.get('old_value', '')}' → '{details.get('new_value', '')}'",
+                            class_="change-detail",
+                            style="font-size: 11px; display: block; margin-top: 4px;"
+                        ),
+                        class_="log-entry",
+                        style="padding: 8px; border-bottom: 1px solid #eee;"
+                    )
+                )
+        
+        if not log_items:
+            return ui.div(
+                "No modifications yet. Edit cells in the table above to get started.",
+                style="color: #999; padding: 20px; text-align: center;",
             )
         
         return ui.div(*log_items)
@@ -1006,19 +1100,36 @@ def create_server(input, output, session):
         row_idx = details.get("row_index")
         col = details.get("column")
         old_value = details.get("old_value")
+        new_value = details.get("new_value")
         
         if row_idx is None or not col:
             return
         
         # Revert the value in the dataframe
-        current_df = data.get()
+        current_df = data.get().copy()  # Make a copy first to avoid modifying reactive value directly
         if col in current_df.columns:
             current_df.at[row_idx, col] = old_value
-            data.set(current_df.copy())
             
-            # Remove the modification from log
+            # Mark the original modification as undone instead of removing it
             new_log = log.copy()
-            new_log.pop(log_idx)
+            new_log[log_idx] = new_log[log_idx].copy()  # Copy the dict to avoid mutating original
+            new_log[log_idx]["undone"] = True
+            
+            # Add an undo entry to the log
+            new_log.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": "undo",
+                "details": {
+                    "row_index": row_idx,
+                    "column": col,
+                    "reverted_from": new_value,
+                    "reverted_to": old_value,
+                    "original_mod_index": log_idx
+                }
+            })
+            
+            # Set both reactive values to trigger updates
+            data.set(current_df)
             mods_log.set(new_log)
             
             ui.notification_show(f"Undone: Row {row_idx + 1}, {col}", type="message", duration=2)
