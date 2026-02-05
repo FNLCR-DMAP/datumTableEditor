@@ -315,6 +315,21 @@ def create_app_ui():
                 background: #218838;
             }
             
+            /* Save Layout Button */
+            .save-layout-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+                border: 1px solid #17a2b8;
+                background: #17a2b8;
+                color: white;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-right: 8px;
+            }
+            .save-layout-btn:hover {
+                background: #138496;
+            }
+            
             /* Modal Styles */
             .modal-overlay {
                 display: none;
@@ -335,11 +350,14 @@ def create_app_ui():
                 background: white;
                 border-radius: 8px;
                 padding: 20px;
-                max-width: 500px;
+                max-width: 700px;
                 width: 90%;
                 max-height: 80vh;
                 overflow-y: auto;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            }
+            .modal-body {
+                min-height: 100px;
             }
             .modal-header {
                 display: flex;
@@ -381,6 +399,35 @@ def create_app_ui():
             .add-col-tag:hover {
                 background: #28a745;
                 color: white;
+            }
+            
+            /* Current columns in modal */
+            .current-cols-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 4px;
+                border: 1px dashed #ced4da;
+            }
+            .current-col-tag {
+                display: inline-flex;
+                align-items: center;
+                padding: 5px 10px;
+                background: #2c3e50;
+                color: white;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            .current-col-tag .remove-modal-col {
+                margin-left: 6px;
+                cursor: pointer;
+                opacity: 0.7;
+            }
+            .current-col-tag .remove-modal-col:hover {
+                opacity: 1;
+                color: #ff6b6b;
             }
             
             /* Column Customization */
@@ -994,15 +1041,27 @@ def create_app_ui():
             };
             
             // Add column
-            window.addColumn = function(col) {
+            window.addColumn = function(col, event) {
+                if (event) event.stopPropagation();
                 if (typeof Shiny !== 'undefined') {
-                    Shiny.setInputValue('add_column', col, {priority: 'event'});
+                    Shiny.setInputValue('add_column', {col: col, ts: Date.now()}, {priority: 'event'});
                 }
-                closeModal();
+            };
+            
+            // Remove column from modal
+            window.removeColumnFromModal = function(col, event) {
+                if (event) event.stopPropagation();
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+                }
             };
             
             // Modal functions
             window.openAddColumnModal = function() {
+                // Trigger refresh when opening modal
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('refresh_preset', Date.now(), {priority: 'event'});
+                }
                 document.getElementById('add-column-modal').classList.add('show');
             };
             
@@ -1010,9 +1069,9 @@ def create_app_ui():
                 document.getElementById('add-column-modal').classList.remove('show');
             };
             
-            // Close modal on overlay click
+            // Close modal on overlay click (only if clicking directly on overlay, not content)
             document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('modal-overlay')) {
+                if (e.target.id === 'add-column-modal') {
                     closeModal();
                 }
             });
@@ -1020,8 +1079,20 @@ def create_app_ui():
             // Preset dropdown
             window.togglePresetMenu = function(event) {
                 event.stopPropagation();
+                // Trigger refresh when opening dropdown
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('refresh_preset', Date.now(), {priority: 'event'});
+                }
                 const menu = document.getElementById('preset-menu');
                 menu.classList.toggle('show');
+            };
+            
+            // Refresh presets function
+            window.refreshPresets = function(event) {
+                if (event) event.stopPropagation();
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('refresh_preset', Date.now(), {priority: 'event'});
+                }
             };
             
             // Close dropdown when clicking outside
@@ -1056,6 +1127,13 @@ def create_app_ui():
                         Shiny.setInputValue('save_preset_name', name, {priority: 'event'});
                     }
                     input.value = '';
+                }
+            };
+            
+            // Save Layout - save to current preset (if not Default)
+            window.saveLayoutPrompt = function() {
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('save_current_layout', Date.now(), {priority: 'event'});
                 }
             };
             
@@ -1395,6 +1473,13 @@ def create_app_ui():
                                 ui.output_ui("preset_menu_items"),
                                 ui.div(class_="preset-menu-divider"),
                                 ui.div(
+                                    "⟳ Refresh",
+                                    class_="preset-menu-item",
+                                    onclick="refreshPresets(event)",
+                                    style="color: #007bff;"
+                                ),
+                                ui.div(class_="preset-menu-divider"),
+                                ui.div(
                                     ui.tags.input(type="text", placeholder="New preset name...", id="new-preset-name"),
                                     ui.tags.button("Save", class_="btn btn-sm btn-primary", onclick="saveNewPreset()"),
                                     class_="preset-save-row"
@@ -1410,8 +1495,10 @@ def create_app_ui():
                             ),
                             class_="preset-dropdown"
                         ),
-                        # Add Column Button
-                        ui.tags.button("+ Add Column", class_="add-col-btn", onclick="openAddColumnModal()"),
+                        # Save Layout Button
+                        ui.tags.button("Save Layout", class_="save-layout-btn", onclick="saveLayoutPrompt()"),
+                        # Manage Layout Button
+                        ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal()"),
                         class_="toolbar-right"
                     ),
                     class_="top-toolbar"
@@ -1421,12 +1508,11 @@ def create_app_ui():
                 ui.div(
                     ui.div(
                         ui.div(
-                            ui.h3("Add Columns"),
+                            ui.h3("Manage Columns"),
                             ui.tags.button("×", class_="modal-close", onclick="closeModal()"),
                             class_="modal-header"
                         ),
                         ui.div(
-                            ui.p("Click a column to add it to the table:", style="margin-bottom: 10px; color: #666;"),
                             ui.output_ui("available_columns_modal"),
                             class_="modal-body"
                         ),

@@ -39,15 +39,6 @@ def create_server(input, output, session):
     mods_log = reactive.Value(load_modifications_log())
     selected_rows = reactive.Value(set())
     
-    # Column customization - track which columns to display and their order
-    active_columns = reactive.Value(list(display_columns))
-    
-    # Column widths storage
-    column_widths = reactive.Value({})
-    
-    # Pagination state
-    current_page = reactive.Value(1)
-    
     # Presets storage - load from file if exists
     # Preset format: {"name": {"columns": [...], "widths": {...}}}
     presets_file = data_dir / "column_presets.json"
@@ -55,10 +46,10 @@ def create_server(input, output, session):
         if presets_file.exists():
             try:
                 with open(presets_file) as f:
-                    data = json.load(f)
+                    preset_data = json.load(f)
                     # Handle old format (list) and new format (dict with columns/widths)
                     result = {}
-                    for name, value in data.items():
+                    for name, value in preset_data.items():
                         if isinstance(value, list):
                             result[name] = {"columns": value, "widths": {}}
                         else:
@@ -72,8 +63,24 @@ def create_server(input, output, session):
         with open(presets_file, "w") as f:
             json.dump(presets_dict, f, indent=2)
     
-    column_presets = reactive.Value(_load_presets())
+    # Load presets first
+    loaded_presets = _load_presets()
+    column_presets = reactive.Value(loaded_presets)
     active_preset = reactive.Value("Default")
+    
+    # Initialize active_columns from the Default preset (or fallback to display_columns)
+    default_preset = loaded_presets.get("Default", {"columns": list(display_columns), "widths": {}})
+    initial_columns = default_preset.get("columns", list(display_columns)) if isinstance(default_preset, dict) else list(default_preset)
+    initial_widths = default_preset.get("widths", {}) if isinstance(default_preset, dict) else {}
+    
+    # Column customization - track which columns to display and their order
+    active_columns = reactive.Value(list(initial_columns))
+    
+    # Column widths storage
+    column_widths = reactive.Value(dict(initial_widths))
+    
+    # Pagination state
+    current_page = reactive.Value(1)
     
     # Load initial approval status from log
     initial_status, initial_timestamp = _get_latest_approval_status()
@@ -210,14 +217,12 @@ def create_server(input, output, session):
         return filtered_indices
     
     # Output: Data summary text
-    @output
     @render.text
     def data_summary():
         df = data.get()
         return f"{len(df)} rows x {len(df.columns)} columns"
     
     # Output: Stats histogram
-    @output
     @render.ui
     def stats_histogram():
         counts = _get_status_counts()
@@ -259,17 +264,35 @@ def create_server(input, output, session):
         return ui.div(*bars)
     
     # Output: Current preset name
-    @output
     @render.text
     def current_preset_name():
         return active_preset.get()
     
+    # Event: Refresh presets - reload from file and update reactive values
+    @reactive.Effect
+    @reactive.event(input.refresh_preset)
+    def _refresh_presets():
+        """Reload presets from file when triggered"""
+        fresh_presets = _load_presets()
+        column_presets.set(fresh_presets)
+        
+        # Also refresh active_columns based on current preset
+        current = active_preset.get()
+        if current in fresh_presets:
+            preset_data = fresh_presets[current]
+            if isinstance(preset_data, dict):
+                active_columns.set(list(preset_data.get("columns", display_columns)))
+                column_widths.set(dict(preset_data.get("widths", {})))
+    
     # Output: Preset menu items
-    @output
     @render.ui
     def preset_menu_items():
         presets = column_presets.get()
         current = active_preset.get()
+        
+        # Ensure we have at least a Default preset
+        if not presets:
+            presets = {"Default": {"columns": list(display_columns), "widths": {}}}
         
         items = []
         for name in presets.keys():
@@ -288,28 +311,65 @@ def create_server(input, output, session):
                     onclick=f"loadPreset('{name}')"
                 )
             )
+        
+        if not items:
+            return ui.div("No presets available", style="color: #999; padding: 8px;")
         return ui.div(*items)
     
     # Output: Available columns for modal
-    @output
     @render.ui
     def available_columns_modal():
-        cols = active_columns.get()
+        cols = list(active_columns.get())
+        
+        # Ensure we have columns to work with
+        if not cols:
+            cols = list(display_columns)
+        
         available = [c for c in all_columns if c not in cols]
         
-        if not available:
-            return ui.div("All columns are already displayed.", style="color: #666; font-style: italic;")
-        
-        tags = []
-        for col in available:
-            tags.append(
-                ui.tags.span(
-                    f"+ {col}",
-                    class_="add-col-tag",
-                    onclick=f"addColumn('{col}')"
+        # Build current columns HTML
+        current_html = []
+        for i, col in enumerate(cols, 1):
+            current_html.append(
+                ui.div(
+                    ui.span(f"{i}. {col}", style="margin-right: 8px;"),
+                    ui.tags.button("×", class_="remove-modal-col", onclick=f"removeColumnFromModal('{col}', event)", style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px;"),
+                    class_="current-col-tag",
+                    style="display: inline-flex; align-items: center; padding: 6px 10px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; margin: 3px;"
                 )
             )
-        return ui.div(*tags, class_="available-cols-grid")
+        
+        # Build available columns HTML
+        available_html = []
+        for col in available:
+            available_html.append(
+                ui.div(
+                    f"+ {col}",
+                    class_="add-col-tag",
+                    onclick=f"addColumn('{col}', event)",
+                    style="display: inline-block; padding: 6px 12px; background: #e9ecef; border-radius: 4px; font-size: 12px; cursor: pointer; margin: 3px;"
+                )
+            )
+        
+        return ui.div(
+            # Current columns section
+            ui.div(
+                ui.tags.strong("Current columns:", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
+                ui.div(
+                    *current_html if current_html else [ui.span("No columns displayed.", style="color: #999;")],
+                    style="display: flex; flex-wrap: wrap; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ced4da; min-height: 40px;"
+                ),
+                style="margin-bottom: 20px;"
+            ),
+            # Available columns section
+            ui.div(
+                ui.tags.strong("Remaining columns:", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
+                ui.div(
+                    *available_html if available_html else [ui.span("All columns displayed.", style="color: #999;")],
+                    style="display: flex; flex-wrap: wrap; min-height: 40px;"
+                )
+            )
+        )
     
     # Handle column order changes from JS
     @reactive.Effect
@@ -323,12 +383,15 @@ def create_server(input, output, session):
     @reactive.Effect
     @reactive.event(input.add_column)
     def _add_column():
-        col = input.add_column()
-        if col:
-            cols = active_columns.get()
-            if col not in cols:
-                cols.append(col)
-                active_columns.set(cols)
+        val = input.add_column()
+        if val:
+            # Handle both string and dict format
+            col = val.get('col') if isinstance(val, dict) else val
+            if col:
+                cols = active_columns.get().copy()
+                if col not in cols:
+                    cols.append(col)
+                    active_columns.set(cols)
     
     # Handle removing a column
     @reactive.Effect
@@ -395,6 +458,24 @@ def create_server(input, output, session):
             active_preset.set(name)
             ui.notification_show(f"Preset '{name}' saved!", type="message", duration=2)
     
+    # Handle saving current layout to current preset (not Default)
+    @reactive.Effect
+    @reactive.event(input.save_current_layout)
+    def _save_current_layout():
+        current = active_preset.get()
+        if current == "Default":
+            ui.notification_show("Cannot overwrite Default preset. Use 'Save' in preset menu to create a new one.", type="warning", duration=3)
+            return
+        
+        presets = column_presets.get().copy()
+        presets[current] = {
+            "columns": list(active_columns.get()),
+            "widths": column_widths.get().copy()
+        }
+        column_presets.set(presets)
+        _save_presets(presets)
+        ui.notification_show(f"Layout saved to '{current}'!", type="message", duration=2)
+    
     # Handle deleting a preset
     @reactive.Effect
     @reactive.event(input.delete_preset)
@@ -438,7 +519,6 @@ def create_server(input, output, session):
             ui.update_select("exonic_filter", choices={f: f if f != "all" else "All Functions" for f in funcs})
     
     # Output: Pagination controls
-    @output
     @render.ui
     def pagination_controls():
         """Render pagination controls"""
@@ -540,7 +620,6 @@ def create_server(input, output, session):
         current_page.set(1)
 
     # Output: Data table
-    @output
     @render.ui
     def table_container():
         """Render the editable data table with pagination"""
@@ -660,7 +739,6 @@ def create_server(input, output, session):
         )
     
     # Output: Approval status
-    @output
     @render.ui
     def approval_status_ui():
         status = approval_status.get()
@@ -688,7 +766,6 @@ def create_server(input, output, session):
         return ui.div()
     
     # Output: Modifications log
-    @output
     @render.ui
     def modifications_log_ui():
         log = mods_log.get()
