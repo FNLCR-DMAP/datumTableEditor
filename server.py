@@ -623,16 +623,17 @@ def create_server(input, output, session):
                 )
             )
             
-            # Data cells
+            # Data cells - clickable text cells
             for col in cols:
                 if col in current_df.columns:
                     value = str(row[col]) if pd.notna(row[col]) else ""
                 else:
                     value = ""
-                cell_id = f"cell_{idx}_{col}"
                 cells.append(
                     ui.tags.td(
-                        ui.input_text(cell_id, label=None, value=value, placeholder=f"Edit {col}"),
+                        ui.span(value if value else "—", class_="cell-value"),
+                        class_="editable-cell",
+                        **{"data-row": str(idx), "data-col": col, "data-value": value}
                     )
                 )
             
@@ -718,53 +719,56 @@ def create_server(input, output, session):
         
         return ui.div(*log_items)
     
-    # Event: Save modifications
+    # Event: Handle cell edit from popup
+    @reactive.Effect
+    @reactive.event(input.cell_edit)
+    def _handle_cell_edit():
+        edit_data = input.cell_edit()
+        if not edit_data:
+            return
+        
+        row = edit_data.get('row')
+        col = edit_data.get('col')
+        old_value = edit_data.get('oldValue', '')
+        new_value = edit_data.get('newValue', '')
+        
+        if row is None or not col:
+            return
+        
+        current_df = data.get()
+        log = mods_log.get()
+        
+        # Update the dataframe
+        if col in current_df.columns:
+            current_df.at[row, col] = new_value
+            
+            # Add to log
+            log.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": "field_modification",
+                "details": {
+                    "row_index": row,
+                    "column": col,
+                    "old_value": old_value,
+                    "new_value": new_value,
+                }
+            })
+            
+            data.set(current_df.copy())
+            mods_log.set(log.copy())
+    
+    # Event: Save modifications to file
     @reactive.Effect
     @reactive.event(input.save_btn)
     def _save_modifications():
         current_df = data.get()
         log = mods_log.get()
-        cols = active_columns.get()
         
-        for idx in range(len(current_df)):
-            for col in cols:
-                if col not in current_df.columns:
-                    continue
-                cell_id = f"cell_{idx}_{col}"
-                try:
-                    new_value = input[cell_id]()
-                    old_value = str(current_df.at[idx, col]) if pd.notna(current_df.at[idx, col]) else ""
-                    
-                    if new_value != old_value and new_value:
-                        current_df.at[idx, col] = new_value
-                        
-                        existing_entry = any(
-                            m.get("details", {}).get("row_index") == idx and 
-                            m.get("details", {}).get("column") == col and
-                            m.get("details", {}).get("new_value") == new_value
-                            for m in log if m.get("type") == "field_modification"
-                        )
-                        
-                        if not existing_entry:
-                            log.append({
-                                "timestamp": datetime.now().isoformat(),
-                                "type": "field_modification",
-                                "details": {
-                                    "row_index": idx,
-                                    "column": col,
-                                    "old_value": old_value,
-                                    "new_value": new_value,
-                                }
-                            })
-                except:
-                    pass
-        
-        data.set(current_df.copy())
-        mods_log.set(log.copy())
-        
+        # Save modifications log
         with open(modifications_log_path, "w") as f:
             json.dump(log, f, indent=2)
         
+        # Save data state
         data_state_path = data_dir / "data_state.json"
         current_df.to_json(data_state_path, orient="records", indent=2, default_handler=str)
         

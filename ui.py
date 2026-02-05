@@ -501,7 +501,7 @@ def create_app_ui():
             .edit-table th.draggable-header {
                 cursor: grab;
                 padding-right: 35px;
-                min-width: 100px;
+                min-width: 10px;
                 width: 100px;
             }
             .edit-table th.draggable-header:active {
@@ -551,24 +551,11 @@ def create_app_ui():
                 padding: 6px 8px;
                 border: 1px solid #ddd;
             }
-            .edit-table input[type="text"] {
-                width: 100%;
-                padding: 5px;
-                border: 1px solid #ccc;
-                border-radius: 3px;
-                font-size: 12px;
-                box-sizing: border-box;
-            }
-            .edit-table input[type="text"]:focus {
-                outline: none;
-                border-color: #2196F3;
-                box-shadow: 0 0 3px rgba(33, 150, 243, 0.5);
-            }
             .row-number {
                 background-color: #f0f0f0;
                 font-weight: bold;
                 text-align: center;
-                width: 50px;
+                width: 10px;
             }
             
             /* Status Badges */
@@ -671,6 +658,150 @@ def create_app_ui():
             .page-jump button {
                 padding: 5px 10px;
                 font-size: 12px;
+            }
+            
+            /* Editable Cell Styles */
+            .editable-cell {
+                cursor: pointer;
+                position: relative;
+            }
+            .editable-cell:hover {
+                background-color: #e3f2fd !important;
+            }
+            .cell-value {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            
+            /* Cell Edit Popup */
+            .cell-edit-popup {
+                display: none;
+                position: fixed;
+                z-index: 3000;
+                background: white;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+                padding: 15px;
+                min-width: 300px;
+                max-width: 500px;
+            }
+            .cell-edit-popup.show {
+                display: block;
+            }
+            .cell-edit-popup .popup-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #eee;
+            }
+            .cell-edit-popup .popup-header h4 {
+                margin: 0;
+                font-size: 14px;
+                color: #495057;
+            }
+            .cell-edit-popup .popup-close {
+                background: none;
+                border: none;
+                font-size: 18px;
+                cursor: pointer;
+                color: #6c757d;
+                padding: 0;
+                line-height: 1;
+            }
+            .cell-edit-popup .popup-close:hover {
+                color: #343a40;
+            }
+            .cell-edit-popup .current-value-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+                padding: 8px 10px;
+                background: #f8f9fa;
+                border-radius: 4px;
+            }
+            .cell-edit-popup .current-value-label {
+                font-size: 11px;
+                color: #6c757d;
+                font-weight: 600;
+                min-width: 50px;
+            }
+            .cell-edit-popup .current-value-text {
+                flex: 1;
+                font-size: 13px;
+                color: #212529;
+                word-break: break-all;
+            }
+            .cell-edit-popup .copy-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+                border: 1px solid #ced4da;
+                background: white;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .cell-edit-popup .copy-btn:hover {
+                background: #e9ecef;
+            }
+            .cell-edit-popup .copy-btn.copied {
+                background: #28a745;
+                color: white;
+                border-color: #28a745;
+            }
+            .cell-edit-popup .new-value-section {
+                margin-bottom: 12px;
+            }
+            .cell-edit-popup .new-value-section label {
+                display: block;
+                font-size: 11px;
+                color: #6c757d;
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            .cell-edit-popup .new-value-section input {
+                width: 100%;
+                padding: 8px 10px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 13px;
+                box-sizing: border-box;
+            }
+            .cell-edit-popup .new-value-section input:focus {
+                outline: none;
+                border-color: #2196F3;
+                box-shadow: 0 0 0 2px rgba(33,150,243,0.2);
+            }
+            .cell-edit-popup .popup-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+            }
+            .cell-edit-popup .popup-actions button {
+                padding: 6px 14px;
+                font-size: 13px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .cell-edit-popup .btn-cancel {
+                background: #f8f9fa;
+                border: 1px solid #ced4da;
+                color: #495057;
+            }
+            .cell-edit-popup .btn-cancel:hover {
+                background: #e9ecef;
+            }
+            .cell-edit-popup .btn-save {
+                background: #28a745;
+                border: 1px solid #28a745;
+                color: white;
+            }
+            .cell-edit-popup .btn-save:hover {
+                background: #218838;
             }
             
             /* Log Container */
@@ -805,7 +936,7 @@ def create_app_ui():
             document.addEventListener('mousemove', function(e) {
                 if (resizing) {
                     const diff = e.pageX - startX;
-                    const newWidth = Math.max(80, startWidth + diff);
+                    const newWidth = Math.max(10, startWidth + diff);
                     resizing.style.width = newWidth + 'px';
                     resizing.style.minWidth = newWidth + 'px';
                 }
@@ -967,6 +1098,159 @@ def create_app_ui():
                     });
                 });
             }
+            
+            // Cell Edit Popup
+            let currentEditCell = null;
+            
+            function createCellEditPopup() {
+                if (document.getElementById('cell-edit-popup')) return;
+                
+                const popup = document.createElement('div');
+                popup.id = 'cell-edit-popup';
+                popup.className = 'cell-edit-popup';
+                popup.innerHTML = `
+                    <div class="popup-header">
+                        <h4 id="popup-column-name">Edit Column</h4>
+                        <button class="popup-close" onclick="closeCellPopup()">&times;</button>
+                    </div>
+                    <div class="current-value-row">
+                        <span class="current-value-label">Current:</span>
+                        <span class="current-value-text" id="popup-current-value"></span>
+                        <button class="copy-btn" onclick="copyCurrentValue()">Copy</button>
+                    </div>
+                    <div class="new-value-section">
+                        <label>New Value:</label>
+                        <input type="text" id="popup-new-value" placeholder="Enter new value...">
+                    </div>
+                    <div class="popup-actions">
+                        <button class="btn-cancel" onclick="closeCellPopup()">Cancel</button>
+                        <button class="btn-save" onclick="saveCellValue()">Save</button>
+                    </div>
+                `;
+                document.body.appendChild(popup);
+                
+                // Handle Enter key in input
+                document.getElementById('popup-new-value').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        saveCellValue();
+                    }
+                });
+                
+                // Handle Escape key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        closeCellPopup();
+                    }
+                });
+            }
+            
+            window.openCellPopup = function(cell) {
+                createCellEditPopup();
+                
+                currentEditCell = cell;
+                const row = cell.dataset.row;
+                const col = cell.dataset.col;
+                const value = cell.dataset.value || '';
+                
+                document.getElementById('popup-column-name').textContent = 'Edit: ' + col;
+                document.getElementById('popup-current-value').textContent = value || '(empty)';
+                document.getElementById('popup-new-value').value = value;
+                
+                const popup = document.getElementById('cell-edit-popup');
+                
+                // Position popup near the cell
+                const rect = cell.getBoundingClientRect();
+                let left = rect.left;
+                let top = rect.bottom + 5;
+                
+                // Adjust if popup would go off screen
+                if (left + 320 > window.innerWidth) {
+                    left = window.innerWidth - 330;
+                }
+                if (top + 200 > window.innerHeight) {
+                    top = rect.top - 210;
+                }
+                
+                popup.style.left = left + 'px';
+                popup.style.top = top + 'px';
+                popup.classList.add('show');
+                
+                // Focus the input
+                setTimeout(() => {
+                    document.getElementById('popup-new-value').focus();
+                    document.getElementById('popup-new-value').select();
+                }, 50);
+            };
+            
+            window.closeCellPopup = function() {
+                const popup = document.getElementById('cell-edit-popup');
+                if (popup) {
+                    popup.classList.remove('show');
+                }
+                currentEditCell = null;
+            };
+            
+            window.copyCurrentValue = function() {
+                const value = document.getElementById('popup-current-value').textContent;
+                if (value === '(empty)') {
+                    navigator.clipboard.writeText('');
+                } else {
+                    navigator.clipboard.writeText(value);
+                }
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 1500);
+            };
+            
+            window.saveCellValue = function() {
+                if (!currentEditCell) return;
+                
+                const row = currentEditCell.dataset.row;
+                const col = currentEditCell.dataset.col;
+                const oldValue = currentEditCell.dataset.value || '';
+                const newValue = document.getElementById('popup-new-value').value;
+                
+                if (newValue !== oldValue) {
+                    // Update the cell display
+                    currentEditCell.dataset.value = newValue;
+                    currentEditCell.querySelector('.cell-value').textContent = newValue || '—';
+                    
+                    // Send to Shiny
+                    if (typeof Shiny !== 'undefined') {
+                        Shiny.setInputValue('cell_edit', {
+                            row: parseInt(row),
+                            col: col,
+                            oldValue: oldValue,
+                            newValue: newValue,
+                            ts: Date.now()
+                        }, {priority: 'event'});
+                    }
+                }
+                
+                closeCellPopup();
+            };
+            
+            // Click handler for editable cells using event delegation
+            document.addEventListener('click', function(e) {
+                const cell = e.target.closest('.editable-cell');
+                if (cell) {
+                    openCellPopup(cell);
+                }
+            });
+            
+            // Close popup when clicking outside
+            document.addEventListener('mousedown', function(e) {
+                const popup = document.getElementById('cell-edit-popup');
+                if (popup && popup.classList.contains('show')) {
+                    if (!popup.contains(e.target) && !e.target.closest('.editable-cell')) {
+                        closeCellPopup();
+                    }
+                }
+            });
             """)
         ),
         
