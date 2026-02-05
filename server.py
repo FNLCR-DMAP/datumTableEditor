@@ -45,6 +45,24 @@ def create_server(input, output, session):
     # Pagination state
     current_page = reactive.Value(1)
     
+    # Presets storage - load from file if exists
+    presets_file = data_dir / "column_presets.json"
+    def _load_presets():
+        if presets_file.exists():
+            try:
+                with open(presets_file) as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"Default": list(display_columns)}
+    
+    def _save_presets(presets_dict):
+        with open(presets_file, "w") as f:
+            json.dump(presets_dict, f, indent=2)
+    
+    column_presets = reactive.Value(_load_presets())
+    active_preset = reactive.Value("Default")
+    
     # Load initial approval status from log
     initial_status, initial_timestamp = _get_latest_approval_status()
     approval_status = reactive.Value(initial_status)
@@ -211,45 +229,58 @@ def create_server(input, output, session):
             )
         return ui.div(*bars)
     
-    # Output: Column selector with drag-drop
+    # Output: Current preset name
+    @output
+    @render.text
+    def current_preset_name():
+        return active_preset.get()
+    
+    # Output: Preset menu items
     @output
     @render.ui
-    def column_selector():
+    def preset_menu_items():
+        presets = column_presets.get()
+        current = active_preset.get()
+        
+        items = []
+        for name in presets.keys():
+            is_active = name == current
+            delete_btn = ui.tags.span(
+                "×", 
+                class_="delete-preset", 
+                onclick=f"deletePreset('{name}', event)"
+            ) if name != "Default" else ""
+            
+            items.append(
+                ui.div(
+                    name,
+                    delete_btn,
+                    class_=f"preset-menu-item {'active' if is_active else ''}",
+                    onclick=f"loadPreset('{name}')"
+                )
+            )
+        return ui.div(*items)
+    
+    # Output: Available columns for modal
+    @output
+    @render.ui
+    def available_columns_modal():
         cols = active_columns.get()
         available = [c for c in all_columns if c not in cols]
         
-        # Active columns (draggable)
-        active_tags = []
-        for col in cols:
-            active_tags.append(
-                ui.tags.span(
-                    col,
-                    ui.tags.span(" x", class_="remove-col", onclick=f"removeColumn('{col}')"),
-                    class_="column-tag",
-                    draggable="true",
-                    **{"data-column": col}
-                )
-            )
+        if not available:
+            return ui.div("All columns are already displayed.", style="color: #666; font-style: italic;")
         
-        # Available columns
-        available_tags = []
+        tags = []
         for col in available:
-            available_tags.append(
+            tags.append(
                 ui.tags.span(
                     f"+ {col}",
-                    class_="available-column-tag",
+                    class_="add-col-tag",
                     onclick=f"addColumn('{col}')"
                 )
             )
-        
-        return ui.div(
-            ui.div(*active_tags, class_="column-list"),
-            ui.div(
-                ui.div("Available columns:", class_="available-columns-label"),
-                *available_tags,
-                class_="available-columns"
-            ) if available_tags else ui.div()
-        )
+        return ui.div(*tags, class_="available-cols-grid")
     
     # Handle column order changes from JS
     @reactive.Effect
@@ -281,11 +312,53 @@ def create_server(input, output, session):
                 cols.remove(col)
                 active_columns.set(cols)
     
-    # Reset columns
+    # Reset columns (from JS)
     @reactive.Effect
-    @reactive.event(input.reset_columns_btn)
+    @reactive.event(input.reset_columns)
     def _reset_columns():
         active_columns.set(list(display_columns))
+        active_preset.set("Default")
+    
+    # Handle loading a preset
+    @reactive.Effect
+    @reactive.event(input.load_preset)
+    def _load_preset():
+        preset_name = input.load_preset()
+        if preset_name:
+            presets = column_presets.get()
+            if preset_name in presets:
+                active_columns.set(list(presets[preset_name]))
+                active_preset.set(preset_name)
+    
+    # Handle saving a new preset (from JS)
+    @reactive.Effect
+    @reactive.event(input.save_preset_name)
+    def _save_preset():
+        name = input.save_preset_name()
+        if name and name.strip():
+            name = name.strip()
+            presets = column_presets.get().copy()
+            presets[name] = list(active_columns.get())
+            column_presets.set(presets)
+            _save_presets(presets)
+            active_preset.set(name)
+            ui.notification_show(f"Preset '{name}' saved!", type="message", duration=2)
+    
+    # Handle deleting a preset
+    @reactive.Effect
+    @reactive.event(input.delete_preset)
+    def _delete_preset():
+        name = input.delete_preset()
+        if name and name != "Default":
+            presets = column_presets.get().copy()
+            if name in presets:
+                del presets[name]
+                column_presets.set(presets)
+                _save_presets(presets)
+                if active_preset.get() == name:
+                    active_preset.set("Default")
+                    active_columns.set(list(presets.get("Default", display_columns)))
+                ui.notification_show(f"Preset '{name}' deleted!", type="message", duration=2)
     
     # Update filter dropdowns based on data
     @reactive.Effect
@@ -433,14 +506,26 @@ def create_server(input, output, session):
             end_idx = start_idx + rows_per_page
             paginated_indices = filtered_indices[start_idx:end_idx]
         
-        # Create header
+        # Create header with draggable columns (except fixed columns)
         header_cells = [
             ui.tags.th("", style="width: 40px; text-align: center;"),
             ui.tags.th("Row", style="width: 50px;"),
             ui.tags.th("Status", style="width: 80px;"),
         ]
         for col in cols:
-            header_cells.append(ui.tags.th(col))
+            header_cells.append(
+                ui.tags.th(
+                    col,
+                    ui.tags.button(
+                        "×",
+                        class_="remove-header-btn",
+                        onclick=f"removeColumn('{col}', event)"
+                    ),
+                    class_="draggable-header",
+                    draggable="true",
+                    **{"data-column": col}
+                )
+            )
         
         header = ui.tags.thead(ui.tags.tr(*header_cells))
         

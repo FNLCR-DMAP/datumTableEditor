@@ -174,11 +174,191 @@ def create_app_ui():
                 display: flex;
                 gap: 8px;
                 flex-wrap: wrap;
-                margin-bottom: 15px;
             }
             .action-buttons button {
                 padding: 8px 14px;
                 font-size: 13px;
+            }
+            
+            /* Top Toolbar Row */
+            .top-toolbar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 15px;
+                padding: 12px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border: 1px solid #dee2e6;
+            }
+            .toolbar-left {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .toolbar-right {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+            
+            /* Preset Dropdown */
+            .preset-dropdown {
+                position: relative;
+                display: inline-block;
+            }
+            .preset-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+                border: 1px solid #ced4da;
+                background: white;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .preset-btn:hover {
+                background: #f8f9fa;
+            }
+            .preset-menu {
+                display: none;
+                position: absolute;
+                top: 100%;
+                right: 0;
+                min-width: 200px;
+                background: white;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                margin-top: 4px;
+            }
+            .preset-menu.show {
+                display: block;
+            }
+            .preset-menu-item {
+                padding: 10px 14px;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 13px;
+            }
+            .preset-menu-item:hover {
+                background: #f8f9fa;
+            }
+            .preset-menu-item.active {
+                background: #e3f2fd;
+                font-weight: 600;
+            }
+            .preset-menu-item .delete-preset {
+                color: #dc3545;
+                opacity: 0.7;
+                cursor: pointer;
+            }
+            .preset-menu-item .delete-preset:hover {
+                opacity: 1;
+            }
+            .preset-menu-divider {
+                border-top: 1px solid #dee2e6;
+                margin: 4px 0;
+            }
+            .preset-save-row {
+                padding: 10px 14px;
+                display: flex;
+                gap: 6px;
+            }
+            .preset-save-row input {
+                flex: 1;
+                padding: 6px 10px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            
+            /* Add Column Button */
+            .add-col-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+                border: 1px solid #28a745;
+                background: #28a745;
+                color: white;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .add-col-btn:hover {
+                background: #218838;
+            }
+            
+            /* Modal Styles */
+            .modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 2000;
+                justify-content: center;
+                align-items: center;
+            }
+            .modal-overlay.show {
+                display: flex;
+            }
+            .modal-content {
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #dee2e6;
+            }
+            .modal-header h3 {
+                margin: 0;
+                font-size: 16px;
+            }
+            .modal-close {
+                background: none;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+                color: #6c757d;
+            }
+            .modal-close:hover {
+                color: #343a40;
+            }
+            .modal-body {
+                margin-bottom: 15px;
+            }
+            .available-cols-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .add-col-tag {
+                padding: 6px 12px;
+                background: #e9ecef;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+            }
+            .add-col-tag:hover {
+                background: #28a745;
+                color: white;
             }
             
             /* Column Customization */
@@ -287,6 +467,35 @@ def create_app_ui():
                 top: 0;
                 z-index: 10;
                 white-space: nowrap;
+                user-select: none;
+            }
+            .edit-table th.draggable-header {
+                cursor: grab;
+                position: relative;
+                padding-right: 28px;
+            }
+            .edit-table th.draggable-header:active {
+                cursor: grabbing;
+            }
+            .edit-table th.draggable-header.drag-over {
+                background-color: #1a252f;
+                box-shadow: inset 0 0 0 2px #3498db;
+            }
+            .edit-table th .remove-header-btn {
+                position: absolute;
+                right: 6px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: transparent;
+                border: none;
+                color: rgba(255,255,255,0.6);
+                cursor: pointer;
+                font-size: 14px;
+                padding: 2px 5px;
+                line-height: 1;
+            }
+            .edit-table th .remove-header-btn:hover {
+                color: #ff6b6b;
             }
             .edit-table tbody tr:nth-child(even) {
                 background-color: #f9f9f9;
@@ -455,7 +664,7 @@ def create_app_ui():
                 font-size: 11px;
             }
             """),
-            # JavaScript for panel toggle and column management
+            # JavaScript for panel toggle, header drag-drop, modal, preset management
             ui.tags.script("""
             document.addEventListener('DOMContentLoaded', function() {
                 window.toggleLeftPanel = function() {
@@ -471,72 +680,152 @@ def create_app_ui():
                 };
             });
             
-            // Drag and drop for column reordering
-            let draggedItem = null;
+            // Header drag and drop for column reordering
+            let draggedHeader = null;
             
-            document.addEventListener('dragstart', function(e) {
-                if (e.target.classList.contains('column-tag')) {
-                    draggedItem = e.target;
-                    e.target.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                }
-            });
+            window.initHeaderDrag = function() {
+                document.querySelectorAll('.draggable-header').forEach(header => {
+                    header.addEventListener('dragstart', function(e) {
+                        draggedHeader = this;
+                        this.style.opacity = '0.5';
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                    
+                    header.addEventListener('dragend', function(e) {
+                        this.style.opacity = '1';
+                        document.querySelectorAll('.draggable-header').forEach(h => h.classList.remove('drag-over'));
+                        if (draggedHeader) {
+                            updateHeaderOrder();
+                        }
+                        draggedHeader = null;
+                    });
+                    
+                    header.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        if (draggedHeader && draggedHeader !== this) {
+                            this.classList.add('drag-over');
+                        }
+                    });
+                    
+                    header.addEventListener('dragleave', function(e) {
+                        this.classList.remove('drag-over');
+                    });
+                    
+                    header.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        this.classList.remove('drag-over');
+                        if (draggedHeader && draggedHeader !== this) {
+                            const headerRow = this.parentNode;
+                            const allHeaders = [...headerRow.querySelectorAll('.draggable-header')];
+                            const draggedIdx = allHeaders.indexOf(draggedHeader);
+                            const dropIdx = allHeaders.indexOf(this);
+                            
+                            if (draggedIdx < dropIdx) {
+                                headerRow.insertBefore(draggedHeader, this.nextSibling);
+                            } else {
+                                headerRow.insertBefore(draggedHeader, this);
+                            }
+                        }
+                    });
+                });
+            };
             
-            document.addEventListener('dragend', function(e) {
-                if (e.target.classList.contains('column-tag')) {
-                    e.target.classList.remove('dragging');
-                    // Update column order after drag
-                    updateColumnOrder();
-                    draggedItem = null;
-                }
-            });
-            
-            document.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                const columnList = document.querySelector('.column-list');
-                if (!columnList || !draggedItem) return;
-                
-                const afterElement = getDragAfterElement(columnList, e.clientX);
-                if (afterElement == null) {
-                    columnList.appendChild(draggedItem);
-                } else {
-                    columnList.insertBefore(draggedItem, afterElement);
-                }
-            });
-            
-            function getDragAfterElement(container, x) {
-                const draggableElements = [...container.querySelectorAll('.column-tag:not(.dragging)')];
-                return draggableElements.reduce((closest, child) => {
-                    const box = child.getBoundingClientRect();
-                    const offset = x - box.left - box.width / 2;
-                    if (offset < 0 && offset > closest.offset) {
-                        return { offset: offset, element: child };
-                    } else {
-                        return closest;
-                    }
-                }, { offset: Number.NEGATIVE_INFINITY }).element;
-            }
-            
-            function updateColumnOrder() {
-                const columnList = document.querySelector('.column-list');
-                if (!columnList) return;
-                const columns = [...columnList.querySelectorAll('.column-tag')].map(el => el.dataset.column);
+            function updateHeaderOrder() {
+                const headers = document.querySelectorAll('.draggable-header');
+                const columns = [...headers].map(h => h.dataset.column);
                 if (typeof Shiny !== 'undefined') {
                     Shiny.setInputValue('column_order', columns, {priority: 'event'});
                 }
             }
             
-            window.addColumn = function(col) {
-                if (typeof Shiny !== 'undefined') {
-                    Shiny.setInputValue('add_column', col, {priority: 'event'});
-                }
-            };
-            
-            window.removeColumn = function(col) {
+            // Remove column from header
+            window.removeColumn = function(col, event) {
+                if (event) event.stopPropagation();
                 if (typeof Shiny !== 'undefined') {
                     Shiny.setInputValue('remove_column', col, {priority: 'event'});
                 }
             };
+            
+            // Add column
+            window.addColumn = function(col) {
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('add_column', col, {priority: 'event'});
+                }
+                closeModal();
+            };
+            
+            // Modal functions
+            window.openAddColumnModal = function() {
+                document.getElementById('add-column-modal').classList.add('show');
+            };
+            
+            window.closeModal = function() {
+                document.getElementById('add-column-modal').classList.remove('show');
+            };
+            
+            // Close modal on overlay click
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal-overlay')) {
+                    closeModal();
+                }
+            });
+            
+            // Preset dropdown
+            window.togglePresetMenu = function(event) {
+                event.stopPropagation();
+                const menu = document.getElementById('preset-menu');
+                menu.classList.toggle('show');
+            };
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                const dropdown = document.querySelector('.preset-dropdown');
+                if (dropdown && !dropdown.contains(e.target)) {
+                    document.getElementById('preset-menu').classList.remove('show');
+                }
+            });
+            
+            window.loadPreset = function(presetName) {
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('load_preset', presetName, {priority: 'event'});
+                }
+                document.getElementById('preset-menu').classList.remove('show');
+            };
+            
+            window.deletePreset = function(presetName, event) {
+                event.stopPropagation();
+                if (confirm('Delete preset "' + presetName + '"?')) {
+                    if (typeof Shiny !== 'undefined') {
+                        Shiny.setInputValue('delete_preset', presetName, {priority: 'event'});
+                    }
+                }
+            };
+            
+            window.saveNewPreset = function() {
+                const input = document.getElementById('new-preset-name');
+                const name = input.value.trim();
+                if (name) {
+                    if (typeof Shiny !== 'undefined') {
+                        Shiny.setInputValue('save_preset_name', name, {priority: 'event'});
+                    }
+                    input.value = '';
+                }
+            };
+            
+            // Reset columns
+            window.resetColumns = function() {
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('reset_columns', Date.now(), {priority: 'event'});
+                }
+                document.getElementById('preset-menu').classList.remove('show');
+            };
+            
+            // Initialize header drag after Shiny renders
+            $(document).on('shiny:value', function(event) {
+                if (event.name === 'table_container') {
+                    setTimeout(initHeaderDrag, 100);
+                }
+            });
             """)
         ),
         
@@ -658,30 +947,76 @@ def create_app_ui():
             
             # Right Panel - Main Content
             ui.div(
-                # Action Buttons Row
+                # Top Toolbar - Actions + Preset + Add Column
                 ui.div(
-                    ui.input_action_button("save_btn", "Save", class_="btn btn-success"),
-                    ui.input_action_button("export_btn", "Export CSV", class_="btn btn-info"),
-                    ui.input_action_button("reload_btn", "Reload", class_="btn btn-warning"),
-                    ui.input_action_button("clear_log_btn", "Clear Log", class_="btn btn-danger"),
-                    ui.input_action_button("approve_btn", "Approve", class_="btn btn-success"),
-                    ui.input_action_button("reject_btn", "Reject", class_="btn btn-danger"),
-                    class_="action-buttons"
+                    # Left side - Action Buttons
+                    ui.div(
+                        ui.input_action_button("save_btn", "Save", class_="btn btn-success"),
+                        ui.input_action_button("export_btn", "Export CSV", class_="btn btn-info"),
+                        ui.input_action_button("reload_btn", "Reload", class_="btn btn-warning"),
+                        ui.input_action_button("clear_log_btn", "Clear Log", class_="btn btn-danger"),
+                        ui.input_action_button("approve_btn", "Approve", class_="btn btn-success"),
+                        ui.input_action_button("reject_btn", "Reject", class_="btn btn-danger"),
+                        class_="toolbar-left"
+                    ),
+                    # Right side - Preset dropdown + Add Column button
+                    ui.div(
+                        # Preset Dropdown
+                        ui.div(
+                            ui.tags.button(
+                                "Preset: ",
+                                ui.output_text("current_preset_name", inline=True),
+                                " ▼",
+                                class_="preset-btn",
+                                onclick="togglePresetMenu(event)"
+                            ),
+                            ui.div(
+                                ui.output_ui("preset_menu_items"),
+                                ui.div(class_="preset-menu-divider"),
+                                ui.div(
+                                    ui.tags.input(type="text", placeholder="New preset name...", id="new-preset-name"),
+                                    ui.tags.button("Save", class_="btn btn-sm btn-primary", onclick="saveNewPreset()"),
+                                    class_="preset-save-row"
+                                ),
+                                ui.div(class_="preset-menu-divider"),
+                                ui.div(
+                                    "Reset to Default",
+                                    class_="preset-menu-item",
+                                    onclick="resetColumns()"
+                                ),
+                                class_="preset-menu",
+                                id="preset-menu"
+                            ),
+                            class_="preset-dropdown"
+                        ),
+                        # Add Column Button
+                        ui.tags.button("+ Add Column", class_="add-col-btn", onclick="openAddColumnModal()"),
+                        class_="toolbar-right"
+                    ),
+                    class_="top-toolbar"
+                ),
+                
+                # Add Column Modal
+                ui.div(
+                    ui.div(
+                        ui.div(
+                            ui.h3("Add Columns"),
+                            ui.tags.button("×", class_="modal-close", onclick="closeModal()"),
+                            class_="modal-header"
+                        ),
+                        ui.div(
+                            ui.p("Click a column to add it to the table:", style="margin-bottom: 10px; color: #666;"),
+                            ui.output_ui("available_columns_modal"),
+                            class_="modal-body"
+                        ),
+                        class_="modal-content"
+                    ),
+                    class_="modal-overlay",
+                    id="add-column-modal"
                 ),
                 
                 # Approval Status Display
                 ui.output_ui("approval_status_ui"),
-                
-                # Column Customization Section
-                ui.div(
-                    ui.div(
-                        ui.h4("Display Columns (drag to reorder)"),
-                        ui.input_action_button("reset_columns_btn", "Reset", class_="btn btn-sm btn-secondary"),
-                        class_="column-config-header"
-                    ),
-                    ui.output_ui("column_selector"),
-                    class_="column-config-section"
-                ),
                 
                 # Pagination Controls
                 ui.div(
