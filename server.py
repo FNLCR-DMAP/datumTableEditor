@@ -22,12 +22,20 @@ def create_server(input, output, session):
     """Server logic for the Shiny app"""
     
     def _get_latest_approval_status():
-        """Load the latest approval/rejection status from the modifications log"""
+        """Load the latest approval/rejection status from the modifications log.
+        Only returns status for global approval (not row-based approval).
+        """
         log = load_modifications_log()
         approval_entries = [m for m in log if m.get("type") in ["approval", "rejection"]]
         
         if approval_entries:
             latest = approval_entries[-1]
+            details = latest.get("details", {})
+            # Only show global banner if it's NOT a row-based approval
+            # Row-based approvals have "approved_rows" or "rejected_rows" in details
+            if "approved_rows" in details or "rejected_rows" in details:
+                # This is a row-based approval, don't show global banner
+                return None, None
             status = "approved" if latest.get("type") == "approval" else "rejected"
             timestamp = latest.get("timestamp", None)
             return status, timestamp[:19] if timestamp else None
