@@ -389,6 +389,20 @@ def create_app_ui():
                 flex-wrap: wrap;
                 gap: 8px;
             }
+            /* Modal drag and drop styles */
+            .modal-draggable-col {
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .modal-draggable-col:hover {
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+            .drag-over-modal {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 2px #007bff !important;
+            }
+            .drag-handle-modal:hover {
+                color: rgba(255,255,255,0.9) !important;
+            }
             .add-col-tag {
                 padding: 6px 12px;
                 background: #e9ecef;
@@ -1063,11 +1077,92 @@ def create_app_ui():
                     Shiny.setInputValue('refresh_preset', Date.now(), {priority: 'event'});
                 }
                 document.getElementById('add-column-modal').classList.add('show');
+                // Initialize modal drag after a short delay
+                setTimeout(initModalColumnDrag, 100);
             };
             
             window.closeModal = function() {
                 document.getElementById('add-column-modal').classList.remove('show');
             };
+            
+            // Modal column drag and drop for reordering
+            let modalDraggedCol = null;
+            
+            function initModalColumnDrag() {
+                const container = document.getElementById('modal-columns-container');
+                if (!container) return;
+                
+                const cols = container.querySelectorAll('.modal-draggable-col');
+                cols.forEach(col => {
+                    col.addEventListener('dragstart', function(e) {
+                        modalDraggedCol = this;
+                        this.style.opacity = '0.5';
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                    
+                    col.addEventListener('dragend', function(e) {
+                        this.style.opacity = '1';
+                        container.querySelectorAll('.modal-draggable-col').forEach(c => c.classList.remove('drag-over-modal'));
+                        if (modalDraggedCol) {
+                            updateModalColumnOrder();
+                        }
+                        modalDraggedCol = null;
+                    });
+                    
+                    col.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        if (modalDraggedCol && modalDraggedCol !== this) {
+                            this.classList.add('drag-over-modal');
+                        }
+                    });
+                    
+                    col.addEventListener('dragleave', function(e) {
+                        this.classList.remove('drag-over-modal');
+                    });
+                    
+                    col.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        if (modalDraggedCol && modalDraggedCol !== this) {
+                            const container = this.parentNode;
+                            const allCols = Array.from(container.querySelectorAll('.modal-draggable-col'));
+                            const draggedIdx = allCols.indexOf(modalDraggedCol);
+                            const targetIdx = allCols.indexOf(this);
+                            
+                            if (draggedIdx < targetIdx) {
+                                this.parentNode.insertBefore(modalDraggedCol, this.nextSibling);
+                            } else {
+                                this.parentNode.insertBefore(modalDraggedCol, this);
+                            }
+                        }
+                        this.classList.remove('drag-over-modal');
+                    });
+                });
+            }
+            
+            function updateModalColumnOrder() {
+                const container = document.getElementById('modal-columns-container');
+                if (!container) return;
+                
+                const cols = container.querySelectorAll('.modal-draggable-col');
+                const newOrder = [];
+                cols.forEach(col => {
+                    const colName = col.dataset.column;
+                    if (colName) newOrder.push(colName);
+                });
+                
+                console.log('Modal column order updated:', newOrder);
+                if (newOrder.length > 0 && typeof Shiny !== 'undefined') {
+                    // Send with timestamp to ensure event fires
+                    Shiny.setInputValue('column_order', {order: newOrder, ts: Date.now()}, {priority: 'event'});
+                }
+            }
+            
+            // Re-init modal drag when available_columns_modal updates
+            $(document).on('shiny:value', function(event) {
+                if (event.name === 'available_columns_modal') {
+                    setTimeout(initModalColumnDrag, 100);
+                }
+            });
             
             // Close modal on overlay click (only if clicking directly on overlay, not content)
             document.addEventListener('click', function(e) {
@@ -1132,6 +1227,13 @@ def create_app_ui():
             
             // Save Layout - save to current preset (if not Default)
             window.saveLayoutPrompt = function() {
+                if (typeof Shiny !== 'undefined') {
+                    Shiny.setInputValue('save_current_layout', Date.now(), {priority: 'event'});
+                }
+            };
+            
+            // Update current preset from modal
+            window.updateCurrentPreset = function() {
                 if (typeof Shiny !== 'undefined') {
                     Shiny.setInputValue('save_current_layout', Date.now(), {priority: 'event'});
                 }
@@ -1508,7 +1610,8 @@ def create_app_ui():
                 ui.div(
                     ui.div(
                         ui.div(
-                            ui.h3("Manage Columns"),
+                            ui.h3("Manage Layout"),
+                            ui.tags.button("Update", class_="btn btn-sm btn-primary", onclick="updateCurrentPreset()", style="margin-left: auto; margin-right: 10px;"),
                             ui.tags.button("×", class_="modal-close", onclick="closeModal()"),
                             class_="modal-header"
                         ),

@@ -327,15 +327,18 @@ def create_server(input, output, session):
         
         available = [c for c in all_columns if c not in cols]
         
-        # Build current columns HTML
+        # Build current columns HTML with drag support
         current_html = []
         for i, col in enumerate(cols, 1):
             current_html.append(
                 ui.div(
+                    ui.span("⠿", class_="drag-handle-modal", style="cursor: grab; margin-right: 6px; color: rgba(255,255,255,0.5);"),
                     ui.span(f"{i}. {col}", style="margin-right: 8px;"),
                     ui.tags.button("×", class_="remove-modal-col", onclick=f"removeColumnFromModal('{col}', event)", style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px;"),
-                    class_="current-col-tag",
-                    style="display: inline-flex; align-items: center; padding: 6px 10px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; margin: 3px;"
+                    class_="current-col-tag modal-draggable-col",
+                    draggable="true",
+                    **{"data-column": col},
+                    style="display: inline-flex; align-items: center; padding: 6px 10px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; margin: 3px; cursor: move;"
                 )
             )
         
@@ -354,9 +357,10 @@ def create_server(input, output, session):
         return ui.div(
             # Current columns section
             ui.div(
-                ui.tags.strong("Current columns:", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
+                ui.tags.strong("Current columns (drag to reorder):", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
                 ui.div(
                     *current_html if current_html else [ui.span("No columns displayed.", style="color: #999;")],
+                    id="modal-columns-container",
                     style="display: flex; flex-wrap: wrap; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ced4da; min-height: 40px;"
                 ),
                 style="margin-bottom: 20px;"
@@ -375,9 +379,12 @@ def create_server(input, output, session):
     @reactive.Effect
     @reactive.event(input.column_order)
     def _update_column_order():
-        new_order = input.column_order()
-        if new_order:
-            active_columns.set(list(new_order))
+        val = input.column_order()
+        if val:
+            # Handle both direct array and object with order property
+            new_order = val.get('order') if isinstance(val, dict) else val
+            if new_order:
+                active_columns.set(list(new_order))
     
     # Handle adding a column
     @reactive.Effect
