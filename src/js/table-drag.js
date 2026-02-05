@@ -110,18 +110,64 @@ function saveColumnWidths() {
     }
 }
 
-// Remove column from header - use event delegation
+// Header action dropdown - use event delegation
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('remove-header-btn')) {
+    // Toggle dropdown when clicking action button
+    if (e.target.classList.contains('header-action-btn')) {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const dropdown = e.target.nextElementSibling;
+        const isOpen = dropdown.classList.contains('show');
+        
+        // Close all other dropdowns first
+        document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
+        
+        // Toggle this dropdown
+        if (!isOpen) {
+            dropdown.classList.add('show');
+        }
+        return;
+    }
+    
+    // Handle sort ascending
+    if (e.target.classList.contains('sort-asc-btn')) {
         e.stopPropagation();
         e.preventDefault();
         const col = e.target.dataset.column;
-        console.log('Remove button clicked for column:', col);
         if (col && typeof Shiny !== 'undefined') {
-            // Send unique value each time to ensure event fires
+            Shiny.setInputValue('sort_column', {col: col, direction: 'asc', ts: Date.now()}, {priority: 'event'});
+        }
+        document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
+        return;
+    }
+    
+    // Handle sort descending
+    if (e.target.classList.contains('sort-desc-btn')) {
+        e.stopPropagation();
+        e.preventDefault();
+        const col = e.target.dataset.column;
+        if (col && typeof Shiny !== 'undefined') {
+            Shiny.setInputValue('sort_column', {col: col, direction: 'desc', ts: Date.now()}, {priority: 'event'});
+        }
+        document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
+        return;
+    }
+    
+    // Handle remove column
+    if (e.target.classList.contains('remove-col-btn')) {
+        e.stopPropagation();
+        e.preventDefault();
+        const col = e.target.dataset.column;
+        if (col && typeof Shiny !== 'undefined') {
             Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
         }
+        document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
+        return;
     }
+    
+    // Close dropdowns when clicking elsewhere
+    document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
 });
 
 // Legacy function for compatibility

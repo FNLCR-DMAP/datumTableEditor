@@ -435,6 +435,21 @@ def create_server(input, output, session):
                     cols.remove(col)
                     active_columns.set(cols)
     
+    # Handle sorting a column
+    @reactive.Effect
+    @reactive.event(input.sort_column)
+    def _sort_column():
+        val = input.sort_column()
+        if val:
+            col = val.get('col')
+            direction = val.get('direction', 'asc')
+            if col:
+                current_df = data.get()
+                if col in current_df.columns:
+                    ascending = direction == 'asc'
+                    sorted_df = current_df.sort_values(by=col, ascending=ascending, ignore_index=True)
+                    data.set(sorted_df)
+    
     # Reset columns (from JS)
     @reactive.Effect
     @reactive.event(input.reset_columns)
@@ -917,11 +932,20 @@ def create_server(input, output, session):
             width_style = f"width: {widths[col]}px; min-width: {widths[col]}px;" if col in widths else ""
             header_cells.append(
                 ui.tags.th(
-                    col,
-                    ui.tags.span(
-                        "×",
-                        class_="remove-header-btn",
-                        **{"data-column": col}
+                    ui.tags.span(col, class_="header-text"),
+                    ui.tags.div(
+                        ui.tags.button(
+                            "⋮",
+                            class_="header-action-btn",
+                            **{"data-column": col}
+                        ),
+                        ui.tags.div(
+                            ui.tags.button("↑ Sort Ascending", class_="dropdown-item sort-asc-btn", **{"data-column": col}),
+                            ui.tags.button("↓ Sort Descending", class_="dropdown-item sort-desc-btn", **{"data-column": col}),
+                            ui.tags.button("✕ Remove Column", class_="dropdown-item remove-col-btn", **{"data-column": col}),
+                            class_="header-dropdown"
+                        ),
+                        class_="header-action-container"
                     ),
                     ui.tags.span(class_="resize-handle"),
                     class_="draggable-header",
