@@ -214,7 +214,7 @@ def create_app_ui():
                             class_="modal-header"
                         ),
                         ui.div(
-                            ui.p("Select a column to copy values from selected rows:", style="margin-bottom: 15px;"),
+                            ui.p("Select a column to copy values from selected rows:", style="margin-bottom: 10px; font-size: 13px;"),
                             ui.output_ui("copy_column_list"),
                             class_="modal-body"
                         ),

@@ -532,31 +532,36 @@ def create_server(input, output, session):
     
     # Output: Copy column list for copy modal
     @render.ui
-    @reactive.event(input.refresh_copy_columns)
     def copy_column_list():
         """Render list of columns available to copy"""
-        cols = list(active_columns.get())
-        if not cols:
-            cols = list(display_columns)
+        # Access reactive values to trigger render
+        df = data.get()
+        preset_cols = list(active_columns.get()) or list(display_columns)
+        all_cols = list(df.columns)
         
-        column_buttons = []
-        for col in cols:
-            column_buttons.append(
-                ui.div(
-                    ui.tags.button(
-                        col,
-                        class_="btn btn-outline-primary btn-block copy-col-btn",
-                        onclick=f"copyColumnValues('{col}')",
-                        style="width: 100%; margin-bottom: 8px; text-align: left; padding: 10px 15px;"
-                    )
+        # Build ordered list: preset columns first, then remaining columns
+        ordered_cols = []
+        for col in preset_cols:
+            if col in all_cols:
+                ordered_cols.append(col)
+        for col in all_cols:
+            if col not in ordered_cols:
+                ordered_cols.append(col)
+        
+        buttons = []
+        for col in ordered_cols:
+            safe_col = col.replace("'", "\\'")
+            buttons.append(
+                ui.tags.button(
+                    col,
+                    class_="btn copy-col-btn",
+                    onclick=f"copyColumnValues('{safe_col}')",
+                    style="width: 100%; margin-bottom: 4px; text-align: left; padding: 6px 10px; font-size: 12px; border: 1px solid #333; color: #333; background: white;"
                 )
             )
         
-        return ui.div(
-            *column_buttons if column_buttons else [ui.p("No columns available.", style="color: #999;")],
-            style="max-height: 400px; overflow-y: auto;"
-        )
-    
+        return ui.div(*buttons, style="max-height: 400px; overflow-y: auto;")
+
     # Handle copy column request from JS
     @reactive.Effect
     @reactive.event(input.copy_column_request)
