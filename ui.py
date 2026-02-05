@@ -23,7 +23,7 @@ def create_app_ui():
                 width: 25%;
                 min-width: 280px;
                 max-width: 400px;
-                background: #e9ecef;
+                background: #e0e3e6;
                 color: #495057;
                 border-right: 2px solid #dee2e6;
                 padding: 15px;
@@ -1629,7 +1629,7 @@ def create_app_ui():
                         # Manage Layout Button
                         ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal()"),
                         # Modifications Log Button
-                        ui.tags.button("📋 Mod Log", class_="mod-log-btn", onclick="openLogModal()"),
+                        ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal()"),
                         class_="toolbar-right"
                     ),
                     class_="top-toolbar"
