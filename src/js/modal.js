@@ -182,3 +182,13 @@ window.removeFilter = function(columnName) {
         }, {priority: 'event'});
     }
 };
+
+// Undo a modification from the log
+window.undoModification = function(logIndex) {
+    if (typeof Shiny !== 'undefined') {
+        Shiny.setInputValue('undo_modification', {
+            index: logIndex,
+            ts: Date.now()
+        }, {priority: 'event'});
+    }
+};

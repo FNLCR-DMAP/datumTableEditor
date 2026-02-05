@@ -17,84 +17,43 @@ from config import (
     all_columns,
 )
 
+from src.utils import (
+    load_presets,
+    save_presets,
+    load_active_preset,
+    save_active_preset,
+    get_latest_approval_status,
+    get_row_status,
+    get_row_modifications,
+    get_status_counts,
+    get_modification_summary,
+    get_filtered_rows,
+)
+
 
 def create_server(input, output, session):
     """Server logic for the Shiny app"""
     
-    def _get_latest_approval_status():
-        """Load the latest approval/rejection status from the modifications log.
-        Only returns status for global approval (not row-based approval).
-        """
-        log = load_modifications_log()
-        approval_entries = [m for m in log if m.get("type") in ["approval", "rejection"]]
-        
-        if approval_entries:
-            latest = approval_entries[-1]
-            details = latest.get("details", {})
-            # Only show global banner if it's NOT a row-based approval
-            # Row-based approvals have "approved_rows" or "rejected_rows" in details
-            if "approved_rows" in details or "rejected_rows" in details:
-                # This is a row-based approval, don't show global banner
-                return None, None
-            status = "approved" if latest.get("type") == "approval" else "rejected"
-            timestamp = latest.get("timestamp", None)
-            return status, timestamp[:19] if timestamp else None
-        
-        return None, None
+    # File paths for presets
+    presets_file = data_dir / "column_presets.json"
+    active_preset_file = data_dir / "active_preset.json"
     
     # Reactive values
     data = reactive.Value(df_original.copy())
     mods_log = reactive.Value(load_modifications_log())
     selected_rows = reactive.Value(set())
     
-    # Presets storage - load from file if exists
-    # Preset format: {"name": {"columns": [...], "widths": {...}}}
-    presets_file = data_dir / "column_presets.json"
-    active_preset_file = data_dir / "active_preset.json"
+    # Load initial approval status from log
+    initial_status, initial_timestamp = get_latest_approval_status(load_modifications_log())
+    approval_status = reactive.Value(initial_status)
+    approval_timestamp = reactive.Value(initial_timestamp)
     
-    def _load_presets():
-        if presets_file.exists():
-            try:
-                with open(presets_file) as f:
-                    preset_data = json.load(f)
-                    # Handle old format (list) and new format (dict with columns/widths)
-                    result = {}
-                    for name, value in preset_data.items():
-                        if isinstance(value, list):
-                            result[name] = {"columns": value, "widths": {}}
-                        else:
-                            result[name] = value
-                    return result
-            except:
-                pass
-        return {"Default": {"columns": list(display_columns), "widths": {}}}
-    
-    def _save_presets(presets_dict):
-        with open(presets_file, "w") as f:
-            json.dump(presets_dict, f, indent=2)
-    
-    def _load_active_preset():
-        """Load the last active preset name from file"""
-        if active_preset_file.exists():
-            try:
-                with open(active_preset_file) as f:
-                    data = json.load(f)
-                    return data.get("active_preset", "Default")
-            except:
-                pass
-        return "Default"
-    
-    def _save_active_preset(preset_name):
-        """Save the active preset name to file"""
-        with open(active_preset_file, "w") as f:
-            json.dump({"active_preset": preset_name}, f)
-    
-    # Load presets first
-    loaded_presets = _load_presets()
+    # Load presets
+    loaded_presets = load_presets(presets_file, display_columns)
     column_presets = reactive.Value(loaded_presets)
     
     # Load last active preset (persists across refreshes)
-    initial_active_preset = _load_active_preset()
+    initial_active_preset = load_active_preset(active_preset_file)
     # Ensure the preset exists, fallback to Default if not
     if initial_active_preset not in loaded_presets:
         initial_active_preset = "Default"
@@ -118,75 +77,22 @@ def create_server(input, output, session):
     # Dynamic column filters - stores active filters as {column_name: selected_value}
     active_filters = reactive.Value({})
     
-    # Load initial approval status from log
-    initial_status, initial_timestamp = _get_latest_approval_status()
-    approval_status = reactive.Value(initial_status)
-    approval_timestamp = reactive.Value(initial_timestamp)
-    
+    # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
-        """Determine row status based on modifications log"""
-        log = mods_log.get()
-        has_modifications = any(
-            m.get("details", {}).get("row_index") == row_idx 
-            for m in log if m.get("type") == "field_modification"
-        )
-        
-        row_approval_entries = [
-            m for m in log 
-            if m.get("type") in ["approval", "rejection"] 
-            and row_idx in m.get("details", {}).get("approved_rows", []) + m.get("details", {}).get("rejected_rows", [])
-        ]
-        
-        if row_approval_entries:
-            latest_approval = row_approval_entries[-1]
-            if latest_approval.get("type") == "approval":
-                return "approved"
-            elif latest_approval.get("type") == "rejection":
-                return "rejected"
-        
-        if has_modifications:
-            return "edited"
-        else:
-            return "unprocessed"
+        """Wrapper for get_row_status that uses reactive log"""
+        return get_row_status(row_idx, mods_log.get())
     
     def _get_row_modifications(row_idx):
-        """Get all modifications for a specific row"""
-        log = mods_log.get()
-        return [
-            m for m in log 
-            if m.get("details", {}).get("row_index") == row_idx 
-            and m.get("type") == "field_modification"
-        ]
+        """Wrapper for get_row_modifications that uses reactive log"""
+        return get_row_modifications(row_idx, mods_log.get())
     
     def _get_status_counts():
-        """Get counts of each status"""
-        current_df = data.get()
-        counts = {"unprocessed": 0, "edited": 0, "approved": 0, "rejected": 0}
-        for idx in range(len(current_df)):
-            status = _get_row_status(idx)
-            counts[status] += 1
-        return counts
+        """Wrapper for get_status_counts that uses reactive values"""
+        return get_status_counts(data.get(), mods_log.get())
     
     def _get_modification_summary():
-        """Get summary of modification status for all rows"""
-        current_df = data.get()
-        status_counts = {"unprocessed": 0, "edited": 0, "approved": 0, "rejected": 0}
-        
-        summary_data = []
-        for idx in range(len(current_df)):
-            status = _get_row_status(idx)
-            status_counts[status] += 1
-            mods = _get_row_modifications(idx)
-            
-            summary_data.append({
-                "row_index": idx + 1,
-                "status": status,
-                "modifications_count": len(mods),
-                "patient_id": current_df.iloc[idx].get("PatientID", "N/A"),
-                "variant_key": current_df.iloc[idx].get("Variant_key", "N/A"),
-            })
-        
-        return summary_data, status_counts
+        """Wrapper for get_modification_summary that uses reactive values"""
+        return get_modification_summary(data.get(), mods_log.get())
     
     def _get_filtered_rows():
         """Get filtered rows based on search, status filter, and dynamic column filters"""
@@ -199,44 +105,22 @@ def create_server(input, output, session):
         except:
             status_filters = ["unprocessed", "edited", "approved", "rejected"]
         
-        # Get dynamic column filters
-        filters = active_filters.get()
-        
-        cols = active_columns.get()
-        filtered_indices = []
-        
-        for idx, (_, row) in enumerate(current_df.iterrows()):
-            # Check status filter
-            current_status = _get_row_status(idx)
-            if current_status not in status_filters:
-                continue
-            
-            # Check dynamic column filters
-            filter_pass = True
-            for col_name, filter_value in filters.items():
-                if filter_value and filter_value != "all" and col_name in current_df.columns:
-                    if str(row.get(col_name, "")) != filter_value:
-                        filter_pass = False
-                        break
-            
-            if not filter_pass:
-                continue
-            
-            # Check search filter
-            if search_term.strip():
-                search_lower = search_term.lower().strip()
-                row_matches = False
-                for col in cols:
-                    if col in current_df.columns and search_lower in str(row[col]).lower():
-                        row_matches = True
-                        break
-                if not row_matches:
-                    continue
-            
-            filtered_indices.append(idx)
-        
-        return filtered_indices
+        return get_filtered_rows(
+            df=current_df,
+            active_columns=active_columns.get(),
+            search_term=search_term,
+            status_filters=status_filters,
+            column_filters=active_filters.get(),
+            get_row_status_func=_get_row_status
+        )
+
+    # Wrapper functions for preset utilities (using file paths from this scope)
+    def _save_presets(presets_dict):
+        save_presets(presets_file, presets_dict)
     
+    def _save_active_preset(preset_name):
+        save_active_preset(active_preset_file, preset_name)
+
     # Output: Data summary text
     @render.text
     def data_summary():
@@ -294,7 +178,7 @@ def create_server(input, output, session):
     @reactive.event(input.refresh_preset)
     def _refresh_presets():
         """Reload presets from file when triggered"""
-        fresh_presets = _load_presets()
+        fresh_presets = load_presets(presets_file, display_columns)
         column_presets.set(fresh_presets)
         
         # Also refresh active_columns based on current preset
@@ -1064,24 +948,80 @@ def create_server(input, output, session):
             )
         
         log_items = []
-        for mod in reversed(log[-20:]):
+        # Only show field modifications (not approvals/rejections)
+        field_mods = [m for m in log if m.get("type") == "field_modification"]
+        for i, mod in enumerate(reversed(field_mods[-20:])):
+            # Calculate actual index in the log for undo
+            actual_idx = len(log) - 1 - log[::-1].index(mod)
             timestamp = mod.get("timestamp", "Unknown")
             details = mod.get("details", {})
             
             log_items.append(
                 ui.div(
-                    ui.tags.span(f"[{timestamp}]", class_="timestamp"),
-                    ui.tags.br(),
-                    ui.tags.span(
-                        f"Row {details.get('row_index', '?')} -> {details.get('column', '?')}: "
-                        f"'{details.get('old_value', '')}' -> '{details.get('new_value', '')}'",
-                        class_="change-detail"
+                    ui.div(
+                        ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
+                        ui.tags.button(
+                            "Undo",
+                            class_="btn btn-xs btn-outline-warning undo-btn",
+                            onclick=f"undoModification({actual_idx})",
+                            style="float: right; padding: 2px 8px; font-size: 10px;"
+                        ),
+                        style="display: flex; justify-content: space-between; align-items: center;"
                     ),
-                    class_="log-entry"
+                    ui.tags.span(
+                        f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+                        f"'{details.get('old_value', '')}' → '{details.get('new_value', '')}'",
+                        class_="change-detail",
+                        style="font-size: 11px; display: block; margin-top: 4px;"
+                    ),
+                    class_="log-entry",
+                    style="padding: 8px; border-bottom: 1px solid #eee;"
                 )
             )
         
         return ui.div(*log_items)
+    
+    # Event: Handle undo modification
+    @reactive.Effect
+    @reactive.event(input.undo_modification)
+    def _handle_undo():
+        undo_data = input.undo_modification()
+        if undo_data is None:
+            return
+        
+        log_idx = undo_data.get('index') if isinstance(undo_data, dict) else undo_data
+        if log_idx is None:
+            return
+        
+        log = mods_log.get()
+        if log_idx < 0 or log_idx >= len(log):
+            return
+        
+        mod = log[log_idx]
+        if mod.get("type") != "field_modification":
+            ui.notification_show("Can only undo field modifications.", type="warning", duration=2)
+            return
+        
+        details = mod.get("details", {})
+        row_idx = details.get("row_index")
+        col = details.get("column")
+        old_value = details.get("old_value")
+        
+        if row_idx is None or not col:
+            return
+        
+        # Revert the value in the dataframe
+        current_df = data.get()
+        if col in current_df.columns:
+            current_df.at[row_idx, col] = old_value
+            data.set(current_df.copy())
+            
+            # Remove the modification from log
+            new_log = log.copy()
+            new_log.pop(log_idx)
+            mods_log.set(new_log)
+            
+            ui.notification_show(f"Undone: Row {row_idx + 1}, {col}", type="message", duration=2)
     
     # Event: Handle cell edit from popup
     @reactive.Effect
@@ -1165,15 +1105,7 @@ def create_server(input, output, session):
     def _reload_data():
         data.set(df_original.copy())
         mods_log.set([])
-        ui.notification_show("Data reloaded. Modifications cleared.", type="message", duration=3)
-    
-    # Event: Clear log
-    @reactive.Effect
-    @reactive.event(input.clear_log_btn)
-    def _clear_log():
-        mods_log.set([])
-        modifications_log_path.write_text(json.dumps([], indent=2))
-        ui.notification_show("Modifications log cleared!", type="message", duration=3)
+        ui.notification_show("Data reset. Modifications cleared.", type="message", duration=3)
     
     # Event: Approve rows
     @reactive.Effect
