@@ -445,17 +445,24 @@ def create_app_ui():
                 min-height: 300px;
                 border: 2px solid #ddd;
                 border-radius: 5px;
-                overflow: hidden;
                 background: white;
+                position: relative;
             }
             .table-scroll-wrapper {
                 height: 100%;
                 overflow: auto;
+                position: relative;
             }
             .edit-table {
                 width: 100%;
                 font-size: 13px;
-                border-collapse: collapse;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+            .edit-table thead {
+                position: sticky;
+                top: 0;
+                z-index: 10;
             }
             .edit-table th {
                 background-color: #2c3e50;
@@ -463,11 +470,9 @@ def create_app_ui():
                 padding: 10px 8px;
                 text-align: left;
                 font-weight: 600;
-                position: sticky;
-                top: 0;
-                z-index: 10;
                 white-space: nowrap;
                 user-select: none;
+                border-bottom: 2px solid #1a252f;
             }
             .edit-table th.draggable-header {
                 cursor: grab;
@@ -481,7 +486,7 @@ def create_app_ui():
                 background-color: #1a252f;
                 box-shadow: inset 0 0 0 2px #3498db;
             }
-            .edit-table th .remove-header-btn {
+            .remove-header-btn {
                 position: absolute;
                 right: 6px;
                 top: 50%;
@@ -490,11 +495,12 @@ def create_app_ui():
                 border: none;
                 color: rgba(255,255,255,0.6);
                 cursor: pointer;
-                font-size: 14px;
-                padding: 2px 5px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0 4px;
                 line-height: 1;
             }
-            .edit-table th .remove-header-btn:hover {
+            .remove-header-btn:hover {
                 color: #ff6b6b;
             }
             .edit-table tbody tr:nth-child(even) {
@@ -738,11 +744,29 @@ def create_app_ui():
                 }
             }
             
-            // Remove column from header
+            // Remove column from header - use event delegation
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-header-btn')) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const col = e.target.dataset.column;
+                    console.log('Remove button clicked for column:', col);
+                    if (col && typeof Shiny !== 'undefined') {
+                        // Send unique value each time to ensure event fires
+                        Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+                    }
+                }
+            });
+            
+            // Legacy function for compatibility
             window.removeColumn = function(col, event) {
-                if (event) event.stopPropagation();
+                if (event) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                }
+                console.log('removeColumn called for:', col);
                 if (typeof Shiny !== 'undefined') {
-                    Shiny.setInputValue('remove_column', col, {priority: 'event'});
+                    Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
                 }
             };
             

@@ -305,12 +305,15 @@ def create_server(input, output, session):
     @reactive.Effect
     @reactive.event(input.remove_column)
     def _remove_column():
-        col = input.remove_column()
-        if col:
-            cols = active_columns.get()
-            if col in cols:
-                cols.remove(col)
-                active_columns.set(cols)
+        val = input.remove_column()
+        if val:
+            # Handle both string and dict format
+            col = val.get('col') if isinstance(val, dict) else val
+            if col:
+                cols = active_columns.get().copy()
+                if col in cols:
+                    cols.remove(col)
+                    active_columns.set(cols)
     
     # Reset columns (from JS)
     @reactive.Effect
@@ -516,10 +519,10 @@ def create_server(input, output, session):
             header_cells.append(
                 ui.tags.th(
                     col,
-                    ui.tags.button(
+                    ui.tags.span(
                         "×",
                         class_="remove-header-btn",
-                        onclick=f"removeColumn('{col}', event)"
+                        **{"data-column": col}
                     ),
                     class_="draggable-header",
                     draggable="true",
