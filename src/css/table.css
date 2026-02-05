@@ -1,0 +1,289 @@
+/* Table Styles */
+.table-container-frame {
+    flex: 1;
+    min-height: 200px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+.table-scroll-wrapper {
+    height: 100%;
+    overflow: auto;
+    position: relative;
+}
+.edit-table {
+    width: 100%;
+    font-size: 13px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.edit-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.edit-table th {
+    background-color: #495057;
+    color: white;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+    border-bottom: 2px solid #343a40;
+    border-right: 1px solid #6c757d;
+    position: relative;
+}
+.edit-table th.draggable-header {
+    cursor: grab;
+    padding-right: 35px;
+    min-width: 10px;
+    width: 100px;
+}
+.edit-table th.draggable-header:active {
+    cursor: grabbing;
+}
+.edit-table th.draggable-header.drag-over {
+    background-color: #343a40;
+    box-shadow: inset 0 0 0 2px #3498db;
+}
+
+/* Column resize handle */
+.resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background: transparent;
+}
+.resize-handle:hover {
+    background: #3498db;
+}
+.remove-header-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 0 4px;
+    line-height: 1;
+}
+.remove-header-btn:hover {
+    color: #ff6b6b;
+}
+.edit-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+.edit-table tbody tr:hover {
+    background-color: #e8f4f8;
+}
+.edit-table tbody tr.row-selected {
+    background-color: #cce5ff !important;
+}
+.edit-table tbody tr.row-selected:hover {
+    background-color: #b8daff !important;
+}
+.edit-table td {
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+}
+.row-number {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+    width: 10px;
+}
+
+/* Status Badges */
+.row-status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+}
+.status-edited { background-color: #8B4513; color: white; }
+.status-approved { background-color: #28a745; color: white; }
+.status-rejected { background-color: #dc3545; color: white; }
+.status-unprocessed { background-color: #e2e3e5; color: #383d41; }
+
+/* Histogram label colors */
+.status-label-edited { color: #8B4513; font-weight: 600; }
+.status-label-approved { color: #28a745; font-weight: 600; }
+.status-label-rejected { color: #dc3545; font-weight: 600; }
+.status-label-unprocessed { color: #6c757d; }
+
+/* Approval Status Banners */
+.status-approved-banner {
+    background-color: #e8f5e9;
+    border: 2px solid #4caf50;
+    color: #2e7d32;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+    margin: 10px 0;
+}
+.status-rejected-banner {
+    background-color: #ffebee;
+    border: 2px solid #f44336;
+    color: #c62828;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+    margin: 10px 0;
+}
+
+/* Editable Cell Styles */
+.editable-cell {
+    cursor: pointer;
+    position: relative;
+}
+.editable-cell:hover {
+    background-color: #e3f2fd !important;
+}
+.cell-value {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Cell Edit Popup */
+.cell-edit-popup {
+    display: none;
+    position: fixed;
+    z-index: 3000;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    padding: 15px;
+    min-width: 300px;
+    max-width: 500px;
+}
+.cell-edit-popup.show {
+    display: block;
+}
+.cell-edit-popup .popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+.cell-edit-popup .popup-header h4 {
+    margin: 0;
+    font-size: 14px;
+    color: #495057;
+}
+.cell-edit-popup .popup-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    line-height: 1;
+}
+.cell-edit-popup .popup-close:hover {
+    color: #343a40;
+}
+.cell-edit-popup .current-value-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+.cell-edit-popup .current-value-label {
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: 600;
+    min-width: 50px;
+}
+.cell-edit-popup .current-value-text {
+    flex: 1;
+    font-size: 13px;
+    color: #212529;
+    word-break: break-all;
+}
+.cell-edit-popup .copy-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid #ced4da;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.cell-edit-popup .copy-btn:hover {
+    background: #e9ecef;
+}
+.cell-edit-popup .copy-btn.copied {
+    background: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+.cell-edit-popup .new-value-section {
+    margin-bottom: 12px;
+}
+.cell-edit-popup .new-value-section label {
+    display: block;
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.cell-edit-popup .new-value-section input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.cell-edit-popup .new-value-section input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33,150,243,0.2);
+}
+.cell-edit-popup .popup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.cell-edit-popup .popup-actions button {
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.cell-edit-popup .btn-cancel {
+    background: #f8f9fa;
+    border: 1px solid #ced4da;
+    color: #495057;
+}
+.cell-edit-popup .btn-cancel:hover {
+    background: #e9ecef;
+}
+.cell-edit-popup .btn-save {
+    background: #28a745;
+    border: 1px solid #28a745;
+    color: white;
+}
+.cell-edit-popup .btn-save:hover {
+    background: #218838;
+}

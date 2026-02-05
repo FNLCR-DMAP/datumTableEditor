@@ -1,0 +1,228 @@
+/* Modal Styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.show {
+    display: flex;
+}
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.modal-body {
+    min-height: 100px;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #6c757d;
+}
+.modal-close:hover {
+    color: #343a40;
+}
+.modal-body {
+    margin-bottom: 15px;
+}
+.available-cols-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Modal drag and drop styles */
+.modal-draggable-col {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.modal-draggable-col:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.drag-over-modal {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px #007bff !important;
+}
+.drag-handle-modal:hover {
+    color: rgba(255,255,255,0.9) !important;
+}
+.add-col-tag {
+    padding: 6px 12px;
+    background: #e9ecef;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.add-col-tag:hover {
+    background: #28a745;
+    color: white;
+}
+
+/* Current columns in modal */
+.current-cols-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px dashed #ced4da;
+}
+.current-col-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    background: #2c3e50;
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.current-col-tag .remove-modal-col {
+    margin-left: 6px;
+    cursor: pointer;
+    opacity: 0.7;
+}
+.current-col-tag .remove-modal-col:hover {
+    opacity: 1;
+    color: #ff6b6b;
+}
+
+/* Column Customization */
+.column-config-section {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+.column-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.column-config-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+.column-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 40px;
+    padding: 8px;
+    background: white;
+    border: 1px dashed #ced4da;
+    border-radius: 4px;
+}
+.column-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    background: #2c3e50;
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: grab;
+    user-select: none;
+}
+.column-tag:active {
+    cursor: grabbing;
+}
+.column-tag .remove-col {
+    cursor: pointer;
+    opacity: 0.7;
+    margin-left: 4px;
+}
+.column-tag .remove-col:hover {
+    opacity: 1;
+}
+.column-tag.dragging {
+    opacity: 0.5;
+}
+.available-columns {
+    margin-top: 10px;
+}
+.available-columns-label {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+.available-column-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    background: #e9ecef;
+    color: #495057;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    margin: 2px;
+}
+.available-column-tag:hover {
+    background: #dee2e6;
+}
+
+/* Copy Column Modal */
+#copy-column-modal .modal-content {
+    max-width: 400px;
+}
+
+.copy-col-btn {
+    font-size: 13px;
+    border: 1px solid #007bff;
+    color: #007bff;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.copy-col-btn:hover {
+    background: #007bff;
+    color: white;
+}
+
+/* Add Filter Modal */
+#add-filter-modal .modal-content {
+    max-width: 400px;
+}
+
+#add-filter-modal .btn-outline-secondary {
+    font-size: 12px;
+    border: 1px solid #6c757d;
+    color: #495057;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+#add-filter-modal .btn-outline-secondary:hover {
+    background: #6c757d;
+    color: white;
+}

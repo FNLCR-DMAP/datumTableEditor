@@ -50,6 +50,8 @@ def create_server(input, output, session):
     # Presets storage - load from file if exists
     # Preset format: {"name": {"columns": [...], "widths": {...}}}
     presets_file = data_dir / "column_presets.json"
+    active_preset_file = data_dir / "active_preset.json"
+    
     def _load_presets():
         if presets_file.exists():
             try:
@@ -71,15 +73,37 @@ def create_server(input, output, session):
         with open(presets_file, "w") as f:
             json.dump(presets_dict, f, indent=2)
     
+    def _load_active_preset():
+        """Load the last active preset name from file"""
+        if active_preset_file.exists():
+            try:
+                with open(active_preset_file) as f:
+                    data = json.load(f)
+                    return data.get("active_preset", "Default")
+            except:
+                pass
+        return "Default"
+    
+    def _save_active_preset(preset_name):
+        """Save the active preset name to file"""
+        with open(active_preset_file, "w") as f:
+            json.dump({"active_preset": preset_name}, f)
+    
     # Load presets first
     loaded_presets = _load_presets()
     column_presets = reactive.Value(loaded_presets)
-    active_preset = reactive.Value("Default")
     
-    # Initialize active_columns from the Default preset (or fallback to display_columns)
-    default_preset = loaded_presets.get("Default", {"columns": list(display_columns), "widths": {}})
-    initial_columns = default_preset.get("columns", list(display_columns)) if isinstance(default_preset, dict) else list(default_preset)
-    initial_widths = default_preset.get("widths", {}) if isinstance(default_preset, dict) else {}
+    # Load last active preset (persists across refreshes)
+    initial_active_preset = _load_active_preset()
+    # Ensure the preset exists, fallback to Default if not
+    if initial_active_preset not in loaded_presets:
+        initial_active_preset = "Default"
+    active_preset = reactive.Value(initial_active_preset)
+    
+    # Initialize active_columns from the saved active preset (not just Default)
+    saved_preset = loaded_presets.get(initial_active_preset, loaded_presets.get("Default", {"columns": list(display_columns), "widths": {}}))
+    initial_columns = saved_preset.get("columns", list(display_columns)) if isinstance(saved_preset, dict) else list(saved_preset)
+    initial_widths = saved_preset.get("widths", {}) if isinstance(saved_preset, dict) else {}
     
     # Column customization - track which columns to display and their order
     active_columns = reactive.Value(list(initial_columns))
@@ -89,6 +113,10 @@ def create_server(input, output, session):
     
     # Pagination state
     current_page = reactive.Value(1)
+    rows_per_page_value = reactive.Value("25")  # Default rows per page
+    
+    # Dynamic column filters - stores active filters as {column_name: selected_value}
+    active_filters = reactive.Value({})
     
     # Load initial approval status from log
     initial_status, initial_timestamp = _get_latest_approval_status()
@@ -161,7 +189,7 @@ def create_server(input, output, session):
         return summary_data, status_counts
     
     def _get_filtered_rows():
-        """Get filtered rows based on search, status filter, and column filters"""
+        """Get filtered rows based on search, status filter, and dynamic column filters"""
         current_df = data.get()
         search_term = input.search_input() if hasattr(input, 'search_input') else ""
         
@@ -171,21 +199,8 @@ def create_server(input, output, session):
         except:
             status_filters = ["unprocessed", "edited", "approved", "rejected"]
         
-        # Get column filters
-        try:
-            gene_filter = input.gene_filter()
-        except:
-            gene_filter = "all"
-        
-        try:
-            status_value_filter = input.status_value_filter()
-        except:
-            status_value_filter = "all"
-        
-        try:
-            exonic_filter = input.exonic_filter()
-        except:
-            exonic_filter = "all"
+        # Get dynamic column filters
+        filters = active_filters.get()
         
         cols = active_columns.get()
         filtered_indices = []
@@ -196,18 +211,16 @@ def create_server(input, output, session):
             if current_status not in status_filters:
                 continue
             
-            # Check column filters
-            if gene_filter != "all" and "Gene_names" in current_df.columns:
-                if str(row.get("Gene_names", "")) != gene_filter:
-                    continue
+            # Check dynamic column filters
+            filter_pass = True
+            for col_name, filter_value in filters.items():
+                if filter_value and filter_value != "all" and col_name in current_df.columns:
+                    if str(row.get(col_name, "")) != filter_value:
+                        filter_pass = False
+                        break
             
-            if status_value_filter != "all" and "Status" in current_df.columns:
-                if str(row.get("Status", "")) != status_value_filter:
-                    continue
-            
-            if exonic_filter != "all" and "Exonic_Functions" in current_df.columns:
-                if str(row.get("Exonic_Functions", "")) != exonic_filter:
-                    continue
+            if not filter_pass:
+                continue
             
             # Check search filter
             if search_term.strip():
@@ -429,6 +442,7 @@ def create_server(input, output, session):
         active_columns.set(list(display_columns))
         column_widths.set({})
         active_preset.set("Default")
+        _save_active_preset("Default")
     
     # Handle column widths from JS
     @reactive.Effect
@@ -455,6 +469,7 @@ def create_server(input, output, session):
                     active_columns.set(list(preset_data.get("columns", [])))
                     column_widths.set(preset_data.get("widths", {}))
                 active_preset.set(preset_name)
+                _save_active_preset(preset_name)
     
     # Handle saving a new preset (from JS)
     @reactive.Effect
@@ -471,6 +486,7 @@ def create_server(input, output, session):
             column_presets.set(presets)
             _save_presets(presets)
             active_preset.set(name)
+            _save_active_preset(name)
             ui.notification_show(f"Preset '{name}' saved!", type="message", duration=2)
     
     # Handle saving current layout to current preset (not Default)
@@ -504,6 +520,7 @@ def create_server(input, output, session):
                 _save_presets(presets)
                 if active_preset.get() == name:
                     active_preset.set("Default")
+                    _save_active_preset("Default")
                     default_preset = presets.get("Default", {"columns": list(display_columns), "widths": {}})
                     if isinstance(default_preset, list):
                         active_columns.set(list(default_preset))
@@ -513,36 +530,239 @@ def create_server(input, output, session):
                         column_widths.set(default_preset.get("widths", {}))
                 ui.notification_show(f"Preset '{name}' deleted!", type="message", duration=2)
     
-    # Update filter dropdowns based on data
+    # Output: Copy column list for copy modal
+    @render.ui
+    @reactive.event(input.refresh_copy_columns)
+    def copy_column_list():
+        """Render list of columns available to copy"""
+        cols = list(active_columns.get())
+        if not cols:
+            cols = list(display_columns)
+        
+        column_buttons = []
+        for col in cols:
+            column_buttons.append(
+                ui.div(
+                    ui.tags.button(
+                        col,
+                        class_="btn btn-outline-primary btn-block copy-col-btn",
+                        onclick=f"copyColumnValues('{col}')",
+                        style="width: 100%; margin-bottom: 8px; text-align: left; padding: 10px 15px;"
+                    )
+                )
+            )
+        
+        return ui.div(
+            *column_buttons if column_buttons else [ui.p("No columns available.", style="color: #999;")],
+            style="max-height: 400px; overflow-y: auto;"
+        )
+    
+    # Handle copy column request from JS
     @reactive.Effect
-    def _update_filters():
+    @reactive.event(input.copy_column_request)
+    def _handle_copy_request():
+        req = input.copy_column_request()
+        if not req:
+            return
+        
+        column_name = req.get('column')
+        indices = req.get('indices', [])
+        
+        if not column_name or not indices:
+            ui.notification_show("No column or rows selected.", type="warning", duration=2)
+            return
+        
+        df = data.get()
+        filtered_indices = _get_filtered_rows()
+        
+        # Get the actual row indices from paginated indices
+        rows_per_page_val = rows_per_page_value.get()
+        if rows_per_page_val == "all":
+            paginated_indices = filtered_indices
+        else:
+            rows_per_page = int(rows_per_page_val)
+            page = current_page.get()
+            start = (page - 1) * rows_per_page
+            end = start + rows_per_page
+            paginated_indices = filtered_indices[start:end]
+        
+        # Get actual DataFrame indices
+        actual_indices = [paginated_indices[i] for i in indices if i < len(paginated_indices)]
+        
+        if column_name in df.columns:
+            values = df.loc[actual_indices, column_name].astype(str).tolist()
+            copy_text = "\n".join(values)
+            
+            # Send to JS to copy to clipboard
+            from shiny import session
+            import json
+            js_code = f"""
+                navigator.clipboard.writeText({json.dumps(copy_text)}).then(function() {{
+                    console.log('Copied to clipboard');
+                }}).catch(function(err) {{
+                    console.error('Could not copy: ', err);
+                }});
+            """
+            ui.insert_ui(
+                ui.tags.script(js_code),
+                selector="body",
+                where="beforeEnd"
+            )
+            ui.notification_show(f"Copied {len(values)} values from '{column_name}' to clipboard!", type="message", duration=2)
+        else:
+            ui.notification_show(f"Column '{column_name}' not found.", type="error", duration=2)
+    
+    # Output: Dynamic filters UI
+    @render.ui
+    def dynamic_filters():
+        """Render active dynamic filters"""
+        filters = active_filters.get()
         df = data.get()
         
-        # Gene filter
-        if "Gene_names" in df.columns:
-            genes = ["all"] + sorted(df["Gene_names"].dropna().unique().tolist())
-            ui.update_select("gene_filter", choices={g: g if g != "all" else "All Genes" for g in genes})
+        if not filters:
+            return ui.div(
+                ui.p("No filters active. Click + to add a filter.", style="font-size: 12px; color: #6c757d; margin: 5px 0;")
+            )
         
-        # Status value filter
-        if "Status" in df.columns:
-            statuses = ["all"] + sorted(df["Status"].dropna().unique().tolist())
-            ui.update_select("status_value_filter", choices={s: s if s != "all" else "All Status Values" for s in statuses})
+        filter_elements = []
+        for col_name in filters:
+            if col_name not in df.columns:
+                continue
+            
+            # Get unique values for this column
+            unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
+            current_value = filters.get(col_name, "all")
+            
+            filter_elements.append(
+                ui.div(
+                    ui.div(
+                        ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
+                        ui.tags.button("×", class_="remove-filter-btn", 
+                                       onclick=f"removeFilter('{col_name}')",
+                                       style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;"),
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
+                    ),
+                    ui.input_select(
+                        f"filter_{col_name}",
+                        label=None,
+                        choices={v: v if v != "all" else f"All {col_name}" for v in unique_values},
+                        selected=current_value
+                    ),
+                    class_="filter-group",
+                    style="margin-bottom: 10px;"
+                )
+            )
         
-        # Exonic function filter
-        if "Exonic_Functions" in df.columns:
-            funcs = ["all"] + sorted(df["Exonic_Functions"].dropna().unique().tolist())
-            ui.update_select("exonic_filter", choices={f: f if f != "all" else "All Functions" for f in funcs})
+        return ui.div(*filter_elements)
+    
+    # Output: Available columns for filter modal
+    @render.ui
+    def available_filter_columns():
+        """Render list of columns that can be added as filters"""
+        df = data.get()
+        filters = active_filters.get()
+        
+        # Get columns that aren't already active filters
+        available_cols = [col for col in df.columns if col not in filters]
+        
+        if not available_cols:
+            return ui.p("All columns are already being filtered.", style="color: #6c757d;")
+        
+        column_buttons = []
+        for col in available_cols:
+            column_buttons.append(
+                ui.tags.button(
+                    col,
+                    class_="btn btn-outline-secondary btn-block",
+                    onclick=f"addFilter('{col}')",
+                    style="width: 100%; margin-bottom: 8px; text-align: left; padding: 8px 12px; font-size: 12px;"
+                )
+            )
+        
+        return ui.div(
+            *column_buttons,
+            style="max-height: 400px; overflow-y: auto;"
+        )
+    
+    # Handle adding a filter
+    @reactive.Effect
+    @reactive.event(input.add_filter_column)
+    def _add_filter():
+        val = input.add_filter_column()
+        if val:
+            col_name = val.get('column') if isinstance(val, dict) else val
+            if col_name:
+                filters = active_filters.get().copy()
+                if col_name not in filters:
+                    filters[col_name] = "all"
+                    active_filters.set(filters)
+    
+    # Handle removing a filter
+    @reactive.Effect
+    @reactive.event(input.remove_filter_column)
+    def _remove_filter():
+        val = input.remove_filter_column()
+        if val:
+            col_name = val.get('column') if isinstance(val, dict) else val
+            if col_name:
+                filters = active_filters.get().copy()
+                if col_name in filters:
+                    del filters[col_name]
+                    active_filters.set(filters)
+    
+    # Watch for filter dropdown changes - dynamically observe filter inputs
+    @reactive.Effect
+    def _watch_filter_changes():
+        filters = active_filters.get()
+        
+        if not filters:
+            return
+        
+        updated = False
+        new_filters = filters.copy()
+        
+        for col_name in list(filters.keys()):
+            filter_id = f"filter_{col_name}"
+            try:
+                current_val = getattr(input, filter_id)()
+                if current_val and new_filters.get(col_name) != current_val:
+                    new_filters[col_name] = current_val
+                    updated = True
+            except:
+                pass
+        
+        if updated:
+            active_filters.set(new_filters)
+            current_page.set(1)  # Reset to first page when filter changes
     
     # Output: Pagination controls
     @render.ui
     def pagination_controls():
-        """Render pagination controls"""
+        """Render pagination controls with rows per page selector"""
         filtered_indices = _get_filtered_rows()
         total_rows = len(filtered_indices)
         
-        rows_per_page_val = input.rows_per_page()
+        rows_per_page_val = rows_per_page_value.get()
+        
         if rows_per_page_val == "all":
             return ui.div(
+                ui.div(
+                    ui.tags.label("Rows: ", style="font-size: 11px; margin-right: 4px;"),
+                    ui.input_select(
+                        "rows_per_page",
+                        label=None,
+                        choices={
+                            "10": "10",
+                            "25": "25",
+                            "50": "50",
+                            "100": "100",
+                            "all": "All"
+                        },
+                        selected=rows_per_page_val,
+                        width="70px"
+                    ),
+                    class_="rows-per-page-control"
+                ),
                 ui.span(f"Showing all {total_rows} rows", class_="pagination-info"),
                 class_="pagination-bar"
             )
@@ -555,6 +775,23 @@ def create_server(input, output, session):
         end_row = min(page * rows_per_page, total_rows)
         
         return ui.div(
+            ui.div(
+                ui.tags.label("Rows: ", style="font-size: 11px; margin-right: 4px;"),
+                ui.input_select(
+                    "rows_per_page",
+                    label=None,
+                    choices={
+                        "10": "10",
+                        "25": "25",
+                        "50": "50",
+                        "100": "100",
+                        "all": "All"
+                    },
+                    selected=rows_per_page_val,
+                    width="70px"
+                ),
+                class_="rows-per-page-control"
+            ),
             ui.span(f"Showing {start_row}-{end_row} of {total_rows} rows", class_="pagination-info"),
             ui.div(
                 ui.input_action_button("first_page_btn", "« First", class_="btn btn-sm btn-outline-secondary", disabled=(page <= 1)),
@@ -573,6 +810,17 @@ def create_server(input, output, session):
             class_="pagination-bar"
         )
     
+    # Sync rows_per_page input with reactive value
+    @reactive.Effect
+    def _sync_rows_per_page():
+        try:
+            val = input.rows_per_page()
+            if val and val != rows_per_page_value.get():
+                rows_per_page_value.set(val)
+                current_page.set(1)  # Reset to first page when changing rows per page
+        except:
+            pass
+    
     # Pagination event handlers
     @reactive.Effect
     @reactive.event(input.first_page_btn)
@@ -590,7 +838,7 @@ def create_server(input, output, session):
     @reactive.event(input.next_page_btn)
     def _next_page():
         filtered_indices = _get_filtered_rows()
-        rows_per_page_val = input.rows_per_page()
+        rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val != "all":
             rows_per_page = int(rows_per_page_val)
             total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
@@ -602,7 +850,7 @@ def create_server(input, output, session):
     @reactive.event(input.last_page_btn)
     def _last_page():
         filtered_indices = _get_filtered_rows()
-        rows_per_page_val = input.rows_per_page()
+        rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val != "all":
             rows_per_page = int(rows_per_page_val)
             total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
@@ -612,7 +860,7 @@ def create_server(input, output, session):
     @reactive.event(input.page_jump_btn)
     def _page_jump():
         filtered_indices = _get_filtered_rows()
-        rows_per_page_val = input.rows_per_page()
+        rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val != "all":
             rows_per_page = int(rows_per_page_val)
             total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
@@ -623,14 +871,9 @@ def create_server(input, output, session):
             except:
                 pass
     
-    # Reset to page 1 when filters change
+    # Reset to page 1 when search or status filters change
     @reactive.Effect
-    @reactive.event(input.rows_per_page)
-    def _reset_page_on_rows_change():
-        current_page.set(1)
-    
-    @reactive.Effect
-    @reactive.event(input.search_input, input.status_filter_multi, input.gene_filter, input.status_value_filter, input.exonic_filter)
+    @reactive.event(input.search_input, input.status_filter_multi)
     def _reset_page_on_filter_change():
         current_page.set(1)
 
@@ -647,7 +890,7 @@ def create_server(input, output, session):
         widths = column_widths.get()
         
         # Apply pagination
-        rows_per_page_val = input.rows_per_page()
+        rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val == "all":
             paginated_indices = filtered_indices
         else:

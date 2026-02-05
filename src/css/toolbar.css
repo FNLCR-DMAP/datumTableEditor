@@ -1,0 +1,157 @@
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.action-buttons button {
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+/* Top Toolbar Row */
+.top-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+.toolbar-left {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.toolbar-left .btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.toolbar-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Preset Dropdown */
+.preset-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.preset-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border: 1px solid #ced4da;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.preset-btn:hover {
+    background: #f8f9fa;
+}
+.preset-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 200px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    margin-top: 4px;
+}
+.preset-menu.show {
+    display: block;
+}
+.preset-menu-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+.preset-menu-item:hover {
+    background: #f8f9fa;
+}
+.preset-menu-item.active {
+    background: #e3f2fd;
+    font-weight: 600;
+}
+.preset-menu-item .delete-preset {
+    color: #dc3545;
+    opacity: 0.7;
+    cursor: pointer;
+}
+.preset-menu-item .delete-preset:hover {
+    opacity: 1;
+}
+.preset-menu-divider {
+    border-top: 1px solid #dee2e6;
+    margin: 4px 0;
+}
+.preset-save-row {
+    padding: 10px 14px;
+    display: flex;
+    gap: 6px;
+}
+.preset-save-row input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Add Column Button */
+.add-col-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border: 1px solid #28a745;
+    background: #28a745;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.add-col-btn:hover {
+    background: #218838;
+}
+
+/* Save Layout Button */
+.save-layout-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border: 1px solid #17a2b8;
+    background: #17a2b8;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 8px;
+}
+.save-layout-btn:hover {
+    background: #138496;
+}
+
+/* Mod Log Button */
+.mod-log-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border: 1px solid #6c757d;
+    background: #6c757d;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.mod-log-btn:hover {
+    background: #5a6268;
+}

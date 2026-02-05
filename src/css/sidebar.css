@@ -1,0 +1,140 @@
+/* Table Name Section */
+.table-name-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+.table-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+.table-subtitle {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* Stats Histogram */
+.stats-section {
+    margin-bottom: 20px;
+}
+.stats-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
+}
+.histogram-bar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.histogram-label {
+    width: 90px;
+    font-size: 12px;
+    color: #495057;
+}
+.histogram-track {
+    flex: 1;
+    height: 20px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-right: 8px;
+}
+.histogram-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+.histogram-fill.unprocessed { background: #6c757d; }
+.histogram-fill.edited { background: #8B4513; }
+.histogram-fill.approved { background: #28a745; }
+.histogram-fill.rejected { background: #dc3545; }
+.histogram-count {
+    width: 35px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+}
+
+/* Histogram checkbox styling */
+.histogram-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 110px;
+    cursor: pointer;
+}
+.histogram-checkbox-label input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+.histogram-checkbox-label .histogram-label {
+    width: auto;
+}
+
+/* Hide the actual shiny checkbox group - we use custom checkboxes */
+.stats-section > .shiny-input-checkboxgroup {
+    display: none;
+}
+
+/* Filter Section */
+.filter-section {
+    margin-bottom: 20px;
+}
+.filter-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
+}
+.filter-group {
+    margin-bottom: 15px;
+}
+.filter-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 5px;
+}
+.filter-group input,
+.filter-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.filter-group input:focus,
+.filter-group select:focus {
+    border-color: #2196F3;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* Column Filter Section */
+.column-filter-section {
+    margin-bottom: 20px;
+}
+.column-filter-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin: 0;
+}
+.filter-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.add-filter-btn {
+    line-height: 1;
+}
+.remove-filter-btn:hover {
+    color: #a71d2a !important;
+}

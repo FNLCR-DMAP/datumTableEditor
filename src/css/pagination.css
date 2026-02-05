@@ -1,0 +1,73 @@
+/* Pagination Controls */
+.pagination-controls-section {
+    margin-top: 8px;
+    flex-shrink: 0;
+}
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    gap: 10px;
+}
+.rows-per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.rows-per-page-control select {
+    padding: 2px 4px;
+    font-size: 11px;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+}
+.pagination-info {
+    font-size: 11px;
+    color: #495057;
+}
+.pagination-buttons {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+}
+.pagination-buttons button {
+    padding: 3px 8px;
+    font-size: 11px;
+    border: 1px solid #dee2e6;
+    background: white;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.pagination-buttons button:hover:not(:disabled) {
+    background: #e9ecef;
+}
+.pagination-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.pagination-buttons .page-indicator {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #495057;
+}
+.page-jump {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.page-jump input {
+    width: 45px;
+    padding: 3px;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 11px;
+}
+.page-jump button {
+    padding: 3px 6px;
+    font-size: 10px;
+}
