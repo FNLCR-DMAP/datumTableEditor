@@ -133,6 +133,7 @@ def create_app_ui():
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success"),
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger"),
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal()"),
+                        ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows()"),
                         class_="toolbar-left"
                     ),
                     # Right side - Preset dropdown + Add Column button
