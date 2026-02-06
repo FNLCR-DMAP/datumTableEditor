@@ -1,0 +1,157 @@
+"""
+Modal and dialog builders for the Epitopes Data Editor.
+"""
+
+import pandas as pd
+from shiny import ui
+
+
+def build_current_column_tag(col: str, index: int) -> ui.div:
+    """Build a draggable current column tag for the column modal."""
+    return ui.div(
+        ui.span("⠿", class_="drag-handle-modal", style="cursor: grab; margin-right: 6px; color: rgba(255,255,255,0.5);"),
+        ui.span(f"{index}. {col}", style="margin-right: 8px;"),
+        ui.tags.button("×", class_="remove-modal-col", onclick=f"removeColumnFromModal('{col}', event)", 
+                       style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px;"),
+        class_="current-col-tag modal-draggable-col",
+        draggable="true",
+        **{"data-column": col},
+        style="display: inline-flex; align-items: center; padding: 6px 10px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; margin: 3px; cursor: move;"
+    )
+
+
+def build_available_column_tag(col: str) -> ui.div:
+    """Build an available column tag for the column modal."""
+    return ui.div(
+        f"+ {col}",
+        class_="add-col-tag",
+        onclick=f"addColumn('{col}', event)",
+        style="display: inline-block; padding: 6px 12px; background: #e9ecef; border-radius: 4px; font-size: 12px; cursor: pointer; margin: 3px;"
+    )
+
+
+def build_columns_modal_content(current_cols: list, available_cols: list) -> ui.div:
+    """Build the full columns modal content."""
+    current_html = [build_current_column_tag(col, i) for i, col in enumerate(current_cols, 1)]
+    available_html = [build_available_column_tag(col) for col in available_cols]
+    
+    return ui.div(
+        # Current columns section
+        ui.div(
+            ui.tags.strong("Current columns (drag to reorder):", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
+            ui.div(
+                *current_html if current_html else [ui.span("No columns displayed.", style="color: #999;")],
+                id="modal-columns-container",
+                style="display: flex; flex-wrap: wrap; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ced4da; min-height: 40px;"
+            ),
+            style="margin-bottom: 20px;"
+        ),
+        # Available columns section
+        ui.div(
+            ui.tags.strong("Remaining columns:", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
+            ui.div(
+                *available_html if available_html else [ui.span("All columns displayed.", style="color: #999;")],
+                style="display: flex; flex-wrap: wrap; min-height: 40px;"
+            )
+        )
+    )
+
+
+def build_preset_menu_items(presets: dict, current_preset: str) -> ui.div:
+    """Build preset menu items list."""
+    items = []
+    for name in presets.keys():
+        is_active = name == current_preset
+        delete_btn = ui.tags.span(
+            "×", 
+            class_="delete-preset", 
+            onclick=f"deletePreset('{name}', event)"
+        ) if name != "Default" else ""
+        
+        items.append(
+            ui.div(
+                name,
+                delete_btn,
+                class_=f"preset-menu-item {'active' if is_active else ''}",
+                onclick=f"loadPreset('{name}')"
+            )
+        )
+    
+    if not items:
+        return ui.div("No presets available", style="color: #999; padding: 8px;")
+    return ui.div(*items)
+
+
+def build_copy_column_buttons(columns: list) -> ui.div:
+    """Build copy column buttons list."""
+    buttons = []
+    for col in columns:
+        safe_col = col.replace("'", "\\'")
+        buttons.append(
+            ui.tags.button(
+                col,
+                class_="btn copy-col-btn",
+                onclick=f"copyColumnValues('{safe_col}')",
+                style="width: 100%; margin-bottom: 4px; text-align: left; padding: 6px 10px; font-size: 12px; border: 1px solid #333; color: #333; background: white;"
+            )
+        )
+    return ui.div(*buttons, style="max-height: 400px; overflow-y: auto;")
+
+
+def build_filter_column_buttons(available_cols: list) -> ui.div:
+    """Build filter column selection buttons."""
+    if not available_cols:
+        return ui.p("All columns are already being filtered.", style="color: #6c757d;")
+    
+    column_buttons = []
+    for col in available_cols:
+        column_buttons.append(
+            ui.tags.button(
+                col,
+                class_="btn btn-outline-secondary btn-block",
+                onclick=f"addFilter('{col}')",
+                style="width: 100%; margin-bottom: 8px; text-align: left; padding: 8px 12px; font-size: 12px;"
+            )
+        )
+    
+    return ui.div(*column_buttons, style="max-height: 400px; overflow-y: auto;")
+
+
+def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str) -> ui.div:
+    """Build a single dynamic filter element."""
+    return ui.div(
+        ui.div(
+            ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
+            ui.tags.button("×", class_="remove-filter-btn", 
+                           onclick=f"removeFilter('{col_name}')",
+                           style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;"),
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
+        ),
+        ui.input_select(
+            f"filter_{col_name}",
+            label=None,
+            choices={v: v if v != "all" else f"All {col_name}" for v in unique_values},
+            selected=current_value
+        ),
+        class_="filter-group",
+        style="margin-bottom: 10px;"
+    )
+
+
+def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame) -> ui.div:
+    """Build the complete dynamic filters panel."""
+    if not filters:
+        return ui.div(
+            ui.p("No filters active. Click + to add a filter.", style="font-size: 12px; color: #6c757d; margin: 5px 0;")
+        )
+    
+    filter_elements = []
+    for col_name in filters:
+        if col_name not in df.columns:
+            continue
+        
+        unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
+        current_value = filters.get(col_name, "all")
+        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value))
+    
+    return ui.div(*filter_elements)

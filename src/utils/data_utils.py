@@ -45,8 +45,10 @@ def get_row_status(row_idx: int, log: list) -> str:
     Returns:
         Status string: "approved", "rejected", "edited", or "unprocessed"
     """
-    has_modifications = any(
+    # Check for active (non-undone) modifications on this row
+    has_active_modifications = any(
         m.get("details", {}).get("row_index") == row_idx 
+        and not m.get("undone", False)
         for m in log if m.get("type") == "field_modification"
     )
     
@@ -63,7 +65,7 @@ def get_row_status(row_idx: int, log: list) -> str:
         elif latest_approval.get("type") == "rejection":
             return "rejected"
     
-    if has_modifications:
+    if has_active_modifications:
         return "edited"
     else:
         return "unprocessed"
