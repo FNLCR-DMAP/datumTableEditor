@@ -23,11 +23,12 @@ except ImportError:
 
 
 def _get_row_pk(df: pd.DataFrame, row_idx: int) -> dict:
-    """Extract primary key values for a row."""
+    """Extract primary key values for a row using positional index (iloc)."""
     try:
         from config import app_config
         pk_cols = app_config.table.primary_key
-        return {pk: df.at[row_idx, pk] for pk in pk_cols if pk in df.columns}
+        row = df.iloc[row_idx]
+        return {pk: row[pk] for pk in pk_cols if pk in df.columns}
     except:
         return {"row_index": row_idx}
 
@@ -82,7 +83,26 @@ def perform_undo(
     
     # Create copies to avoid mutating originals
     updated_df = df.copy()
-    updated_df.at[row_idx, col] = old_value
+    
+    # Find the row by primary key (robust against sorting)
+    from config import app_config
+    pk_cols = app_config.table.primary_key
+    
+    if row_pk and pk_cols:
+        # Find row using primary key
+        mask = pd.Series([True] * len(updated_df))
+        for pk_col in pk_cols:
+            if pk_col in row_pk and pk_col in updated_df.columns:
+                mask &= (updated_df[pk_col].astype(str) == str(row_pk[pk_col]))
+        
+        if mask.any():
+            col_idx = updated_df.columns.get_loc(col)
+            updated_df.iloc[mask.values, col_idx] = old_value
+        else:
+            return None, None, None, f"Could not find row with PK: {row_pk}"
+    else:
+        # Fallback to positional index (less safe)
+        updated_df.iloc[row_idx, updated_df.columns.get_loc(col)] = old_value
     
     # Update database if enabled
     if DB_AVAILABLE and app_config.database.enabled:
@@ -137,7 +157,8 @@ def perform_cell_edit(
         return df, log
     
     updated_df = df.copy()
-    updated_df.at[row, col] = new_value
+    # Use iloc for positional indexing (row is a position, not a label)
+    updated_df.iloc[row, updated_df.columns.get_loc(col)] = new_value
     
     # Get row primary key for database operations
     row_pk = _get_row_pk(df, row)

@@ -14,6 +14,7 @@ from config import (
     all_columns,
     save_ui_state,
     load_ui_state,
+    app_config,
 )
 
 from src.utils import (
@@ -141,8 +142,16 @@ def create_server(input, output, session):  # noqa: ARG001
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
-        """Wrapper for get_row_status that uses reactive log"""
-        return get_row_status(row_idx, mods_log.get())
+        """Wrapper for get_row_status that uses reactive log and PK for accurate matching"""
+        current_df = data.get()
+        # Get the primary key for this row (positional index)
+        try:
+            pk_cols = app_config.table.primary_key
+            row = current_df.iloc[row_idx]
+            row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
+        except:
+            row_pk = None
+        return get_row_status(row_idx, mods_log.get(), row_pk)
     
     def _get_status_counts():
         """Wrapper for get_status_counts that uses reactive values"""

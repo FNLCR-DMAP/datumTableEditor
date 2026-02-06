@@ -214,9 +214,10 @@ def load_config(config_path: Optional[Path] = None) -> AppConfig:
     """
     config = AppConfig()
     
-    # Determine config file path (look in project root, not src)
+    # Determine config file path (look in project root - 3 levels up from this file)
+    # src/config/app_config_schema.py -> src/config -> src -> project_root
     if config_path is None:
-        config_path = Path(__file__).parent.parent / "app_config.json"
+        config_path = Path(__file__).parent.parent.parent / "app_config.json"
     
     # Load from file if exists
     if config_path.exists():

@@ -34,20 +34,35 @@ def get_latest_approval_status(log: list) -> Tuple[Optional[str], Optional[str]]
     return None, None
 
 
-def get_row_status(row_idx: int, log: list) -> str:
+def get_row_status(row_idx: int, log: list, row_pk: dict = None) -> str:
     """
     Determine row status based on modifications log.
     
     Args:
-        row_idx: Index of the row
+        row_idx: Index of the row (positional)
         log: List of modification log entries
+        row_pk: Optional primary key dict for more accurate matching
         
     Returns:
         Status string: "approved", "rejected", "edited", or "unprocessed"
     """
+    # Helper to check if a log entry matches this row
+    def matches_row(entry_details):
+        # First try to match by primary key if both are available
+        if row_pk and "row_pk" in entry_details:
+            entry_pk = entry_details.get("row_pk", {})
+            if entry_pk and row_pk:
+                # Match if all PK values match
+                for k, v in row_pk.items():
+                    if k in entry_pk and str(entry_pk[k]) == str(v):
+                        return True
+                return False
+        # Fallback to row_index matching
+        return entry_details.get("row_index") == row_idx
+    
     # Check for active (non-undone) modifications on this row
     has_active_modifications = any(
-        m.get("details", {}).get("row_index") == row_idx 
+        matches_row(m.get("details", {}))
         and not m.get("undone", False)
         for m in log if m.get("type") == "field_modification"
     )
