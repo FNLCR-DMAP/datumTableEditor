@@ -1,0 +1,185 @@
+name: QC Check Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  qc-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Python Syntax Check
+        run: |
+          echo "============================================"
+          echo "  Python Syntax Check"
+          echo "============================================"
+          ERRORS=0
+          for pyfile in $(find . -name "*.py" -not -path "./__pycache__/*" -not -path "./tooling/*" -not -path "./.git/*" -not -path "./.venv/*"); do
+            if ! python -m py_compile "$pyfile" 2>/dev/null; then
+              echo "❌ Syntax error in: $pyfile"
+              python -m py_compile "$pyfile" 2>&1 | head -5
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          if [ "$ERRORS" -eq 0 ]; then
+            echo "✅ All Python files have valid syntax"
+          else
+            echo "❌ Found $ERRORS files with syntax errors"
+            exit 1
+          fi
+
+      - name: Run QC Reports
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  Function Mapping & Type Analysis"
+          echo "============================================"
+          python tooling/generate_qc.py
+
+      - name: Display Server QC Report
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  Server QC Report"
+          echo "============================================"
+          python -c "
+          import json
+          data = json.load(open('qcmetric/server_qc.json'))
+          summary = data['_summary']
+          print(f\"Functions: {summary['total_functions']} (unused: {summary['unused_functions']})\")
+          print(f\"Type coverage: {summary['function_coverage_percent']}%\")
+          print(f\"Mypy errors: {summary['mypy_errors']}\")
+          if summary['unused_functions'] > 0:
+              print('\nUnused functions:')
+              for func, info in data.items():
+                  if func != '_summary' and not info.get('used', True):
+                      print(f\"  - {func}\")
+          "
+
+      - name: Display UI QC Report
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  UI QC Report"
+          echo "============================================"
+          python -c "
+          import json
+          data = json.load(open('qcmetric/ui_qc.json'))
+          summary = data['_summary']
+          print(f\"Functions: {summary['total_functions']} (unused: {summary['unused_functions']})\")
+          print(f\"Type coverage: {summary['function_coverage_percent']}%\")
+          print(f\"Mypy errors: {summary['mypy_errors']}\")
+          "
+
+      - name: Display App QC Report
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  App QC Report"
+          echo "============================================"
+          python -c "
+          import json
+          data = json.load(open('qcmetric/app_qc.json'))
+          summary = data['_summary']
+          print(f\"Functions: {summary['total_functions']} (unused: {summary['unused_functions']})\")
+          print(f\"Type coverage: {summary['function_coverage_percent']}%\")
+          print(f\"Mypy errors: {summary['mypy_errors']}\")
+          "
+
+      - name: Run Frontend QC
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  Frontend (JS/CSS) QC"
+          echo "============================================"
+          python tooling/check_frontend.py
+
+      - name: Display Frontend QC Details
+        run: |
+          python -c "
+          import json
+          data = json.load(open('qcmetric/frontend_qc.json'))
+          summary = data['_summary']
+          
+          print(f\"JS files: {summary['js_file_count']}, CSS files: {summary['css_file_count']}\")
+          print(f\"JS functions: {summary['total_js_functions']}\")
+          print(f\"JS: {summary['js_errors']} errors, {summary['js_warnings']} warnings\")
+          print(f\"CSS: {summary['css_errors']} errors, {summary['css_warnings']} warnings\")
+          
+          if data['js_issues']:
+              print('\nJS Issues:')
+              for issue in data['js_issues']:
+                  print(f\"  [{issue['type']}] {issue['file']}:{issue['line']} - {issue['message']}\")
+          
+          if data['css_issues']:
+              print('\nCSS Issues:')
+              for issue in data['css_issues']:
+                  print(f\"  [{issue['type']}] {issue['file']}:{issue['line']} - {issue['message']}\")
+          "
+
+      - name: Check for Errors
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  Final Status"
+          echo "============================================"
+          
+          # Check for critical issues
+          FAILED=0
+          
+          # Check unused functions
+          SERVER_UNUSED=$(python -c "import json; print(json.load(open('qcmetric/server_qc.json'))['_summary']['unused_functions'])")
+          UI_UNUSED=$(python -c "import json; print(json.load(open('qcmetric/ui_qc.json'))['_summary']['unused_functions'])")
+          TOTAL_UNUSED=$((SERVER_UNUSED + UI_UNUSED))
+          
+          if [ "$TOTAL_UNUSED" -gt 0 ]; then
+            echo "⚠️  Warning: $TOTAL_UNUSED unused functions found"
+          fi
+          
+          # Check frontend errors
+          JS_ERRORS=$(python -c "import json; print(json.load(open('qcmetric/frontend_qc.json'))['_summary']['js_errors'])")
+          CSS_ERRORS=$(python -c "import json; print(json.load(open('qcmetric/frontend_qc.json'))['_summary']['css_errors'])")
+          FE_ERRORS=$((JS_ERRORS + CSS_ERRORS))
+          
+          if [ "$FE_ERRORS" -gt 0 ]; then
+            echo "❌ Frontend errors: $FE_ERRORS"
+            FAILED=1
+          fi
+          
+          # Check mypy errors
+          MYPY_ERRORS=$(python -c "import json; print(json.load(open('qcmetric/server_qc.json'))['_summary']['mypy_errors'])")
+          if [ "$MYPY_ERRORS" -gt 0 ]; then
+            echo "⚠️  Warning: $MYPY_ERRORS mypy type errors"
+          fi
+          
+          if [ "$FAILED" -eq 0 ]; then
+            echo "✅ All QC checks passed!"
+          else
+            echo "❌ Some checks failed"
+            exit 1
+          fi
+
+      - name: Upload QC Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: qc-reports
+          path: qcmetric/
+          retention-days: 30
