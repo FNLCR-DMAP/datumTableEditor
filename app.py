@@ -9,10 +9,6 @@ from shiny import App
 
 from ui import app_ui
 from server import create_server
-from config import (
-    get_modification_status,
-    get_all_modification_statuses,
-)
 
 
 # Create the app (module level for Shiny)

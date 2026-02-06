@@ -7,7 +7,7 @@ from shiny import ui
 from pathlib import Path
 
 
-def _load_css_files():
+def _load_css_files() -> str:
     """Load all CSS files from src/css directory"""
     css_dir = Path(__file__).parent / "src" / "css"
     css_files = [
@@ -30,7 +30,7 @@ def _load_css_files():
     return "\n".join(combined_css)
 
 
-def _load_js_files():
+def _load_js_files() -> str:
     """Load all JS files from src/js directory"""
     js_dir = Path(__file__).parent / "src" / "js"
     js_files = [
@@ -53,7 +53,7 @@ def _load_js_files():
     return "\n".join(combined_js)
 
 
-def create_app_ui():
+def create_app_ui() -> ui.Tag:
     """Create and return the app UI definition with split panel layout"""
     return ui.page_fluid(
         ui.head_content(

@@ -4,3 +4,4 @@ __pycache__
 *.pyo
 /data
 .DS_Store
+*cache*
