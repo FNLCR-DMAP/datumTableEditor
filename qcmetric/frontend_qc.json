@@ -1,0 +1,307 @@
+{
+  "js_files": [
+    "cell-edit.js",
+    "histogram.js",
+    "modal.js",
+    "panel-toggle.js",
+    "preset.js",
+    "row-selection.js",
+    "table-drag.js"
+  ],
+  "css_files": [
+    "layout.css",
+    "log.css",
+    "modal.css",
+    "pagination.css",
+    "sidebar.css",
+    "table.css",
+    "toolbar.css"
+  ],
+  "js_issues": [
+    {
+      "file": "cell-edit.js",
+      "line": 11,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 12,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 13,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 15,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 16,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 17,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 18,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 20,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 22,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 24,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 25,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 26,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    }
+  ],
+  "css_issues": [
+    {
+      "file": "modal.css",
+      "line": 74,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "modal.css",
+      "line": 77,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "sidebar.css",
+      "line": 139,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 150,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 153,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 212,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    }
+  ],
+  "js_functions": [
+    {
+      "file": "cell-edit.js",
+      "function": "createCellEditPopup"
+    },
+    {
+      "file": "cell-edit.js",
+      "function": "openCellPopup"
+    },
+    {
+      "file": "cell-edit.js",
+      "function": "closeCellPopup"
+    },
+    {
+      "file": "cell-edit.js",
+      "function": "copyCurrentValue"
+    },
+    {
+      "file": "cell-edit.js",
+      "function": "saveCellValue"
+    },
+    {
+      "file": "histogram.js",
+      "function": "initHistogramCheckboxes"
+    },
+    {
+      "file": "modal.js",
+      "function": "initModalColumnDrag"
+    },
+    {
+      "file": "modal.js",
+      "function": "updateModalColumnOrder"
+    },
+    {
+      "file": "modal.js",
+      "function": "openAddColumnModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "closeModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "openLogModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "closeLogModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "openCopyModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "closeCopyModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "copyColumnValues"
+    },
+    {
+      "file": "modal.js",
+      "function": "openAddFilterModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "closeAddFilterModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "addFilter"
+    },
+    {
+      "file": "modal.js",
+      "function": "removeFilter"
+    },
+    {
+      "file": "modal.js",
+      "function": "undoModification"
+    },
+    {
+      "file": "panel-toggle.js",
+      "function": "toggleLeftPanel"
+    },
+    {
+      "file": "preset.js",
+      "function": "togglePresetMenu"
+    },
+    {
+      "file": "preset.js",
+      "function": "refreshPresets"
+    },
+    {
+      "file": "preset.js",
+      "function": "loadPreset"
+    },
+    {
+      "file": "preset.js",
+      "function": "deletePreset"
+    },
+    {
+      "file": "preset.js",
+      "function": "saveNewPreset"
+    },
+    {
+      "file": "preset.js",
+      "function": "saveLayoutPrompt"
+    },
+    {
+      "file": "preset.js",
+      "function": "updateCurrentPreset"
+    },
+    {
+      "file": "preset.js",
+      "function": "resetColumns"
+    },
+    {
+      "file": "row-selection.js",
+      "function": "updateRowHighlight"
+    },
+    {
+      "file": "row-selection.js",
+      "function": "initRowSelection"
+    },
+    {
+      "file": "row-selection.js",
+      "function": "selectAllRows"
+    },
+    {
+      "file": "row-selection.js",
+      "function": "deselectAllRows"
+    },
+    {
+      "file": "row-selection.js",
+      "function": "resetRowSelection"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "updateHeaderOrder"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "saveColumnWidths"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "initHeaderDrag"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "initColumnResize"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "removeColumn"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "addColumn"
+    },
+    {
+      "file": "table-drag.js",
+      "function": "removeColumnFromModal"
+    }
+  ],
+  "_summary": {
+    "js_file_count": 7,
+    "css_file_count": 7,
+    "js_errors": 0,
+    "js_warnings": 0,
+    "css_errors": 0,
+    "css_warnings": 6,
+    "total_js_functions": 41
+  }
+}

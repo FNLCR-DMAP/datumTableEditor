@@ -87,7 +87,6 @@ function updateModalColumnOrder() {
         if (colName) newOrder.push(colName);
     });
     
-    console.log('Modal column order updated:', newOrder);
     if (newOrder.length > 0 && typeof Shiny !== 'undefined') {
         // Send with timestamp to ensure event fires
         Shiny.setInputValue('column_order', {order: newOrder, ts: Date.now()}, {priority: 'event'});

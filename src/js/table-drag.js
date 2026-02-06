@@ -176,7 +176,6 @@ window.removeColumn = function(col, event) {
         event.stopPropagation();
         event.preventDefault();
     }
-    console.log('removeColumn called for:', col);
     if (typeof Shiny !== 'undefined') {
         Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
     }

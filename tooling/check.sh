@@ -26,7 +26,7 @@ FAILED=0
 # --------------------------------------------
 # 1. Python Syntax Check (py_compile)
 # --------------------------------------------
-echo -e "${YELLOW}[1/2] Running Python syntax check...${NC}"
+echo -e "${YELLOW}[1/4] Running Python syntax check...${NC}"
 cd "$PROJECT_ROOT"
 
 SYNTAX_ERRORS=0
@@ -50,7 +50,7 @@ echo ""
 # --------------------------------------------
 # 2. Function Mapping & Unused Code Detection
 # --------------------------------------------
-echo -e "${YELLOW}[2/3] Running function mapping analysis...${NC}"
+echo -e "${YELLOW}[2/4] Running function mapping analysis...${NC}"
 
 # Run the unified QC generator
 if python tooling/generate_qc.py; then
@@ -77,7 +77,7 @@ echo ""
 # --------------------------------------------
 # 3. Type Annotation Coverage Summary
 # --------------------------------------------
-echo -e "${YELLOW}[3/3] Type annotation summary...${NC}"
+echo -e "${YELLOW}[3/4] Type annotation summary...${NC}"
 
 SERVER_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/server_qc.json')); print(data['_summary']['function_coverage_percent'])")
 UI_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/ui_qc.json')); print(data['_summary']['function_coverage_percent'])")
@@ -96,6 +96,41 @@ else
 fi
 
 echo -e "   Type coverage: server=${SERVER_COVERAGE}%, ui=${UI_COVERAGE}%, app=${APP_COVERAGE}%"
+
+echo ""
+
+# --------------------------------------------
+# 4. Frontend (JS/CSS) Checks
+# --------------------------------------------
+echo -e "${YELLOW}[4/4] Running frontend (JS/CSS) checks...${NC}"
+
+if python tooling/check_frontend.py > /dev/null 2>&1; then
+    JS_ERRORS=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['js_errors'])")
+    JS_WARNINGS=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['js_warnings'])")
+    CSS_ERRORS=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['css_errors'])")
+    CSS_WARNINGS=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['css_warnings'])")
+    JS_FILES=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['js_file_count'])")
+    CSS_FILES=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['css_file_count'])")
+    JS_FUNCS=$(python -c "import json; data=json.load(open('qcmetric/frontend_qc.json')); print(data['_summary']['total_js_functions'])")
+    
+    TOTAL_FE_ERRORS=$((JS_ERRORS + CSS_ERRORS))
+    
+    if [ "$TOTAL_FE_ERRORS" -gt 0 ]; then
+        echo -e "${RED}✗ Found $TOTAL_FE_ERRORS frontend errors${NC}"
+        echo -e "   JS: $JS_ERRORS errors, $JS_WARNINGS warnings"
+        echo -e "   CSS: $CSS_ERRORS errors, $CSS_WARNINGS warnings"
+        FAILED=1
+    else
+        echo -e "${GREEN}✓ No frontend syntax errors${NC}"
+        if [ "$JS_WARNINGS" -gt 0 ] || [ "$CSS_WARNINGS" -gt 0 ]; then
+            echo -e "${YELLOW}⚠️  Warnings: JS=$JS_WARNINGS, CSS=$CSS_WARNINGS${NC}"
+        fi
+    fi
+    echo -e "   Files: $JS_FILES JS, $CSS_FILES CSS | Functions: $JS_FUNCS JS"
+else
+    echo -e "${RED}✗ Frontend check failed${NC}"
+    FAILED=1
+fi
 
 echo ""
 
