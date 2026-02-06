@@ -8,6 +8,7 @@ from shiny import ui
 
 def build_log_entry_undo(timestamp: str, details: dict) -> ui.div:
     """Build UI for an undo log entry."""
+    pk = details.get('primary_key', details.get('row_index', '?'))
     return ui.div(
         ui.div(
             ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
@@ -15,7 +16,7 @@ def build_log_entry_undo(timestamp: str, details: dict) -> ui.div:
             style="display: flex; justify-content: space-between; align-items: center;"
         ),
         ui.tags.span(
-            f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+            f"[{pk}] {details.get('column', '?')}: "
             f"reverted to '{details.get('reverted_to', '')}'",
             class_="change-detail",
             style="font-size: 11px; display: block; margin-top: 4px; color: #888;"
@@ -75,6 +76,7 @@ def build_log_entry_rejection(timestamp: str, details: dict) -> ui.div:
 
 def build_log_entry_undone(timestamp: str, details: dict) -> ui.div:
     """Build UI for an undone field modification log entry."""
+    pk = details.get('primary_key', details.get('row_index', '?'))
     return ui.div(
         ui.div(
             ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp", style="text-decoration: line-through; color: #999;"),
@@ -82,7 +84,7 @@ def build_log_entry_undone(timestamp: str, details: dict) -> ui.div:
             style="display: flex; justify-content: space-between; align-items: center;"
         ),
         ui.tags.span(
-            f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+            f"[{pk}] {details.get('column', '?')}: "
             f"'{details.get('old_value', '')}' → '{details.get('new_value', '')}'",
             class_="change-detail",
             style="font-size: 11px; display: block; margin-top: 4px; text-decoration: line-through; color: #999;"
@@ -94,6 +96,7 @@ def build_log_entry_undone(timestamp: str, details: dict) -> ui.div:
 
 def build_log_entry_field_modification(timestamp: str, details: dict, log_idx: int) -> ui.div:
     """Build UI for a field modification log entry with undo button."""
+    pk = details.get('primary_key', details.get('row_index', '?'))
     return ui.div(
         ui.div(
             ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
@@ -106,7 +109,7 @@ def build_log_entry_field_modification(timestamp: str, details: dict, log_idx: i
             style="display: flex; justify-content: space-between; align-items: center;"
         ),
         ui.tags.span(
-            f"Row {details.get('row_index', '?') + 1} → {details.get('column', '?')}: "
+            f"[{pk}] {details.get('column', '?')}: "
             f"'{details.get('old_value', '')}' → '{details.get('new_value', '')}'",
             class_="change-detail",
             style="font-size: 11px; display: block; margin-top: 4px;"

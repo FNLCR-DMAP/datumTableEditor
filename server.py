@@ -12,6 +12,8 @@ from config import (
     display_columns,
     load_modifications_log,
     all_columns,
+    save_ui_state,
+    load_ui_state,
 )
 
 from src.utils import (
@@ -83,8 +85,24 @@ def create_server(input, output, session):  # noqa: ARG001
     presets_file = data_dir / "column_presets.json"
     active_preset_file = data_dir / "active_preset.json"
     
+    # Load UI state (sort, filters, page) from database
+    ui_state = load_ui_state()
+    
+    # Apply initial sorting if saved
+    initial_df = df_original.copy()
+    if ui_state.get("sort_column"):
+        initial_df = sort_dataframe(
+            initial_df, 
+            ui_state["sort_column"], 
+            "asc" if ui_state.get("sort_ascending", True) else "desc"
+        )
+    
     # Reactive values
-    data = reactive.Value(df_original.copy())
+    data = reactive.Value(initial_df)
+    current_sort = reactive.Value({
+        "column": ui_state.get("sort_column"),
+        "ascending": ui_state.get("sort_ascending", True)
+    })
     mods_log = reactive.Value(load_modifications_log())
     
     # Load initial approval status from log
@@ -257,7 +275,19 @@ def create_server(input, output, session):  # noqa: ARG001
     def _sort_column():
         val = input.sort_column()
         if val and val.get('col'):
-            data.set(sort_dataframe(data.get(), val.get('col'), val.get('direction', 'asc')))
+            col = val.get('col')
+            direction = val.get('direction', 'asc')
+            ascending = (direction == 'asc')
+            data.set(sort_dataframe(data.get(), col, direction))
+            current_sort.set({"column": col, "ascending": ascending})
+            # Persist sort state to database
+            save_ui_state(
+                sort_column=col,
+                sort_ascending=ascending,
+                current_page=current_page.get(),
+                rows_per_page=int(rows_per_page_value.get()),
+                column_preset=active_preset.get()
+            )
     
     # Reset columns (from JS)
     @reactive.Effect
@@ -287,6 +317,15 @@ def create_server(input, output, session):  # noqa: ARG001
             column_widths.set(widths)
             active_preset.set(preset_name)
             _save_active_preset(preset_name)
+            # Also save preset to UI state
+            sort_state = current_sort.get()
+            save_ui_state(
+                sort_column=sort_state.get("column"),
+                sort_ascending=sort_state.get("ascending", True),
+                current_page=current_page.get(),
+                rows_per_page=int(rows_per_page_value.get()),
+                column_preset=preset_name
+            )
     
     # Handle saving a new preset (from JS)
     @reactive.Effect

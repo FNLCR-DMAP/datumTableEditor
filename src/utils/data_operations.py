@@ -9,6 +9,42 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional
 
+# Import config for database operations
+try:
+    from config import (
+        app_config,
+        save_modification_to_db,
+        mark_modification_undone_in_db,
+        update_data_in_db
+    )
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
+
+
+def _get_row_pk(df: pd.DataFrame, row_idx: int) -> dict:
+    """Extract primary key values for a row."""
+    try:
+        from config import app_config
+        pk_cols = app_config.table.primary_key
+        return {pk: df.at[row_idx, pk] for pk in pk_cols if pk in df.columns}
+    except:
+        return {"row_index": row_idx}
+
+
+def _pk_to_string(row_pk: dict) -> str:
+    """Convert primary key dict to display string."""
+    if not row_pk:
+        return "?"
+    # Primary key is PatientID_Mutsequence
+    if "PatientID_Mutsequence" in row_pk:
+        return str(row_pk["PatientID_Mutsequence"])
+    # Fallback: return first non-row_index value
+    for k, v in row_pk.items():
+        if k != "row_index":
+            return str(v)
+    return str(row_pk.get("row_index", "?"))
+
 
 def perform_undo(
     df: pd.DataFrame,
@@ -35,6 +71,8 @@ def perform_undo(
     col = details.get("column")
     old_value = details.get("old_value")
     new_value = details.get("new_value")
+    row_pk = details.get("row_pk", {})
+    db_id = mod.get("db_id")
     
     if row_idx is None or not col:
         return None, None, None, "Invalid modification data"
@@ -45,6 +83,17 @@ def perform_undo(
     # Create copies to avoid mutating originals
     updated_df = df.copy()
     updated_df.at[row_idx, col] = old_value
+    
+    # Update database if enabled
+    if DB_AVAILABLE and app_config.database.enabled:
+        # Revert the data in database
+        if row_pk:
+            update_data_in_db(row_pk, col, old_value)
+        # Mark modification as undone
+        if db_id:
+            mark_modification_undone_in_db(db_id)
+        # Save undo record
+        save_modification_to_db(row_pk or {"row_index": row_idx}, col, new_value, old_value, "undo")
     
     # Mark the original modification as undone
     updated_log = log.copy()
@@ -57,6 +106,8 @@ def perform_undo(
         "type": "undo",
         "details": {
             "row_index": row_idx,
+            "row_pk": row_pk,
+            "primary_key": _pk_to_string(row_pk),
             "column": col,
             "reverted_from": new_value,
             "reverted_to": old_value,
@@ -64,7 +115,7 @@ def perform_undo(
         }
     })
     
-    message = f"Undone: Row {row_idx + 1}, {col}"
+    message = f"Undone: [{_pk_to_string(row_pk)}], {col}"
     return updated_df, updated_log, message, None
 
 
@@ -88,17 +139,34 @@ def perform_cell_edit(
     updated_df = df.copy()
     updated_df.at[row, col] = new_value
     
+    # Get row primary key for database operations
+    row_pk = _get_row_pk(df, row)
+    
+    # Save to database if enabled
+    db_id = None
+    if DB_AVAILABLE and app_config.database.enabled:
+        # Update the data table
+        update_data_in_db(row_pk, col, new_value)
+        # Save modification record
+        db_id = save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+    
     updated_log = log.copy()
-    updated_log.append({
+    log_entry = {
         "timestamp": datetime.now().isoformat(),
         "type": "field_modification",
         "details": {
             "row_index": row,
+            "row_pk": row_pk,
+            "primary_key": _pk_to_string(row_pk),
             "column": col,
             "old_value": old_value,
             "new_value": new_value,
         }
-    })
+    }
+    if db_id:
+        log_entry["db_id"] = db_id
+    
+    updated_log.append(log_entry)
     
     return updated_df, updated_log
 
@@ -110,11 +178,16 @@ def save_modifications_to_file(
     data_state_path: Path
 ) -> str:
     """
-    Save modifications log and data state to files.
+    Save modifications log and data state to files (or database if enabled).
     
     Returns:
         Success message
     """
+    # In database mode, data is already saved on each edit
+    if DB_AVAILABLE and app_config.database.enabled:
+        return f"Changes saved to database ({len(log)} modifications tracked)"
+    
+    # File-based persistence
     save_log_to_file(log, log_path)
     df.to_json(data_state_path, orient="records", indent=2, default_handler=str)
     
@@ -122,7 +195,11 @@ def save_modifications_to_file(
 
 
 def save_log_to_file(log: List[Dict], log_path: Path) -> None:
-    """Save modifications log to file."""
+    """Save modifications log to file (skipped if database mode)."""
+    # In database mode, skip file saves
+    if DB_AVAILABLE and app_config.database.enabled:
+        return
+    
     with open(log_path, "w") as f:
         json.dump(log, f, indent=2)
 

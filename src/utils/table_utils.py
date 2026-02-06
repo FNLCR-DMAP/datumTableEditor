@@ -35,16 +35,17 @@ def build_draggable_header_cell(col: str, width_style: str = "") -> ui.tags.th:
     )
 
 
-def build_table_header(cols: list, widths: dict) -> ui.tags.thead:
+def build_table_header(cols: list, widths: dict, default_width: int = 130) -> ui.tags.thead:
     """Build the complete table header."""
     header_cells = [
         ui.tags.th("", style="width: 40px; text-align: center;"),
         ui.tags.th("Row", style="width: 50px;"),
-        ui.tags.th("Status", style="width: 80px;"),
+        ui.tags.th("Mod", style="width: 70px;", title="Modification Status"),
     ]
     
     for col in cols:
-        width_style = f"width: {widths[col]}px; min-width: {widths[col]}px;" if col in widths else ""
+        col_width = widths.get(col, default_width)
+        width_style = f"width: {col_width}px; min-width: {col_width}px;"
         header_cells.append(build_draggable_header_cell(col, width_style))
     
     return ui.tags.thead(ui.tags.tr(*header_cells))
