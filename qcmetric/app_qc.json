@@ -1,0 +1,34 @@
+{
+  "_description": "QC report for app",
+  "_generated": true,
+  "_summary": {
+    "total_functions": 0,
+    "unused_functions": 0,
+    "fully_annotated_functions": 0,
+    "function_coverage_percent": 0,
+    "parameter_coverage_percent": 0,
+    "mypy_errors": 0
+  },
+  "files": {},
+  "function_mapping": {
+    "app.py": {
+      "total": 0,
+      "functions": [],
+      "used": []
+    }
+  },
+  "type_coverage": {
+    "app.py": {
+      "functions": {
+        "total": 0,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 0,
+        "annotated": 0
+      }
+    }
+  },
+  "mypy_errors": {}
+}

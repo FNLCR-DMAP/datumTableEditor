@@ -1,0 +1,39 @@
+{
+  "_description": "Configuration for QC check suite",
+  "checks": {
+    "syntax": {
+      "enabled": true,
+      "description": "Python syntax validation using py_compile"
+    },
+    "function_mapping": {
+      "enabled": true,
+      "description": "Function usage and unused code detection"
+    },
+    "type_coverage": {
+      "enabled": true,
+      "description": "Type annotation coverage and mypy checking"
+    }
+  },
+  "targets": [
+    {
+      "name": "server",
+      "files": ["server.py"],
+      "output": "qcmetric/server_qc.json",
+      "include_utils": true
+    },
+    {
+      "name": "ui",
+      "files": ["ui.py"],
+      "output": "qcmetric/ui_qc.json",
+      "include_utils": false
+    },
+    {
+      "name": "app",
+      "files": ["app.py"],
+      "output": "qcmetric/app_qc.json",
+      "include_utils": false
+    }
+  ],
+  "utils_dir": "src/utils",
+  "output_dir": "qcmetric"
+}
