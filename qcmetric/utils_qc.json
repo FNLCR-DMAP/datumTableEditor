@@ -1,125 +1,16 @@
 {
-  "_description": "QC report for server",
+  "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 123,
+    "total_functions": 73,
     "unused_functions": 0,
     "fully_annotated_functions": 73,
-    "function_coverage_percent": 59.3,
-    "parameter_coverage_percent": 96.7,
-    "mypy_errors": 0
+    "function_coverage_percent": 100.0,
+    "parameter_coverage_percent": 100.0,
+    "mypy_errors": 26
   },
   "files": {},
   "function_mapping": {
-    "server.py": {
-      "total": 50,
-      "functions": [
-        "_add_column",
-        "_add_filter",
-        "_approve_data",
-        "_clear_approval",
-        "_delete_preset",
-        "_export_csv",
-        "_export_status_report",
-        "_first_page",
-        "_get_filtered_rows",
-        "_get_modification_summary",
-        "_get_row_status",
-        "_get_status_counts",
-        "_handle_cell_edit",
-        "_handle_copy_request",
-        "_handle_undo",
-        "_last_page",
-        "_load_preset",
-        "_next_page",
-        "_page_jump",
-        "_prev_page",
-        "_refresh_presets",
-        "_reject_data",
-        "_reload_data",
-        "_remove_column",
-        "_remove_filter",
-        "_reset_columns",
-        "_reset_page_on_filter_change",
-        "_save_active_preset",
-        "_save_current_layout",
-        "_save_modifications",
-        "_save_preset",
-        "_save_presets",
-        "_sort_column",
-        "_sync_rows_per_page",
-        "_update_column_order",
-        "_update_column_widths",
-        "_watch_filter_changes",
-        "approval_status_ui",
-        "available_columns_modal",
-        "available_filter_columns",
-        "copy_column_list",
-        "create_server",
-        "current_preset_name",
-        "data_summary",
-        "dynamic_filters",
-        "modifications_log_ui",
-        "pagination_controls",
-        "preset_menu_items",
-        "stats_histogram",
-        "table_container"
-      ],
-      "used": [
-        "_get_filtered_rows",
-        "_get_modification_summary",
-        "_get_row_status",
-        "_get_status_counts",
-        "_save_active_preset",
-        "_save_presets",
-        "create_server"
-      ],
-      "framework_managed": [
-        "_add_column",
-        "_add_filter",
-        "_approve_data",
-        "_clear_approval",
-        "_delete_preset",
-        "_export_csv",
-        "_export_status_report",
-        "_first_page",
-        "_handle_cell_edit",
-        "_handle_copy_request",
-        "_handle_undo",
-        "_last_page",
-        "_load_preset",
-        "_next_page",
-        "_page_jump",
-        "_prev_page",
-        "_refresh_presets",
-        "_reject_data",
-        "_reload_data",
-        "_remove_column",
-        "_remove_filter",
-        "_reset_columns",
-        "_reset_page_on_filter_change",
-        "_save_current_layout",
-        "_save_modifications",
-        "_save_preset",
-        "_sort_column",
-        "_sync_rows_per_page",
-        "_update_column_order",
-        "_update_column_widths",
-        "_watch_filter_changes",
-        "approval_status_ui",
-        "available_columns_modal",
-        "available_filter_columns",
-        "copy_column_list",
-        "current_preset_name",
-        "data_summary",
-        "dynamic_filters",
-        "modifications_log_ui",
-        "pagination_controls",
-        "preset_menu_items",
-        "stats_histogram",
-        "table_container"
-      ]
-    },
     "src/utils/clipboard_utils.py": {
       "total": 2,
       "functions": [
@@ -352,74 +243,6 @@
     }
   },
   "type_coverage": {
-    "server.py": {
-      "functions": {
-        "total": 50,
-        "with_return_type": 0,
-        "fully_annotated": 0
-      },
-      "parameters": {
-        "total": 6,
-        "annotated": 0
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "create_server",
-          "name": "input",
-          "line": 81
-        },
-        {
-          "type": "parameter",
-          "function": "create_server",
-          "name": "output",
-          "line": 81
-        },
-        {
-          "type": "parameter",
-          "function": "create_server",
-          "name": "session",
-          "line": 81
-        },
-        {
-          "type": "return",
-          "function": "create_server",
-          "line": 81
-        },
-        {
-          "type": "parameter",
-          "function": "_get_row_status",
-          "name": "row_idx",
-          "line": 143
-        },
-        {
-          "type": "return",
-          "function": "_get_row_status",
-          "line": 143
-        },
-        {
-          "type": "return",
-          "function": "_get_status_counts",
-          "line": 147
-        },
-        {
-          "type": "return",
-          "function": "_get_modification_summary",
-          "line": 151
-        },
-        {
-          "type": "return",
-          "function": "_get_filtered_rows",
-          "line": 155
-        },
-        {
-          "type": "parameter",
-          "function": "_save_presets",
-          "name": "presets_dict",
-          "line": 176
-        }
-      ]
-    },
     "src/utils/clipboard_utils.py": {
       "functions": {
         "total": 2,
@@ -553,5 +376,176 @@
       }
     }
   },
-  "mypy_errors": {}
+  "mypy_errors": {
+    "src/config/app_config_schema.py": [
+      {
+        "line": 321,
+        "column": 42,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"Literal['csv', 'json', 'api', 'database']\")  [assignment]"
+      },
+      {
+        "line": 331,
+        "column": 47,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"Literal['local', 'api', 'database']\")  [assignment]"
+      }
+    ],
+    "src/utils/data_operations.py": [
+      {
+        "line": 14,
+        "column": 5,
+        "level": "error",
+        "message": "Module \"config\" has no attribute \"app_config\"; maybe \"load_config\"?  [attr-defined]"
+      },
+      {
+        "line": 14,
+        "column": 5,
+        "level": "error",
+        "message": "Module \"config\" has no attribute \"save_modification_to_db\"  [attr-defined]"
+      },
+      {
+        "line": 14,
+        "column": 5,
+        "level": "error",
+        "message": "Module \"config\" has no attribute \"mark_modification_undone_in_db\"  [attr-defined]"
+      },
+      {
+        "line": 14,
+        "column": 5,
+        "level": "error",
+        "message": "Module \"config\" has no attribute \"update_data_in_db\"  [attr-defined]"
+      },
+      {
+        "line": 28,
+        "column": 9,
+        "level": "error",
+        "message": "Module \"config\" has no attribute \"app_config\"; maybe \"load_config\"?  [attr-defined]"
+      }
+    ],
+    "src/db/user_presets.py": [
+      {
+        "line": 50,
+        "column": 49,
+        "level": "error",
+        "message": "Incompatible default for argument \"connection_string\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 50,
+        "column": 49,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 50,
+        "column": 49,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 50,
+        "column": 73,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 50,
+        "column": 96,
+        "level": "error",
+        "message": "Incompatible default for argument \"engine\" (default has type \"None\", argument has type \"Engine\")  [assignment]"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 160,
+        "column": 16,
+        "level": "error",
+        "message": "Incompatible return value type (got \"Any | None\", expected \"int\")  [return-value]"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      }
+    ],
+    "src/db/query_builder.py": [
+      {
+        "line": 309,
+        "column": 46,
+        "level": "error",
+        "message": "Argument \"operator\" to \"FilterCondition\" has incompatible type \"str\"; expected \"Literal['=', '!=', '>', '<', '>=', '<=', 'LIKE', 'ILIKE', 'IN', 'NOT IN', 'IS NULL', 'IS NOT NULL']\"  [arg-type]"
+      }
+    ],
+    "src/db/db_schema.py": [
+      {
+        "line": 108,
+        "column": 9,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"ColumnInfo\", variable has type \"ReflectedColumn\")  [assignment]"
+      },
+      {
+        "line": 109,
+        "column": 13,
+        "level": "error",
+        "message": "\"ReflectedColumn\" has no attribute \"is_primary_key\"  [attr-defined]"
+      },
+      {
+        "line": 109,
+        "column": 34,
+        "level": "error",
+        "message": "\"ReflectedColumn\" has no attribute \"name\"  [attr-defined]"
+      }
+    ],
+    "src/db/db_operations.py": [
+      {
+        "line": 125,
+        "column": 54,
+        "level": "error",
+        "message": "Argument 1 to \"DatabaseSchemaManager\" has incompatible type \"Engine\"; expected \"str | None\"  [arg-type]"
+      },
+      {
+        "line": 181,
+        "column": 16,
+        "level": "error",
+        "message": "\"TableSchema\" has no attribute \"column_names\"; maybe \"get_column_names\"?  [attr-defined]"
+      }
+    ],
+    "src/utils/preset_utils.py": [
+      {
+        "line": 158,
+        "column": 53,
+        "level": "error",
+        "message": "Argument 3 to \"save_preset\" of \"UserPresetsService\" has incompatible type \"dict[Any, Any]\"; expected \"list[Any]\"  [arg-type]"
+      }
+    ]
+  }
 }

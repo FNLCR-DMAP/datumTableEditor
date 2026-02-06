@@ -1,0 +1,515 @@
+{
+  "_description": "QC report for db",
+  "_generated": true,
+  "_summary": {
+    "total_functions": 92,
+    "unused_functions": 32,
+    "fully_annotated_functions": 79,
+    "function_coverage_percent": 85.9,
+    "parameter_coverage_percent": 95.2,
+    "mypy_errors": 18
+  },
+  "files": {},
+  "function_mapping": {
+    "src/db/db_operations.py": {
+      "total": 17,
+      "functions": [
+        "__init__",
+        "_connection",
+        "clear_session",
+        "close",
+        "columns",
+        "fetch_page",
+        "get_all_session_data",
+        "get_database_operations",
+        "get_modifications_for_row",
+        "get_session_book",
+        "initialize",
+        "load_ui_state",
+        "primary_key",
+        "reset_database_operations",
+        "save_modification",
+        "save_ui_state",
+        "undo_modification"
+      ],
+      "used": [
+        "_connection",
+        "close",
+        "columns",
+        "get_session_book",
+        "initialize",
+        "load_ui_state",
+        "primary_key",
+        "save_ui_state",
+        "undo_modification"
+      ],
+      "unused": [
+        "__init__",
+        "clear_session",
+        "fetch_page",
+        "get_all_session_data",
+        "get_database_operations",
+        "get_modifications_for_row",
+        "reset_database_operations",
+        "save_modification"
+      ],
+      "framework_managed": [
+        "_connection",
+        "columns",
+        "primary_key"
+      ]
+    },
+    "src/db/db_schema.py": {
+      "total": 15,
+      "functions": [
+        "__init__",
+        "create_mods_table",
+        "create_state_table",
+        "engine",
+        "ensure_tables_exist",
+        "generate_default_preset",
+        "get_column_names",
+        "get_pk_dict",
+        "get_pk_tuple",
+        "get_primary_key",
+        "get_row_count",
+        "get_schema_manager",
+        "get_table_schema",
+        "get_table_schema",
+        "table_exists"
+      ],
+      "used": [
+        "create_mods_table",
+        "create_state_table",
+        "engine",
+        "ensure_tables_exist",
+        "get_column_names",
+        "get_pk_tuple",
+        "get_schema_manager",
+        "get_table_schema",
+        "get_table_schema",
+        "table_exists"
+      ],
+      "unused": [
+        "__init__",
+        "generate_default_preset",
+        "get_pk_dict",
+        "get_primary_key",
+        "get_row_count"
+      ],
+      "framework_managed": [
+        "engine"
+      ]
+    },
+    "src/db/query_builder.py": {
+      "total": 16,
+      "functions": [
+        "__eq__",
+        "__init__",
+        "_build_select_with_mods",
+        "build_count_query",
+        "build_get_modifications_for_row",
+        "build_get_state",
+        "build_insert_modification",
+        "build_search_filter",
+        "build_select_query",
+        "build_undo_modification",
+        "build_upsert_state",
+        "get_hash",
+        "parse_filter_from_dict",
+        "parse_filters_from_list",
+        "to_sql",
+        "to_sql"
+      ],
+      "used": [
+        "_build_select_with_mods",
+        "build_count_query",
+        "build_get_modifications_for_row",
+        "build_get_state",
+        "build_insert_modification",
+        "build_select_query",
+        "build_undo_modification",
+        "build_upsert_state",
+        "get_hash",
+        "parse_filter_from_dict",
+        "parse_filters_from_list",
+        "to_sql",
+        "to_sql"
+      ],
+      "unused": [
+        "__eq__",
+        "__init__",
+        "build_search_filter"
+      ]
+    },
+    "src/db/session_book.py": {
+      "total": 23,
+      "functions": [
+        "__init__",
+        "__init__",
+        "append_page",
+        "clear",
+        "clear_all",
+        "clear_book",
+        "get_book",
+        "get_next_page_number",
+        "get_pk_exclusion_list",
+        "get_pk_json",
+        "get_pk_tuple",
+        "get_row_by_pk",
+        "get_stats",
+        "has_more_pages",
+        "known_pks",
+        "page_count",
+        "reconcile_data",
+        "remove_book",
+        "row_count",
+        "session_count",
+        "set_context",
+        "to_dataframe",
+        "update_row"
+      ],
+      "used": [
+        "append_page",
+        "clear",
+        "clear_all",
+        "get_book",
+        "get_next_page_number",
+        "get_pk_tuple",
+        "has_more_pages",
+        "remove_book",
+        "row_count",
+        "set_context",
+        "to_dataframe",
+        "update_row"
+      ],
+      "unused": [
+        "__init__",
+        "__init__",
+        "clear_book",
+        "get_pk_exclusion_list",
+        "get_pk_json",
+        "get_row_by_pk",
+        "get_stats",
+        "reconcile_data"
+      ],
+      "framework_managed": [
+        "known_pks",
+        "page_count",
+        "row_count",
+        "session_count"
+      ]
+    },
+    "src/db/user_presets.py": {
+      "total": 21,
+      "functions": [
+        "__init__",
+        "_ensure_table_exists",
+        "_get_preset_table_name",
+        "_load_from_config",
+        "create_user_preset_table",
+        "delete_preset",
+        "delete_user_preset",
+        "engine",
+        "get_default_preset",
+        "get_default_preset",
+        "get_preset_by_name",
+        "get_presets",
+        "get_user_preset_table_name",
+        "list_user_preset_tables",
+        "list_users",
+        "load_user_presets",
+        "main",
+        "save_preset",
+        "save_user_preset",
+        "set_default",
+        "table_name"
+      ],
+      "used": [
+        "_ensure_table_exists",
+        "_get_preset_table_name",
+        "_load_from_config",
+        "delete_preset",
+        "engine",
+        "get_default_preset",
+        "get_default_preset",
+        "get_presets",
+        "list_users",
+        "main",
+        "save_preset",
+        "set_default",
+        "table_name"
+      ],
+      "unused": [
+        "__init__",
+        "create_user_preset_table",
+        "delete_user_preset",
+        "get_preset_by_name",
+        "get_user_preset_table_name",
+        "list_user_preset_tables",
+        "load_user_presets",
+        "save_user_preset"
+      ],
+      "framework_managed": [
+        "engine",
+        "table_name"
+      ]
+    }
+  },
+  "type_coverage": {
+    "src/db/db_operations.py": {
+      "functions": {
+        "total": 17,
+        "with_return_type": 16,
+        "fully_annotated": 16
+      },
+      "parameters": {
+        "total": 35,
+        "annotated": 35
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 95
+        }
+      ]
+    },
+    "src/db/db_schema.py": {
+      "functions": {
+        "total": 15,
+        "with_return_type": 14,
+        "fully_annotated": 14
+      },
+      "parameters": {
+        "total": 17,
+        "annotated": 17
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 58
+        }
+      ]
+    },
+    "src/db/query_builder.py": {
+      "functions": {
+        "total": 16,
+        "with_return_type": 15,
+        "fully_annotated": 15
+      },
+      "parameters": {
+        "total": 19,
+        "annotated": 19
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 94
+        }
+      ]
+    },
+    "src/db/session_book.py": {
+      "functions": {
+        "total": 23,
+        "with_return_type": 21,
+        "fully_annotated": 21
+      },
+      "parameters": {
+        "total": 13,
+        "annotated": 13
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 59
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 279
+        }
+      ]
+    },
+    "src/db/user_presets.py": {
+      "functions": {
+        "total": 21,
+        "with_return_type": 19,
+        "fully_annotated": 13
+      },
+      "parameters": {
+        "total": 41,
+        "annotated": 35
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "create_user_preset_table",
+          "name": "engine",
+          "line": 339
+        },
+        {
+          "type": "parameter",
+          "function": "save_user_preset",
+          "name": "engine",
+          "line": 345
+        },
+        {
+          "type": "parameter",
+          "function": "load_user_presets",
+          "name": "engine",
+          "line": 352
+        },
+        {
+          "type": "parameter",
+          "function": "get_default_preset",
+          "name": "engine",
+          "line": 358
+        },
+        {
+          "type": "parameter",
+          "function": "delete_user_preset",
+          "name": "engine",
+          "line": 364
+        },
+        {
+          "type": "parameter",
+          "function": "list_user_preset_tables",
+          "name": "engine",
+          "line": 370
+        },
+        {
+          "type": "return",
+          "function": "main",
+          "line": 387
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 50
+        }
+      ]
+    }
+  },
+  "mypy_errors": {
+    "src/db/user_presets.py": [
+      {
+        "line": 50,
+        "column": 49,
+        "level": "error",
+        "message": "Incompatible default for argument \"connection_string\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 50,
+        "column": 49,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 50,
+        "column": 49,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 50,
+        "column": 73,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 50,
+        "column": 96,
+        "level": "error",
+        "message": "Incompatible default for argument \"engine\" (default has type \"None\", argument has type \"Engine\")  [assignment]"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 160,
+        "column": 16,
+        "level": "error",
+        "message": "Incompatible return value type (got \"Any | None\", expected \"int\")  [return-value]"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      }
+    ],
+    "src/db/query_builder.py": [
+      {
+        "line": 309,
+        "column": 46,
+        "level": "error",
+        "message": "Argument \"operator\" to \"FilterCondition\" has incompatible type \"str\"; expected \"Literal['=', '!=', '>', '<', '>=', '<=', 'LIKE', 'ILIKE', 'IN', 'NOT IN', 'IS NULL', 'IS NOT NULL']\"  [arg-type]"
+      }
+    ],
+    "src/db/db_schema.py": [
+      {
+        "line": 108,
+        "column": 9,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"ColumnInfo\", variable has type \"ReflectedColumn\")  [assignment]"
+      },
+      {
+        "line": 109,
+        "column": 13,
+        "level": "error",
+        "message": "\"ReflectedColumn\" has no attribute \"is_primary_key\"  [attr-defined]"
+      },
+      {
+        "line": 109,
+        "column": 34,
+        "level": "error",
+        "message": "\"ReflectedColumn\" has no attribute \"name\"  [attr-defined]"
+      }
+    ],
+    "src/db/db_operations.py": [
+      {
+        "line": 125,
+        "column": 54,
+        "level": "error",
+        "message": "Argument 1 to \"DatabaseSchemaManager\" has incompatible type \"Engine\"; expected \"str | None\"  [arg-type]"
+      },
+      {
+        "line": 181,
+        "column": 16,
+        "level": "error",
+        "message": "\"TableSchema\" has no attribute \"column_names\"; maybe \"get_column_names\"?  [attr-defined]"
+      }
+    ]
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "_description": "QC report for config",
+  "_generated": true,
+  "_summary": {
+    "total_functions": 19,
+    "unused_functions": 3,
+    "fully_annotated_functions": 12,
+    "function_coverage_percent": 63.2,
+    "parameter_coverage_percent": 80.0,
+    "mypy_errors": 0
+  },
+  "files": {},
+  "function_mapping": {
+    "config.py": {
+      "total": 15,
+      "functions": [
+        "_get_data_path",
+        "_get_data_state_path",
+        "_get_display_columns",
+        "_get_modifications_log_path",
+        "_load_from_database",
+        "_load_initial_data",
+        "_load_modifications_from_db",
+        "get_all_modification_statuses",
+        "get_modification_status",
+        "load_modifications_log",
+        "load_ui_state",
+        "mark_modification_undone_in_db",
+        "save_modification_to_db",
+        "save_ui_state",
+        "update_data_in_db"
+      ],
+      "used": [
+        "_get_data_path",
+        "_get_data_state_path",
+        "_get_display_columns",
+        "_get_modifications_log_path",
+        "_load_from_database",
+        "_load_initial_data",
+        "_load_modifications_from_db",
+        "load_modifications_log",
+        "load_ui_state",
+        "mark_modification_undone_in_db",
+        "save_modification_to_db",
+        "save_ui_state",
+        "update_data_in_db"
+      ],
+      "unused": [
+        "get_all_modification_statuses",
+        "get_modification_status"
+      ]
+    },
+    "src/config/app_config_schema.py": {
+      "total": 4,
+      "functions": [
+        "_apply_env_overrides",
+        "_merge_config",
+        "export_config_schema",
+        "load_config"
+      ],
+      "used": [
+        "_apply_env_overrides",
+        "_merge_config",
+        "load_config"
+      ],
+      "unused": [
+        "export_config_schema"
+      ]
+    }
+  },
+  "type_coverage": {
+    "config.py": {
+      "functions": {
+        "total": 15,
+        "with_return_type": 8,
+        "fully_annotated": 8
+      },
+      "parameters": {
+        "total": 16,
+        "annotated": 12
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "load_modifications_log",
+          "line": 195
+        },
+        {
+          "type": "return",
+          "function": "_load_modifications_from_db",
+          "line": 208
+        },
+        {
+          "type": "parameter",
+          "function": "save_modification_to_db",
+          "name": "old_value",
+          "line": 257
+        },
+        {
+          "type": "parameter",
+          "function": "save_modification_to_db",
+          "name": "new_value",
+          "line": 257
+        },
+        {
+          "type": "return",
+          "function": "save_modification_to_db",
+          "line": 257
+        },
+        {
+          "type": "return",
+          "function": "mark_modification_undone_in_db",
+          "line": 295
+        },
+        {
+          "type": "parameter",
+          "function": "update_data_in_db",
+          "name": "new_value",
+          "line": 320
+        },
+        {
+          "type": "return",
+          "function": "update_data_in_db",
+          "line": 320
+        },
+        {
+          "type": "parameter",
+          "function": "get_modification_status",
+          "name": "row_index",
+          "line": 353
+        },
+        {
+          "type": "return",
+          "function": "get_modification_status",
+          "line": 353
+        }
+      ]
+    },
+    "src/config/app_config_schema.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 4
+      },
+      "parameters": {
+        "total": 4,
+        "annotated": 4
+      }
+    }
+  },
+  "mypy_errors": {}
+}

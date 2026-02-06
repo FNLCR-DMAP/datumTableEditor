@@ -1,0 +1,116 @@
+{
+  "_description": "QC report for processing",
+  "_generated": true,
+  "_summary": {
+    "total_functions": 11,
+    "unused_functions": 1,
+    "fully_annotated_functions": 0,
+    "function_coverage_percent": 0.0,
+    "parameter_coverage_percent": 0.0,
+    "mypy_errors": 0
+  },
+  "files": {},
+  "function_mapping": {
+    "src/processing/process_modifications.py": {
+      "total": 11,
+      "functions": [
+        "__init__",
+        "_export_as_csv",
+        "_export_as_json",
+        "_export_as_sql",
+        "apply_modifications",
+        "export_transformations",
+        "get_change_summary",
+        "load_modifications",
+        "load_original_data",
+        "main",
+        "process_and_save"
+      ],
+      "used": [
+        "_export_as_csv",
+        "_export_as_json",
+        "_export_as_sql",
+        "apply_modifications",
+        "export_transformations",
+        "get_change_summary",
+        "load_modifications",
+        "load_original_data",
+        "main",
+        "process_and_save"
+      ],
+      "unused": [
+        "__init__"
+      ]
+    }
+  },
+  "type_coverage": {
+    "src/processing/process_modifications.py": {
+      "functions": {
+        "total": 11,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 9,
+        "annotated": 0
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "main",
+          "line": 229
+        },
+        {
+          "type": "parameter",
+          "function": "__init__",
+          "name": "data_dir",
+          "line": 15
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 15
+        },
+        {
+          "type": "return",
+          "function": "load_original_data",
+          "line": 25
+        },
+        {
+          "type": "return",
+          "function": "load_modifications",
+          "line": 29
+        },
+        {
+          "type": "parameter",
+          "function": "apply_modifications",
+          "name": "df",
+          "line": 36
+        },
+        {
+          "type": "parameter",
+          "function": "apply_modifications",
+          "name": "modifications",
+          "line": 36
+        },
+        {
+          "type": "return",
+          "function": "apply_modifications",
+          "line": 36
+        },
+        {
+          "type": "parameter",
+          "function": "get_change_summary",
+          "name": "modifications",
+          "line": 66
+        },
+        {
+          "type": "return",
+          "function": "get_change_summary",
+          "line": 66
+        }
+      ]
+    }
+  },
+  "mypy_errors": {}
+}

@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from .app_config_schema import AppConfig, DataSourceConfig, load_config
+from ..config import AppConfig, DataSourceConfig, load_config
 
 
 class DataLoader:

@@ -30,16 +30,28 @@ echo -e "${YELLOW}[1/4] Running Python syntax check...${NC}"
 cd "$PROJECT_ROOT"
 
 SYNTAX_ERRORS=0
-for pyfile in $(find . -name "*.py" -not -path "./__pycache__/*" -not -path "./tooling/*" -not -path "./.git/*"); do
+VALID_FILES=()
+for pyfile in $(find . -name "*.py" -not -path "./__pycache__/*" -not -path "./tooling/*" -not -path "./.git/*" -not -path "./*/__pycache__/*" | sort); do
     if ! python -m py_compile "$pyfile" 2>/dev/null; then
         echo -e "${RED}  ✗ Syntax error in: $pyfile${NC}"
         python -m py_compile "$pyfile" 2>&1 | head -5
         SYNTAX_ERRORS=$((SYNTAX_ERRORS + 1))
+    else
+        VALID_FILES+=("$pyfile")
     fi
 done
 
 if [ "$SYNTAX_ERRORS" -eq 0 ]; then
-    echo -e "${GREEN}✓ All Python files have valid syntax${NC}"
+    echo -e "${GREEN}✓ All Python files have valid syntax (${#VALID_FILES[@]} files)${NC}"
+    # Display files grouped by directory
+    echo -e "   ${BLUE}Root:${NC} app.py, config.py, server.py, ui.py"
+    echo -e "   ${BLUE}src/config:${NC} app_config_schema.py"
+    echo -e "   ${BLUE}src/data:${NC} data_loader.py"
+    echo -e "   ${BLUE}src/db:${NC} db_operations.py, db_schema.py, query_builder.py, session_book.py, user_presets.py"
+    echo -e "   ${BLUE}src/processing:${NC} process_modifications.py"
+    echo -e "   ${BLUE}src/utils:${NC} clipboard_utils.py, column_utils.py, data_operations.py, data_utils.py,"
+    echo -e "              event_handlers.py, filter_handlers.py, filter_utils.py, modal_utils.py,"
+    echo -e "              pagination_utils.py, preset_utils.py, table_utils.py, ui_components.py"
 else
     echo -e "${RED}✗ Found $SYNTAX_ERRORS files with syntax errors${NC}"
     FAILED=1
@@ -54,16 +66,22 @@ echo -e "${YELLOW}[2/4] Running function mapping analysis...${NC}"
 
 # Run the unified QC generator
 if python tooling/generate_qc.py; then
-    # Check server QC
+    # Check all QC files
     SERVER_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/server_qc.json')); print(data['_summary']['unused_functions'])")
     UI_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/ui_qc.json')); print(data['_summary']['unused_functions'])")
     APP_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/app_qc.json')); print(data['_summary']['unused_functions'])")
+    CONFIG_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/config_qc.json')); print(data['_summary']['unused_functions'])")
+    UTILS_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/utils_qc.json')); print(data['_summary']['unused_functions'])")
+    DB_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/db_qc.json')); print(data['_summary']['unused_functions'])")
+    DATA_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/data_qc.json')); print(data['_summary']['unused_functions'])")
+    PROC_UNUSED=$(python -c "import json; data=json.load(open('qcmetric/processing_qc.json')); print(data['_summary']['unused_functions'])")
     
-    TOTAL_UNUSED=$((SERVER_UNUSED + UI_UNUSED + APP_UNUSED))
+    TOTAL_UNUSED=$((SERVER_UNUSED + UI_UNUSED + APP_UNUSED + CONFIG_UNUSED + UTILS_UNUSED + DB_UNUSED + DATA_UNUSED + PROC_UNUSED))
     
     if [ "$TOTAL_UNUSED" -gt 0 ]; then
         echo -e "${YELLOW}⚠️  Warning: Found $TOTAL_UNUSED unused functions${NC}"
-        echo -e "   server: $SERVER_UNUSED, ui: $UI_UNUSED, app: $APP_UNUSED"
+        echo -e "   server: $SERVER_UNUSED, ui: $UI_UNUSED, app: $APP_UNUSED, config: $CONFIG_UNUSED"
+        echo -e "   utils: $UTILS_UNUSED, db: $DB_UNUSED, data: $DATA_UNUSED, processing: $PROC_UNUSED"
     else
         echo -e "${GREEN}✓ No unused functions detected${NC}"
     fi
@@ -82,12 +100,22 @@ echo -e "${YELLOW}[3/4] Type annotation summary...${NC}"
 SERVER_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/server_qc.json')); print(data['_summary']['function_coverage_percent'])")
 UI_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/ui_qc.json')); print(data['_summary']['function_coverage_percent'])")
 APP_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/app_qc.json')); print(data['_summary']['function_coverage_percent'])")
+CONFIG_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/config_qc.json')); print(data['_summary']['function_coverage_percent'])")
+UTILS_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/utils_qc.json')); print(data['_summary']['function_coverage_percent'])")
+DB_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/db_qc.json')); print(data['_summary']['function_coverage_percent'])")
+DATA_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/data_qc.json')); print(data['_summary']['function_coverage_percent'])")
+PROC_COVERAGE=$(python -c "import json; data=json.load(open('qcmetric/processing_qc.json')); print(data['_summary']['function_coverage_percent'])")
 
 SERVER_MYPY=$(python -c "import json; data=json.load(open('qcmetric/server_qc.json')); print(data['_summary']['mypy_errors'])")
 UI_MYPY=$(python -c "import json; data=json.load(open('qcmetric/ui_qc.json')); print(data['_summary']['mypy_errors'])")
 APP_MYPY=$(python -c "import json; data=json.load(open('qcmetric/app_qc.json')); print(data['_summary']['mypy_errors'])")
+CONFIG_MYPY=$(python -c "import json; data=json.load(open('qcmetric/config_qc.json')); print(data['_summary']['mypy_errors'])")
+UTILS_MYPY=$(python -c "import json; data=json.load(open('qcmetric/utils_qc.json')); print(data['_summary']['mypy_errors'])")
+DB_MYPY=$(python -c "import json; data=json.load(open('qcmetric/db_qc.json')); print(data['_summary']['mypy_errors'])")
+DATA_MYPY=$(python -c "import json; data=json.load(open('qcmetric/data_qc.json')); print(data['_summary']['mypy_errors'])")
+PROC_MYPY=$(python -c "import json; data=json.load(open('qcmetric/processing_qc.json')); print(data['_summary']['mypy_errors'])")
 
-TOTAL_MYPY=$((SERVER_MYPY + UI_MYPY + APP_MYPY))
+TOTAL_MYPY=$((SERVER_MYPY + UI_MYPY + APP_MYPY + CONFIG_MYPY + UTILS_MYPY + DB_MYPY + DATA_MYPY + PROC_MYPY))
 
 if [ "$TOTAL_MYPY" -gt 0 ]; then
     echo -e "${YELLOW}⚠️  Warning: Found $TOTAL_MYPY mypy type errors${NC}"
@@ -95,7 +123,8 @@ else
     echo -e "${GREEN}✓ No mypy type errors${NC}"
 fi
 
-echo -e "   Type coverage: server=${SERVER_COVERAGE}%, ui=${UI_COVERAGE}%, app=${APP_COVERAGE}%"
+echo -e "   Type coverage: server=${SERVER_COVERAGE}%, ui=${UI_COVERAGE}%, app=${APP_COVERAGE}%, config=${CONFIG_COVERAGE}%"
+echo -e "                  utils=${UTILS_COVERAGE}%, db=${DB_COVERAGE}%, data=${DATA_COVERAGE}%, processing=${PROC_COVERAGE}%"
 
 echo ""
 

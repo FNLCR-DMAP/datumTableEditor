@@ -32,8 +32,61 @@
       "files": ["app.py"],
       "output": "qcmetric/app_qc.json",
       "include_utils": false
+    },
+    {
+      "name": "config",
+      "files": ["config.py", "src/config/app_config_schema.py"],
+      "output": "qcmetric/config_qc.json",
+      "include_utils": false
+    },
+    {
+      "name": "utils",
+      "files": [
+        "src/utils/clipboard_utils.py",
+        "src/utils/column_utils.py",
+        "src/utils/data_operations.py",
+        "src/utils/data_utils.py",
+        "src/utils/event_handlers.py",
+        "src/utils/filter_handlers.py",
+        "src/utils/filter_utils.py",
+        "src/utils/modal_utils.py",
+        "src/utils/pagination_utils.py",
+        "src/utils/preset_utils.py",
+        "src/utils/table_utils.py",
+        "src/utils/ui_components.py"
+      ],
+      "output": "qcmetric/utils_qc.json",
+      "include_utils": false
+    },
+    {
+      "name": "db",
+      "files": [
+        "src/db/db_operations.py",
+        "src/db/db_schema.py",
+        "src/db/query_builder.py",
+        "src/db/session_book.py",
+        "src/db/user_presets.py"
+      ],
+      "output": "qcmetric/db_qc.json",
+      "include_utils": false
+    },
+    {
+      "name": "data",
+      "files": ["src/data/data_loader.py"],
+      "output": "qcmetric/data_qc.json",
+      "include_utils": false
+    },
+    {
+      "name": "processing",
+      "files": ["src/processing/process_modifications.py"],
+      "output": "qcmetric/processing_qc.json",
+      "include_utils": false
     }
   ],
   "utils_dir": "src/utils",
+  "db_dir": "src/db",
+  "config_dir": "src/config",
+  "data_dir": "src/data",
+  "processing_dir": "src/processing",
   "output_dir": "qcmetric"
 }

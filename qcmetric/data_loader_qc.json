@@ -1,0 +1,219 @@
+{
+  "_description": "QC report for data_loader",
+  "_generated": true,
+  "_summary": {
+    "total_functions": 32,
+    "unused_functions": 3,
+    "fully_annotated_functions": 28,
+    "function_coverage_percent": 87.5,
+    "parameter_coverage_percent": 93.3,
+    "mypy_errors": 13
+  },
+  "files": {},
+  "function_mapping": {
+    "src/data_loader.py": {
+      "total": 32,
+      "functions": [
+        "__init__",
+        "__init__",
+        "_apply_type_conversions",
+        "_load_api",
+        "_load_api",
+        "_load_csv",
+        "_load_database",
+        "_load_database",
+        "_load_json",
+        "_load_local_json",
+        "_resolve_env_vars",
+        "_resolve_env_vars",
+        "_resolve_path",
+        "_resolve_path",
+        "_save_api",
+        "_save_database",
+        "_save_local_json",
+        "dataframe",
+        "get_data_loader",
+        "get_persistence_manager",
+        "load",
+        "load_data",
+        "load_data_state",
+        "load_data_state",
+        "load_modifications_log",
+        "load_modifications_log",
+        "replace_env",
+        "replace_env",
+        "save_data_state",
+        "save_data_state",
+        "save_modifications_log",
+        "save_modifications_log"
+      ],
+      "used": [
+        "_apply_type_conversions",
+        "_load_api",
+        "_load_api",
+        "_load_csv",
+        "_load_database",
+        "_load_database",
+        "_load_json",
+        "_load_local_json",
+        "_resolve_env_vars",
+        "_resolve_env_vars",
+        "_resolve_path",
+        "_resolve_path",
+        "_save_api",
+        "_save_database",
+        "_save_local_json",
+        "get_data_loader",
+        "get_persistence_manager",
+        "load",
+        "load_data_state",
+        "load_data_state",
+        "load_modifications_log",
+        "load_modifications_log",
+        "replace_env",
+        "replace_env",
+        "save_data_state",
+        "save_data_state",
+        "save_modifications_log",
+        "save_modifications_log"
+      ],
+      "unused": [
+        "__init__",
+        "__init__",
+        "load_data"
+      ],
+      "framework_managed": [
+        "dataframe"
+      ]
+    }
+  },
+  "type_coverage": {
+    "src/data_loader.py": {
+      "functions": {
+        "total": 32,
+        "with_return_type": 28,
+        "fully_annotated": 28
+      },
+      "parameters": {
+        "total": 30,
+        "annotated": 28
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 24
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 150
+        },
+        {
+          "type": "parameter",
+          "function": "replace_env",
+          "name": "match",
+          "line": 135
+        },
+        {
+          "type": "return",
+          "function": "replace_env",
+          "line": 135
+        },
+        {
+          "type": "parameter",
+          "function": "replace_env",
+          "name": "match",
+          "line": 300
+        },
+        {
+          "type": "return",
+          "function": "replace_env",
+          "line": 300
+        }
+      ]
+    }
+  },
+  "mypy_errors": {
+    "src/data_loader.py": [
+      {
+        "line": 66,
+        "column": 1,
+        "level": "error",
+        "message": "Library stubs not installed for \"requests\"  [import-untyped]"
+      },
+      {
+        "line": 66,
+        "column": 1,
+        "level": "note",
+        "message": "Hint: \"python3 -m pip install types-requests\""
+      },
+      {
+        "line": 66,
+        "column": 1,
+        "level": "note",
+        "message": "(or run \"mypy --install-types\" to install all missing stub packages)"
+      },
+      {
+        "line": 66,
+        "column": 1,
+        "level": "note",
+        "message": "See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports"
+      },
+      {
+        "line": 91,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 120,
+        "column": 18,
+        "level": "error",
+        "message": "Argument 1 to \"Path\" has incompatible type \"str | None\"; expected \"str | PathLike[str]\"  [arg-type]"
+      },
+      {
+        "line": 210,
+        "column": 9,
+        "level": "error",
+        "message": "Item \"None\" of \"Path | None\" has no attribute \"parent\"  [union-attr]"
+      },
+      {
+        "line": 212,
+        "column": 19,
+        "level": "error",
+        "message": "Argument 1 to \"open\" has incompatible type \"Path | None\"; expected \"int | str | bytes | PathLike[str] | PathLike[bytes]\"  [arg-type]"
+      },
+      {
+        "line": 221,
+        "column": 16,
+        "level": "error",
+        "message": "Item \"None\" of \"Path | None\" has no attribute \"exists\"  [union-attr]"
+      },
+      {
+        "line": 224,
+        "column": 19,
+        "level": "error",
+        "message": "Argument 1 to \"open\" has incompatible type \"Path | None\"; expected \"int | str | bytes | PathLike[str] | PathLike[bytes]\"  [arg-type]"
+      },
+      {
+        "line": 262,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 272,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 286,
+        "column": 18,
+        "level": "error",
+        "message": "Argument 1 to \"Path\" has incompatible type \"str | None\"; expected \"str | PathLike[str]\"  [arg-type]"
+      }
+    ]
+  }
+}

@@ -10,7 +10,7 @@ import pandas as pd
 from pathlib import Path
 
 # Import new configuration system from src
-from src.app_config_schema import AppConfig, load_config
+from src.config import AppConfig, load_config
 
 # Load application configuration
 app_config = load_config()
