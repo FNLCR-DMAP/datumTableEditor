@@ -1,10 +1,11 @@
-"""
+""" 
 UI Definition for Epitopes Data Editor PyShiny App
 Split panel layout with collapsible sidebar
 """
 
 from shiny import ui
 from pathlib import Path
+from config import all_columns
 
 
 def _load_css_files() -> str:
@@ -98,7 +99,18 @@ def create_app_ui() -> ui.Tag:
                     ui.div(
                         ui.h4("Search"),
                         ui.div(
-                            ui.input_text("search_input", label=None, placeholder="Search all fields..."),
+                            ui.input_select(
+                                "search_column",
+                                label=None,
+                                choices={"all": "All Columns"} | {col: col for col in all_columns},
+                                selected="all",
+                                width="100%"
+                            ),
+                            ui.div(
+                                ui.input_text("search_input", label=None, placeholder="Search..."),
+                                ui.input_action_button("search_btn", "Search", class_="btn btn-primary btn-sm", style="margin-left: 5px;"),
+                                style="display: flex; align-items: center; margin-top: 5px;"
+                            ),
                             class_="filter-group"
                         ),
                         class_="filter-section"
@@ -200,9 +212,6 @@ def create_app_ui() -> ui.Tag:
                     class_="modal-overlay",
                     id="add-column-modal"
                 ),
-                
-                # Approval Status Display
-                ui.output_ui("approval_status_ui"),
                 
                 # Copy Column Modal
                 ui.div(

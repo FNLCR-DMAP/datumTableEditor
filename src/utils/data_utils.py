@@ -46,17 +46,21 @@ def get_row_status(row_idx: int, log: list, row_pk: dict = None) -> str:
     Returns:
         Status string: "approved", "rejected", "edited", or "unprocessed"
     """
-    # Helper to check if a log entry matches this row
+    # Helper to check if a log entry matches this row by PK
+    def matches_row_pk(entry_details):
+        if not row_pk:
+            return False
+        entry_pk = entry_details.get("row_pk", {})
+        if not entry_pk:
+            return False
+        # Match if all PK values match
+        return all(str(row_pk.get(k)) == str(v) for k, v in entry_pk.items())
+    
+    # Helper to check if a log entry matches this row (for field modifications)
     def matches_row(entry_details):
         # First try to match by primary key if both are available
         if row_pk and "row_pk" in entry_details:
-            entry_pk = entry_details.get("row_pk", {})
-            if entry_pk and row_pk:
-                # Match if all PK values match
-                for k, v in row_pk.items():
-                    if k in entry_pk and str(entry_pk[k]) == str(v):
-                        return True
-                return False
+            return matches_row_pk(entry_details)
         # Fallback to row_index matching
         return entry_details.get("row_index") == row_idx
     
@@ -67,11 +71,35 @@ def get_row_status(row_idx: int, log: list, row_pk: dict = None) -> str:
         for m in log if m.get("type") == "field_modification"
     )
     
-    row_approval_entries = [
-        m for m in log 
-        if m.get("type") in ["approval", "rejection"] 
-        and row_idx in m.get("details", {}).get("approved_rows", []) + m.get("details", {}).get("rejected_rows", [])
-    ]
+    # Helper to check if row_pk matches any PK in a list of PK dicts
+    def pk_in_list(pk_list):
+        if not row_pk or not pk_list:
+            return False
+        for entry_pk in pk_list:
+            if isinstance(entry_pk, dict):
+                # Match if all PK values match
+                if all(str(row_pk.get(k)) == str(v) for k, v in entry_pk.items()):
+                    return True
+        return False
+    
+    # Check for approval/rejection entries - two formats:
+    # 1. File/in-memory format: type=approval/rejection with details.approved_rows/rejected_rows as list
+    # 2. DB format: type=approval/rejection with details.row_pk matching this row directly
+    
+    row_approval_entries = []
+    for m in log:
+        if m.get("type") not in ["approval", "rejection"]:
+            continue
+        if m.get("undone", False):
+            continue
+        details = m.get("details", {})
+        
+        # Check format 1: list-based (in-memory log from create_approval_entry)
+        if pk_in_list(details.get("approved_rows", [])) or pk_in_list(details.get("rejected_rows", [])):
+            row_approval_entries.append(m)
+        # Check format 2: direct row_pk match (DB loaded entries)
+        elif matches_row_pk(details):
+            row_approval_entries.append(m)
     
     if row_approval_entries:
         latest_approval = row_approval_entries[-1]
@@ -104,31 +132,40 @@ def get_row_modifications(row_idx: int, log: list) -> list:
     ]
 
 
-def get_status_counts(df: pd.DataFrame, log: list) -> dict:
+def get_status_counts(df: pd.DataFrame, log: list, pk_cols: list = None) -> dict:
     """
     Get counts of each status.
     
     Args:
         df: DataFrame containing the data
         log: List of modification log entries
+        pk_cols: Optional list of primary key column names
         
     Returns:
         Dictionary with counts for each status
     """
     counts = {"unprocessed": 0, "edited": 0, "approved": 0, "rejected": 0}
     for idx in range(len(df)):
-        status = get_row_status(idx, log)
+        row_pk = None
+        if pk_cols:
+            try:
+                row = df.iloc[idx]
+                row_pk = {pk: row[pk] for pk in pk_cols if pk in df.columns}
+            except:
+                pass
+        status = get_row_status(idx, log, row_pk)
         counts[status] += 1
     return counts
 
 
-def get_modification_summary(df: pd.DataFrame, log: list) -> Tuple[list, dict]:
+def get_modification_summary(df: pd.DataFrame, log: list, pk_cols: list = None) -> Tuple[list, dict]:
     """
     Get summary of modification status for all rows.
     
     Args:
         df: DataFrame containing the data
         log: List of modification log entries
+        pk_cols: Optional list of primary key column names
         
     Returns:
         Tuple of (summary_data list, status_counts dict)
@@ -137,7 +174,14 @@ def get_modification_summary(df: pd.DataFrame, log: list) -> Tuple[list, dict]:
     
     summary_data = []
     for idx in range(len(df)):
-        status = get_row_status(idx, log)
+        row_pk = None
+        if pk_cols:
+            try:
+                row = df.iloc[idx]
+                row_pk = {pk: row[pk] for pk in pk_cols if pk in df.columns}
+            except:
+                pass
+        status = get_row_status(idx, log, row_pk)
         status_counts[status] += 1
         mods = get_row_modifications(idx, log)
         

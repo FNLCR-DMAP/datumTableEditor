@@ -133,17 +133,61 @@ def create_server(input, output, session):  # noqa: ARG001
     # Column widths storage
     column_widths = reactive.Value(dict(initial_widths))
     
-    # Pagination state
-    current_page = reactive.Value(1)
-    rows_per_page_value = reactive.Value("25")  # Default rows per page
+    # Pagination state - load from saved UI state
+    initial_page = ui_state.get("current_page", 1)
+    initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
+    current_page = reactive.Value(initial_page)
+    rows_per_page_value = reactive.Value(initial_rows_per_page)
+    
+    # Track first sync to avoid resetting page on initial load
+    _first_rows_per_page_sync = {"done": False}
+    _first_filter_sync = {"done": False}
+    _first_search_filter_sync = {"done": False}
     
     # Dynamic column filters - stores active filters as {column_name: selected_value}
     active_filters = reactive.Value({})
+    
+    # Search state - updated only when search button is clicked
+    search_state = reactive.Value({"term": "", "column": "all"})
+    
+    # Helper function to get PKs for selected row indices
+    def _get_selected_pks(row_indices, current_df):
+        """Convert row indices to list of PK dicts"""
+        pk_cols = app_config.table.primary_key
+        pks = []
+        for row_idx in row_indices:
+            try:
+                row = current_df.iloc[row_idx]
+                row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
+                if row_pk:
+                    pks.append(row_pk)
+            except Exception as e:
+                print(f"Warning: Could not get PK for row {row_idx}: {e}")
+        return pks
+    
+    # Helper function to save approval/rejection status to database
+    def _save_status_to_db(selected_pks, mod_type: str):
+        """Save approval/rejection entries to database with PKs"""
+        from config import save_modification_to_db
+        
+        for row_pk in selected_pks:
+            try:
+                result = save_modification_to_db(
+                    row_pk=row_pk,
+                    column="_status",
+                    old_value=None,
+                    new_value=mod_type,
+                    mod_type=mod_type
+                )
+                print(f"DEBUG: Saved {mod_type} for PK {row_pk}, result: {result}")
+            except Exception as e:
+                print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
         """Wrapper for get_row_status that uses reactive log and PK for accurate matching"""
         current_df = data.get()
+        current_log = mods_log.get()
         # Get the primary key for this row (positional index)
         try:
             pk_cols = app_config.table.primary_key
@@ -151,20 +195,24 @@ def create_server(input, output, session):  # noqa: ARG001
             row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
         except:
             row_pk = None
-        return get_row_status(row_idx, mods_log.get(), row_pk)
+        return get_row_status(row_idx, current_log, row_pk)
     
     def _get_status_counts():
         """Wrapper for get_status_counts that uses reactive values"""
-        return get_status_counts(data.get(), mods_log.get())
+        pk_cols = app_config.table.primary_key if hasattr(app_config.table, 'primary_key') else None
+        return get_status_counts(data.get(), mods_log.get(), pk_cols)
     
     def _get_modification_summary():
         """Wrapper for get_modification_summary that uses reactive values"""
-        return get_modification_summary(data.get(), mods_log.get())
+        pk_cols = app_config.table.primary_key if hasattr(app_config.table, 'primary_key') else None
+        return get_modification_summary(data.get(), mods_log.get(), pk_cols)
     
     def _get_filtered_rows():
         """Get filtered rows based on search, status filter, and dynamic column filters"""
         current_df = data.get()
-        search_term = input.search_input() if hasattr(input, 'search_input') else ""
+        search = search_state.get()
+        search_term = search.get("term", "")
+        search_column = search.get("column", "all")
         
         # Get multi-select status filter
         try:
@@ -178,7 +226,8 @@ def create_server(input, output, session):  # noqa: ARG001
             search_term=search_term,
             status_filters=status_filters,
             column_filters=active_filters.get(),
-            get_row_status_func=_get_row_status
+            get_row_status_func=_get_row_status,
+            search_column=search_column
         )
 
     # Wrapper functions for preset utilities (using file paths from this scope)
@@ -451,7 +500,11 @@ def create_server(input, output, session):  # noqa: ARG001
         new_filters, updated = update_filter_values(active_filters.get(), input)
         if updated:
             active_filters.set(new_filters)
-            current_page.set(1)
+            # Skip page reset on first sync (initial load)
+            if _first_filter_sync["done"]:
+                current_page.set(1)
+            else:
+                _first_filter_sync["done"] = True
     
     # Output: Pagination controls
     @render.ui
@@ -474,7 +527,12 @@ def create_server(input, output, session):  # noqa: ARG001
             val = input.rows_per_page()
             if val and val != rows_per_page_value.get():
                 rows_per_page_value.set(val)
-                current_page.set(1)  # Reset to first page when changing rows per page
+                # Skip page reset on first sync (initial load)
+                if _first_rows_per_page_sync["done"]:
+                    current_page.set(1)  # Reset to first page when changing rows per page
+            # Mark first sync as done
+            if not _first_rows_per_page_sync["done"]:
+                _first_rows_per_page_sync["done"] = True
         except:
             pass
     
@@ -483,13 +541,32 @@ def create_server(input, output, session):  # noqa: ARG001
     @reactive.event(input.first_page_btn)
     def _first_page():
         current_page.set(1)
+        # Persist page state (consistent with sort handler pattern)
+        sort_state = current_sort.get()
+        save_ui_state(
+            sort_column=sort_state.get("column"),
+            sort_ascending=sort_state.get("ascending", True),
+            current_page=1,
+            rows_per_page=int(rows_per_page_value.get()) if rows_per_page_value.get() != "all" else 25,
+            column_preset=active_preset.get()
+        )
     
     @reactive.Effect
     @reactive.event(input.prev_page_btn)
     def _prev_page():
         page = current_page.get()
         if page > 1:
-            current_page.set(page - 1)
+            new_page = page - 1
+            current_page.set(new_page)
+            # Persist page state
+            sort_state = current_sort.get()
+            save_ui_state(
+                sort_column=sort_state.get("column"),
+                sort_ascending=sort_state.get("ascending", True),
+                current_page=new_page,
+                rows_per_page=int(rows_per_page_value.get()) if rows_per_page_value.get() != "all" else 25,
+                column_preset=active_preset.get()
+            )
     
     @reactive.Effect
     @reactive.event(input.next_page_btn)
@@ -501,7 +578,17 @@ def create_server(input, output, session):  # noqa: ARG001
             total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
             page = current_page.get()
             if page < total_pages:
-                current_page.set(page + 1)
+                new_page = page + 1
+                current_page.set(new_page)
+                # Persist page state
+                sort_state = current_sort.get()
+                save_ui_state(
+                    sort_column=sort_state.get("column"),
+                    sort_ascending=sort_state.get("ascending", True),
+                    current_page=new_page,
+                    rows_per_page=rows_per_page,
+                    column_preset=active_preset.get()
+                )
     
     @reactive.Effect
     @reactive.event(input.last_page_btn)
@@ -512,6 +599,15 @@ def create_server(input, output, session):  # noqa: ARG001
             rows_per_page = int(rows_per_page_val)
             total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
             current_page.set(total_pages)
+            # Persist page state
+            sort_state = current_sort.get()
+            save_ui_state(
+                sort_column=sort_state.get("column"),
+                sort_ascending=sort_state.get("ascending", True),
+                current_page=total_pages,
+                rows_per_page=rows_per_page,
+                column_preset=active_preset.get()
+            )
     
     @reactive.Effect
     @reactive.event(input.page_jump_btn)
@@ -525,14 +621,45 @@ def create_server(input, output, session):  # noqa: ARG001
                 target_page = int(input.page_jump_input())
                 target_page = max(1, min(target_page, total_pages))
                 current_page.set(target_page)
+                # Persist page state
+                sort_state = current_sort.get()
+                save_ui_state(
+                    sort_column=sort_state.get("column"),
+                    sort_ascending=sort_state.get("ascending", True),
+                    current_page=target_page,
+                    rows_per_page=rows_per_page,
+                    column_preset=active_preset.get()
+                )
             except:
                 pass
     
-    # Reset to page 1 when search or status filters change
+    # Handle search button click
     @reactive.Effect
-    @reactive.event(input.search_input, input.status_filter_multi)
-    def _reset_page_on_filter_change():
+    @reactive.event(input.search_btn)
+    def _handle_search():
+        search_term = input.search_input() if hasattr(input, 'search_input') else ""
+        search_column = input.search_column() if hasattr(input, 'search_column') else "all"
+        search_state.set({"term": search_term, "column": search_column})
         current_page.set(1)
+    
+    # Reset to page 1 when status filters change
+    @reactive.Effect
+    @reactive.event(input.status_filter_multi)
+    def _reset_page_on_filter_change():
+        # Skip first invocation (initial load)
+        if not _first_search_filter_sync["done"]:
+            _first_search_filter_sync["done"] = True
+            return
+        current_page.set(1)
+        # Persist page state
+        sort_state = current_sort.get()
+        save_ui_state(
+            sort_column=sort_state.get("column"),
+            sort_ascending=sort_state.get("ascending", True),
+            current_page=1,
+            rows_per_page=int(rows_per_page_value.get()) if rows_per_page_value.get() != "all" else 25,
+            column_preset=active_preset.get()
+        )
 
     # Output: Data table
     @render.ui
@@ -637,29 +764,60 @@ def create_server(input, output, session):  # noqa: ARG001
     @reactive.Effect
     @reactive.event(input.approve_btn)
     def _approve_data():
-        updated_log, message, error = process_approval_action(
-            input, len(data.get()), mods_log.get(), modifications_log_path,
-            get_selected_row_indices, create_approval_entry, save_log_to_file
-        )
-        if error:
-            ui.notification_show(error, type="warning", duration=3)
-        else:
-            mods_log.set(updated_log)
-            ui.notification_show(message, type="message", duration=3)
+        # Debug: Check what rows are selected
+        current_df = data.get()
+        selected_indices = get_selected_row_indices(input, len(current_df))
+        
+        if not selected_indices:
+            ui.notification_show("Please select rows to approve", type="warning", duration=3)
+            return
+        
+        # Convert indices to PKs
+        selected_pks = _get_selected_pks(selected_indices, current_df)
+        print(f"DEBUG: Approve - selected indices: {selected_indices}, PKs: {selected_pks}")
+        
+        # Create log entry with PKs
+        log = mods_log.get().copy()
+        log.append(create_approval_entry(selected_pks, len(current_df), len(log)))
+        
+        # Save to file (for non-DB mode)
+        save_log_to_file(log, modifications_log_path)
+        
+        # Save to database if enabled
+        if app_config.database.enabled:
+            _save_status_to_db(selected_pks, "approval")
+        
+        mods_log.set(log)
+        ui.notification_show(f"{len(selected_pks)} row(s) APPROVED!", type="message", duration=2)
     
     # Event: Reject rows
     @reactive.Effect
     @reactive.event(input.reject_btn)
     def _reject_data():
-        updated_log, message, error = process_rejection_action(
-            input, len(data.get()), mods_log.get(), modifications_log_path,
-            get_selected_row_indices, create_rejection_entry, save_log_to_file
-        )
-        if error:
-            ui.notification_show(error, type="warning", duration=3)
-        else:
-            mods_log.set(updated_log)
-            ui.notification_show(message, type="message", duration=3)
+        current_df = data.get()
+        selected_indices = get_selected_row_indices(input, len(current_df))
+        
+        if not selected_indices:
+            ui.notification_show("Please select rows to reject", type="warning", duration=3)
+            return
+        
+        # Convert indices to PKs
+        selected_pks = _get_selected_pks(selected_indices, current_df)
+        print(f"DEBUG: Reject - selected indices: {selected_indices}, PKs: {selected_pks}")
+        
+        # Create log entry with PKs
+        log = mods_log.get().copy()
+        log.append(create_rejection_entry(selected_pks, len(current_df), len(log)))
+        
+        # Save to file (for non-DB mode)
+        save_log_to_file(log, modifications_log_path)
+        
+        # Save to database if enabled
+        if app_config.database.enabled:
+            _save_status_to_db(selected_pks, "rejection")
+        
+        mods_log.set(log)
+        ui.notification_show(f"{len(selected_pks)} row(s) REJECTED!", type="message", duration=2)
     
     # Event: Clear approval
     @reactive.Effect

@@ -217,7 +217,7 @@ def save_modifications_to_file(
 
 def save_log_to_file(log: List[Dict], log_path: Path) -> None:
     """Save modifications log to file (skipped if database mode)."""
-    # In database mode, skip file saves
+    # In database mode, skip file saves (handled by server.py)
     if DB_AVAILABLE and app_config.database.enabled:
         return
     
@@ -261,18 +261,18 @@ def export_status_report(
 
 
 def create_approval_entry(
-    selected_indices: List[int],
+    selected_pks: List[Dict[str, Any]],
     total_rows: int,
     log_count: int
 ) -> Dict[str, Any]:
-    """Create log entry for approval action."""
+    """Create log entry for approval action with PKs."""
     return {
         "timestamp": datetime.now().isoformat(),
         "type": "approval",
         "details": {
             "action": "approved",
-            "approved_row_count": len(selected_indices),
-            "approved_rows": selected_indices,
+            "approved_row_count": len(selected_pks),
+            "approved_rows": selected_pks,  # List of PK dicts
             "total_rows": total_rows,
             "modification_count": log_count
         }
@@ -280,18 +280,18 @@ def create_approval_entry(
 
 
 def create_rejection_entry(
-    selected_indices: List[int],
+    selected_pks: List[Dict[str, Any]],
     total_rows: int,
     log_count: int
 ) -> Dict[str, Any]:
-    """Create log entry for rejection action."""
+    """Create log entry for rejection action with PKs."""
     return {
         "timestamp": datetime.now().isoformat(),
         "type": "rejection",
         "details": {
             "action": "rejected",
-            "rejected_row_count": len(selected_indices),
-            "rejected_rows": selected_indices,
+            "rejected_row_count": len(selected_pks),
+            "rejected_rows": selected_pks,  # List of PK dicts
             "total_rows": total_rows,
             "modification_count": log_count
         }

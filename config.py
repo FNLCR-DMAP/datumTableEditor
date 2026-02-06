@@ -461,10 +461,12 @@ def get_all_modification_statuses():
 
 
 # ============================================================================
-# UI State Persistence (sort, filters, page, etc.) - In-memory storage
+# UI State Persistence (sort, filters, page, etc.) - Database storage
 # ============================================================================
 
-_ui_state = {}
+# Default user/session for single-user mode
+_DEFAULT_USER_ID = "default_user"
+_DEFAULT_SESSION_ID = "default_session"
 
 
 def save_ui_state(
@@ -476,21 +478,37 @@ def save_ui_state(
     column_preset: str = None,
     **kwargs  # Ignore extra args for compatibility
 ) -> bool:
-    """Save UI state to memory."""
-    global _ui_state
-    _ui_state = {
-        "sort_column": sort_column,
-        "sort_ascending": sort_ascending,
-        "current_page": current_page,
-        "rows_per_page": rows_per_page,
-        "filters": filters or {},
-        "column_preset": column_preset
-    }
-    return True
+    """Save UI state to database."""
+    try:
+        from src.db.db_operations import get_database_operations
+        from src.db import DatabaseConfig
+        
+        db_config = DatabaseConfig(
+            connection_string=app_config.database.connection_string,
+            data_table=app_config.database.data_table,
+            mods_table=app_config.database.mods_table,
+            state_table=app_config.database.state_table
+        )
+        db_ops = get_database_operations(db_config)
+        
+        db_ops.save_ui_state(
+            user_id=_DEFAULT_USER_ID,
+            session_id=_DEFAULT_SESSION_ID,
+            sort_column=sort_column,
+            sort_ascending=sort_ascending,
+            current_page=current_page,
+            rows_per_page=rows_per_page,
+            filters=list(filters.items()) if filters else None,
+            column_preset=column_preset
+        )
+        return True
+    except Exception as e:
+        print(f"Warning: Could not save UI state: {e}")
+        return False
 
 
 def load_ui_state(**kwargs) -> dict:
-    """Load UI state from memory."""
+    """Load UI state from database."""
     default_state = {
         "sort_column": app_config.table.default_sort_column,
         "sort_ascending": app_config.table.default_sort_ascending,
@@ -499,4 +517,29 @@ def load_ui_state(**kwargs) -> dict:
         "filters": {},
         "column_preset": None
     }
-    return {**default_state, **_ui_state}
+    try:
+        from src.db.db_operations import get_database_operations
+        from src.db import DatabaseConfig
+        
+        db_config = DatabaseConfig(
+            connection_string=app_config.database.connection_string,
+            data_table=app_config.database.data_table,
+            mods_table=app_config.database.mods_table,
+            state_table=app_config.database.state_table
+        )
+        db_ops = get_database_operations(db_config)
+        
+        saved_state = db_ops.load_ui_state(
+            user_id=_DEFAULT_USER_ID,
+            session_id=_DEFAULT_SESSION_ID
+        )
+        if saved_state:
+            # Convert filters from list back to dict if present
+            if saved_state.get("filters"):
+                saved_state["filters"] = dict(saved_state["filters"])
+            else:
+                saved_state["filters"] = {}
+            return {**default_state, **saved_state}
+    except Exception as e:
+        print(f"Warning: Could not load UI state: {e}")
+    return default_state

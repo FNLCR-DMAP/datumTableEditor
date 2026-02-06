@@ -12,7 +12,8 @@ def get_filtered_rows(
     search_term: str,
     status_filters: list,
     column_filters: dict,
-    get_row_status_func: Callable[[int], str]
+    get_row_status_func: Callable[[int], str],
+    search_column: str = "all"
 ) -> list:
     """
     Get filtered row indices based on search, status filter, and dynamic column filters.
@@ -24,6 +25,7 @@ def get_filtered_rows(
         status_filters: List of status values to include (e.g., ["unprocessed", "edited"])
         column_filters: Dictionary of {column_name: filter_value}
         get_row_status_func: Function that returns status for a given row index
+        search_column: Column to search in, or "all" for all active columns
         
     Returns:
         List of row indices that match all filters
@@ -51,10 +53,18 @@ def get_filtered_rows(
         if search_term.strip():
             search_lower = search_term.lower().strip()
             row_matches = False
-            for col in active_columns:
-                if col in df.columns and search_lower in str(row[col]).lower():
+            
+            if search_column and search_column != "all" and search_column in df.columns:
+                # Search in specific column
+                if search_lower in str(row[search_column]).lower():
                     row_matches = True
-                    break
+            else:
+                # Search in all active columns
+                for col in active_columns:
+                    if col in df.columns and search_lower in str(row[col]).lower():
+                        row_matches = True
+                        break
+            
             if not row_matches:
                 continue
         

@@ -55,12 +55,22 @@ class TableSchema:
 class DatabaseSchemaManager:
     """Manages database schema introspection and table creation."""
     
-    def __init__(self, connection_string: Optional[str] = None):
+    def __init__(self, connection_string_or_engine=None):
         if not SQLALCHEMY_AVAILABLE:
             raise ImportError("SQLAlchemy is required for database operations. Install with: pip install sqlalchemy psycopg2-binary")
         
-        self.connection_string = connection_string or os.environ.get("APP_DB_CONNECTION")
-        self._engine: Optional[Engine] = None
+        # Accept either a connection string or an existing Engine
+        if connection_string_or_engine is None:
+            self.connection_string = os.environ.get("APP_DB_CONNECTION")
+            self._engine: Optional[Engine] = None
+        elif isinstance(connection_string_or_engine, str):
+            self.connection_string = connection_string_or_engine
+            self._engine: Optional[Engine] = None
+        else:
+            # Assume it's an Engine
+            self.connection_string = None
+            self._engine: Optional[Engine] = connection_string_or_engine
+        
         self._schema_cache: dict[str, TableSchema] = {}
     
     @property
