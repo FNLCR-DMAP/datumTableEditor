@@ -59,12 +59,12 @@ def _get_presets_service(table_name: str = None) -> "UserPresetsService":
 
 def _get_username() -> str:
     """Get the username for presets. Currently uses default."""
-    # TODO: Integrate with authentication when available
+    # NOTE: This is now typically overridden by passing username from session.user
     config = _load_app_config()
     return config.get("presets", {}).get("default_user", _default_username)
 
 
-def load_presets(presets_file: Path, default_columns: list, table_name: str = None) -> dict:
+def load_presets(presets_file: Path, default_columns: list, table_name: str = None, username: str = None) -> dict:
     """
     Load column presets from database or file.
     
@@ -72,6 +72,7 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
         presets_file: Path to the presets JSON file (used as fallback)
         default_columns: Default columns to use if no presets exist
         table_name: Base table name to scope presets (for multi-widget support)
+        username: Username for user-scoped presets (from Posit Connect session.user)
         
     Returns:
         Dictionary of preset names to preset data (columns and widths)
@@ -79,8 +80,9 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
-            username = _get_username()
-            presets = service.get_presets(username)
+            # Use provided username or fall back to default
+            user = username or _get_username()
+            presets = service.get_presets(user)
             
             if not presets:
                 # No presets in DB, return default
@@ -123,7 +125,7 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
     return {"Default": {"columns": list(default_columns), "widths": {}}}
 
 
-def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None) -> None:
+def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None, username: str = None) -> None:
     """
     Save column presets to database or file.
     
@@ -131,14 +133,16 @@ def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None)
         presets_file: Path to the presets JSON file (used as fallback)
         presets_dict: Dictionary of preset names to preset data
         table_name: Base table name to scope presets (for multi-widget support)
+        username: Username for user-scoped presets (from Posit Connect session.user)
     """
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
-            username = _get_username()
+            # Use provided username or fall back to default
+            user = username or _get_username()
             
             # Get existing presets to find deleted ones and preserve default
-            existing_presets = service.get_presets(username)
+            existing_presets = service.get_presets(user)
             existing = {p["preset_name"] for p in existing_presets}
             
             # Find current default preset name
@@ -175,13 +179,14 @@ def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None)
         json.dump(presets_dict, f, indent=2)
 
 
-def load_active_preset(active_preset_file: Path, table_name: str = None) -> str:
+def load_active_preset(active_preset_file: Path, table_name: str = None, username: str = None) -> str:
     """
     Load the last active preset name from database or file.
     
     Args:
         active_preset_file: Path to the active preset JSON file (used as fallback)
         table_name: Base table name to scope presets (for multi-widget support)
+        username: Username for user-scoped presets (from Posit Connect session.user)
         
     Returns:
         Name of the active preset, or "Default" if not found
@@ -189,8 +194,8 @@ def load_active_preset(active_preset_file: Path, table_name: str = None) -> str:
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
-            username = _get_username()
-            default_preset = service.get_default_preset(username)
+            user = username or _get_username()
+            default_preset = service.get_default_preset(user)
             if default_preset:
                 return default_preset["preset_name"]
             return "Default"
@@ -208,7 +213,7 @@ def load_active_preset(active_preset_file: Path, table_name: str = None) -> str:
     return "Default"
 
 
-def save_active_preset(active_preset_file: Path, preset_name: str, table_name: str = None) -> None:
+def save_active_preset(active_preset_file: Path, preset_name: str, table_name: str = None, username: str = None) -> None:
     """
     Save the active preset name to database or file.
     
@@ -216,12 +221,13 @@ def save_active_preset(active_preset_file: Path, preset_name: str, table_name: s
         active_preset_file: Path to the active preset JSON file (used as fallback)
         preset_name: Name of the preset to save as active
         table_name: Base table name to scope presets (for multi-widget support)
+        username: Username for user-scoped presets (from Posit Connect session.user)
     """
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
-            username = _get_username()
-            service.set_default(username, preset_name)
+            user = username or _get_username()
+            service.set_default(user, preset_name)
             return
         except Exception as e:
             print(f"[preset_utils] DB save active preset failed, falling back to file: {e}")

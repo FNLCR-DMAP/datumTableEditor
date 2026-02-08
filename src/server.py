@@ -74,9 +74,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     Args:
         config_path: Path to the config JSON file for this widget instance
     """
-    # Load config instance for this widget
+    import os
+    # Get username: Posit Connect session.user → SHINY_USER env var → 'default_user'
+    posit_username = getattr(session, 'user', None) or os.environ.get('SHINY_USER') or 'default_user'
+    # Sanitize username for use in table names
+    safe_username = "".join(c if c.isalnum() else "_" for c in posit_username).lower()
+    print(f"[Session] User: {posit_username} (safe: {safe_username})")
+    
+    # Load config instance for this widget, passing the username for user-scoped tables
     from src.config.config_instance import load_config_instance
-    config = load_config_instance(config_path)
+    config = load_config_instance(config_path, username=safe_username)
     
     # Extract config values
     data_dir = config.data_dir
@@ -137,14 +144,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     approval_status = reactive.Value(initial_status)
     approval_timestamp = reactive.Value(initial_timestamp)
     
-    # Load presets (scoped by preset_table_name which is unique per widget)
-    print(f"[Preset] Loading presets for scope: {preset_table_name}")
-    loaded_presets = load_presets(presets_file, display_columns, preset_table_name)
+    # Load presets (scoped by preset_table_name and username)
+    print(f"[Preset] Loading presets for scope: {preset_table_name}, user: {safe_username}")
+    loaded_presets = load_presets(presets_file, display_columns, preset_table_name, safe_username)
     column_presets = reactive.Value(loaded_presets)
     
     # Load last active preset (persists across refreshes)
-    initial_active_preset = load_active_preset(active_preset_file, preset_table_name)
-    print(f"[Preset] Active preset for {preset_table_name}: {initial_active_preset}")
+    initial_active_preset = load_active_preset(active_preset_file, preset_table_name, safe_username)
+    print(f"[Preset] Active preset for {preset_table_name}/{safe_username}: {initial_active_preset}")
     # Ensure the preset exists, fallback to Default if not
     if initial_active_preset not in loaded_presets:
         initial_active_preset = "Default"
@@ -256,12 +263,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             search_column=search_column
         )
 
-    # Wrapper functions for preset utilities (using file paths from this scope)
+    # Wrapper functions for preset utilities (using file paths and username from this scope)
     def _save_presets(presets_dict):
-        save_presets(presets_file, presets_dict, preset_table_name)
+        save_presets(presets_file, presets_dict, preset_table_name, safe_username)
     
     def _save_active_preset(preset_name):
-        save_active_preset(active_preset_file, preset_name, preset_table_name)
+        save_active_preset(active_preset_file, preset_name, preset_table_name, safe_username)
 
     # Output: Namespace holder for JavaScript
     @render.ui
@@ -312,7 +319,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.refresh_preset)
     def _refresh_presets():
         """Reload presets from file when triggered"""
-        fresh_presets = load_presets(presets_file, display_columns, preset_table_name)
+        fresh_presets = load_presets(presets_file, display_columns, preset_table_name, safe_username)
         column_presets.set(fresh_presets)
         
         # Also refresh active_columns based on current preset

@@ -40,6 +40,7 @@ class ConfigInstance:
     This allows multiple widgets to have independent configs and data.
     """
     config_path: str
+    username: str = "default_user"  # User identifier for user-scoped state
     app_config: AppConfig = field(default=None)
     df: pd.DataFrame = field(default=None)
     all_columns: List[str] = field(default_factory=list)
@@ -129,7 +130,6 @@ class ConfigInstance:
             # Apply field modifications to the data
             df = self._apply_field_modifications(df, engine)
             
-            print(f"✓ Loaded {len(df)} rows from database: {data_table}")
             return df
         except Exception as e:
             print(f"✗ Error loading from database: {e}")
@@ -173,8 +173,6 @@ class ConfigInstance:
                                 mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
                         if mask.any():
                             df.loc[mask, col_name] = new_value
-                
-                print(f"✓ Applied {len(mods_data)} field modifications")
             
             return df
         except Exception as e:
@@ -455,7 +453,7 @@ class ConfigInstance:
                             updated_at = NOW()
                     '''),
                     {
-                        "user_id": "default_user",
+                        "user_id": self.username,
                         "session_id": "default_session",
                         "sort_column": sort_column,
                         "sort_ascending": sort_ascending,
@@ -499,7 +497,7 @@ class ConfigInstance:
                         FROM {state_table_sql}
                         WHERE user_id = :user_id AND session_id = :session_id
                     '''),
-                    {"user_id": "default_user", "session_id": "default_session"}
+                    {"user_id": self.username, "session_id": "default_session"}
                 )
                 row = result.fetchone()
             
@@ -524,14 +522,15 @@ class ConfigInstance:
         return default_state
 
 
-def load_config_instance(config_path: str = "app_config.json") -> ConfigInstance:
+def load_config_instance(config_path: str = "app_config.json", username: str = "default_user") -> ConfigInstance:
     """
     Load a configuration instance for a widget.
     
     Args:
         config_path: Path to the config JSON file
+        username: Username for user-scoped state (from Posit Connect session.user)
         
     Returns:
         ConfigInstance with loaded config and data
     """
-    return ConfigInstance(config_path=config_path)
+    return ConfigInstance(config_path=config_path, username=username)
