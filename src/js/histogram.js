@@ -18,7 +18,7 @@ function initHistogramCheckboxes() {
 
 // Initialize histogram checkbox sync after Shiny renders
 $(document).on('shiny:value', function(event) {
-    if (event.name === 'stats_histogram') {
+    if (event.name && event.name.endsWith('stats_histogram')) {
         setTimeout(initHistogramCheckboxes, 50);
     }
 });

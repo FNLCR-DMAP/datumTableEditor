@@ -194,14 +194,16 @@ window.addColumn = function(col, event) {
 // Remove column from modal
 window.removeColumnFromModal = function(col, event) {
     if (event) event.stopPropagation();
+    var contextEl = event ? event.target : document.activeElement;
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+        setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'}, contextEl);
     }
 };
 
 // Initialize header drag after Shiny renders
 $(document).on('shiny:value', function(event) {
-    if (event.name === 'table_container') {
+    // Check if the event name ends with table_container (namespaced)
+    if (event.name && event.name.endsWith('table_container')) {
         setTimeout(function() {
             initHeaderDrag();
             initColumnResize();

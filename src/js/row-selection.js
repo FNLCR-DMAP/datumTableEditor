@@ -112,7 +112,7 @@ window.resetRowSelection = function() {
 
 // Initialize row selection after table renders
 $(document).on('shiny:value', function(event) {
-    if (event.name === 'table_container') {
+    if (event.name && event.name.endsWith('table_container')) {
         // Reset last selected row on table re-render (e.g., page change)
         lastSelectedRow = null;
         setTimeout(initRowSelection, 100);

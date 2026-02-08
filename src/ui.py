@@ -270,7 +270,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         # Manage Layout Button
                         ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal(event)"),
                         # Modifications Log Button
-                        ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal()"),
+                        ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal(event)"),
                         class_="toolbar-right"
                     ),
                     class_="top-toolbar"
