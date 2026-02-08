@@ -5,7 +5,7 @@ Split panel layout with collapsible sidebar
 
 from shiny import ui
 from pathlib import Path
-from config import all_columns
+from src.config.config import all_columns
 
 
 def _load_css_files() -> str:

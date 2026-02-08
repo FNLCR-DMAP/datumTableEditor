@@ -98,7 +98,11 @@ def build_log_entry_rejection(timestamp: str, details: dict) -> ui.div:
 
 def build_log_entry_undone(timestamp: str, details: dict) -> ui.div:
     """Build UI for an undone field modification log entry."""
-    pk = details.get('primary_key', details.get('row_index', '?'))
+    # Handle different PK formats: primary_key (in-memory), row_pk (from DB), row_index (legacy)
+    pk = details.get('primary_key') or details.get('row_pk') or details.get('row_index', '?')
+    # If pk is a dict, format it nicely
+    if isinstance(pk, dict):
+        pk = ', '.join(f"{v}" for v in pk.values()) if pk else '?'
     return ui.div(
         ui.div(
             ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp", style="text-decoration: line-through; color: #999;"),
@@ -118,7 +122,11 @@ def build_log_entry_undone(timestamp: str, details: dict) -> ui.div:
 
 def build_log_entry_field_modification(timestamp: str, details: dict, log_idx: int) -> ui.div:
     """Build UI for a field modification log entry with undo button."""
-    pk = details.get('primary_key', details.get('row_index', '?'))
+    # Handle different PK formats: primary_key (in-memory), row_pk (from DB), row_index (legacy)
+    pk = details.get('primary_key') or details.get('row_pk') or details.get('row_index', '?')
+    # If pk is a dict, format it nicely
+    if isinstance(pk, dict):
+        pk = ', '.join(f"{v}" for v in pk.values()) if pk else '?'
     return ui.div(
         ui.div(
             ui.tags.span(f"[{timestamp[:19]}]", class_="timestamp"),
@@ -197,23 +205,27 @@ def build_approval_status_banner(status: str, timestamp: str) -> ui.div:
 
 
 def build_modifications_log(log: list) -> ui.div:
-    """Build the modifications log UI from log entries (only approval/rejection)."""
+    """Build the modifications log UI from log entries."""
     if not log:
         return build_empty_log_message()
     
     log_items = []
-    # Only show approval and rejection entries, not field edits
-    displayable = [(i, m) for i, m in enumerate(log) if m.get("type") in ["approval", "rejection"]]
-    
-    for actual_idx, mod in reversed(displayable):
+    # Show all entries (field modifications, approvals, rejections)
+    for actual_idx, mod in reversed(list(enumerate(log))):
         timestamp = mod.get("timestamp", "Unknown")
         details = mod.get("details", {})
         mod_type = mod.get("type")
+        undone = mod.get("undone", False)
         
         if mod_type == "approval":
             log_items.append(build_log_entry_approval(timestamp, details))
         elif mod_type == "rejection":
             log_items.append(build_log_entry_rejection(timestamp, details))
+        elif mod_type == "field_modification":
+            if undone:
+                log_items.append(build_log_entry_undone(timestamp, details))
+            else:
+                log_items.append(build_log_entry_field_modification(timestamp, details, actual_idx))
     
     if not log_items:
         return build_empty_log_message()

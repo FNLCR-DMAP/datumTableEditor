@@ -5,7 +5,7 @@ Updated for split panel layout with column customization
 
 from shiny import render, ui, reactive
 
-from config import (
+from src.config.config import (
     data_dir,
     modifications_log_path,
     df_original,
@@ -168,7 +168,7 @@ def create_server(input, output, session):  # noqa: ARG001
     # Helper function to save approval/rejection status to database
     def _save_status_to_db(selected_pks, mod_type: str):
         """Save approval/rejection entries to database with PKs"""
-        from config import save_modification_to_db
+        from src.config.config import save_modification_to_db
         
         for row_pk in selected_pks:
             try:

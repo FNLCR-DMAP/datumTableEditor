@@ -2,17 +2,17 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 123,
-    "unused_functions": 0,
+    "total_functions": 131,
+    "unused_functions": 3,
     "fully_annotated_functions": 73,
-    "function_coverage_percent": 59.3,
-    "parameter_coverage_percent": 96.7,
+    "function_coverage_percent": 55.7,
+    "parameter_coverage_percent": 92.9,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
     "server.py": {
-      "total": 50,
+      "total": 53,
       "functions": [
         "_add_column",
         "_add_filter",
@@ -25,9 +25,11 @@
         "_get_filtered_rows",
         "_get_modification_summary",
         "_get_row_status",
+        "_get_selected_pks",
         "_get_status_counts",
         "_handle_cell_edit",
         "_handle_copy_request",
+        "_handle_search",
         "_handle_undo",
         "_last_page",
         "_load_preset",
@@ -46,6 +48,7 @@
         "_save_modifications",
         "_save_preset",
         "_save_presets",
+        "_save_status_to_db",
         "_sort_column",
         "_sync_rows_per_page",
         "_update_column_order",
@@ -69,9 +72,11 @@
         "_get_filtered_rows",
         "_get_modification_summary",
         "_get_row_status",
+        "_get_selected_pks",
         "_get_status_counts",
         "_save_active_preset",
         "_save_presets",
+        "_save_status_to_db",
         "create_server"
       ],
       "framework_managed": [
@@ -85,6 +90,7 @@
         "_first_page",
         "_handle_cell_edit",
         "_handle_copy_request",
+        "_handle_search",
         "_handle_undo",
         "_last_page",
         "_load_preset",
@@ -190,20 +196,26 @@
       ]
     },
     "src/utils/data_utils.py": {
-      "total": 5,
+      "total": 8,
       "functions": [
         "get_latest_approval_status",
         "get_modification_summary",
         "get_row_modifications",
         "get_row_status",
-        "get_status_counts"
+        "get_status_counts",
+        "matches_row",
+        "matches_row_pk",
+        "pk_in_list"
       ],
       "used": [
         "get_latest_approval_status",
         "get_modification_summary",
         "get_row_modifications",
         "get_row_status",
-        "get_status_counts"
+        "get_status_counts",
+        "matches_row",
+        "matches_row_pk",
+        "pk_in_list"
       ]
     },
     "src/utils/event_handlers.py": {
@@ -215,10 +227,12 @@
         "process_undo_action"
       ],
       "used": [
-        "process_approval_action",
         "process_cell_edit_action",
-        "process_rejection_action",
         "process_undo_action"
+      ],
+      "unused": [
+        "process_approval_action",
+        "process_rejection_action"
       ]
     },
     "src/utils/filter_handlers.py": {
@@ -326,7 +340,7 @@
       ]
     },
     "src/utils/ui_components.py": {
-      "total": 9,
+      "total": 11,
       "functions": [
         "build_approval_status_banner",
         "build_empty_log_message",
@@ -336,7 +350,9 @@
         "build_log_entry_undo",
         "build_log_entry_undone",
         "build_modifications_log",
-        "build_status_histogram_bar"
+        "build_status_histogram_bar",
+        "format_row",
+        "format_row"
       ],
       "used": [
         "build_approval_status_banner",
@@ -344,79 +360,85 @@
         "build_log_entry_approval",
         "build_log_entry_field_modification",
         "build_log_entry_rejection",
-        "build_log_entry_undo",
         "build_log_entry_undone",
         "build_modifications_log",
-        "build_status_histogram_bar"
+        "build_status_histogram_bar",
+        "format_row",
+        "format_row"
+      ],
+      "unused": [
+        "build_log_entry_undo"
       ]
     }
   },
   "type_coverage": {
     "server.py": {
       "functions": {
-        "total": 50,
+        "total": 53,
         "with_return_type": 0,
         "fully_annotated": 0
       },
       "parameters": {
-        "total": 6,
-        "annotated": 0
+        "total": 10,
+        "annotated": 1
       },
       "missing": [
         {
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 81
+          "line": 82
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 81
+          "line": 82
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 81
+          "line": 82
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 81
+          "line": 82
+        },
+        {
+          "type": "parameter",
+          "function": "_get_selected_pks",
+          "name": "row_indices",
+          "line": 154
+        },
+        {
+          "type": "parameter",
+          "function": "_get_selected_pks",
+          "name": "current_df",
+          "line": 154
+        },
+        {
+          "type": "return",
+          "function": "_get_selected_pks",
+          "line": 154
+        },
+        {
+          "type": "parameter",
+          "function": "_save_status_to_db",
+          "name": "selected_pks",
+          "line": 169
+        },
+        {
+          "type": "return",
+          "function": "_save_status_to_db",
+          "line": 169
         },
         {
           "type": "parameter",
           "function": "_get_row_status",
           "name": "row_idx",
-          "line": 143
-        },
-        {
-          "type": "return",
-          "function": "_get_row_status",
-          "line": 143
-        },
-        {
-          "type": "return",
-          "function": "_get_status_counts",
-          "line": 147
-        },
-        {
-          "type": "return",
-          "function": "_get_modification_summary",
-          "line": 151
-        },
-        {
-          "type": "return",
-          "function": "_get_filtered_rows",
-          "line": 155
-        },
-        {
-          "type": "parameter",
-          "function": "_save_presets",
-          "name": "presets_dict",
-          "line": 176
+          "line": 187
         }
       ]
     },
@@ -455,14 +477,49 @@
     },
     "src/utils/data_utils.py": {
       "functions": {
-        "total": 5,
+        "total": 8,
         "with_return_type": 5,
         "fully_annotated": 5
       },
       "parameters": {
-        "total": 9,
-        "annotated": 9
-      }
+        "total": 15,
+        "annotated": 12
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "matches_row_pk",
+          "name": "entry_details",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "matches_row_pk",
+          "line": 50
+        },
+        {
+          "type": "parameter",
+          "function": "matches_row",
+          "name": "entry_details",
+          "line": 60
+        },
+        {
+          "type": "return",
+          "function": "matches_row",
+          "line": 60
+        },
+        {
+          "type": "parameter",
+          "function": "pk_in_list",
+          "name": "pk_list",
+          "line": 75
+        },
+        {
+          "type": "return",
+          "function": "pk_in_list",
+          "line": 75
+        }
+      ]
     },
     "src/utils/event_handlers.py": {
       "functions": {
@@ -493,8 +550,8 @@
         "fully_annotated": 1
       },
       "parameters": {
-        "total": 6,
-        "annotated": 6
+        "total": 7,
+        "annotated": 7
       }
     },
     "src/utils/modal_utils.py": {
@@ -543,14 +600,38 @@
     },
     "src/utils/ui_components.py": {
       "functions": {
-        "total": 9,
+        "total": 11,
         "with_return_type": 9,
         "fully_annotated": 9
       },
       "parameters": {
-        "total": 18,
+        "total": 20,
         "annotated": 18
-      }
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "format_row",
+          "name": "r",
+          "line": 35
+        },
+        {
+          "type": "return",
+          "function": "format_row",
+          "line": 35
+        },
+        {
+          "type": "parameter",
+          "function": "format_row",
+          "name": "r",
+          "line": 70
+        },
+        {
+          "type": "return",
+          "function": "format_row",
+          "line": 70
+        }
+      ]
     }
   },
   "mypy_errors": {}

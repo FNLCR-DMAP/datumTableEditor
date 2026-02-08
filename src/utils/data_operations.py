@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Tuple, Optional
 
 # Import config for database operations
 try:
-    from config import (
+    from src.config.config import (
         app_config,
         save_modification_to_db,
         mark_modification_undone_in_db,
@@ -85,7 +85,7 @@ def perform_undo(
     updated_df = df.copy()
     
     # Find the row by primary key (robust against sorting)
-    from config import app_config
+    from src.config.config import app_config
     pk_cols = app_config.table.primary_key
     
     if row_pk and pk_cols:
