@@ -154,8 +154,18 @@ class DatabaseConfig:
     # Enable database mode (if False, uses local CSV mode)
     enabled: bool = False
     
-    # Connection settings
+    # Mode: "direct" for SQLAlchemy, "datum" for Datum proxy service
+    mode: str = "direct"
+    
+    # Direct mode: SQLAlchemy connection settings
     connection_string: Optional[str] = None
+    
+    # Datum mode: Proxy service settings
+    datum_base_url: Optional[str] = None
+    datum_token: Optional[str] = None
+    datum_service_name: str = "postgres_sql"
+    datum_database: Optional[str] = None
+    datum_schema: Optional[str] = None
     
     # Table names
     data_table: str = "epitopes_data"
@@ -166,7 +176,7 @@ class DatabaseConfig:
     status_column: str = "Status"
     auto_detect_pk: bool = True
     
-    # Connection pool settings
+    # Connection pool settings (direct mode only)
     pool_size: int = 5
     max_overflow: int = 10
     pool_timeout: int = 30
@@ -294,7 +304,13 @@ def _merge_config(config: AppConfig, file_config: dict) -> AppConfig:
     if "database" in file_config:
         db = file_config["database"]
         config.database.enabled = db.get("enabled", config.database.enabled)
+        config.database.mode = db.get("mode", config.database.mode)
         config.database.connection_string = db.get("connection_string")
+        config.database.datum_base_url = db.get("datum_base_url")
+        config.database.datum_token = db.get("datum_token")
+        config.database.datum_service_name = db.get("datum_service_name", config.database.datum_service_name)
+        config.database.datum_database = db.get("datum_database")
+        config.database.datum_schema = db.get("datum_schema")
         config.database.data_table = db.get("data_table", config.database.data_table)
         config.database.mods_table = db.get("mods_table", config.database.mods_table)
         config.database.state_table = db.get("state_table", config.database.state_table)
