@@ -106,7 +106,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     active_preset_file = data_dir / "active_preset.json"
     
     # Get table name for scoping presets (for multi-widget support)
-    preset_table_name = app_config.database.data_table
+    # Use mods_table as it's unique per widget instance (e.g., epitopes.modifications vs epitopes.modifications_clone)
+    preset_table_name = app_config.database.mods_table.replace('.', '_').replace('-', '_')
     
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
@@ -136,12 +137,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     approval_status = reactive.Value(initial_status)
     approval_timestamp = reactive.Value(initial_timestamp)
     
-    # Load presets
+    # Load presets (scoped by preset_table_name which is unique per widget)
+    print(f"[Preset] Loading presets for scope: {preset_table_name}")
     loaded_presets = load_presets(presets_file, display_columns, preset_table_name)
     column_presets = reactive.Value(loaded_presets)
     
     # Load last active preset (persists across refreshes)
     initial_active_preset = load_active_preset(active_preset_file, preset_table_name)
+    print(f"[Preset] Active preset for {preset_table_name}: {initial_active_preset}")
     # Ensure the preset exists, fallback to Default if not
     if initial_active_preset not in loaded_presets:
         initial_active_preset = "Default"
