@@ -1,8 +1,9 @@
 // Modal functions
-window.openAddColumnModal = function() {
-    // Trigger refresh when opening modal
+window.openAddColumnModal = function(event) {
+    // Trigger refresh when opening modal (pass event target for namespace detection)
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('refresh_preset', Date.now(), {priority: 'event'});
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('refresh_preset', Date.now(), {priority: 'event'}, contextEl);
     }
     document.getElementById('add-column-modal').classList.add('show');
     // Initialize modal drag after a short delay
@@ -88,8 +89,8 @@ function updateModalColumnOrder() {
     });
     
     if (newOrder.length > 0 && typeof setShinyInput !== 'undefined') {
-        // Send with timestamp to ensure event fires
-        setShinyInput('column_order', {order: newOrder, ts: Date.now()}, {priority: 'event'});
+        // Send with timestamp to ensure event fires (use container as context)
+        setShinyInput('column_order', {order: newOrder, ts: Date.now()}, {priority: 'event'}, container);
     }
 }
 
@@ -114,10 +115,11 @@ document.addEventListener('click', function(e) {
 });
 
 // Copy Column Modal functions
-window.openCopyModal = function() {
-    // Trigger refresh of column list
+window.openCopyModal = function(event) {
+    // Trigger refresh of column list (pass event target for namespace detection)
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('refresh_copy_columns', Date.now(), {priority: 'event'});
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('refresh_copy_columns', Date.now(), {priority: 'event'}, contextEl);
     }
     document.getElementById('copy-column-modal').classList.add('show');
 };
@@ -126,7 +128,7 @@ window.closeCopyModal = function() {
     document.getElementById('copy-column-modal').classList.remove('show');
 };
 
-window.copyColumnValues = function(columnName) {
+window.copyColumnValues = function(columnName, event) {
     // Get selected rows from checkboxes (handle namespaced IDs like editor1-select_0)
     const checkboxes = document.querySelectorAll('input[type="checkbox"][id*="select_"]:checked');
     if (checkboxes.length === 0) {
@@ -144,18 +146,19 @@ window.copyColumnValues = function(columnName) {
             }
         });
         
+        var contextEl = event ? event.target : document.activeElement;
         setShinyInput('copy_column_request', {
             column: columnName,
             indices: selectedIndices,
             ts: Date.now()
-        }, {priority: 'event'});
+        }, {priority: 'event'}, contextEl);
     }
     
     closeCopyModal();
 };
 
 // Add Filter Modal functions
-window.openAddFilterModal = function() {
+window.openAddFilterModal = function(event) {
     document.getElementById('add-filter-modal').classList.add('show');
 };
 
@@ -163,31 +166,34 @@ window.closeAddFilterModal = function() {
     document.getElementById('add-filter-modal').classList.remove('show');
 };
 
-window.addFilter = function(columnName) {
+window.addFilter = function(columnName, event) {
     if (typeof setShinyInput !== 'undefined') {
+        var contextEl = event ? event.target : document.activeElement;
         setShinyInput('add_filter_column', {
             column: columnName,
             ts: Date.now()
-        }, {priority: 'event'});
+        }, {priority: 'event'}, contextEl);
     }
     closeAddFilterModal();
 };
 
-window.removeFilter = function(columnName) {
+window.removeFilter = function(columnName, event) {
     if (typeof setShinyInput !== 'undefined') {
+        var contextEl = event ? event.target : document.activeElement;
         setShinyInput('remove_filter_column', {
             column: columnName,
             ts: Date.now()
-        }, {priority: 'event'});
+        }, {priority: 'event'}, contextEl);
     }
 };
 
 // Undo a modification from the log
-window.undoModification = function(logIndex) {
+window.undoModification = function(logIndex, event) {
     if (typeof setShinyInput !== 'undefined') {
+        var contextEl = event ? event.target : document.activeElement;
         setShinyInput('undo_modification', {
             index: logIndex,
             ts: Date.now()
-        }, {priority: 'event'});
+        }, {priority: 'event'}, contextEl);
     }
 };

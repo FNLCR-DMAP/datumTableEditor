@@ -73,7 +73,7 @@ def build_preset_menu_items(presets: dict, current_preset: str) -> ui.div:
                 name,
                 delete_btn,
                 class_=f"preset-menu-item {'active' if is_active else ''}",
-                onclick=f"loadPreset('{name}')"
+                onclick=f"loadPreset('{name}', event)"
             )
         )
     
@@ -109,7 +109,7 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
             ui.tags.button(
                 col,
                 class_="btn btn-outline-secondary btn-block",
-                onclick=f"addFilter('{col}')",
+                onclick=f"addFilter('{col}', event)",
                 style="width: 100%; margin-bottom: 8px; text-align: left; padding: 8px 12px; font-size: 12px;"
             )
         )
@@ -123,7 +123,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         ui.div(
             ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
             ui.tags.button("×", class_="remove-filter-btn", 
-                           onclick=f"removeFilter('{col_name}')",
+                           onclick=f"removeFilter('{col_name}', event)",
                            style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;"),
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
         ),

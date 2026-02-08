@@ -8,9 +8,9 @@ function initHistogramCheckboxes() {
             document.querySelectorAll('.status-checkbox:checked').forEach(function(cb) {
                 checked.push(cb.value);
             });
-            // Update the hidden Shiny checkbox group
+            // Update the hidden Shiny checkbox group (pass checkbox as context)
             if (typeof setShinyInput !== 'undefined') {
-                setShinyInput('status_filter_multi', checked);
+                setShinyInput('status_filter_multi', checked, {priority: 'event'}, checkbox);
             }
         });
     });

@@ -203,7 +203,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ui.div(
                         ui.div(
                             ui.h4("Column Filters", style="display: inline-block; margin: 0;"),
-                            ui.tags.button("+", class_="btn btn-sm btn-outline-primary add-filter-btn", onclick="openAddFilterModal()", style="margin-left: 10px; padding: 2px 8px; font-size: 12px;"),
+                            ui.tags.button("+", class_="btn btn-sm btn-outline-primary add-filter-btn", onclick="openAddFilterModal(event)", style="margin-left: 10px; padding: 2px 8px; font-size: 12px;"),
                             class_="filter-header"
                         ),
                         ui.output_ui("dynamic_filters"),
@@ -225,7 +225,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_action_button("export_btn", "Export CSV", class_="btn btn-sm btn-info"),
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success"),
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger"),
-                        ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal()"),
+                        ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
                         ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows()"),
                         class_="toolbar-left"
                     ),
@@ -259,16 +259,16 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 ui.div(
                                     "Reset to Default",
                                     class_="preset-menu-item",
-                                    onclick="resetColumns()"
+                                    onclick="resetColumns(event)"
                                 ),
                                 class_="preset-menu"
                             ),
                             class_="preset-dropdown"
                         ),
                         # Save Layout Button
-                        ui.tags.button("Save Layout", class_="save-layout-btn", onclick="saveLayoutPrompt()"),
+                        ui.tags.button("Save Layout", class_="save-layout-btn", onclick="saveLayoutPrompt(event)"),
                         # Manage Layout Button
-                        ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal()"),
+                        ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal(event)"),
                         # Modifications Log Button
                         ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal()"),
                         class_="toolbar-right"
@@ -281,7 +281,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ui.div(
                         ui.div(
                             ui.h3("Manage Layout"),
-                            ui.tags.button("Update", class_="btn btn-sm btn-primary", onclick="updateCurrentPreset()", style="margin-left: auto; margin-right: 10px;"),
+                            ui.tags.button("Update", class_="btn btn-sm btn-primary", onclick="updateCurrentPreset(event)", style="margin-left: auto; margin-right: 10px;"),
                             ui.tags.button("×", class_="modal-close", onclick="closeModal()"),
                             class_="modal-header"
                         ),

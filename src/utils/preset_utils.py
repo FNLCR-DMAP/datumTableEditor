@@ -4,6 +4,8 @@ Preset management utilities for column presets and active preset persistence.
 Supports both file-based and database-backed storage.
 When database.enabled=true in app_config.json, uses UserPresetsService.
 Otherwise, falls back to JSON file storage.
+
+Updated to support multiple widget instances with different table identifiers.
 """
 
 import json
@@ -17,9 +19,9 @@ try:
 except ImportError:
     DB_SERVICE_AVAILABLE = False
 
-# Cache for config and service
+# Cache for config and services (keyed by table_name)
 _app_config_cache: Optional[dict] = None
-_presets_service_cache: Optional["UserPresetsService"] = None
+_presets_service_cache: dict[str, "UserPresetsService"] = {}
 _default_username = "default_user"
 
 
@@ -42,12 +44,17 @@ def _is_database_enabled() -> bool:
     return config.get("database", {}).get("enabled", False) and DB_SERVICE_AVAILABLE
 
 
-def _get_presets_service() -> "UserPresetsService":
-    """Get or create the presets service singleton."""
+def _get_presets_service(table_name: str = None) -> "UserPresetsService":
+    """Get or create the presets service for a specific table.
+    
+    Args:
+        table_name: Base table name to scope presets. If None, uses default.
+    """
     global _presets_service_cache
-    if _presets_service_cache is None:
-        _presets_service_cache = UserPresetsService()
-    return _presets_service_cache
+    cache_key = table_name or "_default"
+    if cache_key not in _presets_service_cache:
+        _presets_service_cache[cache_key] = UserPresetsService(table_name=table_name)
+    return _presets_service_cache[cache_key]
 
 
 def _get_username() -> str:
@@ -57,20 +64,21 @@ def _get_username() -> str:
     return config.get("presets", {}).get("default_user", _default_username)
 
 
-def load_presets(presets_file: Path, default_columns: list) -> dict:
+def load_presets(presets_file: Path, default_columns: list, table_name: str = None) -> dict:
     """
     Load column presets from database or file.
     
     Args:
         presets_file: Path to the presets JSON file (used as fallback)
         default_columns: Default columns to use if no presets exist
+        table_name: Base table name to scope presets (for multi-widget support)
         
     Returns:
         Dictionary of preset names to preset data (columns and widths)
     """
     if _is_database_enabled():
         try:
-            service = _get_presets_service()
+            service = _get_presets_service(table_name)
             username = _get_username()
             presets = service.get_presets(username)
             
@@ -115,17 +123,18 @@ def load_presets(presets_file: Path, default_columns: list) -> dict:
     return {"Default": {"columns": list(default_columns), "widths": {}}}
 
 
-def save_presets(presets_file: Path, presets_dict: dict) -> None:
+def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None) -> None:
     """
     Save column presets to database or file.
     
     Args:
         presets_file: Path to the presets JSON file (used as fallback)
         presets_dict: Dictionary of preset names to preset data
+        table_name: Base table name to scope presets (for multi-widget support)
     """
     if _is_database_enabled():
         try:
-            service = _get_presets_service()
+            service = _get_presets_service(table_name)
             username = _get_username()
             
             # Get existing presets to find deleted ones and preserve default
@@ -166,19 +175,20 @@ def save_presets(presets_file: Path, presets_dict: dict) -> None:
         json.dump(presets_dict, f, indent=2)
 
 
-def load_active_preset(active_preset_file: Path) -> str:
+def load_active_preset(active_preset_file: Path, table_name: str = None) -> str:
     """
     Load the last active preset name from database or file.
     
     Args:
         active_preset_file: Path to the active preset JSON file (used as fallback)
+        table_name: Base table name to scope presets (for multi-widget support)
         
     Returns:
         Name of the active preset, or "Default" if not found
     """
     if _is_database_enabled():
         try:
-            service = _get_presets_service()
+            service = _get_presets_service(table_name)
             username = _get_username()
             default_preset = service.get_default_preset(username)
             if default_preset:
@@ -198,17 +208,18 @@ def load_active_preset(active_preset_file: Path) -> str:
     return "Default"
 
 
-def save_active_preset(active_preset_file: Path, preset_name: str) -> None:
+def save_active_preset(active_preset_file: Path, preset_name: str, table_name: str = None) -> None:
     """
     Save the active preset name to database or file.
     
     Args:
         active_preset_file: Path to the active preset JSON file (used as fallback)
         preset_name: Name of the preset to save as active
+        table_name: Base table name to scope presets (for multi-widget support)
     """
     if _is_database_enabled():
         try:
-            service = _get_presets_service()
+            service = _get_presets_service(table_name)
             username = _get_username()
             service.set_default(username, preset_name)
             return

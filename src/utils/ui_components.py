@@ -133,7 +133,7 @@ def build_log_entry_field_modification(timestamp: str, details: dict, log_idx: i
             ui.tags.button(
                 "Undo",
                 class_="btn btn-xs btn-outline-warning undo-btn",
-                onclick=f"undoModification({log_idx})",
+                onclick=f"undoModification({log_idx}, event)",
                 style="float: right; padding: 2px 8px; font-size: 10px;"
             ),
             style="display: flex; justify-content: space-between; align-items: center;"

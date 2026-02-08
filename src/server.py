@@ -105,6 +105,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     presets_file = data_dir / "column_presets.json"
     active_preset_file = data_dir / "active_preset.json"
     
+    # Get table name for scoping presets (for multi-widget support)
+    preset_table_name = app_config.database.data_table
+    
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
     
@@ -134,11 +137,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     approval_timestamp = reactive.Value(initial_timestamp)
     
     # Load presets
-    loaded_presets = load_presets(presets_file, display_columns)
+    loaded_presets = load_presets(presets_file, display_columns, preset_table_name)
     column_presets = reactive.Value(loaded_presets)
     
     # Load last active preset (persists across refreshes)
-    initial_active_preset = load_active_preset(active_preset_file)
+    initial_active_preset = load_active_preset(active_preset_file, preset_table_name)
     # Ensure the preset exists, fallback to Default if not
     if initial_active_preset not in loaded_presets:
         initial_active_preset = "Default"
@@ -252,10 +255,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     # Wrapper functions for preset utilities (using file paths from this scope)
     def _save_presets(presets_dict):
-        save_presets(presets_file, presets_dict)
+        save_presets(presets_file, presets_dict, preset_table_name)
     
     def _save_active_preset(preset_name):
-        save_active_preset(active_preset_file, preset_name)
+        save_active_preset(active_preset_file, preset_name, preset_table_name)
 
     # Output: Namespace holder for JavaScript
     @render.ui
@@ -306,7 +309,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.refresh_preset)
     def _refresh_presets():
         """Reload presets from file when triggered"""
-        fresh_presets = load_presets(presets_file, display_columns)
+        fresh_presets = load_presets(presets_file, display_columns, preset_table_name)
         column_presets.set(fresh_presets)
         
         # Also refresh active_columns based on current preset

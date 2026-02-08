@@ -49,9 +49,9 @@ function initRowSelection() {
                 if (rowCheckbox && rowCheckbox.checked !== shouldCheck) {
                     rowCheckbox.checked = shouldCheck;
                     updateRowHighlight(rowCheckbox);
-                    // Trigger Shiny input change
+                    // Trigger Shiny input change (pass checkbox as context)
                     if (typeof setShinyInput !== 'undefined') {
-                        setShinyInput(`select_${i}`, shouldCheck, {priority: 'event'});
+                        setShinyInput(`select_${i}`, shouldCheck, {priority: 'event'}, rowCheckbox);
                     }
                 }
             }
@@ -83,7 +83,7 @@ window.selectAllRows = function() {
             if (typeof setShinyInput !== 'undefined') {
                 // Extract just the input name part (select_N) from the full namespaced id
                 const inputName = checkbox.id.includes('-') ? checkbox.id.split('-').pop() : checkbox.id;
-                setShinyInput(inputName, true, {priority: 'event'});
+                setShinyInput(inputName, true, {priority: 'event'}, checkbox);
             }
         }
     });
@@ -98,7 +98,7 @@ window.deselectAllRows = function() {
             if (typeof setShinyInput !== 'undefined') {
                 // Extract just the input name part (select_N) from the full namespaced id
                 const inputName = checkbox.id.includes('-') ? checkbox.id.split('-').pop() : checkbox.id;
-                setShinyInput(inputName, false, {priority: 'event'});
+                setShinyInput(inputName, false, {priority: 'event'}, checkbox);
             }
         }
     });

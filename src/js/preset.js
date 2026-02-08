@@ -1,9 +1,9 @@
 // Preset dropdown
 window.togglePresetMenu = function(event) {
     event.stopPropagation();
-    // Trigger refresh when opening dropdown
+    // Trigger refresh when opening dropdown (pass event.target for namespace detection)
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('refresh_preset', Date.now(), {priority: 'event'});
+        setShinyInput('refresh_preset', Date.now(), {priority: 'event'}, event.target);
     }
     // Find the preset-menu within the same widget container
     const btn = event.target.closest('.preset-btn') || event.target;
@@ -18,7 +18,7 @@ window.togglePresetMenu = function(event) {
 window.refreshPresets = function(event) {
     if (event) event.stopPropagation();
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('refresh_preset', Date.now(), {priority: 'event'});
+        setShinyInput('refresh_preset', Date.now(), {priority: 'event'}, event ? event.target : null);
     }
 };
 
@@ -33,9 +33,11 @@ document.addEventListener('click', function(e) {
     });
 });
 
-window.loadPreset = function(presetName) {
+window.loadPreset = function(presetName, event) {
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('load_preset', presetName, {priority: 'event'});
+        // Use event target or find the clicked element for namespace detection
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('load_preset', presetName, {priority: 'event'}, contextEl);
     }
     // Close all preset menus
     document.querySelectorAll('.preset-menu').forEach(function(menu) {
@@ -47,7 +49,7 @@ window.deletePreset = function(presetName, event) {
     event.stopPropagation();
     if (confirm('Delete preset "' + presetName + '"?')) {
         if (typeof setShinyInput !== 'undefined') {
-            setShinyInput('delete_preset', presetName, {priority: 'event'});
+            setShinyInput('delete_preset', presetName, {priority: 'event'}, event.target);
         }
     }
 };
@@ -59,30 +61,34 @@ window.saveNewPreset = function(btn) {
     const name = input ? input.value.trim() : '';
     if (name) {
         if (typeof setShinyInput !== 'undefined') {
-            setShinyInput('save_preset_name', name, {priority: 'event'});
+            // Use btn as context element for namespace detection
+            setShinyInput('save_preset_name', name, {priority: 'event'}, btn);
         }
         if (input) input.value = '';
     }
 };
 
 // Save Layout - save to current preset (if not Default)
-window.saveLayoutPrompt = function() {
+window.saveLayoutPrompt = function(event) {
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('save_current_layout', Date.now(), {priority: 'event'});
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('save_current_layout', Date.now(), {priority: 'event'}, contextEl);
     }
 };
 
 // Update current preset from modal
-window.updateCurrentPreset = function() {
+window.updateCurrentPreset = function(event) {
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('save_current_layout', Date.now(), {priority: 'event'});
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('save_current_layout', Date.now(), {priority: 'event'}, contextEl);
     }
 };
 
 // Reset columns
-window.resetColumns = function() {
+window.resetColumns = function(event) {
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('reset_columns', Date.now(), {priority: 'event'});
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('reset_columns', Date.now(), {priority: 'event'}, contextEl);
     }
     // Close all preset menus
     document.querySelectorAll('.preset-menu').forEach(function(menu) {
