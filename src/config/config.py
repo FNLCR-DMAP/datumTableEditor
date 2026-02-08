@@ -6,6 +6,7 @@ New code should use src/app_config_schema.py and src/data_loader.py directly.
 """
 
 import json
+import os
 import pandas as pd
 from pathlib import Path
 
@@ -62,8 +63,8 @@ def load_data_from_source() -> pd.DataFrame:
 def _get_datum_client():
     """Get a configured DatumClient instance."""
     from src.adapter.datum import DatumClient
-    import os
     
+    # Check config first, then environment variables (for RS Connect deployment)
     base_url = app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
     token = app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
     
