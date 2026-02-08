@@ -51,8 +51,9 @@ window.initHeaderDrag = function() {
 function updateHeaderOrder() {
     const headers = document.querySelectorAll('.draggable-header');
     const columns = [...headers].map(h => h.dataset.column);
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('column_order', columns, {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        // Use first header as context for namespace detection
+        setShinyInput('column_order', columns, {priority: 'event'}, headers[0]);
     }
 }
 
@@ -105,8 +106,9 @@ function saveColumnWidths() {
             widths[col] = width;
         }
     });
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('column_widths', widths, {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        // Use first header as context for namespace detection
+        setShinyInput('column_widths', widths, {priority: 'event'}, headers[0]);
     }
 }
 
@@ -135,8 +137,8 @@ document.addEventListener('click', function(e) {
         e.stopPropagation();
         e.preventDefault();
         const col = e.target.dataset.column;
-        if (col && typeof Shiny !== 'undefined') {
-            Shiny.setInputValue('sort_column', {col: col, direction: 'asc', ts: Date.now()}, {priority: 'event'});
+        if (col && typeof setShinyInput !== 'undefined') {
+            setShinyInput('sort_column', {col: col, direction: 'asc', ts: Date.now()}, {priority: 'event'}, e.target);
         }
         document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
         return;
@@ -147,8 +149,8 @@ document.addEventListener('click', function(e) {
         e.stopPropagation();
         e.preventDefault();
         const col = e.target.dataset.column;
-        if (col && typeof Shiny !== 'undefined') {
-            Shiny.setInputValue('sort_column', {col: col, direction: 'desc', ts: Date.now()}, {priority: 'event'});
+        if (col && typeof setShinyInput !== 'undefined') {
+            setShinyInput('sort_column', {col: col, direction: 'desc', ts: Date.now()}, {priority: 'event'}, e.target);
         }
         document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
         return;
@@ -159,8 +161,8 @@ document.addEventListener('click', function(e) {
         e.stopPropagation();
         e.preventDefault();
         const col = e.target.dataset.column;
-        if (col && typeof Shiny !== 'undefined') {
-            Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+        if (col && typeof setShinyInput !== 'undefined') {
+            setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'}, e.target);
         }
         document.querySelectorAll('.header-dropdown.show').forEach(d => d.classList.remove('show'));
         return;
@@ -176,24 +178,24 @@ window.removeColumn = function(col, event) {
         event.stopPropagation();
         event.preventDefault();
     }
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
     }
 };
 
 // Add column
 window.addColumn = function(col, event) {
     if (event) event.stopPropagation();
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('add_column', {col: col, ts: Date.now()}, {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('add_column', {col: col, ts: Date.now()}, {priority: 'event'});
     }
 };
 
 // Remove column from modal
 window.removeColumnFromModal = function(col, event) {
     if (event) event.stopPropagation();
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
     }
 };
 

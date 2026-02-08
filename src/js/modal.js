@@ -1,8 +1,8 @@
 // Modal functions
 window.openAddColumnModal = function() {
     // Trigger refresh when opening modal
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('refresh_preset', Date.now(), {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('refresh_preset', Date.now(), {priority: 'event'});
     }
     document.getElementById('add-column-modal').classList.add('show');
     // Initialize modal drag after a short delay
@@ -87,9 +87,9 @@ function updateModalColumnOrder() {
         if (colName) newOrder.push(colName);
     });
     
-    if (newOrder.length > 0 && typeof Shiny !== 'undefined') {
+    if (newOrder.length > 0 && typeof setShinyInput !== 'undefined') {
         // Send with timestamp to ensure event fires
-        Shiny.setInputValue('column_order', {order: newOrder, ts: Date.now()}, {priority: 'event'});
+        setShinyInput('column_order', {order: newOrder, ts: Date.now()}, {priority: 'event'});
     }
 }
 
@@ -116,8 +116,8 @@ document.addEventListener('click', function(e) {
 // Copy Column Modal functions
 window.openCopyModal = function() {
     // Trigger refresh of column list
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('refresh_copy_columns', Date.now(), {priority: 'event'});
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('refresh_copy_columns', Date.now(), {priority: 'event'});
     }
     document.getElementById('copy-column-modal').classList.add('show');
 };
@@ -127,15 +127,15 @@ window.closeCopyModal = function() {
 };
 
 window.copyColumnValues = function(columnName) {
-    // Get selected rows from checkboxes
-    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="select_"]:checked');
+    // Get selected rows from checkboxes (handle namespaced IDs like editor1-select_0)
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id*="select_"]:checked');
     if (checkboxes.length === 0) {
         alert('Please select at least one row to copy values from.');
         return;
     }
     
     // Trigger server-side copy
-    if (typeof Shiny !== 'undefined') {
+    if (typeof setShinyInput !== 'undefined') {
         const selectedIndices = [];
         checkboxes.forEach(function(cb) {
             const match = cb.id.match(/select_(\d+)/);
@@ -144,7 +144,7 @@ window.copyColumnValues = function(columnName) {
             }
         });
         
-        Shiny.setInputValue('copy_column_request', {
+        setShinyInput('copy_column_request', {
             column: columnName,
             indices: selectedIndices,
             ts: Date.now()
@@ -164,8 +164,8 @@ window.closeAddFilterModal = function() {
 };
 
 window.addFilter = function(columnName) {
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('add_filter_column', {
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('add_filter_column', {
             column: columnName,
             ts: Date.now()
         }, {priority: 'event'});
@@ -174,8 +174,8 @@ window.addFilter = function(columnName) {
 };
 
 window.removeFilter = function(columnName) {
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('remove_filter_column', {
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('remove_filter_column', {
             column: columnName,
             ts: Date.now()
         }, {priority: 'event'});
@@ -184,8 +184,8 @@ window.removeFilter = function(columnName) {
 
 // Undo a modification from the log
 window.undoModification = function(logIndex) {
-    if (typeof Shiny !== 'undefined') {
-        Shiny.setInputValue('undo_modification', {
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('undo_modification', {
             index: logIndex,
             ts: Date.now()
         }, {priority: 'event'});

@@ -2,7 +2,7 @@
 Configuration and shared state for Epitopes Data Editor PyShiny App
 
 This module provides backward-compatible access to configuration.
-New code should use src/app_config_schema.py and src/data_loader.py directly.
+Database-only mode - no CSV/JSON fallback.
 """
 
 import json
@@ -13,6 +13,23 @@ from pathlib import Path
 # Import new configuration system (same package)
 from .app_config_schema import AppConfig, load_config
 
+
+def _format_table_name(table_name: str) -> str:
+    """
+    Format table name for SQL queries.
+    
+    If table_name contains a dot (schema.table), don't quote the whole thing.
+    Otherwise, quote it to handle special characters.
+    """
+    if '.' in table_name:
+        # Schema-qualified: schema.table -> schema.table (no quotes)
+        parts = table_name.split('.', 1)
+        return f'{parts[0]}.{parts[1]}'
+    else:
+        # Simple table name - quote it
+        return f'"{table_name}"'
+
+
 # Load application configuration
 app_config = load_config()
 
@@ -21,41 +38,19 @@ project_root = Path(__file__).parent.parent.parent
 data_dir = project_root / "data"
 data_dir.mkdir(exist_ok=True)
 
-# Resolve data source from config
-def _get_data_path() -> Path:
-    """Get data file path from configuration."""
-    if app_config.data_source.file_path:
-        p = Path(app_config.data_source.file_path)
-        if not p.is_absolute():
-            p = project_root / p
-        return p
-    return data_dir / "dummy_data_50rows.csv"
 
-csv_path = _get_data_path()
-
-# Load data based on source type
+# Load data based on source type (database only)
 def _load_initial_data() -> pd.DataFrame:
-    """Load initial data from configured source."""
-    # Check if database mode is enabled
-    if app_config.database.enabled:
-        if app_config.database.mode == "datum":
-            return _load_from_datum()
-        return _load_from_database()
-    
-    if app_config.data_source.source_type == "csv":
-        if csv_path.exists():
-            return pd.read_csv(csv_path)
-    elif app_config.data_source.source_type == "json":
-        if csv_path.exists():
-            return pd.read_json(csv_path, orient="records")
-    # Fallback to CSV
-    return pd.read_csv(csv_path)
+    """Load initial data from database."""
+    if app_config.database.mode == "datum":
+        return _load_from_datum()
+    return _load_from_database()
 
 
 def load_data_from_source() -> pd.DataFrame:
     """
-    Public function to load fresh data from the configured source.
-    Call this on each session to get the latest data from the database.
+    Public function to load fresh data from the database.
+    Call this on each session to get the latest data.
     """
     return _load_initial_data()
 
@@ -93,6 +88,10 @@ def _load_from_datum() -> pd.DataFrame:
         mods_table = app_config.database.mods_table
         pk_columns = app_config.table.primary_key
         
+        # Format table names for SQL
+        data_table_sql = _format_table_name(data_table)
+        mods_table_sql = _format_table_name(mods_table)
+        
         # Build query that gets base data with modification status
         pk_conditions = " AND ".join(
             f"m.row_pk->>'{pk}' = d.\"{pk}\"::text"
@@ -103,14 +102,14 @@ def _load_from_datum() -> pd.DataFrame:
         SELECT d.*,
             COALESCE(
                 (SELECT m.mod_type 
-                 FROM "{mods_table}" m 
+                 FROM {mods_table_sql} m 
                  WHERE {pk_conditions}
                    AND m.undone = FALSE
                  ORDER BY m.created_at DESC 
                  LIMIT 1),
                 'unprocessed'
             ) AS _mod_status
-        FROM "{data_table}" d
+        FROM {data_table_sql} d
         ORDER BY d."{pk_columns[0]}"
         """
         
@@ -120,7 +119,7 @@ def _load_from_datum() -> pd.DataFrame:
         # Apply field modifications
         mods_query = f"""
         SELECT row_pk, column_name, new_value 
-        FROM "{mods_table}" 
+        FROM {mods_table_sql} 
         WHERE mod_type = 'field_modification' 
           AND undone = FALSE
         ORDER BY created_at ASC
@@ -165,6 +164,10 @@ def _load_from_database() -> pd.DataFrame:
         
         engine = create_engine(conn_string)
         
+        # Format table names for SQL
+        data_table_sql = _format_table_name(data_table)
+        mods_table_sql = _format_table_name(mods_table)
+        
         # Build query that applies latest modifications to each row
         # This query gets the base data and overlays any field modifications
         pk_conditions = " AND ".join(
@@ -177,14 +180,14 @@ def _load_from_database() -> pd.DataFrame:
         SELECT d.*,
             COALESCE(
                 (SELECT m.mod_type 
-                 FROM "{mods_table}" m 
+                 FROM {mods_table_sql} m 
                  WHERE {pk_conditions}
                    AND m.undone = FALSE
                  ORDER BY m.created_at DESC 
                  LIMIT 1),
                 'unprocessed'
             ) AS _mod_status
-        FROM "{data_table}" d
+        FROM {data_table_sql} d
         ORDER BY d."{pk_columns[0]}"
         """
         
@@ -194,7 +197,7 @@ def _load_from_database() -> pd.DataFrame:
         # Get all non-undone field modifications
         mods_query = f"""
         SELECT row_pk, column_name, new_value 
-        FROM "{mods_table}" 
+        FROM {mods_table_sql} 
         WHERE mod_type = 'field_modification' 
           AND undone = FALSE
         ORDER BY created_at ASC
@@ -224,36 +227,15 @@ def _load_from_database() -> pd.DataFrame:
         except Exception as e:
             print(f"⚠ Could not load modifications: {e}")
         
-        print(f"✓ Loaded {len(df)} rows from database: {data_table}")
         return df
-    except ImportError:
-        print("✗ SQLAlchemy not installed. Falling back to CSV.")
-        return pd.read_csv(csv_path)
+    except ImportError as e:
+        print(f"✗ SQLAlchemy not installed: {e}")
+        return pd.DataFrame()
     except Exception as e:
-        print(f"✗ Database error: {e}. Falling back to CSV.")
-        return pd.read_csv(csv_path)
+        print(f"✗ Database error: {e}")
+        return pd.DataFrame()
 
 df_original = _load_initial_data()
-
-# Data state path (only used when database is disabled)
-def _get_data_state_path() -> Path:
-    """Get data state path from configuration (file-based mode only)."""
-    if app_config.persistence.data_state_path:
-        p = Path(app_config.persistence.data_state_path)
-        if not p.is_absolute():
-            p = project_root / p
-        return p
-    return data_dir / "data_state.json"
-
-data_state_path = _get_data_state_path()
-
-# Only load from file if database mode is disabled
-if not app_config.database.enabled and data_state_path.exists():
-    try:
-        df_saved = pd.read_json(data_state_path, orient="records")
-        df_original = df_saved
-    except:
-        pass  # If loading fails, use original data
 
 # Define columns to display from config or fallback
 def _get_display_columns() -> list[str]:
@@ -297,18 +279,10 @@ modifications_log_path = _get_modifications_log_path()
 
 
 def load_modifications_log():
-    """Load modifications log from database or file."""
-    # Use database if enabled
-    if app_config.database.enabled:
-        if app_config.database.mode == "datum":
-            return _load_modifications_from_datum()
-        return _load_modifications_from_db()
-    
-    # Fallback to file
-    if modifications_log_path.exists():
-        with open(modifications_log_path, "r") as f:
-            return json.load(f)
-    return []
+    """Load modifications log from database."""
+    if app_config.database.mode == "datum":
+        return _load_modifications_from_datum()
+    return _load_modifications_from_db()
 
 
 def _aggregate_approval_rejection_entries(log: list) -> list:
@@ -375,11 +349,12 @@ def _load_modifications_from_datum():
     """Load modifications from the database via Datum proxy."""
     try:
         mods_table = app_config.database.mods_table
+        mods_table_sql = _format_table_name(mods_table)
         
         query = f'''
             SELECT id, row_pk, column_name, old_value, new_value, 
                    mod_type, created_by, created_at, undone
-            FROM "{mods_table}"
+            FROM {mods_table_sql}
             ORDER BY created_at ASC
         '''
         
@@ -426,6 +401,7 @@ def _load_modifications_from_db():
         
         conn_string = app_config.database.connection_string
         mods_table = app_config.database.mods_table
+        mods_table_sql = _format_table_name(mods_table)
         
         engine = create_engine(conn_string)
         
@@ -433,7 +409,7 @@ def _load_modifications_from_db():
             result = conn.execute(text(f'''
                 SELECT id, row_pk, column_name, old_value, new_value, 
                        mod_type, created_by, created_at, undone
-                FROM "{mods_table}"
+                FROM {mods_table_sql}
                 ORDER BY created_at ASC
             '''))
             rows = result.fetchall()
@@ -482,13 +458,14 @@ def save_modification_to_db(row_pk: dict, column: str, old_value, new_value, mod
         
         conn_string = app_config.database.connection_string
         mods_table = app_config.database.mods_table
+        mods_table_sql = _format_table_name(mods_table)
         
         engine = create_engine(conn_string)
         
         with engine.connect() as conn:
             result = conn.execute(
                 text(f'''
-                    INSERT INTO "{mods_table}" 
+                    INSERT INTO {mods_table_sql} 
                         (row_pk, column_name, old_value, new_value, mod_type)
                     VALUES 
                         (:row_pk, :column_name, :old_value, :new_value, :mod_type)
@@ -514,6 +491,7 @@ def _save_modification_to_datum(row_pk: dict, column: str, old_value, new_value,
     """Save a single modification via Datum proxy."""
     try:
         mods_table = app_config.database.mods_table
+        mods_table_sql = _format_table_name(mods_table)
         
         # Escape values for SQL
         row_pk_json = json.dumps(row_pk).replace("'", "''")
@@ -523,7 +501,7 @@ def _save_modification_to_datum(row_pk: dict, column: str, old_value, new_value,
         mod_type_sql = mod_type.replace("'", "''")
         
         query = f"""
-            INSERT INTO "{mods_table}" 
+            INSERT INTO {mods_table_sql} 
                 (row_pk, column_name, old_value, new_value, mod_type)
             VALUES 
                 ('{row_pk_json}'::jsonb, '{column_sql}', {old_val_sql}, {new_val_sql}, '{mod_type_sql}')
@@ -552,12 +530,13 @@ def mark_modification_undone_in_db(mod_id: int):
         
         conn_string = app_config.database.connection_string
         mods_table = app_config.database.mods_table
+        mods_table_sql = _format_table_name(mods_table)
         
         engine = create_engine(conn_string)
         
         with engine.connect() as conn:
             conn.execute(
-                text(f'UPDATE "{mods_table}" SET undone = TRUE WHERE id = :mod_id'),
+                text(f'UPDATE {mods_table_sql} SET undone = TRUE WHERE id = :mod_id'),
                 {"mod_id": mod_id}
             )
             conn.commit()
@@ -571,7 +550,8 @@ def _mark_modification_undone_in_datum(mod_id: int):
     """Mark a modification as undone via Datum proxy."""
     try:
         mods_table = app_config.database.mods_table
-        query = f'UPDATE "{mods_table}" SET undone = TRUE WHERE id = {mod_id}'
+        mods_table_sql = _format_table_name(mods_table)
+        query = f'UPDATE {mods_table_sql} SET undone = TRUE WHERE id = {mod_id}'
         _execute_sql_via_datum(query)
         return True
     except Exception as e:
@@ -592,6 +572,7 @@ def update_data_in_db(row_pk: dict, column: str, new_value):
         
         conn_string = app_config.database.connection_string
         data_table = app_config.database.data_table
+        data_table_sql = _format_table_name(data_table)
         
         engine = create_engine(conn_string)
         
@@ -605,7 +586,7 @@ def update_data_in_db(row_pk: dict, column: str, new_value):
         
         with engine.connect() as conn:
             conn.execute(
-                text(f'UPDATE "{data_table}" SET "{column}" = :new_value WHERE {where_clause}'),
+                text(f'UPDATE {data_table_sql} SET "{column}" = :new_value WHERE {where_clause}'),
                 params
             )
             conn.commit()
@@ -619,6 +600,7 @@ def _update_data_via_datum(row_pk: dict, column: str, new_value):
     """Update a cell value via Datum proxy."""
     try:
         data_table = app_config.database.data_table
+        data_table_sql = _format_table_name(data_table)
         pk_cols = app_config.table.primary_key
         
         # Build WHERE clause from primary key
@@ -638,7 +620,7 @@ def _update_data_via_datum(row_pk: dict, column: str, new_value):
             escaped_new = str(new_value).replace("'", "''")
             new_val_sql = f"'{escaped_new}'"
         
-        sql = f'UPDATE "{data_table}" SET "{column}" = {new_val_sql} WHERE {where_clause}'
+        sql = f'UPDATE {data_table_sql} SET "{column}" = {new_val_sql} WHERE {where_clause}'
         
         _execute_sql_via_datum(sql)
         return True

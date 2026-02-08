@@ -118,15 +118,15 @@ window.saveCellValue = function() {
         currentEditCell.dataset.value = newValue;
         currentEditCell.querySelector('.cell-value').textContent = newValue || '—';
         
-        // Send to Shiny
-        if (typeof Shiny !== 'undefined') {
-            Shiny.setInputValue('cell_edit', {
+        // Send to Shiny (pass currentEditCell as context for namespace detection)
+        if (typeof setShinyInput !== 'undefined') {
+            setShinyInput('cell_edit', {
                 row: parseInt(row),
                 col: col,
                 oldValue: oldValue,
                 newValue: newValue,
                 ts: Date.now()
-            }, {priority: 'event'});
+            }, {priority: 'event'}, currentEditCell);
         }
     }
     

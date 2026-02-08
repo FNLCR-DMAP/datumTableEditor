@@ -120,6 +120,9 @@ class StateConfig:
 class TableConfig:
     """Configuration for table display defaults."""
     
+    # Table display title
+    title: str = "Data Table"
+    
     # Primary key column(s) for row identification
     primary_key: list[str] = field(default_factory=lambda: ["id"])
     
@@ -228,6 +231,8 @@ def load_config(config_path: Optional[Path] = None) -> AppConfig:
     # src/config/app_config_schema.py -> src/config -> src -> project_root
     if config_path is None:
         config_path = Path(__file__).parent.parent.parent / "app_config.json"
+    elif isinstance(config_path, str):
+        config_path = Path(config_path)
     
     # Load from file if exists
     if config_path.exists():
@@ -289,6 +294,7 @@ def _merge_config(config: AppConfig, file_config: dict) -> AppConfig:
     # Table
     if "table" in file_config:
         tb = file_config["table"]
+        config.table.title = tb.get("title", config.table.title)
         config.table.primary_key = tb.get("primary_key", config.table.primary_key)
         config.table.default_columns = tb.get("default_columns", config.table.default_columns)
         config.table.default_column_widths = tb.get("default_column_widths", config.table.default_column_widths)

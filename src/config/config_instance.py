@@ -1,0 +1,537 @@
+"""
+Configuration Instance Loader
+
+Provides on-demand config loading for widget instances.
+Each widget can load its own config file independently.
+"""
+
+import json
+import os
+import pandas as pd
+from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict, Any
+
+from .app_config_schema import AppConfig, load_config
+
+
+def _format_table_name(table_name: str) -> str:
+    """
+    Format table name for SQL queries.
+    
+    If table_name contains a dot (schema.table), don't quote the whole thing.
+    Otherwise, quote it to handle special characters.
+    """
+    if '.' in table_name:
+        # Schema-qualified: schema.table -> schema.table (no quotes)
+        # Or optionally: "schema"."table"
+        parts = table_name.split('.', 1)
+        return f'{parts[0]}.{parts[1]}'
+    else:
+        # Simple table name - quote it
+        return f'"{table_name}"'
+
+
+@dataclass
+class ConfigInstance:
+    """
+    Holds all configuration and data for a single widget instance.
+    
+    This allows multiple widgets to have independent configs and data.
+    """
+    config_path: str
+    app_config: AppConfig = field(default=None)
+    df: pd.DataFrame = field(default=None)
+    all_columns: List[str] = field(default_factory=list)
+    display_columns: List[str] = field(default_factory=list)
+    data_dir: Path = field(default=None)
+    modifications_log_path: Path = field(default=None)
+    
+    def __post_init__(self):
+        """Load config and data after initialization."""
+        self._load_all()
+    
+    def _load_all(self):
+        """Load configuration and data."""
+        # Determine project root from config path
+        config_file = Path(self.config_path)
+        if not config_file.is_absolute():
+            config_file = Path.cwd() / config_file
+        
+        project_root = config_file.parent
+        
+        # Load app config
+        self.app_config = load_config(str(config_file))
+        
+        # Setup paths
+        self.data_dir = project_root / "data"
+        self.data_dir.mkdir(exist_ok=True)
+        
+        # Load data from database
+        self.df = self._load_data()
+        
+        # Set columns
+        self.all_columns = list(self.df.columns)
+        self.display_columns = self._get_display_columns()
+        
+        # Modifications log path (for reference only)
+        self.modifications_log_path = self.data_dir / "modifications_log.json"
+    
+    def _load_data(self) -> pd.DataFrame:
+        """Load data from database."""
+        if self.app_config.database.mode == "datum":
+            return self._load_from_datum()
+        return self._load_from_database()
+    
+    def _load_from_database(self) -> pd.DataFrame:
+        """Load data from PostgreSQL database with modification status."""
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            data_table = self.app_config.database.data_table
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            
+            engine = create_engine(conn_string)
+            data_table_sql = _format_table_name(data_table)
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # Build PK match condition for subquery
+            pk_conditions = " AND ".join(
+                f"m.row_pk->>'{pk}' = d.\"{pk}\"::text"
+                for pk in pk_columns
+            )
+            
+            # Query with modification status via subquery
+            query = f"""
+            SELECT d.*,
+                COALESCE(
+                    (SELECT m.mod_type 
+                     FROM {mods_table_sql} m 
+                     WHERE {pk_conditions}
+                       AND m.undone = FALSE
+                     ORDER BY m.created_at DESC 
+                     LIMIT 1),
+                    'unprocessed'
+                ) AS _mod_status
+            FROM {data_table_sql} d
+            ORDER BY d."{pk_columns[0]}"
+            """
+            
+            with engine.connect() as conn:
+                result = conn.execute(text(query))
+                rows = result.fetchall()
+                columns = result.keys()
+            
+            df = pd.DataFrame(rows, columns=columns)
+            
+            # Apply field modifications to the data
+            df = self._apply_field_modifications(df, engine)
+            
+            print(f"✓ Loaded {len(df)} rows from database: {data_table}")
+            return df
+        except Exception as e:
+            print(f"✗ Error loading from database: {e}")
+            return pd.DataFrame()
+    
+    def _apply_field_modifications(self, df: pd.DataFrame, engine) -> pd.DataFrame:
+        """Apply field modifications to the dataframe."""
+        try:
+            from sqlalchemy import text
+            
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # Query field modifications
+            mods_query = f"""
+            SELECT row_pk, column_name, new_value 
+            FROM {mods_table_sql}
+            WHERE mod_type = 'field_modification' 
+              AND undone = FALSE
+            ORDER BY created_at ASC
+            """
+            
+            with engine.connect() as conn:
+                result = conn.execute(text(mods_query))
+                mods_data = result.fetchall()
+            
+            if mods_data:
+                for mod in mods_data:
+                    row_pk = mod[0]
+                    if isinstance(row_pk, str):
+                        row_pk = json.loads(row_pk)
+                    col_name = mod[1]
+                    new_value = mod[2]
+                    
+                    if col_name in df.columns:
+                        # Build mask to find the row
+                        mask = pd.Series([True] * len(df))
+                        for pk_col in pk_columns:
+                            if pk_col in row_pk and pk_col in df.columns:
+                                mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
+                        if mask.any():
+                            df.loc[mask, col_name] = new_value
+                
+                print(f"✓ Applied {len(mods_data)} field modifications")
+            
+            return df
+        except Exception as e:
+            print(f"⚠ Could not apply field modifications: {e}")
+            return df
+    
+    def _load_from_datum(self) -> pd.DataFrame:
+        """Load data via Datum proxy."""
+        try:
+            from src.adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                raise ValueError("Datum mode requires datum_base_url and datum_token")
+            
+            client = DatumClient(base_url=base_url, token=token)
+            data_table = self.app_config.database.data_table
+            
+            response = client.execute_sql(
+                sql=f'SELECT * FROM "{data_table}"',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            df = pd.DataFrame(response.data)
+            return df
+        except Exception as e:
+            print(f"✗ Error loading from Datum: {e}")
+            return pd.DataFrame()
+    
+    def _get_display_columns(self) -> List[str]:
+        """Get default display columns from configuration."""
+        if self.app_config.table.default_columns:
+            return [col for col in self.app_config.table.default_columns if col in self.df.columns]
+        return self.all_columns[:12]  # Default to first 12 columns
+    
+    def load_modifications_log(self) -> List[Dict]:
+        """Load modifications log from database."""
+        return self._load_modifications_from_db()
+    
+    def _load_modifications_from_db(self) -> List[Dict]:
+        """Load modifications from database."""
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            mods_table = self.app_config.database.mods_table
+            
+            engine = create_engine(conn_string)
+            table_sql = _format_table_name(mods_table)
+            with engine.connect() as conn:
+                result = conn.execute(text(f'''
+                    SELECT id, row_pk, column_name, old_value, new_value, 
+                           mod_type, created_by, created_at, undone
+                    FROM {table_sql}
+                    ORDER BY created_at ASC
+                '''))
+                rows = result.fetchall()
+            
+            log = []
+            for row in rows:
+                row_pk = row[1]
+                if isinstance(row_pk, str):
+                    row_pk = json.loads(row_pk)
+                elif row_pk is None:
+                    row_pk = {}
+                
+                log.append({
+                    "db_id": row[0],
+                    "timestamp": row[7].isoformat() if row[7] else None,
+                    "type": row[5],
+                    "undone": row[8],
+                    "details": {
+                        "row_pk": row_pk,
+                        "column": row[2],
+                        "old_value": row[3],
+                        "new_value": row[4],
+                        "created_by": row[6]
+                    }
+                })
+            
+            return self._aggregate_approval_rejection_entries(log)
+        except Exception as e:
+            print(f"✗ Error loading modifications: {e}")
+            return []
+    
+    def _aggregate_approval_rejection_entries(self, log: list) -> list:
+        """Group approval/rejection entries by timestamp."""
+        from collections import defaultdict
+        
+        result = []
+        approval_groups = defaultdict(list)
+        rejection_groups = defaultdict(list)
+        
+        for entry in log:
+            mod_type = entry.get("type")
+            if mod_type == "approval":
+                ts = entry.get("timestamp", "")[:19]
+                row_pk = entry.get("details", {}).get("row_pk", {})
+                if row_pk:
+                    approval_groups[ts].append({"entry": entry, "row_pk": row_pk})
+            elif mod_type == "rejection":
+                ts = entry.get("timestamp", "")[:19]
+                row_pk = entry.get("details", {}).get("row_pk", {})
+                if row_pk:
+                    rejection_groups[ts].append({"entry": entry, "row_pk": row_pk})
+            else:
+                result.append(entry)
+        
+        for ts, items in approval_groups.items():
+            result.append({
+                "timestamp": ts,
+                "type": "approval",
+                "details": {
+                    "action": "approved",
+                    "approved_rows": [item["row_pk"] for item in items],
+                    "approved_row_count": len(items),
+                }
+            })
+        
+        for ts, items in rejection_groups.items():
+            result.append({
+                "timestamp": ts,
+                "type": "rejection",
+                "details": {
+                    "action": "rejected",
+                    "rejected_rows": [item["row_pk"] for item in items],
+                    "rejected_row_count": len(items),
+                }
+            })
+        
+        result.sort(key=lambda x: x.get("timestamp", ""))
+        return result
+    
+    def reload_data(self) -> pd.DataFrame:
+        """Reload data from database."""
+        self.df = self._load_data()
+        self.all_columns = list(self.df.columns)
+        return self.df
+    
+    def save_modification_to_db(self, row_pk: dict, column: str, old_value, new_value, mod_type: str = "field_modification"):
+        """Save a single modification to the database using this config instance."""
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            mods_table = self.app_config.database.mods_table
+            
+            engine = create_engine(conn_string)
+            table_sql = _format_table_name(mods_table)
+            
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(f'''
+                        INSERT INTO {table_sql} 
+                            (row_pk, column_name, old_value, new_value, mod_type)
+                        VALUES 
+                            (:row_pk, :column_name, :old_value, :new_value, :mod_type)
+                        RETURNING id
+                    '''),
+                    {
+                        "row_pk": json.dumps(row_pk),
+                        "column_name": column,
+                        "old_value": str(old_value) if old_value is not None else None,
+                        "new_value": str(new_value) if new_value is not None else None,
+                        "mod_type": mod_type
+                    }
+                )
+                mod_id = result.scalar()
+                conn.commit()
+                return mod_id
+        except Exception as e:
+            print(f"✗ Error saving modification to DB: {e}")
+            return None
+    
+    def mark_modification_undone_in_db(self, mod_id: int):
+        """Mark a modification as undone in the database."""
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            mods_table = self.app_config.database.mods_table
+            
+            engine = create_engine(conn_string)
+            table_sql = _format_table_name(mods_table)
+            
+            with engine.connect() as conn:
+                conn.execute(
+                    text(f'UPDATE {table_sql} SET undone = TRUE WHERE id = :mod_id'),
+                    {"mod_id": mod_id}
+                )
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"✗ Error marking modification undone: {e}")
+            return False
+    
+    def update_data_in_db(self, row_pk: dict, column: str, new_value):
+        """Update the actual data in the database."""
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            data_table = self.app_config.database.data_table
+            pk_columns = self.app_config.table.primary_key
+            
+            engine = create_engine(conn_string)
+            
+            # Build WHERE clause from PK
+            where_parts = []
+            params = {"new_value": new_value}
+            for i, pk_col in enumerate(pk_columns):
+                if pk_col in row_pk:
+                    where_parts.append(f'"{pk_col}" = :pk_{i}')
+                    params[f"pk_{i}"] = row_pk[pk_col]
+            
+            if not where_parts:
+                return False
+            
+            where_clause = " AND ".join(where_parts)
+            table_sql = _format_table_name(data_table)
+            
+            with engine.connect() as conn:
+                conn.execute(
+                    text(f'UPDATE {table_sql} SET "{column}" = :new_value WHERE {where_clause}'),
+                    params
+                )
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"✗ Error updating data in DB: {e}")
+            return False
+    
+    def save_ui_state(
+        self,
+        sort_column: str = None,
+        sort_ascending: bool = True,
+        current_page: int = 1,
+        rows_per_page: int = 25,
+        filters: dict = None,
+        column_preset: str = None,
+        **kwargs  # Ignore extra args for compatibility
+    ) -> bool:
+        """Save UI state to database for this config instance."""
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            state_table = self.app_config.database.state_table
+            state_table_sql = _format_table_name(state_table)
+            
+            engine = create_engine(conn_string)
+            
+            # Serialize filters as JSON
+            filters_json = json.dumps(filters) if filters else None
+            
+            with engine.connect() as conn:
+                # Use upsert pattern
+                conn.execute(
+                    text(f'''
+                        INSERT INTO {state_table_sql} 
+                            (user_id, session_id, sort_column, sort_ascending, 
+                             current_page, rows_per_page, filters, column_preset, updated_at)
+                        VALUES 
+                            (:user_id, :session_id, :sort_column, :sort_ascending,
+                             :current_page, :rows_per_page, :filters, :column_preset, NOW())
+                        ON CONFLICT (user_id, session_id) 
+                        DO UPDATE SET
+                            sort_column = :sort_column,
+                            sort_ascending = :sort_ascending,
+                            current_page = :current_page,
+                            rows_per_page = :rows_per_page,
+                            filters = :filters,
+                            column_preset = :column_preset,
+                            updated_at = NOW()
+                    '''),
+                    {
+                        "user_id": "default_user",
+                        "session_id": "default_session",
+                        "sort_column": sort_column,
+                        "sort_ascending": sort_ascending,
+                        "current_page": current_page,
+                        "rows_per_page": rows_per_page,
+                        "filters": filters_json,
+                        "column_preset": column_preset
+                    }
+                )
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"⚠ Could not save UI state: {e}")
+            return False
+    
+    def load_ui_state(self) -> Dict:
+        """Load UI state from database for this config instance."""
+        default_state = {
+            "sort_column": self.app_config.table.default_sort_column,
+            "sort_ascending": self.app_config.table.default_sort_ascending,
+            "current_page": 1,
+            "rows_per_page": self.app_config.table.default_rows_per_page,
+            "filters": {},
+            "column_preset": None
+        }
+        
+        try:
+            from sqlalchemy import create_engine, text
+            
+            conn_string = self.app_config.database.connection_string
+            state_table = self.app_config.database.state_table
+            state_table_sql = _format_table_name(state_table)
+            
+            engine = create_engine(conn_string)
+            
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(f'''
+                        SELECT sort_column, sort_ascending, current_page, 
+                               rows_per_page, filters, column_preset
+                        FROM {state_table_sql}
+                        WHERE user_id = :user_id AND session_id = :session_id
+                    '''),
+                    {"user_id": "default_user", "session_id": "default_session"}
+                )
+                row = result.fetchone()
+            
+            if row:
+                filters = row[4]
+                if isinstance(filters, str):
+                    filters = json.loads(filters)
+                elif filters is None:
+                    filters = {}
+                
+                return {
+                    "sort_column": row[0] or default_state["sort_column"],
+                    "sort_ascending": row[1] if row[1] is not None else default_state["sort_ascending"],
+                    "current_page": row[2] or default_state["current_page"],
+                    "rows_per_page": row[3] or default_state["rows_per_page"],
+                    "filters": filters,
+                    "column_preset": row[5]
+                }
+        except Exception as e:
+            print(f"⚠ Could not load UI state: {e}")
+        
+        return default_state
+
+
+def load_config_instance(config_path: str = "app_config.json") -> ConfigInstance:
+    """
+    Load a configuration instance for a widget.
+    
+    Args:
+        config_path: Path to the config JSON file
+        
+    Returns:
+        ConfigInstance with loaded config and data
+    """
+    return ConfigInstance(config_path=config_path)

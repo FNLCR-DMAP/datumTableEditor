@@ -700,103 +700,103 @@
     ],
     "src/config/config.py": [
       {
-        "line": 165,
+        "line": 166,
         "column": 32,
         "level": "error",
         "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
       },
       {
-        "line": 485,
+        "line": 486,
         "column": 32,
         "level": "error",
         "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
       },
       {
-        "line": 555,
+        "line": 556,
         "column": 32,
         "level": "error",
         "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
       },
       {
-        "line": 595,
+        "line": 596,
         "column": 32,
         "level": "error",
         "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
       },
       {
-        "line": 769,
+        "line": 770,
         "column": 24,
         "level": "error",
         "message": "Incompatible default for argument \"sort_column\" (default has type \"None\", argument has type \"str\")  [assignment]"
       },
       {
-        "line": 769,
+        "line": 770,
         "column": 24,
         "level": "note",
         "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
       },
       {
-        "line": 769,
+        "line": 770,
         "column": 24,
         "level": "note",
         "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
       },
       {
-        "line": 773,
+        "line": 774,
         "column": 21,
         "level": "error",
         "message": "Incompatible default for argument \"filters\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
       },
       {
-        "line": 773,
+        "line": 774,
         "column": 21,
         "level": "note",
         "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
       },
       {
-        "line": 773,
+        "line": 774,
         "column": 21,
         "level": "note",
         "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
       },
       {
-        "line": 774,
+        "line": 775,
         "column": 26,
         "level": "error",
         "message": "Incompatible default for argument \"column_preset\" (default has type \"None\", argument has type \"str\")  [assignment]"
       },
       {
-        "line": 774,
+        "line": 775,
         "column": 26,
         "level": "note",
         "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
       },
       {
-        "line": 774,
+        "line": 775,
         "column": 26,
         "level": "note",
         "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
       },
       {
-        "line": 783,
+        "line": 784,
         "column": 31,
         "level": "error",
         "message": "Argument \"connection_string\" to \"DatabaseConfig\" has incompatible type \"str | None\"; expected \"str\"  [arg-type]"
       },
       {
-        "line": 797,
+        "line": 798,
         "column": 26,
         "level": "error",
         "message": "Argument 1 to \"list\" has incompatible type \"dict_items[Any, Any]\"; expected \"Iterable[dict[Any, Any]]\"  [arg-type]"
       },
       {
-        "line": 808,
+        "line": 809,
         "column": 21,
         "level": "error",
         "message": "Need type annotation for \"default_state\"  [var-annotated]"
       },
       {
-        "line": 821,
+        "line": 822,
         "column": 31,
         "level": "error",
         "message": "Argument \"connection_string\" to \"DatabaseConfig\" has incompatible type \"str | None\"; expected \"str\"  [arg-type]"

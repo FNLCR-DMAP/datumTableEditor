@@ -5,19 +5,6 @@ Updated for split panel layout with column customization
 
 from shiny import render, ui, reactive
 
-from src.config.config import (
-    data_dir,
-    modifications_log_path,
-    df_original,
-    display_columns,
-    load_modifications_log,
-    all_columns,
-    save_ui_state,
-    load_ui_state,
-    app_config,
-    load_data_from_source,
-)
-
 from src.utils import (
     load_presets,
     save_presets,
@@ -80,8 +67,39 @@ from src.utils import (
 )
 
 
-def create_server(input, output, session):  # noqa: ARG001
-    """Server logic for the Shiny app"""
+def create_server(input, output, session, config_path: str = "app_config.json"):  # noqa: ARG001
+    """
+    Server logic for the Shiny app
+    
+    Args:
+        config_path: Path to the config JSON file for this widget instance
+    """
+    # Load config instance for this widget
+    from src.config.config_instance import load_config_instance
+    config = load_config_instance(config_path)
+    
+    # Extract config values
+    data_dir = config.data_dir
+    modifications_log_path = config.modifications_log_path
+    df_original = config.df
+    display_columns = config.display_columns
+    all_columns = config.all_columns
+    app_config = config.app_config
+    
+    # Create local functions that use this config instance
+    def load_modifications_log():
+        return config.load_modifications_log()
+    
+    def load_data_from_source():
+        return config.reload_data()
+    
+    def save_ui_state(**kwargs):
+        """Save UI state for this instance."""
+        return config.save_ui_state(**kwargs)
+    
+    def load_ui_state():
+        """Load UI state for this instance."""
+        return config.load_ui_state()
     
     # File paths for presets
     presets_file = data_dir / "column_presets.json"
@@ -92,7 +110,7 @@ def create_server(input, output, session):  # noqa: ARG001
     
     # Load fresh data from source (database) on each session
     # This ensures browser refresh gets the latest data
-    initial_df = load_data_from_source()
+    initial_df = load_data_from_source() if app_config.database.enabled else df_original.copy()
     
     # Apply initial sorting if saved
     if ui_state.get("sort_column"):
@@ -171,12 +189,10 @@ def create_server(input, output, session):  # noqa: ARG001
     
     # Helper function to save approval/rejection status to database
     def _save_status_to_db(selected_pks, mod_type: str):
-        """Save approval/rejection entries to database with PKs"""
-        from src.config.config import save_modification_to_db
-        
+        """Save approval/rejection entries to database with PKs using config instance"""
         for row_pk in selected_pks:
             try:
-                result = save_modification_to_db(
+                result = config.save_modification_to_db(
                     row_pk=row_pk,
                     column="_status",
                     old_value=None,
@@ -240,6 +256,18 @@ def create_server(input, output, session):  # noqa: ARG001
     
     def _save_active_preset(preset_name):
         save_active_preset(active_preset_file, preset_name)
+
+    # Output: Namespace holder for JavaScript
+    @render.ui
+    def _namespace_holder():
+        # Get namespace by calling session.ns with a test ID and extracting the prefix
+        # session.ns("test") returns "editor1-test", so we remove "test" to get "editor1-"
+        ns_prefix = session.ns("test").replace("test", "")
+        from shiny import ui as sui
+        return sui.div(
+            style="display:none;",
+            **{"data-shiny-ns": ns_prefix}
+        )
 
     # Output: Data summary text
     @render.text
@@ -703,7 +731,7 @@ def create_server(input, output, session):  # noqa: ARG001
         log_idx = process_undo_action(input.undo_modification())
         if log_idx is None:
             return
-        updated_df, updated_log, message, error = perform_undo(data.get(), mods_log.get(), log_idx)
+        updated_df, updated_log, message, error = perform_undo(data.get(), mods_log.get(), log_idx, config_instance=config)
         if error:
             ui.notification_show(error, type="warning", duration=2)
         else:
@@ -719,11 +747,14 @@ def create_server(input, output, session):  # noqa: ARG001
     @reactive.event(input.cell_edit)
     def _handle_cell_edit():
         edit_data = input.cell_edit()
+        print(f"DEBUG: cell_edit received: {edit_data}")
         row, col, old_val, new_val = process_cell_edit_action(edit_data)
+        print(f"DEBUG: processed edit - row={row}, col={col}, old={old_val}, new={new_val}")
         if row is not None and col:
             current_df = data.get()
             current_log = mods_log.get()
-            updated_df, updated_log = perform_cell_edit(current_df, current_log, row, col, old_val, new_val)
+            updated_df, updated_log = perform_cell_edit(current_df, current_log, row, col, old_val, new_val, config_instance=config)
+            print(f"DEBUG: perform_cell_edit returned, log entries: {len(updated_log)}")
             data.set(updated_df)
             mods_log.set(updated_log)
             # Auto-save log and data state to file

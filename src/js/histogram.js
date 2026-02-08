@@ -9,8 +9,8 @@ function initHistogramCheckboxes() {
                 checked.push(cb.value);
             });
             // Update the hidden Shiny checkbox group
-            if (typeof Shiny !== 'undefined') {
-                Shiny.setInputValue('status_filter_multi', checked);
+            if (typeof setShinyInput !== 'undefined') {
+                setShinyInput('status_filter_multi', checked);
             }
         });
     });

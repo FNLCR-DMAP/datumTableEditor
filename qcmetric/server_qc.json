@@ -2,130 +2,15 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 131,
+    "total_functions": 78,
     "unused_functions": 3,
     "fully_annotated_functions": 73,
-    "function_coverage_percent": 55.7,
-    "parameter_coverage_percent": 92.9,
+    "function_coverage_percent": 93.6,
+    "parameter_coverage_percent": 97.3,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
-    "server.py": {
-      "total": 53,
-      "functions": [
-        "_add_column",
-        "_add_filter",
-        "_approve_data",
-        "_clear_approval",
-        "_delete_preset",
-        "_export_csv",
-        "_export_status_report",
-        "_first_page",
-        "_get_filtered_rows",
-        "_get_modification_summary",
-        "_get_row_status",
-        "_get_selected_pks",
-        "_get_status_counts",
-        "_handle_cell_edit",
-        "_handle_copy_request",
-        "_handle_search",
-        "_handle_undo",
-        "_last_page",
-        "_load_preset",
-        "_next_page",
-        "_page_jump",
-        "_prev_page",
-        "_refresh_presets",
-        "_reject_data",
-        "_reload_data",
-        "_remove_column",
-        "_remove_filter",
-        "_reset_columns",
-        "_reset_page_on_filter_change",
-        "_save_active_preset",
-        "_save_current_layout",
-        "_save_modifications",
-        "_save_preset",
-        "_save_presets",
-        "_save_status_to_db",
-        "_sort_column",
-        "_sync_rows_per_page",
-        "_update_column_order",
-        "_update_column_widths",
-        "_watch_filter_changes",
-        "approval_status_ui",
-        "available_columns_modal",
-        "available_filter_columns",
-        "copy_column_list",
-        "create_server",
-        "current_preset_name",
-        "data_summary",
-        "dynamic_filters",
-        "modifications_log_ui",
-        "pagination_controls",
-        "preset_menu_items",
-        "stats_histogram",
-        "table_container"
-      ],
-      "used": [
-        "_get_filtered_rows",
-        "_get_modification_summary",
-        "_get_row_status",
-        "_get_selected_pks",
-        "_get_status_counts",
-        "_save_active_preset",
-        "_save_presets",
-        "_save_status_to_db",
-        "create_server"
-      ],
-      "framework_managed": [
-        "_add_column",
-        "_add_filter",
-        "_approve_data",
-        "_clear_approval",
-        "_delete_preset",
-        "_export_csv",
-        "_export_status_report",
-        "_first_page",
-        "_handle_cell_edit",
-        "_handle_copy_request",
-        "_handle_search",
-        "_handle_undo",
-        "_last_page",
-        "_load_preset",
-        "_next_page",
-        "_page_jump",
-        "_prev_page",
-        "_refresh_presets",
-        "_reject_data",
-        "_reload_data",
-        "_remove_column",
-        "_remove_filter",
-        "_reset_columns",
-        "_reset_page_on_filter_change",
-        "_save_current_layout",
-        "_save_modifications",
-        "_save_preset",
-        "_sort_column",
-        "_sync_rows_per_page",
-        "_update_column_order",
-        "_update_column_widths",
-        "_watch_filter_changes",
-        "approval_status_ui",
-        "available_columns_modal",
-        "available_filter_columns",
-        "copy_column_list",
-        "current_preset_name",
-        "data_summary",
-        "dynamic_filters",
-        "modifications_log_ui",
-        "pagination_controls",
-        "preset_menu_items",
-        "stats_histogram",
-        "table_container"
-      ]
-    },
     "src/utils/clipboard_utils.py": {
       "total": 2,
       "functions": [
@@ -372,76 +257,6 @@
     }
   },
   "type_coverage": {
-    "server.py": {
-      "functions": {
-        "total": 53,
-        "with_return_type": 0,
-        "fully_annotated": 0
-      },
-      "parameters": {
-        "total": 10,
-        "annotated": 1
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "create_server",
-          "name": "input",
-          "line": 83
-        },
-        {
-          "type": "parameter",
-          "function": "create_server",
-          "name": "output",
-          "line": 83
-        },
-        {
-          "type": "parameter",
-          "function": "create_server",
-          "name": "session",
-          "line": 83
-        },
-        {
-          "type": "return",
-          "function": "create_server",
-          "line": 83
-        },
-        {
-          "type": "parameter",
-          "function": "_get_selected_pks",
-          "name": "row_indices",
-          "line": 158
-        },
-        {
-          "type": "parameter",
-          "function": "_get_selected_pks",
-          "name": "current_df",
-          "line": 158
-        },
-        {
-          "type": "return",
-          "function": "_get_selected_pks",
-          "line": 158
-        },
-        {
-          "type": "parameter",
-          "function": "_save_status_to_db",
-          "name": "selected_pks",
-          "line": 173
-        },
-        {
-          "type": "return",
-          "function": "_save_status_to_db",
-          "line": 173
-        },
-        {
-          "type": "parameter",
-          "function": "_get_row_status",
-          "name": "row_idx",
-          "line": 191
-        }
-      ]
-    },
     "src/utils/clipboard_utils.py": {
       "functions": {
         "total": 2,

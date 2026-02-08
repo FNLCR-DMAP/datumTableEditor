@@ -16,15 +16,15 @@ function initRowSelection() {
     const table = document.querySelector('.edit-table');
     if (!table) return;
     
-    // Apply initial highlighting for any pre-checked checkboxes
-    const checkboxes = table.querySelectorAll('input[type="checkbox"][id^="select_"]');
+    // Apply initial highlighting for any pre-checked checkboxes (handle namespaced IDs)
+    const checkboxes = table.querySelectorAll('input[type="checkbox"][id*="select_"]');
     checkboxes.forEach(function(checkbox) {
         updateRowHighlight(checkbox);
     });
     
-    // Use event delegation for checkbox clicks
+    // Use event delegation for checkbox clicks (handle namespaced IDs)
     table.addEventListener('click', function(e) {
-        const checkbox = e.target.closest('input[type="checkbox"][id^="select_"]');
+        const checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
         if (!checkbox) return;
         
         // Extract row index from checkbox id (select_0, select_1, etc.)
@@ -50,8 +50,8 @@ function initRowSelection() {
                     rowCheckbox.checked = shouldCheck;
                     updateRowHighlight(rowCheckbox);
                     // Trigger Shiny input change
-                    if (typeof Shiny !== 'undefined') {
-                        Shiny.setInputValue(`select_${i}`, shouldCheck, {priority: 'event'});
+                    if (typeof setShinyInput !== 'undefined') {
+                        setShinyInput(`select_${i}`, shouldCheck, {priority: 'event'});
                     }
                 }
             }
@@ -66,7 +66,7 @@ function initRowSelection() {
     
     // Also listen for programmatic checkbox changes (from Shiny)
     table.addEventListener('change', function(e) {
-        const checkbox = e.target.closest('input[type="checkbox"][id^="select_"]');
+        const checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
         if (checkbox) {
             updateRowHighlight(checkbox);
         }
@@ -75,13 +75,15 @@ function initRowSelection() {
 
 // Select all / deselect all functionality
 window.selectAllRows = function() {
-    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="select_"]');
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id*="select_"]');
     checkboxes.forEach(function(checkbox) {
         if (!checkbox.checked) {
             checkbox.checked = true;
             updateRowHighlight(checkbox);
-            if (typeof Shiny !== 'undefined') {
-                Shiny.setInputValue(checkbox.id, true, {priority: 'event'});
+            if (typeof setShinyInput !== 'undefined') {
+                // Extract just the input name part (select_N) from the full namespaced id
+                const inputName = checkbox.id.includes('-') ? checkbox.id.split('-').pop() : checkbox.id;
+                setShinyInput(inputName, true, {priority: 'event'});
             }
         }
     });
@@ -93,8 +95,10 @@ window.deselectAllRows = function() {
         if (checkbox.checked) {
             checkbox.checked = false;
             updateRowHighlight(checkbox);
-            if (typeof Shiny !== 'undefined') {
-                Shiny.setInputValue(checkbox.id, false, {priority: 'event'});
+            if (typeof setShinyInput !== 'undefined') {
+                // Extract just the input name part (select_N) from the full namespaced id
+                const inputName = checkbox.id.includes('-') ? checkbox.id.split('-').pop() : checkbox.id;
+                setShinyInput(inputName, false, {priority: 'event'});
             }
         }
     });

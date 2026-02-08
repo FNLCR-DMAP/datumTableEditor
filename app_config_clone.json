@@ -1,22 +1,22 @@
 {
-  "app_title": "Epitopes Table",
+  "app_title": "Epitopes Clone",
   "app_version": "1.0.0",
   
   "data_source": {
     "_comment": "Legacy file-based config (ignored when database.enabled=true)",
     "source_type": "database",
-    "table_name": "epitopes"
+    "table_name": "epitopes_clone"
   },
   
   "database": {
     "mode": "direct",
-    "_comment": "PostgreSQL database configuration",
+    "_comment": "PostgreSQL database configuration - same DB, same data for demo",
     "enabled": true,
     "_mode_options": "direct (SQLAlchemy) | datum (via Datum proxy)",
     "connection_string": "postgresql://her2@localhost/epitopes_db",
     "data_table": "epitopes_data",
-    "mods_table": "epitopes.modifications",
-    "state_table": "epitopes.ui_state",
+    "mods_table": "epitopes.modifications_clone",
+    "state_table": "epitopes.ui_state_clone",
     "status_column": "Status",
     "auto_detect_pk": true,
     "pool_size": 5,
@@ -61,7 +61,7 @@
   "state": {
     "persist_state": true,
     "state_storage": "local",
-    "state_file_path": "data/app_state.json",
+    "state_file_path": "data/app_state_clone.json",
     "persist_filters": true,
     "persist_sort": true,
     "persist_page": true,
@@ -71,7 +71,7 @@
   },
   
   "table": {
-    "title": "Epitopes Table",
+    "title": "Epitopes Clone",
     "primary_key": ["PatientID_Mutsequence"],
     
     "default_columns": [
@@ -108,7 +108,7 @@
     "readonly_columns": ["PatientID", "Variant_key"],
     
     "presets_enabled": true,
-    "presets_file_path": "data/column_presets.json",
+    "presets_file_path": "data/column_presets_clone.json",
     "default_preset": "Default"
   },
   

@@ -5,12 +5,11 @@ Split panel layout with collapsible sidebar
 
 from shiny import ui
 from pathlib import Path
-from src.config.config import all_columns
 
 
 def _load_css_files() -> str:
     """Load all CSS files from src/css directory"""
-    css_dir = Path(__file__).parent / "src" / "css"
+    css_dir = Path(__file__).parent / "css"
     css_files = [
         "layout.css",
         "sidebar.css",
@@ -33,7 +32,7 @@ def _load_css_files() -> str:
 
 def _load_js_files() -> str:
     """Load all JS files from src/js directory"""
-    js_dir = Path(__file__).parent / "src" / "js"
+    js_dir = Path(__file__).parent / "js"
     js_files = [
         "panel-toggle.js",
         "table-drag.js",
@@ -54,24 +53,108 @@ def _load_js_files() -> str:
     return "\n".join(combined_js)
 
 
-def create_app_ui() -> ui.Tag:
-    """Create and return the app UI definition with split panel layout"""
+def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
+    """
+    Create and return the app UI definition with split panel layout
+    
+    Args:
+        config_path: Path to the config JSON file
+    """
+    # Load config for this instance
+    from src.config.config_instance import load_config_instance
+    config = load_config_instance(config_path)
+    all_columns = config.all_columns
+    
+    # Get titles from config
+    app_title = config.app_config.app_title or "Data Editor"
+    table_title = config.app_config.table.title or app_title
+    
     return ui.page_fluid(
+        # Hidden input to pass config path to server (completely hidden)
+        ui.div(
+            ui.input_text("_config_path", label=None, value=config_path),
+            style="display: none; visibility: hidden; position: absolute; left: -9999px;"
+        ),
+        
         ui.head_content(
+            ui.tags.title(app_title),
             ui.tags.style(_load_css_files()),
-            ui.tags.script(_load_js_files())
+            ui.tags.script(_load_js_files()),
+            # Namespace helper script - must be after the main JS files
+            ui.tags.script("""
+                // Helper function to set Shiny input with namespace support
+                // contextEl: optional element to find the correct namespace from (for multi-tab support)
+                window.setShinyInput = function(inputName, value, options, contextEl) {
+                    // Find the namespace from the data-shiny-ns attribute
+                    var ns = '';
+                    var nsEl = null;
+                    
+                    if (contextEl) {
+                        // Walk up DOM to find the namespace holder in the same module
+                        var parent = contextEl;
+                        while (parent && !nsEl) {
+                            // Check if this element contains a namespace holder
+                            nsEl = parent.querySelector('[data-shiny-ns]');
+                            parent = parent.parentElement;
+                        }
+                    }
+                    
+                    // Fallback: find the namespace holder in the currently active/shown tab
+                    if (!nsEl) {
+                        // Try Bootstrap nav-panel active state (Shiny's navset_tab uses this)
+                        var activePanel = document.querySelector('.tab-pane.active [data-shiny-ns]');
+                        if (!activePanel) {
+                            // Try bslib tab structure
+                            activePanel = document.querySelector('[role="tabpanel"]:not([hidden]) [data-shiny-ns]');
+                        }
+                        if (!activePanel) {
+                            // Try finding visible panel
+                            var panels = document.querySelectorAll('[data-shiny-ns]');
+                            for (var i = 0; i < panels.length; i++) {
+                                var panel = panels[i];
+                                var tabPane = panel.closest('.tab-pane, [role="tabpanel"]');
+                                if (tabPane && (tabPane.classList.contains('active') || tabPane.classList.contains('show') || !tabPane.hasAttribute('hidden'))) {
+                                    activePanel = panel;
+                                    break;
+                                }
+                            }
+                        }
+                        if (activePanel) {
+                            nsEl = activePanel;
+                        }
+                    }
+                    
+                    // Last resort: first namespace holder found
+                    if (!nsEl) {
+                        nsEl = document.querySelector('[data-shiny-ns]');
+                    }
+                    
+                    if (nsEl) {
+                        ns = nsEl.getAttribute('data-shiny-ns') || '';
+                    }
+                    var fullName = ns + inputName;
+                    console.log('setShinyInput:', inputName, '-> fullName:', fullName, 'ns:', ns);
+                    if (typeof Shiny !== 'undefined') {
+                        Shiny.setInputValue(fullName, value, options || {priority: 'event'});
+                    } else {
+                        console.warn('Shiny not available');
+                    }
+                };
+            """)
         ),
         
         # Main Container with Split Panels
         ui.div(
+            # Hidden element to provide namespace to JavaScript
+            ui.output_ui("_namespace_holder"),
+            
             # Left Panel - Sidebar
             ui.div(
                 ui.tags.button("◀", class_="toggle-btn", onclick="toggleLeftPanel()"),
                 ui.div(
                     # Table Name Section
                     ui.div(
-                        ui.h3("Epitopes Table", class_="table-name"),
-                        ui.p("dummy_data_50rows.csv", class_="table-subtitle"),
+                        ui.h3(table_title, class_="table-name"),
                         ui.output_text("data_summary"),
                         class_="table-name-section"
                     ),
@@ -168,8 +251,8 @@ def create_app_ui() -> ui.Tag:
                                 ),
                                 ui.div(class_="preset-menu-divider"),
                                 ui.div(
-                                    ui.tags.input(type="text", placeholder="New preset name...", id="new-preset-name"),
-                                    ui.tags.button("Save", class_="btn btn-sm btn-primary", onclick="saveNewPreset()"),
+                                    ui.tags.input(type="text", placeholder="New preset name...", class_="new-preset-name-input"),
+                                    ui.tags.button("Save", class_="btn btn-sm btn-primary", onclick="saveNewPreset(this)"),
                                     class_="preset-save-row"
                                 ),
                                 ui.div(class_="preset-menu-divider"),
@@ -178,8 +261,7 @@ def create_app_ui() -> ui.Tag:
                                     class_="preset-menu-item",
                                     onclick="resetColumns()"
                                 ),
-                                class_="preset-menu",
-                                id="preset-menu"
+                                class_="preset-menu"
                             ),
                             class_="preset-dropdown"
                         ),
@@ -299,5 +381,5 @@ def create_app_ui() -> ui.Tag:
     )
 
 
-# Create the UI instance
-app_ui = create_app_ui()
+# Note: app_ui is created on-demand by calling create_app_ui(config_path)
+# This supports the widget pattern where each instance can have its own config

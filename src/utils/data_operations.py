@@ -50,10 +50,17 @@ def _pk_to_string(row_pk: dict) -> str:
 def perform_undo(
     df: pd.DataFrame,
     log: List[Dict],
-    log_idx: int
+    log_idx: int,
+    config_instance = None
 ) -> Tuple[Optional[pd.DataFrame], Optional[List[Dict]], Optional[str], Optional[str]]:
     """
     Perform an undo operation on a field modification.
+    
+    Args:
+        df: DataFrame to update
+        log: Modifications log
+        log_idx: Index of the modification to undo
+        config_instance: Optional ConfigInstance for database operations
     
     Returns:
         (updated_df, updated_log, success_message, error_message)
@@ -88,9 +95,12 @@ def perform_undo(
     # Create copies to avoid mutating originals
     updated_df = df.copy()
     
-    # Find the row by primary key (robust against sorting/filtering)
-    from src.config.config import app_config
-    pk_cols = app_config.table.primary_key
+    # Get config for PK columns
+    if config_instance:
+        pk_cols = config_instance.app_config.table.primary_key
+    else:
+        from src.config.config import app_config
+        pk_cols = app_config.table.primary_key
     
     if not pk_cols:
         return None, None, None, "No primary key configured"
@@ -107,8 +117,16 @@ def perform_undo(
     col_idx = updated_df.columns.get_loc(col)
     updated_df.iloc[mask.values, col_idx] = old_value
     
-    # Update database if enabled
-    if DB_AVAILABLE and app_config.database.enabled:
+    # Update database if enabled (use config_instance if provided)
+    if config_instance:
+        # Revert the data in database
+        config_instance.update_data_in_db(row_pk, col, old_value)
+        # Mark modification as undone
+        if db_id:
+            config_instance.mark_modification_undone_in_db(db_id)
+        # Save undo record
+        config_instance.save_modification_to_db(row_pk, col, new_value, old_value, "undo")
+    elif DB_AVAILABLE and app_config.database.enabled:
         # Revert the data in database
         update_data_in_db(row_pk, col, old_value)
         # Mark modification as undone
@@ -146,10 +164,20 @@ def perform_cell_edit(
     row: int,
     col: str,
     old_value: str,
-    new_value: str
+    new_value: str,
+    config_instance = None
 ) -> Tuple[pd.DataFrame, List[Dict]]:
     """
     Perform a cell edit operation.
+    
+    Args:
+        df: DataFrame to update
+        log: Modifications log
+        row: Row position (iloc index)
+        col: Column name
+        old_value: Previous value
+        new_value: New value
+        config_instance: Optional ConfigInstance for database operations
     
     Returns:
         (updated_df, updated_log)
@@ -164,9 +192,14 @@ def perform_cell_edit(
     # Get row primary key for database operations
     row_pk = _get_row_pk(df, row)
     
-    # Save to database if enabled
+    # Save to database if enabled (use config_instance if provided)
     db_id = None
-    if DB_AVAILABLE and app_config.database.enabled:
+    if config_instance:
+        # Update the data table
+        config_instance.update_data_in_db(row_pk, col, new_value)
+        # Save modification record
+        db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+    elif DB_AVAILABLE and app_config.database.enabled:
         # Update the data table
         update_data_in_db(row_pk, col, new_value)
         # Save modification record
