@@ -51,6 +51,14 @@ def _load_initial_data() -> pd.DataFrame:
     return pd.read_csv(csv_path)
 
 
+def load_data_from_source() -> pd.DataFrame:
+    """
+    Public function to load fresh data from the configured source.
+    Call this on each session to get the latest data from the database.
+    """
+    return _load_initial_data()
+
+
 def _get_datum_client():
     """Get a configured DatumClient instance."""
     from src.adapter.datum import DatumClient

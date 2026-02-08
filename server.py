@@ -15,6 +15,7 @@ from src.config.config import (
     save_ui_state,
     load_ui_state,
     app_config,
+    load_data_from_source,
 )
 
 from src.utils import (
@@ -89,8 +90,11 @@ def create_server(input, output, session):  # noqa: ARG001
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
     
+    # Load fresh data from source (database) on each session
+    # This ensures browser refresh gets the latest data
+    initial_df = load_data_from_source()
+    
     # Apply initial sorting if saved
-    initial_df = df_original.copy()
     if ui_state.get("sort_column"):
         initial_df = sort_dataframe(
             initial_df, 
@@ -756,9 +760,11 @@ def create_server(input, output, session):  # noqa: ARG001
     @reactive.Effect
     @reactive.event(input.reload_btn)
     def _reload_data():
-        data.set(df_original.copy())
-        mods_log.set([])
-        ui.notification_show("Data reset. Modifications cleared.", type="message", duration=3)
+        # Reload fresh data from database
+        fresh_data = load_data_from_source()
+        data.set(fresh_data)
+        mods_log.set(load_modifications_log())
+        ui.notification_show("Data reloaded from database.", type="message", duration=3)
     
     # Event: Approve rows
     @reactive.Effect

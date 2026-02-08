@@ -68,15 +68,19 @@ def perform_undo(
         return None, None, None, "Can only undo field modifications."
     
     details = mod.get("details", {})
-    row_idx = details.get("row_index")
     col = details.get("column")
     old_value = details.get("old_value")
     new_value = details.get("new_value")
     row_pk = details.get("row_pk", {})
     db_id = mod.get("db_id")
     
-    if row_idx is None or not col:
-        return None, None, None, "Invalid modification data"
+    # Must have column name
+    if not col:
+        return None, None, None, "Invalid modification data: missing column"
+    
+    # Must have row_pk to find the row
+    if not row_pk:
+        return None, None, None, "Invalid modification data: missing row primary key"
     
     if col not in df.columns:
         return None, None, None, f"Column '{col}' not found"
@@ -84,36 +88,34 @@ def perform_undo(
     # Create copies to avoid mutating originals
     updated_df = df.copy()
     
-    # Find the row by primary key (robust against sorting)
+    # Find the row by primary key (robust against sorting/filtering)
     from src.config.config import app_config
     pk_cols = app_config.table.primary_key
     
-    if row_pk and pk_cols:
-        # Find row using primary key
-        mask = pd.Series([True] * len(updated_df))
-        for pk_col in pk_cols:
-            if pk_col in row_pk and pk_col in updated_df.columns:
-                mask &= (updated_df[pk_col].astype(str) == str(row_pk[pk_col]))
-        
-        if mask.any():
-            col_idx = updated_df.columns.get_loc(col)
-            updated_df.iloc[mask.values, col_idx] = old_value
-        else:
-            return None, None, None, f"Could not find row with PK: {row_pk}"
-    else:
-        # Fallback to positional index (less safe)
-        updated_df.iloc[row_idx, updated_df.columns.get_loc(col)] = old_value
+    if not pk_cols:
+        return None, None, None, "No primary key configured"
+    
+    # Find row using primary key
+    mask = pd.Series([True] * len(updated_df))
+    for pk_col in pk_cols:
+        if pk_col in row_pk and pk_col in updated_df.columns:
+            mask &= (updated_df[pk_col].astype(str) == str(row_pk[pk_col]))
+    
+    if not mask.any():
+        return None, None, None, f"Could not find row with PK: {row_pk}"
+    
+    col_idx = updated_df.columns.get_loc(col)
+    updated_df.iloc[mask.values, col_idx] = old_value
     
     # Update database if enabled
     if DB_AVAILABLE and app_config.database.enabled:
         # Revert the data in database
-        if row_pk:
-            update_data_in_db(row_pk, col, old_value)
+        update_data_in_db(row_pk, col, old_value)
         # Mark modification as undone
         if db_id:
             mark_modification_undone_in_db(db_id)
         # Save undo record
-        save_modification_to_db(row_pk or {"row_index": row_idx}, col, new_value, old_value, "undo")
+        save_modification_to_db(row_pk, col, new_value, old_value, "undo")
     
     # Mark the original modification as undone
     updated_log = log.copy()
@@ -125,7 +127,6 @@ def perform_undo(
         "timestamp": datetime.now().isoformat(),
         "type": "undo",
         "details": {
-            "row_index": row_idx,
             "row_pk": row_pk,
             "primary_key": _pk_to_string(row_pk),
             "column": col,

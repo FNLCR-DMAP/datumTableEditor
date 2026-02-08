@@ -7,7 +7,7 @@
     "fully_annotated_functions": 28,
     "function_coverage_percent": 87.5,
     "parameter_coverage_percent": 93.3,
-    "mypy_errors": 0
+    "mypy_errors": 13
   },
   "files": {},
   "function_mapping": {
@@ -134,5 +134,86 @@
       ]
     }
   },
-  "mypy_errors": {}
+  "mypy_errors": {
+    "src/data/data_loader.py": [
+      {
+        "line": 66,
+        "column": 1,
+        "level": "error",
+        "message": "Library stubs not installed for \"requests\"  [import-untyped]"
+      },
+      {
+        "line": 66,
+        "column": 1,
+        "level": "note",
+        "message": "Hint: \"python3 -m pip install types-requests\""
+      },
+      {
+        "line": 66,
+        "column": 1,
+        "level": "note",
+        "message": "(or run \"mypy --install-types\" to install all missing stub packages)"
+      },
+      {
+        "line": 66,
+        "column": 1,
+        "level": "note",
+        "message": "See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports"
+      },
+      {
+        "line": 91,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 120,
+        "column": 18,
+        "level": "error",
+        "message": "Argument 1 to \"Path\" has incompatible type \"str | None\"; expected \"str | PathLike[str]\"  [arg-type]"
+      },
+      {
+        "line": 210,
+        "column": 9,
+        "level": "error",
+        "message": "Item \"None\" of \"Path | None\" has no attribute \"parent\"  [union-attr]"
+      },
+      {
+        "line": 212,
+        "column": 19,
+        "level": "error",
+        "message": "Argument 1 to \"open\" has incompatible type \"Path | None\"; expected \"int | str | bytes | PathLike[str] | PathLike[bytes]\"  [arg-type]"
+      },
+      {
+        "line": 221,
+        "column": 16,
+        "level": "error",
+        "message": "Item \"None\" of \"Path | None\" has no attribute \"exists\"  [union-attr]"
+      },
+      {
+        "line": 224,
+        "column": 19,
+        "level": "error",
+        "message": "Argument 1 to \"open\" has incompatible type \"Path | None\"; expected \"int | str | bytes | PathLike[str] | PathLike[bytes]\"  [arg-type]"
+      },
+      {
+        "line": 262,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 272,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 286,
+        "column": 18,
+        "level": "error",
+        "message": "Argument 1 to \"Path\" has incompatible type \"str | None\"; expected \"str | PathLike[str]\"  [arg-type]"
+      }
+    ]
+  }
 }

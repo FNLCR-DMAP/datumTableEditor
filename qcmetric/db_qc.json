@@ -7,7 +7,7 @@
     "fully_annotated_functions": 79,
     "function_coverage_percent": 85.9,
     "parameter_coverage_percent": 94.4,
-    "mypy_errors": 0
+    "mypy_errors": 21
   },
   "files": {},
   "function_mapping": {
@@ -400,5 +400,140 @@
       ]
     }
   },
-  "mypy_errors": {}
+  "mypy_errors": {
+    "src/db/user_presets.py": [
+      {
+        "line": 50,
+        "column": 49,
+        "level": "error",
+        "message": "Incompatible default for argument \"connection_string\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 50,
+        "column": 49,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 50,
+        "column": 49,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 50,
+        "column": 73,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 50,
+        "column": 96,
+        "level": "error",
+        "message": "Incompatible default for argument \"engine\" (default has type \"None\", argument has type \"Engine\")  [assignment]"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 71,
+        "column": 51,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 160,
+        "column": 16,
+        "level": "error",
+        "message": "Incompatible return value type (got \"Any | None\", expected \"int\")  [return-value]"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 370,
+        "column": 55,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      }
+    ],
+    "src/db/query_builder.py": [
+      {
+        "line": 309,
+        "column": 46,
+        "level": "error",
+        "message": "Argument \"operator\" to \"FilterCondition\" has incompatible type \"str\"; expected \"Literal['=', '!=', '>', '<', '>=', '<=', 'LIKE', 'ILIKE', 'IN', 'NOT IN', 'IS NULL', 'IS NOT NULL']\"  [arg-type]"
+      }
+    ],
+    "src/db/db_schema.py": [
+      {
+        "line": 65,
+        "column": 13,
+        "level": "note",
+        "message": "By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]"
+      },
+      {
+        "line": 68,
+        "column": 13,
+        "level": "note",
+        "message": "By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]"
+      },
+      {
+        "line": 72,
+        "column": 13,
+        "level": "note",
+        "message": "By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]"
+      },
+      {
+        "line": 74,
+        "column": 9,
+        "level": "note",
+        "message": "By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]"
+      },
+      {
+        "line": 118,
+        "column": 9,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"ColumnInfo\", variable has type \"ReflectedColumn\")  [assignment]"
+      },
+      {
+        "line": 119,
+        "column": 13,
+        "level": "error",
+        "message": "\"ReflectedColumn\" has no attribute \"is_primary_key\"  [attr-defined]"
+      },
+      {
+        "line": 119,
+        "column": 34,
+        "level": "error",
+        "message": "\"ReflectedColumn\" has no attribute \"name\"  [attr-defined]"
+      }
+    ],
+    "src/db/db_operations.py": [
+      {
+        "line": 181,
+        "column": 16,
+        "level": "error",
+        "message": "\"TableSchema\" has no attribute \"column_names\"; maybe \"get_column_names\"?  [attr-defined]"
+      }
+    ]
+  }
 }

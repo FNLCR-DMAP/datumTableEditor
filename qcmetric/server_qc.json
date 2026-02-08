@@ -387,58 +387,58 @@
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 82
+          "line": 83
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 82
+          "line": 83
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 82
+          "line": 83
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 82
+          "line": 83
         },
         {
           "type": "parameter",
           "function": "_get_selected_pks",
           "name": "row_indices",
-          "line": 154
+          "line": 158
         },
         {
           "type": "parameter",
           "function": "_get_selected_pks",
           "name": "current_df",
-          "line": 154
+          "line": 158
         },
         {
           "type": "return",
           "function": "_get_selected_pks",
-          "line": 154
+          "line": 158
         },
         {
           "type": "parameter",
           "function": "_save_status_to_db",
           "name": "selected_pks",
-          "line": 169
+          "line": 173
         },
         {
           "type": "return",
           "function": "_save_status_to_db",
-          "line": 169
+          "line": 173
         },
         {
           "type": "parameter",
           "function": "_get_row_status",
           "name": "row_idx",
-          "line": 187
+          "line": 191
         }
       ]
     },
@@ -594,8 +594,8 @@
         "fully_annotated": 7
       },
       "parameters": {
-        "total": 27,
-        "annotated": 27
+        "total": 28,
+        "annotated": 28
       }
     },
     "src/utils/ui_components.py": {

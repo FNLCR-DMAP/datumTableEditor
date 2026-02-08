@@ -24,6 +24,7 @@ from .config import (
     mark_modification_undone_in_db,
     save_ui_state,
     load_ui_state,
+    load_data_from_source,
 )
 
 __all__ = [
@@ -45,4 +46,5 @@ __all__ = [
     "mark_modification_undone_in_db",
     "save_ui_state",
     "load_ui_state",
+    "load_data_from_source",
 ]
