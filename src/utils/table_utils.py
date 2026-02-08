@@ -62,7 +62,7 @@ def build_status_badge(status: str) -> ui.tags.span:
     return ui.tags.span(status_text, class_=f"row-status-badge status-{status}")
 
 
-def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str]) -> ui.tags.tr:
+def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "") -> ui.tags.tr:
     """Build a single table row with all cells."""
     cells = []
     
@@ -100,15 +100,17 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
             )
         )
     
-    return ui.tags.tr(*cells)
+    return ui.tags.tr(*cells, class_=row_class)
 
 
 def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str]) -> ui.tags.tbody:
     """Build the table body with all rows."""
     table_rows = []
-    for idx in paginated_indices:
+    for i, idx in enumerate(paginated_indices):
         row = current_df.iloc[idx]
-        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func))
+        # Add zebra striping class based on visual position
+        row_class = "row-even" if i % 2 == 0 else "row-odd"
+        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class))
     return ui.tags.tbody(*table_rows)
 
 

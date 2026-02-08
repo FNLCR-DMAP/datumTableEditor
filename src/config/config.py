@@ -575,6 +575,9 @@ def update_data_in_db(row_pk: dict, column: str, new_value):
     if not app_config.database.enabled:
         return False
     
+    if app_config.database.mode == "datum":
+        return _update_data_via_datum(row_pk, column, new_value)
+    
     try:
         from sqlalchemy import create_engine, text
         
@@ -600,6 +603,38 @@ def update_data_in_db(row_pk: dict, column: str, new_value):
             return True
     except Exception as e:
         print(f"✗ Error updating data in DB: {e}")
+        return False
+
+
+def _update_data_via_datum(row_pk: dict, column: str, new_value):
+    """Update a cell value via Datum proxy."""
+    try:
+        data_table = app_config.database.data_table
+        pk_cols = app_config.table.primary_key
+        
+        # Build WHERE clause from primary key
+        where_parts = []
+        for pk in pk_cols:
+            pk_val = row_pk.get(pk)
+            if pk_val is not None:
+                escaped_val = str(pk_val).replace("'", "''")
+                where_parts.append(f'"{pk}" = \'{escaped_val}\'')
+        
+        where_clause = " AND ".join(where_parts)
+        
+        # Escape the new value
+        if new_value is None:
+            new_val_sql = "NULL"
+        else:
+            escaped_new = str(new_value).replace("'", "''")
+            new_val_sql = f"'{escaped_new}'"
+        
+        sql = f'UPDATE "{data_table}" SET "{column}" = {new_val_sql} WHERE {where_clause}'
+        
+        _execute_sql_via_datum(sql)
+        return True
+    except Exception as e:
+        print(f"✗ Error updating data via Datum: {e}")
         return False
 
 

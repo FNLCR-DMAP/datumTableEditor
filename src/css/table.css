@@ -18,6 +18,10 @@
     font-size: 13px;
     border-collapse: separate;
     border-spacing: 0;
+    /* Override Bootstrap CSS variables */
+    --bs-table-bg: transparent;
+    --bs-table-accent-bg: transparent;
+    --bs-table-striped-bg: transparent;
 }
 .edit-table thead {
     position: sticky;
@@ -137,14 +141,47 @@
 .header-dropdown .dropdown-item.remove-col-btn:hover {
     background: #fff5f5;
 }
-.edit-table tbody tr:nth-child(even) {
-    background-color: #d9e4ed;
+/* Zebra striping using explicit classes - high specificity */
+table.edit-table > tbody > tr.row-even,
+.table-scroll-wrapper table.edit-table > tbody > tr.row-even,
+.table-container-frame table.edit-table > tbody > tr.row-even {
+    --bs-table-bg: #c4d4e3;
+    --bs-table-accent-bg: #c4d4e3;
+    background-color: #c4d4e3 !important;
+    background: #c4d4e3 !important;
 }
-.edit-table tbody tr:nth-child(odd) {
-    background-color: #ffffff;
+table.edit-table > tbody > tr.row-even > td {
+    --bs-table-bg: #c4d4e3;
+    background-color: #c4d4e3 !important;
 }
-.edit-table tbody tr:hover {
-    background-color: #e8f4f8;
+table.edit-table > tbody > tr.row-odd,
+.table-scroll-wrapper table.edit-table > tbody > tr.row-odd,
+.table-container-frame table.edit-table > tbody > tr.row-odd {
+    --bs-table-bg: #f5f7f9;
+    --bs-table-accent-bg: #f5f7f9;
+    background-color: #f5f7f9 !important;
+    background: #f5f7f9 !important;
+}
+table.edit-table > tbody > tr.row-odd > td {
+    --bs-table-bg: #f5f7f9;
+    background-color: #f5f7f9 !important;
+}
+/* Fallback nth-child for static rendering */
+table.edit-table > tbody > tr:nth-child(even) {
+    background-color: #c4d4e3;
+}
+table.edit-table > tbody > tr:nth-child(odd) {
+    background-color: #f5f7f9;
+}
+table.edit-table > tbody > tr:hover {
+    --bs-table-bg: #d0e8f0;
+    --bs-table-accent-bg: #d0e8f0;
+    background-color: #d0e8f0 !important;
+    background: #d0e8f0 !important;
+}
+table.edit-table > tbody > tr:hover > td {
+    --bs-table-bg: #d0e8f0;
+    background-color: #d0e8f0 !important;
 }
 .edit-table tbody tr.row-selected {
     background-color: #cce5ff !important;

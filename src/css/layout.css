@@ -10,9 +10,9 @@
     width: 25%;
     min-width: 280px;
     max-width: 400px;
-    background: #e0e3e6;
-    color: #495057;
-    border-right: 2px solid #dee2e6;
+    background: #c5ccd3;
+    color: #343a40;
+    border-right: 2px solid #adb5bd;
     padding: 15px;
     overflow-y: auto;
     transition: all 0.3s ease;

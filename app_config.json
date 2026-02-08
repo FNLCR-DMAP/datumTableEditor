@@ -9,8 +9,10 @@
   },
   
   "database": {
+    "mode": "direct",
     "_comment": "PostgreSQL database configuration",
     "enabled": true,
+    "_mode_options": "direct (SQLAlchemy) | datum (via Datum proxy)",
     "connection_string": "postgresql://her2@localhost/epitopes_db",
     "data_table": "epitopes_data",
     "mods_table": "epitopes_modifications",
@@ -21,7 +23,13 @@
     "max_overflow": 10,
     "pool_timeout": 30,
     "max_rows_per_page": 100,
-    "default_rows_per_page": 25
+    "default_rows_per_page": 25,
+    "_datum_comment": "Datum proxy settings (only used when mode=datum)",
+    "datum_base_url": "",
+    "datum_token": "",
+    "datum_database": "",
+    "datum_schema": "public",
+    "datum_service_name": "postgres_sql"
   },
   
   "persistence": {

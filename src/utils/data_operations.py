@@ -25,7 +25,7 @@ except ImportError:
 def _get_row_pk(df: pd.DataFrame, row_idx: int) -> dict:
     """Extract primary key values for a row using positional index (iloc)."""
     try:
-        from config import app_config
+        from src.config.config import app_config
         pk_cols = app_config.table.primary_key
         row = df.iloc[row_idx]
         return {pk: row[pk] for pk in pk_cols if pk in df.columns}
