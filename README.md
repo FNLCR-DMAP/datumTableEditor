@@ -115,6 +115,61 @@ shiny run app.py
 | `default_sort_column` | str | Initial sort column |
 | `default_sort_ascending` | bool | Initial sort direction |
 
+## Environment Variables
+
+All configuration can be overridden via environment variables, which is useful for production deployments (e.g., RStudio Connect) where you don't want secrets in config files.
+
+### Database Settings
+
+| Environment Variable | Config Field | Description |
+|---------------------|--------------|-------------|
+| `APP_DATABASE_ENABLED` | `database.enabled` | Enable database mode (`true`/`false`) |
+| `APP_DATABASE_MODE` | `database.mode` | `direct` (SQLAlchemy) or `datum` (proxy) |
+| `APP_DB_CONNECTION_STRING` | `database.connection_string` | PostgreSQL connection URL |
+| `APP_DB_DATA_TABLE` | `database.data_table` | Main data table name |
+| `APP_DB_MODS_TABLE` | `database.mods_table` | Modifications table name |
+| `APP_DB_STATE_TABLE` | `database.state_table` | UI state table name |
+
+### Datum Proxy Settings
+
+For deployments using the Datum proxy service (e.g., RStudio Connect without direct DB access):
+
+| Environment Variable | Config Field | Description |
+|---------------------|--------------|-------------|
+| `DATUM_BASE_URL` | `database.datum_base_url` | Datum proxy base URL |
+| `DATUM_API_TOKEN` | `database.datum_token` | API authentication token |
+| `DATUM_DATABASE` | `database.datum_database` | Target database name |
+| `DATUM_SCHEMA` | `database.datum_schema` | Database schema (default: `public`) |
+| `DATUM_SERVICE_NAME` | `database.datum_service_name` | Service name (default: `postgres_sql`) |
+
+### Data Source Settings
+
+| Environment Variable | Config Field | Description |
+|---------------------|--------------|-------------|
+| `APP_DATA_SOURCE_TYPE` | `data_source.source_type` | Source type (`csv`, `json`, `api`, `database`) |
+| `APP_DATA_FILE_PATH` | `data_source.file_path` | Path to data file |
+| `APP_DATA_API_URL` | `data_source.api_url` | API endpoint URL |
+
+### Persistence Settings
+
+| Environment Variable | Config Field | Description |
+|---------------------|--------------|-------------|
+| `APP_PERSISTENCE_TYPE` | `persistence.persistence_type` | `local`, `api`, or `database` |
+| `APP_MODIFICATIONS_LOG_PATH` | `persistence.modifications_log_path` | Path to modifications log |
+| `APP_SAVE_API_URL` | `persistence.api_save_url` | API endpoint for saving |
+
+### Example: RStudio Connect Deployment
+
+Set these environment variables in RStudio Connect:
+
+```bash
+APP_DATABASE_MODE=datum
+DATUM_BASE_URL=https://datum-proxy.yourcompany.com
+DATUM_API_TOKEN=your-secret-token
+DATUM_DATABASE=epitopes_db
+DATUM_SCHEMA=public
+```
+
 ## Package Structure
 
 ```
