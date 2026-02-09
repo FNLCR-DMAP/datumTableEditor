@@ -57,7 +57,7 @@ def load_data_from_source() -> pd.DataFrame:
 
 def _get_datum_client():
     """Get a configured DatumClient instance."""
-    from src.adapter.datum import DatumClient
+    from ..adapter.datum import DatumClient
     
     # Check config first, then environment variables (for RS Connect deployment)
     base_url = app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
@@ -759,8 +759,8 @@ def save_ui_state(
 ) -> bool:
     """Save UI state to database."""
     try:
-        from src.db.db_operations import get_database_operations
-        from src.db import DatabaseConfig
+        from ..db.db_operations import get_database_operations
+        from ..db import DatabaseConfig
         
         db_config = DatabaseConfig(
             connection_string=app_config.database.connection_string,
@@ -797,8 +797,8 @@ def load_ui_state(**kwargs) -> dict:
         "column_preset": None
     }
     try:
-        from src.db.db_operations import get_database_operations
-        from src.db import DatabaseConfig
+        from ..db.db_operations import get_database_operations
+        from ..db import DatabaseConfig
         
         db_config = DatabaseConfig(
             connection_string=app_config.database.connection_string,

@@ -6,7 +6,7 @@ Table naming convention: {table_name}_{username}_column_presets
 Example: epitopes_john_column_presets
 
 Usage (Server/UI):
-    from src.db import UserPresetsService
+    from dmapTableEditor.db import UserPresetsService
     
     # Initialize with app config (auto-detects connection string)
     presets_service = UserPresetsService()

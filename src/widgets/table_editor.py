@@ -5,7 +5,7 @@ Wrapper around src/ui.py and src/server.py to enable module pattern.
 This allows the table editor to be used as a reusable widget.
 
 Usage:
-    from src.widgets import table_editor_ui, table_editor_server
+    from dmapTableEditor.widgets import table_editor_ui, table_editor_server
     
     # In UI:
     table_editor_ui("editor1", config_path="config1.json")
@@ -18,8 +18,8 @@ Usage:
 
 from shiny import module
 
-from src.ui import create_app_ui
-from src.server import create_server
+from ..ui import create_app_ui
+from ..server import create_server
 
 
 @module.ui

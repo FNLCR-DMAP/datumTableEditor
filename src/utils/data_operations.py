@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Tuple, Optional
 
 # Import config for database operations
 try:
-    from src.config.config import (
+    from ..config.config import (
         app_config,
         save_modification_to_db,
         mark_modification_undone_in_db,
@@ -25,7 +25,7 @@ except ImportError:
 def _get_row_pk(df: pd.DataFrame, row_idx: int) -> dict:
     """Extract primary key values for a row using positional index (iloc)."""
     try:
-        from src.config.config import app_config
+        from ..config.config import app_config
         pk_cols = app_config.table.primary_key
         row = df.iloc[row_idx]
         return {pk: row[pk] for pk in pk_cols if pk in df.columns}
@@ -99,7 +99,7 @@ def perform_undo(
     if config_instance:
         pk_cols = config_instance.app_config.table.primary_key
     else:
-        from src.config.config import app_config
+        from ..config.config import app_config
         pk_cols = app_config.table.primary_key
     
     if not pk_cols:

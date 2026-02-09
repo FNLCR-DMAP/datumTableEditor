@@ -61,7 +61,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
         config_path: Path to the config JSON file
     """
     # Load config for this instance
-    from src.config.config_instance import load_config_instance
+    from .config.config_instance import load_config_instance
     config = load_config_instance(config_path)
     all_columns = config.all_columns
     

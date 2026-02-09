@@ -29,7 +29,13 @@ Config file structure:
 """
 
 from shiny import App, ui
-from src.widgets import table_editor_ui, table_editor_server
+
+# Import from dmapTableEditor package (after pip install -e .)
+# For local dev without install, use: from src.widgets import ...
+# try:
+from dmapTableEditor.widgets import table_editor_ui, table_editor_server
+# except ImportError:
+#     from src.widgets import table_editor_ui, table_editor_server
 
 
 # Define config paths for each tab

@@ -14,7 +14,7 @@ from typing import Optional
 
 # Try to import database service
 try:
-    from src.db import UserPresetsService
+    from ..db import UserPresetsService
     DB_SERVICE_AVAILABLE = True
 except ImportError:
     DB_SERVICE_AVAILABLE = False

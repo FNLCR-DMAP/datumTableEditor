@@ -5,7 +5,7 @@ Updated for split panel layout with column customization
 
 from shiny import render, ui, reactive
 
-from src.utils import (
+from .utils import (
     load_presets,
     save_presets,
     load_active_preset,
@@ -82,7 +82,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     print(f"[Session] User: {posit_username} (safe: {safe_username})")
     
     # Load config instance for this widget, passing the username for user-scoped tables
-    from src.config.config_instance import load_config_instance
+    from .config.config_instance import load_config_instance
     config = load_config_instance(config_path, username=safe_username)
     
     # Extract config values

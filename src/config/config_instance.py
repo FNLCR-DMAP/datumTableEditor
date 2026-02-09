@@ -182,7 +182,7 @@ class ConfigInstance:
     def _load_from_datum(self) -> pd.DataFrame:
         """Load data via Datum proxy."""
         try:
-            from src.adapter.datum import DatumClient
+            from ..adapter.datum import DatumClient
             
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")

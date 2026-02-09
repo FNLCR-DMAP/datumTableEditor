@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmapTableEditor"
+version = "0.1.0"
+description = "A reusable PyShiny table editor widget with database support"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["shiny", "pyshiny", "table", "editor", "widget", "database"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Shiny",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "shiny>=0.6.0",
+    "pandas>=1.5.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/dmapTableEditor"
+Repository = "https://github.com/yourusername/dmapTableEditor"
+
+# Explicit package mapping: import as dmapTableEditor, code lives in src/
+[tool.setuptools]
+packages = ["dmapTableEditor", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
+
+[tool.setuptools.package-dir]
+dmapTableEditor = "src"
+"dmapTableEditor.config" = "src/config"
+"dmapTableEditor.css" = "src/css"
+"dmapTableEditor.data" = "src/data"
+"dmapTableEditor.db" = "src/db"
+"dmapTableEditor.js" = "src/js"
+"dmapTableEditor.processing" = "src/processing"
+"dmapTableEditor.utils" = "src/utils"
+"dmapTableEditor.widgets" = "src/widgets"
+
+[tool.setuptools.package-data]
+"*" = ["*.css", "*.js", "*.json"]
