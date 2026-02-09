@@ -248,6 +248,16 @@ table.edit-table > tbody > tr:hover > td {
 .editable-cell:hover {
     background-color: #e3f2fd !important;
 }
+
+/* Edited Cell - Brown Border */
+.editable-cell.cell-edited {
+    border: 2px solid #8B4513 !important;
+    background-color: #FFF8DC;
+}
+.editable-cell.cell-edited:hover {
+    background-color: #F5DEB3 !important;
+}
+
 .cell-value {
     display: block;
     overflow: hidden;
@@ -295,6 +305,28 @@ table.edit-table > tbody > tr:hover > td {
 }
 .cell-edit-popup .popup-close:hover {
     color: #343a40;
+}
+.cell-edit-popup .original-value-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: #FFF8DC;
+    border: 1px solid #8B4513;
+    border-radius: 4px;
+}
+.cell-edit-popup .original-value-label {
+    font-size: 11px;
+    color: #8B4513;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.cell-edit-popup .original-value-text {
+    flex: 1;
+    font-size: 13px;
+    color: #5D3A1A;
+    font-style: italic;
 }
 .cell-edit-popup .current-value-row {
     display: flex;

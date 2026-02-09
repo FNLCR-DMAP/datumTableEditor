@@ -62,9 +62,15 @@ def build_status_badge(status: str) -> ui.tags.span:
     return ui.tags.span(status_text, class_=f"row-status-badge status-{status}")
 
 
-def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "") -> ui.tags.tr:
+def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None) -> ui.tags.tr:
     """Build a single table row with all cells."""
     cells = []
+    edited_cells = edited_cells or {}
+    pk_columns = pk_columns or []
+    
+    # Build PK tuple for this row (for looking up edited cells)
+    row_pk = {pk: row[pk] for pk in pk_columns if pk in row.index}
+    pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
     
     # Select checkbox
     cells.append(
@@ -92,32 +98,50 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
             value = str(row[col]) if pd.notna(row[col]) else ""
         else:
             value = ""
+        
+        # Check if this cell has been edited (using PK-based key)
+        cell_key = (pk_tuple, col)
+        cell_info = edited_cells.get(cell_key)
+        is_edited = cell_info is not None
+        cell_class = "editable-cell cell-edited" if is_edited else "editable-cell"
+        
+        # Build cell attributes
+        cell_attrs = {"data-row": str(idx), "data-col": col, "data-value": value}
+        
+        # Add original value attribute if cell was edited
+        if is_edited and isinstance(cell_info, dict):
+            original = cell_info.get("original", "")
+            cell_attrs["data-original"] = str(original) if original is not None else ""
+        
         cells.append(
             ui.tags.td(
                 ui.span(value if value else "—", class_="cell-value"),
-                class_="editable-cell",
-                **{"data-row": str(idx), "data-col": col, "data-value": value}
+                class_=cell_class,
+                **cell_attrs
             )
         )
     
     return ui.tags.tr(*cells, class_=row_class)
 
 
-def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str]) -> ui.tags.tbody:
+def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None) -> ui.tags.tbody:
     """Build the table body with all rows."""
     table_rows = []
+    edited_cells = edited_cells or {}
+    pk_columns = pk_columns or []
     for i, idx in enumerate(paginated_indices):
-        row = current_df.iloc[idx]
+        # idx is the DataFrame index (label), use .loc to get the row
+        row = current_df.loc[idx]
         # Add zebra striping class based on visual position
         row_class = "row-even" if i % 2 == 0 else "row-odd"
-        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class))
+        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns))
     return ui.tags.tbody(*table_rows)
 
 
-def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str]) -> ui.tags.table:
+def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None) -> ui.tags.table:
     """Build the complete data table."""
     header = build_table_header(cols, widths)
-    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func)
+    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns)
     return ui.tags.table(header, body, class_="edit-table")
 
 
@@ -128,7 +152,9 @@ def build_table_container(
     widths: dict,
     filtered_count: int,
     total_rows: int,
-    get_row_status_func: Callable[[int], str]
+    get_row_status_func: Callable[[int], str],
+    edited_cells: dict = None,
+    pk_columns: list = None
 ) -> ui.div:
     """Build the complete table container with summary and table."""
     displayed_count = len(paginated_indices)
@@ -138,7 +164,7 @@ def build_table_container(
     else:
         rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
     
-    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func)
+    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns)
     
     return ui.div(
         ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),

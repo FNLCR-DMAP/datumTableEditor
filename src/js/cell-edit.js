@@ -12,6 +12,10 @@ function createCellEditPopup() {
             <h4 id="popup-column-name">Edit Column</h4>
             <button class="popup-close" onclick="closeCellPopup()">&times;</button>
         </div>
+        <div class="original-value-row" id="original-value-row" style="display: none;">
+            <span class="original-value-label">Original:</span>
+            <span class="original-value-text" id="popup-original-value"></span>
+        </div>
         <div class="current-value-row">
             <span class="current-value-label">Current:</span>
             <span class="current-value-text" id="popup-current-value"></span>
@@ -50,10 +54,23 @@ window.openCellPopup = function(cell) {
     const row = cell.dataset.row;
     const col = cell.dataset.col;
     const value = cell.dataset.value || '';
+    const originalValue = cell.dataset.original;  // Will be undefined if not edited
     
     document.getElementById('popup-column-name').textContent = 'Edit: ' + col;
     document.getElementById('popup-current-value').textContent = value || '(empty)';
     document.getElementById('popup-new-value').value = value;
+    
+    // Show/hide original value row
+    const originalRow = document.getElementById('original-value-row');
+    const originalValueEl = document.getElementById('popup-original-value');
+    if (originalValue !== undefined) {
+        // Cell has been edited - show original value
+        originalValueEl.textContent = originalValue || '(empty)';
+        originalRow.style.display = 'flex';
+    } else {
+        // Cell not edited - hide original row
+        originalRow.style.display = 'none';
+    }
     
     const popup = document.getElementById('cell-edit-popup');
     

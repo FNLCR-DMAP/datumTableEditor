@@ -136,7 +136,10 @@ class ConfigInstance:
             return pd.DataFrame()
     
     def _apply_field_modifications(self, df: pd.DataFrame, engine) -> pd.DataFrame:
-        """Apply field modifications to the dataframe."""
+        """
+        Apply field modifications to the dataframe AND track which cells were edited.
+        Tracks the FIRST old_value as the original value for each cell.
+        """
         try:
             from sqlalchemy import text
             
@@ -144,9 +147,10 @@ class ConfigInstance:
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = _format_table_name(mods_table)
             
-            # Query field modifications
+            # Query field modifications - include old_value for original tracking
+            # Order by created_at ASC so first edit contains the original value
             mods_query = f"""
-            SELECT row_pk, column_name, new_value 
+            SELECT row_pk, column_name, old_value, new_value 
             FROM {mods_table_sql}
             WHERE mod_type = 'field_modification' 
               AND undone = FALSE
@@ -157,13 +161,18 @@ class ConfigInstance:
                 result = conn.execute(text(mods_query))
                 mods_data = result.fetchall()
             
+            # Store edited cells info: {(pk_tuple, col_name): {"original": first_old_value, "current": latest_new_value}}
+            # PK is stored as a tuple of (pk_col, pk_val) pairs for hashability
+            self.edited_cells = {}
+            
             if mods_data:
                 for mod in mods_data:
                     row_pk = mod[0]
                     if isinstance(row_pk, str):
                         row_pk = json.loads(row_pk)
                     col_name = mod[1]
-                    new_value = mod[2]
+                    old_value = mod[2]
+                    new_value = mod[3]
                     
                     if col_name in df.columns:
                         # Build mask to find the row
@@ -172,12 +181,46 @@ class ConfigInstance:
                             if pk_col in row_pk and pk_col in df.columns:
                                 mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
                         if mask.any():
+                            # Create PK tuple for stable cell key (hashable)
+                            pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
+                            cell_key = (pk_tuple, col_name)
+                            
+                            # Track edited cell - keep FIRST old_value as original
+                            if cell_key not in self.edited_cells:
+                                # First edit for this cell - old_value is the original
+                                self.edited_cells[cell_key] = {
+                                    "original": old_value,
+                                    "current": new_value
+                                }
+                            else:
+                                # Subsequent edit - update current, keep original
+                                self.edited_cells[cell_key]["current"] = new_value
+                            
+                            # Apply modification to df (show current edited value)
                             df.loc[mask, col_name] = new_value
             
             return df
         except Exception as e:
             print(f"⚠ Could not apply field modifications: {e}")
+            self.edited_cells = {}
             return df
+    
+    def get_edited_cells(self) -> dict:
+        """Return dict of edited cells: {(pk_tuple, col_name): {"original": val, "current": val}}"""
+        return getattr(self, 'edited_cells', {})
+    
+    def is_cell_edited(self, row_pk: dict, col_name: str) -> bool:
+        """Check if a specific cell has been edited using its PK."""
+        pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
+        return (pk_tuple, col_name) in getattr(self, 'edited_cells', {})
+    
+    def get_original_value(self, row_pk: dict, col_name: str) -> str:
+        """Get the original value for an edited cell, or None if not edited."""
+        pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
+        cell_info = getattr(self, 'edited_cells', {}).get((pk_tuple, col_name))
+        if cell_info:
+            return cell_info.get("original")
+        return None
     
     def _load_from_datum(self) -> pd.DataFrame:
         """Load data via Datum proxy."""

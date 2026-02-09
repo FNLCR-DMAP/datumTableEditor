@@ -133,6 +133,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Reactive values
     data = reactive.Value(initial_df)
+    
+    # Track edited cells from config - {(row_idx, col_name): new_value}
+    edited_cells = reactive.Value(config.get_edited_cells())
+    
     current_sort = reactive.Value({
         "column": ui_state.get("sort_column"),
         "ascending": ui_state.get("sort_ascending", True)
@@ -187,12 +191,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Helper function to get PKs for selected row indices
     def _get_selected_pks(row_indices, current_df):
-        """Convert row indices to list of PK dicts"""
+        """Convert row indices (DataFrame labels) to list of PK dicts"""
         pk_cols = app_config.table.primary_key
         pks = []
         for row_idx in row_indices:
             try:
-                row = current_df.iloc[row_idx]
+                row = current_df.loc[row_idx]  # Use .loc for label-based indexing
                 row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
                 if row_pk:
                     pks.append(row_pk)
@@ -221,10 +225,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Wrapper for get_row_status that uses reactive log and PK for accurate matching"""
         current_df = data.get()
         current_log = mods_log.get()
-        # Get the primary key for this row (positional index)
+        # Get the primary key for this row (using DataFrame index label, not position)
         try:
             pk_cols = app_config.table.primary_key
-            row = current_df.iloc[row_idx]
+            row = current_df.loc[row_idx]  # Use .loc for label-based indexing
             row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
         except:
             row_pk = None
@@ -724,7 +728,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             widths=column_widths.get(),
             filtered_count=len(filtered_indices),
             total_rows=len(current_df),
-            get_row_status_func=_get_row_status
+            get_row_status_func=_get_row_status,
+            edited_cells=edited_cells.get(),
+            pk_columns=app_config.table.primary_key
         )
     
     # Output: Approval status
@@ -770,6 +776,28 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             print(f"DEBUG: perform_cell_edit returned, log entries: {len(updated_log)}")
             data.set(updated_df)
             mods_log.set(updated_log)
+            
+            # Track edited cell for brown border display using PK-based key
+            # Get the row's PK values
+            pk_cols = app_config.table.primary_key
+            try:
+                row_data = current_df.iloc[row]
+                row_pk = {pk: row_data[pk] for pk in pk_cols if pk in current_df.columns}
+                pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
+                
+                # Keep original value from first edit, update current value
+                current_edited = edited_cells.get().copy()
+                cell_key = (pk_tuple, col)
+                if cell_key not in current_edited:
+                    # First edit - old_val is the original
+                    current_edited[cell_key] = {"original": old_val, "current": new_val}
+                else:
+                    # Subsequent edit - keep original, update current
+                    current_edited[cell_key]["current"] = new_val
+                edited_cells.set(current_edited)
+            except Exception as e:
+                print(f"Warning: Could not track edited cell: {e}")
+            
             # Auto-save log and data state to file
             save_log_to_file(updated_log, modifications_log_path)
             updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)

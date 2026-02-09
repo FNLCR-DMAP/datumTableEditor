@@ -28,11 +28,12 @@ def get_filtered_rows(
         search_column: Column to search in, or "all" for all active columns
         
     Returns:
-        List of row indices that match all filters
+        List of row indices (DataFrame index values) that match all filters
     """
     filtered_indices = []
     
-    for idx, (_, row) in enumerate(df.iterrows()):
+    for idx, row in df.iterrows():
+        # idx is the actual DataFrame index, row is the Series
         # Check status filter
         current_status = get_row_status_func(idx)
         if current_status not in status_filters:
