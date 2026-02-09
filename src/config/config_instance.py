@@ -348,10 +348,14 @@ class ConfigInstance:
             self.edited_cells = {}
             
             if response.data:
-                for mod in response.data:
-                    row_pk = mod.get("row_pk", {})
+                print(f"DEBUG APPLY: Processing {len(response.data)} field_modification records")
+                for idx, mod in enumerate(response.data):
+                    row_pk_raw = mod.get("row_pk", {})
+                    print(f"DEBUG APPLY [{idx}]: row_pk_raw type={type(row_pk_raw).__name__}, value={row_pk_raw}")
+                    row_pk = row_pk_raw
                     if isinstance(row_pk, str):
                         row_pk = json.loads(row_pk)
+                        print(f"DEBUG APPLY [{idx}]: row_pk after JSON parse: {row_pk}")
                     col_name = mod.get("column_name")
                     old_value = mod.get("old_value")
                     new_value = mod.get("new_value")
@@ -563,6 +567,9 @@ class ConfigInstance:
     
     def save_modification_to_db(self, row_pk: dict, column: str, old_value, new_value, mod_type: str = "field_modification"):
         """Save a single modification to the database using this config instance."""
+        # Debug: log entry point
+        print(f"DEBUG save_modification_to_db: row_pk={row_pk}, column={column}, mod_type={mod_type}")
+        
         if self.app_config.database.mode == "datum":
             return self._save_modification_to_datum(row_pk, column, old_value, new_value, mod_type)
         
@@ -619,7 +626,23 @@ class ConfigInstance:
             
             old_val_str = str(old_value) if old_value is not None else None
             new_val_str = str(new_value) if new_value is not None else None
-            row_pk_json = json.dumps(row_pk).replace("'", "''")
+            
+            # Convert numpy/pandas types to native Python types for JSON serialization
+            serializable_pk = {}
+            for k, v in row_pk.items():
+                if hasattr(v, 'item'):  # numpy scalar
+                    serializable_pk[k] = v.item()
+                elif pd.isna(v):
+                    serializable_pk[k] = None
+                else:
+                    serializable_pk[k] = v
+            
+            row_pk_json = json.dumps(serializable_pk).replace("'", "''")
+            
+            # Debug: log row_pk input and serialization
+            print(f"DEBUG INSERT row_pk input: type={type(row_pk).__name__}, value={row_pk}")
+            print(f"DEBUG INSERT serializable_pk: {serializable_pk}")
+            print(f"DEBUG INSERT row_pk_json: {row_pk_json}")
             
             # Build INSERT statement - add explicit BEGIN/COMMIT for transaction safety
             sql = f'''
@@ -637,7 +660,7 @@ class ConfigInstance:
             
             # Debug: log the Datum parameters
             print(f"DEBUG INSERT - table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}, service: {self.app_config.database.datum_service_name}")
-            print(f"DEBUG INSERT SQL: {sql.strip()[:200]}...")
+            print(f"DEBUG INSERT SQL VALUES clause: ('{row_pk_json}'::jsonb, '{column}', ...)")
             
             response = client.execute_sql(
                 sql=sql,

@@ -28,8 +28,11 @@ def _get_row_pk(df: pd.DataFrame, row_idx: int) -> dict:
         from ..config.config import app_config
         pk_cols = app_config.table.primary_key
         row = df.iloc[row_idx]
-        return {pk: row[pk] for pk in pk_cols if pk in df.columns}
-    except:
+        result = {pk: row[pk] for pk in pk_cols if pk in df.columns}
+        print(f"DEBUG _get_row_pk: row_idx={row_idx}, pk_cols={pk_cols}, result={result}")
+        return result
+    except Exception as e:
+        print(f"DEBUG _get_row_pk ERROR: {e}")
         return {"row_index": row_idx}
 
 
