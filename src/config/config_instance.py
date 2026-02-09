@@ -670,10 +670,8 @@ class ConfigInstance:
         if self._state_table_checked:
             return True
         
-        # Skip for datum mode - state operations not supported via proxy
         if self.app_config.database.mode == "datum":
-            self._state_table_checked = True
-            return False
+            return self._ensure_state_table_exists_datum()
         
         try:
             from sqlalchemy import text
@@ -721,6 +719,67 @@ class ConfigInstance:
             print(f"⚠ Could not create state table: {e}")
             return False
 
+    def _ensure_state_table_exists_datum(self) -> bool:
+        """Create UI state table via Datum proxy if it doesn't exist."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            state_table = self.app_config.database.state_table
+            state_table_sql = _format_table_name(state_table)
+            
+            # Parse schema for CREATE SCHEMA
+            schema_sql = None
+            if '.' in state_table:
+                schema = state_table.split('.', 1)[0]
+                schema_sql = f'"{schema}"'
+            
+            # Create schema if needed
+            if schema_sql:
+                try:
+                    client.execute_sql(
+                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                except Exception:
+                    pass  # Schema may already exist
+            
+            # Create table if not exists
+            client.execute_sql(
+                sql=f'''
+                    CREATE TABLE IF NOT EXISTS {state_table_sql} (
+                        id SERIAL PRIMARY KEY,
+                        user_id VARCHAR(255),
+                        session_id VARCHAR(255),
+                        filters JSONB,
+                        sort_column VARCHAR(255),
+                        sort_ascending BOOLEAN DEFAULT TRUE,
+                        current_page INT DEFAULT 1,
+                        rows_per_page INT DEFAULT 25,
+                        column_preset VARCHAR(255),
+                        updated_at TIMESTAMP DEFAULT NOW(),
+                        UNIQUE(user_id, session_id)
+                    )
+                ''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            self._state_table_checked = True
+            return True
+        except Exception as e:
+            print(f"⚠ Could not create state table via Datum: {e}")
+            return False
+
     def save_ui_state(
         self,
         sort_column: str = None,
@@ -732,9 +791,11 @@ class ConfigInstance:
         **kwargs  # Ignore extra args for compatibility
     ) -> bool:
         """Save UI state to database for this config instance."""
-        # Skip for datum mode - state operations not supported via proxy
         if self.app_config.database.mode == "datum":
-            return False
+            return self._save_ui_state_datum(
+                sort_column, sort_ascending, current_page, 
+                rows_per_page, filters, column_preset
+            )
         
         try:
             from sqlalchemy import text
@@ -785,6 +846,68 @@ class ConfigInstance:
         except Exception as e:
             print(f"⚠ Could not save UI state: {e}")
             return False
+
+    def _save_ui_state_datum(
+        self,
+        sort_column: str,
+        sort_ascending: bool,
+        current_page: int,
+        rows_per_page: int,
+        filters: dict,
+        column_preset: str
+    ) -> bool:
+        """Save UI state via Datum proxy."""
+        # Ensure state table exists first
+        self._ensure_state_table_exists()
+        
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                print("⚠ Datum credentials not configured for state")
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            state_table = self.app_config.database.state_table
+            state_table_sql = _format_table_name(state_table)
+            
+            # Escape values for SQL
+            filters_json = json.dumps(filters).replace("'", "''") if filters else 'null'
+            sort_col_sql = f"'{sort_column}'" if sort_column else 'NULL'
+            preset_sql = f"'{column_preset}'" if column_preset else 'NULL'
+            user_sql = self.username.replace("'", "''")
+            
+            sql = f'''
+                INSERT INTO {state_table_sql} 
+                    (user_id, session_id, sort_column, sort_ascending, 
+                     current_page, rows_per_page, filters, column_preset, updated_at)
+                VALUES 
+                    ('{user_sql}', 'default_session', {sort_col_sql}, {str(sort_ascending).upper()},
+                     {current_page}, {rows_per_page}, '{filters_json}'::jsonb, {preset_sql}, NOW())
+                ON CONFLICT (user_id, session_id) 
+                DO UPDATE SET
+                    sort_column = {sort_col_sql},
+                    sort_ascending = {str(sort_ascending).upper()},
+                    current_page = {current_page},
+                    rows_per_page = {rows_per_page},
+                    filters = '{filters_json}'::jsonb,
+                    column_preset = {preset_sql},
+                    updated_at = NOW()
+            '''
+            
+            client.execute_sql(
+                sql=sql,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return True
+        except Exception as e:
+            print(f"⚠ Could not save UI state via Datum: {e}")
+            return False
     
     def load_ui_state(self) -> Dict:
         """Load UI state from database for this config instance."""
@@ -797,9 +920,8 @@ class ConfigInstance:
             "column_preset": None
         }
         
-        # Skip for datum mode - state operations not supported via proxy
         if self.app_config.database.mode == "datum":
-            return default_state
+            return self._load_ui_state_datum(default_state)
         
         # Ensure state table exists first
         self._ensure_state_table_exists()
@@ -843,6 +965,58 @@ class ConfigInstance:
                 }
         except Exception as e:
             print(f"⚠ Could not load UI state: {e}")
+        
+        return default_state
+
+    def _load_ui_state_datum(self, default_state: Dict) -> Dict:
+        """Load UI state via Datum proxy."""
+        # Ensure state table exists first
+        self._ensure_state_table_exists()
+        
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return default_state
+            
+            client = DatumClient(base_url=base_url, token=token)
+            state_table = self.app_config.database.state_table
+            state_table_sql = _format_table_name(state_table)
+            user_sql = self.username.replace("'", "''")
+            
+            response = client.execute_sql(
+                sql=f'''
+                    SELECT sort_column, sort_ascending, current_page, 
+                           rows_per_page, filters, column_preset
+                    FROM {state_table_sql}
+                    WHERE user_id = '{user_sql}' AND session_id = 'default_session'
+                ''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            if response.data and len(response.data) > 0:
+                row = response.data[0]
+                filters = row.get("filters", {})
+                if isinstance(filters, str):
+                    filters = json.loads(filters)
+                elif filters is None:
+                    filters = {}
+                
+                return {
+                    "sort_column": row.get("sort_column") or default_state["sort_column"],
+                    "sort_ascending": row.get("sort_ascending") if row.get("sort_ascending") is not None else default_state["sort_ascending"],
+                    "current_page": row.get("current_page") or default_state["current_page"],
+                    "rows_per_page": row.get("rows_per_page") or default_state["rows_per_page"],
+                    "filters": filters,
+                    "column_preset": row.get("column_preset")
+                }
+        except Exception as e:
+            print(f"⚠ Could not load UI state via Datum: {e}")
         
         return default_state
 
