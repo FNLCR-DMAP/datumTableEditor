@@ -62,7 +62,10 @@ class ConfigInstance:
         project_root = config_file.parent
         
         # Load app config
-        self.app_config = load_config(str(config_file))
+        self.app_config = load_config(
+            str(config_file).strip(),
+            username=self.username
+        )
         
         # Setup paths
         self.data_dir = project_root / "data"

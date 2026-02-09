@@ -216,7 +216,7 @@ class AppConfig:
 # Configuration Loader
 # =============================================================================
 
-def load_config(config_path: Optional[Path] = None) -> AppConfig:
+def load_config(config_path: Optional[Path] = None, username: Optional[str] = None) -> AppConfig:
     """
     Load configuration from file, environment variables, and defaults.
     
@@ -238,15 +238,15 @@ def load_config(config_path: Optional[Path] = None) -> AppConfig:
     if config_path.exists():
         with open(config_path, "r") as f:
             file_config = json.load(f)
-        config = _merge_config(config, file_config)
+        config = _merge_config(config, file_config, username=username)
     
     # Override with environment variables
-    config = _apply_env_overrides(config)
+    config = _apply_env_overrides(config, username=username)
     
     return config
 
 
-def _merge_config(config: AppConfig, file_config: dict) -> AppConfig:
+def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] = None) -> AppConfig:
     """Merge file configuration into AppConfig."""
     
     if "app_title" in file_config:
@@ -320,6 +320,9 @@ def _merge_config(config: AppConfig, file_config: dict) -> AppConfig:
         config.database.data_table = db.get("data_table", config.database.data_table)
         config.database.mods_table = db.get("mods_table", config.database.mods_table)
         config.database.state_table = db.get("state_table", config.database.state_table)
+        if username:
+            # Personalize state table per user
+            config.database.state_table = f"{config.database.state_table}.{username}"
         config.database.status_column = db.get("status_column", config.database.status_column)
         config.database.auto_detect_pk = db.get("auto_detect_pk", config.database.auto_detect_pk)
         config.database.pool_size = db.get("pool_size", config.database.pool_size)
@@ -336,7 +339,7 @@ def _merge_config(config: AppConfig, file_config: dict) -> AppConfig:
     return config
 
 
-def _apply_env_overrides(config: AppConfig) -> AppConfig:
+def _apply_env_overrides(config: AppConfig, username: Optional[str] = None) -> AppConfig:
     """Apply environment variable overrides."""
     
     # Data source overrides
@@ -368,6 +371,9 @@ def _apply_env_overrides(config: AppConfig) -> AppConfig:
         config.database.mods_table = os.environ["APP_DB_MODS_TABLE"]
     if os.environ.get("APP_DB_STATE_TABLE"):
         config.database.state_table = os.environ["APP_DB_STATE_TABLE"]
+        if username:
+            # Personalize state table per user
+            config.database.state_table = f"{config.database.state_table}.{username}"
     
     return config
 
