@@ -1298,11 +1298,14 @@ class ConfigInstance:
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
             
             if not base_url or not token:
+                print(f"[Preset DEBUG] Save failed - Datum credentials missing")
                 return None
             
             client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
+            
+            print(f"[Preset DEBUG] Saving preset '{preset_name}' to table: {preset_table_sql}")
             
             # Clear existing default if setting new default
             if is_default:
@@ -1316,8 +1319,7 @@ class ConfigInstance:
             columns_json = json.dumps(columns).replace("'", "''")
             preset_name_sql = preset_name.replace("'", "''")
             
-            response = client.execute_sql(
-                sql=f'''
+            sql = f'''
                     INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
                     VALUES ('{preset_name_sql}', '{columns_json}'::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
                     ON CONFLICT (preset_name) 
@@ -1326,17 +1328,24 @@ class ConfigInstance:
                         is_default = EXCLUDED.is_default,
                         updated_at = CURRENT_TIMESTAMP
                     RETURNING id
-                ''',
+                '''
+            
+            response = client.execute_sql(
+                sql=sql,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            
+            print(f"[Preset DEBUG] Save response: {response.data}")
             
             if response.data:
                 return response.data[0].get("id")
             return None
         except Exception as e:
             print(f"⚠ Could not save preset via Datum: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_presets(self) -> List[Dict]:
@@ -1387,22 +1396,28 @@ class ConfigInstance:
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
             
             if not base_url or not token:
+                print(f"[Preset DEBUG] Datum credentials missing: base_url={bool(base_url)}, token={bool(token)}")
                 return []
             
             client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
             
-            response = client.execute_sql(
-                sql=f'''
+            query = f'''
                     SELECT id, preset_name, columns, is_default, created_at, updated_at
                     FROM {preset_table_sql}
                     ORDER BY preset_name
-                ''',
+                '''
+            print(f"[Preset DEBUG] Querying presets: {query.strip()}")
+            
+            response = client.execute_sql(
+                sql=query,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            
+            print(f"[Preset DEBUG] Response: {len(response.data)} rows")
             
             presets = []
             for row in response.data:

@@ -65,7 +65,13 @@ def _get_username() -> str:
 
 
 def _is_datum_mode() -> bool:
-    """Check if using Datum mode."""
+    """Check if using Datum mode (from env var or config file)."""
+    import os
+    # Environment variable takes precedence (used on RStudio Connect)
+    env_mode = os.environ.get("APP_DATABASE_MODE", "").lower()
+    if env_mode == "datum":
+        return True
+    # Fall back to config file
     config = _load_app_config()
     return config.get("database", {}).get("mode") == "datum"
 
@@ -94,12 +100,16 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
     Returns:
         Dictionary of preset names to preset data (columns and widths)
     """
+    print(f"[Preset DEBUG] load_presets called - datum_mode: {_is_datum_mode()}, username: {username}")
+    
     # Use ConfigInstance for Datum mode
     if _is_datum_mode():
         try:
             config_instance = _get_config_instance(username)
             if config_instance:
+                print(f"[Preset DEBUG] Loading from Datum, preset_table: {config_instance._get_preset_table_name()}")
                 presets = config_instance.get_presets()
+                print(f"[Preset DEBUG] Got {len(presets) if presets else 0} presets from Datum")
                 
                 if not presets:
                     return {"Default": {"columns": list(default_columns), "widths": {}}}
@@ -116,6 +126,7 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
                 if "Default" not in result:
                     result["Default"] = {"columns": list(default_columns), "widths": {}}
                 
+                print(f"[Preset DEBUG] Returning presets: {list(result.keys())}")
                 return result
         except Exception as e:
             print(f"[preset_utils] Datum load failed: {e}")
