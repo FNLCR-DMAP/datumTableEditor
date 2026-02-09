@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dmapTableEditor"
-version = "0.1.4"
+version = "0.1.5"
 description = "A reusable PyShiny table editor widget with database support"
 readme = "README.md"
 license = {text = "MIT"}
@@ -44,10 +44,11 @@ Repository = "https://github.com/yourusername/dmapTableEditor"
 
 # Explicit package mapping: import as dmapTableEditor, code lives in src/
 [tool.setuptools]
-packages = ["dmapTableEditor", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
+packages = ["dmapTableEditor", "dmapTableEditor.adapter", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
 
 [tool.setuptools.package-dir]
 dmapTableEditor = "src"
+"dmapTableEditor.adapter" = "src/adapter"
 "dmapTableEditor.config" = "src/config"
 "dmapTableEditor.css" = "src/css"
 "dmapTableEditor.data" = "src/data"
