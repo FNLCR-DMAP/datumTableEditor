@@ -161,10 +161,14 @@ CREATE INDEX idx_modifications_row_pk ON <schema>.modifications USING GIN (row_p
 CREATE INDEX idx_modifications_created_at ON <schema>.modifications (created_at DESC);
 ```
 
-### UI State Table
-### UI State Table
+### UI State Table (Per-User)
+
+UI state tables are created per-user. The table name is constructed as `<base_state_table>.<username>`.
+
+For example, if `state_table` is configured as `epitopes.ui_state` and the username is `testuser`, the actual table will be `epitopes.ui_state.testuser`.
+
 ```sql
-CREATE TABLE <schema>.ui_state (
+CREATE TABLE <schema>.ui_state.<username> (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255),
     session_id VARCHAR(255),
@@ -177,7 +181,7 @@ CREATE TABLE <schema>.ui_state (
     updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(user_id, session_id)
 );
-CREATE INDEX idx_ui_state_user_session ON <schema>.ui_state (user_id, session_id);
+CREATE INDEX idx_ui_state_user_session ON <schema>.ui_state.<username> (user_id, session_id);
 ```
 
 ## Development
