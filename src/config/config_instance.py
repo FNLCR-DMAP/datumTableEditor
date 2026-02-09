@@ -264,21 +264,122 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             data_table = self.app_config.database.data_table
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
             data_table_sql = _format_table_name(data_table)
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # Build PK match condition for subquery
+            pk_conditions = " AND ".join(
+                f"m.row_pk->>'{pk}' = d.\"{pk}\"::text"
+                for pk in pk_columns
+            )
+            
+            # Query with modification status via subquery (same as direct mode)
+            query = f"""
+            SELECT d.*,
+                COALESCE(
+                    (SELECT m.mod_type 
+                     FROM {mods_table_sql} m 
+                     WHERE {pk_conditions}
+                       AND m.undone = FALSE
+                     ORDER BY m.created_at DESC 
+                     LIMIT 1),
+                    'unprocessed'
+                ) AS _mod_status
+            FROM {data_table_sql} d
+            ORDER BY d."{pk_columns[0]}"
+            """
             
             response = client.execute_sql(
-                sql=f'SELECT * FROM {data_table_sql}',
+                sql=query,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
             
             df = pd.DataFrame(response.data)
+            
+            # Apply field modifications to the data (same as direct mode)
+            df = self._apply_field_modifications_datum(df, client)
+            
             return df
         except Exception as e:
             print(f"✗ Error loading from Datum: {e}")
             return pd.DataFrame()
     
+    def _apply_field_modifications_datum(self, df: pd.DataFrame, client) -> pd.DataFrame:
+        """
+        Apply field modifications to the dataframe via Datum proxy.
+        Tracks the FIRST old_value as the original value for each cell.
+        """
+        try:
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # Query field modifications - include old_value for original tracking
+            # Order by created_at ASC so first edit contains the original value
+            mods_query = f"""
+            SELECT row_pk, column_name, old_value, new_value 
+            FROM {mods_table_sql}
+            WHERE mod_type = 'field_modification' 
+              AND undone = FALSE
+            ORDER BY created_at ASC
+            """
+            
+            response = client.execute_sql(
+                sql=mods_query,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            # Store edited cells info
+            self.edited_cells = {}
+            
+            if response.data:
+                for mod in response.data:
+                    row_pk = mod.get("row_pk", {})
+                    if isinstance(row_pk, str):
+                        row_pk = json.loads(row_pk)
+                    col_name = mod.get("column_name")
+                    old_value = mod.get("old_value")
+                    new_value = mod.get("new_value")
+                    
+                    if col_name in df.columns:
+                        # Build mask to find the row
+                        mask = pd.Series([True] * len(df))
+                        for pk_col in pk_columns:
+                            if pk_col in row_pk and pk_col in df.columns:
+                                mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
+                        if mask.any():
+                            # Create PK tuple for stable cell key (hashable)
+                            pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
+                            cell_key = (pk_tuple, col_name)
+                            
+                            # Track edited cell - keep FIRST old_value as original
+                            if cell_key not in self.edited_cells:
+                                self.edited_cells[cell_key] = {
+                                    "original": old_value,
+                                    "current": new_value
+                                }
+                            else:
+                                self.edited_cells[cell_key]["current"] = new_value
+                            
+                            # Apply modification to df
+                            df.loc[mask, col_name] = new_value
+            
+            mod_count = len(self.edited_cells)
+            if mod_count > 0:
+                print(f"✓ Applied {mod_count} modifications to data")
+            
+            return df
+        except Exception as e:
+            print(f"⚠ Could not apply field modifications via Datum: {e}")
+            self.edited_cells = {}
+            return df
+
     def _get_display_columns(self) -> List[str]:
         """Get default display columns from configuration."""
         if self.app_config.table.default_columns:
