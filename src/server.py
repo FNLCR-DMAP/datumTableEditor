@@ -83,6 +83,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Load config instance for this widget, passing the username for user-scoped tables
     from .config.config_instance import load_config_instance
+    print(f"[Config] Loading config from {config_path} for user: {safe_username}")
     config = load_config_instance(config_path, username=safe_username)
     
     # Extract config values

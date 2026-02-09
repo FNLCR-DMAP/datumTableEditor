@@ -47,10 +47,21 @@ class ConfigInstance:
     display_columns: List[str] = field(default_factory=list)
     data_dir: Path = field(default=None)
     modifications_log_path: Path = field(default=None)
+    _state_table_checked: bool = field(default=False, repr=False)
+    _engine: Any = field(default=None, repr=False)
     
     def __post_init__(self):
         """Load config and data after initialization."""
         self._load_all()
+    
+    def _get_engine(self):
+        """Get or create a cached SQLAlchemy engine."""
+        if self._engine is None:
+            from sqlalchemy import create_engine
+            conn_string = self.app_config.database.connection_string
+            if conn_string:
+                self._engine = create_engine(conn_string)
+        return self._engine
     
     def _load_all(self):
         """Load configuration and data."""
@@ -90,14 +101,21 @@ class ConfigInstance:
     def _load_from_database(self) -> pd.DataFrame:
         """Load data from PostgreSQL database with modification status."""
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                raise ValueError(
+                    f"Database connection_string is None. "
+                    f"Config path: {self.config_path}, "
+                    f"Mode: {self.app_config.database.mode}, "
+                    f"Enabled: {self.app_config.database.enabled}"
+                )
+            
             data_table_sql = _format_table_name(data_table)
             mods_table_sql = _format_table_name(mods_table)
             
@@ -265,12 +283,14 @@ class ConfigInstance:
     def _load_modifications_from_db(self) -> List[Dict]:
         """Load modifications from database."""
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             mods_table = self.app_config.database.mods_table
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                return []
+            
             table_sql = _format_table_name(mods_table)
             with engine.connect() as conn:
                 result = conn.execute(text(f'''
@@ -365,12 +385,14 @@ class ConfigInstance:
     def save_modification_to_db(self, row_pk: dict, column: str, old_value, new_value, mod_type: str = "field_modification"):
         """Save a single modification to the database using this config instance."""
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             mods_table = self.app_config.database.mods_table
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                return None
+            
             table_sql = _format_table_name(mods_table)
             
             with engine.connect() as conn:
@@ -400,12 +422,14 @@ class ConfigInstance:
     def mark_modification_undone_in_db(self, mod_id: int):
         """Mark a modification as undone in the database."""
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             mods_table = self.app_config.database.mods_table
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            
             table_sql = _format_table_name(mods_table)
             
             with engine.connect() as conn:
@@ -422,13 +446,14 @@ class ConfigInstance:
     def update_data_in_db(self, row_pk: dict, column: str, new_value):
         """Update the actual data in the database."""
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             data_table = self.app_config.database.data_table
             pk_columns = self.app_config.table.primary_key
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                return False
             
             # Build WHERE clause from PK
             where_parts = []
@@ -455,6 +480,58 @@ class ConfigInstance:
             print(f"✗ Error updating data in DB: {e}")
             return False
     
+    def _ensure_state_table_exists(self) -> bool:
+        """Create the UI state table if it doesn't exist. Only runs once per instance."""
+        # Skip if already checked this session
+        if self._state_table_checked:
+            return True
+        
+        try:
+            from sqlalchemy import text
+            
+            state_table = self.app_config.database.state_table
+            
+            # Parse schema.table format
+            if '.' in state_table:
+                schema, table_name = state_table.split('.', 1)
+                schema_sql = schema
+                table_sql = f'{schema}."{table_name}"'
+            else:
+                schema_sql = None
+                table_sql = f'"{state_table}"'
+            
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            
+            with engine.connect() as conn:
+                # Create schema if needed
+                if schema_sql:
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                
+                # Create table if not exists
+                conn.execute(text(f'''
+                    CREATE TABLE IF NOT EXISTS {table_sql} (
+                        id SERIAL PRIMARY KEY,
+                        user_id VARCHAR(255),
+                        session_id VARCHAR(255),
+                        filters JSONB,
+                        sort_column VARCHAR(255),
+                        sort_ascending BOOLEAN DEFAULT TRUE,
+                        current_page INT DEFAULT 1,
+                        rows_per_page INT DEFAULT 25,
+                        column_preset VARCHAR(255),
+                        updated_at TIMESTAMP DEFAULT NOW(),
+                        UNIQUE(user_id, session_id)
+                    )
+                '''))
+                conn.commit()
+            self._state_table_checked = True
+            return True
+        except Exception as e:
+            print(f"⚠ Could not create state table: {e}")
+            return False
+
     def save_ui_state(
         self,
         sort_column: str = None,
@@ -467,13 +544,14 @@ class ConfigInstance:
     ) -> bool:
         """Save UI state to database for this config instance."""
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             state_table = self.app_config.database.state_table
             state_table_sql = _format_table_name(state_table)
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                return False
             
             # Serialize filters as JSON
             filters_json = json.dumps(filters) if filters else None
@@ -526,14 +604,18 @@ class ConfigInstance:
             "column_preset": None
         }
         
+        # Ensure state table exists first
+        self._ensure_state_table_exists()
+        
         try:
-            from sqlalchemy import create_engine, text
+            from sqlalchemy import text
             
-            conn_string = self.app_config.database.connection_string
             state_table = self.app_config.database.state_table
             state_table_sql = _format_table_name(state_table)
             
-            engine = create_engine(conn_string)
+            engine = self._get_engine()
+            if engine is None:
+                return default_state
             
             with engine.connect() as conn:
                 result = conn.execute(

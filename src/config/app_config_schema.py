@@ -321,8 +321,8 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.mods_table = db.get("mods_table", config.database.mods_table)
         config.database.state_table = db.get("state_table", config.database.state_table)
         if username:
-            # Personalize state table per user
-            config.database.state_table = f"{config.database.state_table}.{username}"
+            # Personalize state table per user (use underscore to avoid cross-database reference)
+            config.database.state_table = f"{config.database.state_table}_{username}"
         config.database.status_column = db.get("status_column", config.database.status_column)
         config.database.auto_detect_pk = db.get("auto_detect_pk", config.database.auto_detect_pk)
         config.database.pool_size = db.get("pool_size", config.database.pool_size)
@@ -373,7 +373,7 @@ def _apply_env_overrides(config: AppConfig, username: Optional[str] = None) -> A
         config.database.state_table = os.environ["APP_DB_STATE_TABLE"]
         if username:
             # Personalize state table per user
-            config.database.state_table = f"{config.database.state_table}.{username}"
+            config.database.state_table = f"{config.database.state_table}_{username}"
     
     return config
 
