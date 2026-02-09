@@ -420,6 +420,9 @@ class ConfigInstance:
             query = f'''SELECT id, row_pk, column_name, old_value, new_value, 
                        mod_type, created_by, created_at, undone
                        FROM {mods_table_sql} ORDER BY created_at ASC'''
+            
+            # Debug: log the Datum parameters for SELECT
+            print(f"DEBUG SELECT - table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}, service: {self.app_config.database.datum_service_name}")
             print(f"DEBUG Loading modifications from Datum: {query}")
             
             response = client.execute_sql(
@@ -629,6 +632,10 @@ class ConfigInstance:
                 RETURNING id
             '''
             
+            # Debug: log the Datum parameters
+            print(f"DEBUG INSERT - table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}, service: {self.app_config.database.datum_service_name}")
+            print(f"DEBUG INSERT SQL: {sql.strip()[:200]}...")
+            
             response = client.execute_sql(
                 sql=sql,
                 database=self.app_config.database.datum_database,
@@ -636,11 +643,26 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
+            print(f"DEBUG INSERT response: {response.data}")
+            
             if response.data:
-                return response.data[0].get("id")
+                mod_id = response.data[0].get("id")
+                
+                # Debug: immediately verify the INSERT by querying back
+                verify_response = client.execute_sql(
+                    sql=f"SELECT COUNT(*) as cnt FROM {mods_table_sql}",
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                print(f"DEBUG VERIFY after INSERT - total rows in {mods_table_sql}: {verify_response.data}")
+                
+                return mod_id
             return None
         except Exception as e:
             print(f"✗ Error saving modification to Datum: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def mark_modification_undone_in_db(self, mod_id: int):
