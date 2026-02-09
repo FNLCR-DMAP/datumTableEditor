@@ -142,11 +142,11 @@ dmapTableEditor/
 
 ## Database Schema
 
-The package auto-creates required tables if they don't exist:
+The package auto-creates required tables if they don't exist. Tables are typically created under a schema (e.g., `epitopes.modifications`, `epitopes.ui_state`):
 
 ### Modifications Table
 ```sql
-CREATE TABLE modifications (
+CREATE TABLE <schema>.modifications (
     id SERIAL PRIMARY KEY,
     row_pk JSONB NOT NULL,
     column_name VARCHAR(255) NOT NULL,
@@ -157,11 +157,14 @@ CREATE TABLE modifications (
     created_at TIMESTAMP DEFAULT NOW(),
     created_by VARCHAR(255)
 );
+CREATE INDEX idx_modifications_row_pk ON <schema>.modifications USING GIN (row_pk);
+CREATE INDEX idx_modifications_created_at ON <schema>.modifications (created_at DESC);
 ```
 
 ### UI State Table
+### UI State Table
 ```sql
-CREATE TABLE ui_state (
+CREATE TABLE <schema>.ui_state (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255),
     session_id VARCHAR(255),
@@ -174,6 +177,7 @@ CREATE TABLE ui_state (
     updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(user_id, session_id)
 );
+CREATE INDEX idx_ui_state_user_session ON <schema>.ui_state (user_id, session_id);
 ```
 
 ## Development
