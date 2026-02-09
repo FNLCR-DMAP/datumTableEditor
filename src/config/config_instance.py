@@ -290,8 +290,59 @@ class ConfigInstance:
     
     def load_modifications_log(self) -> List[Dict]:
         """Load modifications log from database."""
+        if self.app_config.database.mode == "datum":
+            return self._load_modifications_from_datum()
         return self._load_modifications_from_db()
     
+    def _load_modifications_from_datum(self) -> List[Dict]:
+        """Load modifications via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                print("⚠ Datum credentials not configured for modifications")
+                return []
+            
+            client = DatumClient(base_url=base_url, token=token)
+            mods_table = self.app_config.database.mods_table
+            
+            response = client.execute_sql(
+                sql=f'''SELECT id, row_pk, column_name, old_value, new_value, 
+                       mod_type, created_by, created_at, undone
+                       FROM "{mods_table}" ORDER BY created_at ASC''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            log = []
+            for row in response.data:
+                row_pk = row.get("row_pk", {})
+                if isinstance(row_pk, str):
+                    row_pk = json.loads(row_pk)
+                
+                log.append({
+                    "db_id": row.get("id"),
+                    "timestamp": row.get("created_at"),
+                    "type": row.get("mod_type"),
+                    "undone": row.get("undone", False),
+                    "details": {
+                        "row_pk": row_pk,
+                        "column": row.get("column_name"),
+                        "old_value": row.get("old_value"),
+                        "new_value": row.get("new_value"),
+                        "created_by": row.get("created_by")
+                    }
+                })
+            
+            return self._aggregate_approval_rejection_entries(log)
+        except Exception as e:
+            print(f"✗ Error loading modifications from Datum: {e}")
+            return []
+
     def _load_modifications_from_db(self) -> List[Dict]:
         """Load modifications from database."""
         try:
@@ -396,6 +447,9 @@ class ConfigInstance:
     
     def save_modification_to_db(self, row_pk: dict, column: str, old_value, new_value, mod_type: str = "field_modification"):
         """Save a single modification to the database using this config instance."""
+        if self.app_config.database.mode == "datum":
+            return self._save_modification_to_datum(row_pk, column, old_value, new_value, mod_type)
+        
         try:
             from sqlalchemy import text
             
@@ -431,8 +485,55 @@ class ConfigInstance:
             print(f"✗ Error saving modification to DB: {e}")
             return None
     
+    def _save_modification_to_datum(self, row_pk: dict, column: str, old_value, new_value, mod_type: str):
+        """Save modification via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                print("⚠ Datum credentials not configured")
+                return None
+            
+            client = DatumClient(base_url=base_url, token=token)
+            mods_table = self.app_config.database.mods_table
+            
+            old_val_str = str(old_value) if old_value is not None else None
+            new_val_str = str(new_value) if new_value is not None else None
+            row_pk_json = json.dumps(row_pk).replace("'", "''")
+            
+            sql = f'''
+                INSERT INTO "{mods_table}" 
+                    (row_pk, column_name, old_value, new_value, mod_type)
+                VALUES 
+                    ('{row_pk_json}'::jsonb, '{column}', 
+                     {f"'{old_val_str}'" if old_val_str else 'NULL'}, 
+                     {f"'{new_val_str}'" if new_val_str else 'NULL'}, 
+                     '{mod_type}')
+                RETURNING id
+            '''
+            
+            response = client.execute_sql(
+                sql=sql,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            if response.data:
+                return response.data[0].get("id")
+            return None
+        except Exception as e:
+            print(f"✗ Error saving modification to Datum: {e}")
+            return None
+
     def mark_modification_undone_in_db(self, mod_id: int):
         """Mark a modification as undone in the database."""
+        if self.app_config.database.mode == "datum":
+            return self._mark_modification_undone_datum(mod_id)
+        
         try:
             from sqlalchemy import text
             
@@ -455,8 +556,36 @@ class ConfigInstance:
             print(f"✗ Error marking modification undone: {e}")
             return False
     
+    def _mark_modification_undone_datum(self, mod_id: int):
+        """Mark modification undone via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            mods_table = self.app_config.database.mods_table
+            
+            client.execute_sql(
+                sql=f'UPDATE "{mods_table}" SET undone = TRUE WHERE id = {mod_id}',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return True
+        except Exception as e:
+            print(f"✗ Error marking modification undone via Datum: {e}")
+            return False
+
     def update_data_in_db(self, row_pk: dict, column: str, new_value):
         """Update the actual data in the database."""
+        if self.app_config.database.mode == "datum":
+            return self._update_data_in_datum(row_pk, column, new_value)
+        
         try:
             from sqlalchemy import text
             
@@ -492,11 +621,58 @@ class ConfigInstance:
             print(f"✗ Error updating data in DB: {e}")
             return False
     
+    def _update_data_in_datum(self, row_pk: dict, column: str, new_value):
+        """Update data via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            data_table = self.app_config.database.data_table
+            pk_columns = self.app_config.table.primary_key
+            
+            # Build WHERE clause from PK
+            where_parts = []
+            for pk_col in pk_columns:
+                if pk_col in row_pk:
+                    pk_val = row_pk[pk_col]
+                    if isinstance(pk_val, str):
+                        where_parts.append(f'"{pk_col}" = \'{pk_val}\'')
+                    else:
+                        where_parts.append(f'"{pk_col}" = {pk_val}')
+            
+            if not where_parts:
+                return False
+            
+            where_clause = " AND ".join(where_parts)
+            new_val_sql = f"'{new_value}'" if new_value is not None else "NULL"
+            
+            client.execute_sql(
+                sql=f'UPDATE "{data_table}" SET "{column}" = {new_val_sql} WHERE {where_clause}',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return True
+        except Exception as e:
+            print(f"✗ Error updating data via Datum: {e}")
+            return False
+
     def _ensure_state_table_exists(self) -> bool:
         """Create the UI state table if it doesn't exist. Only runs once per instance."""
         # Skip if already checked this session
         if self._state_table_checked:
             return True
+        
+        # Skip for datum mode - state operations not supported via proxy
+        if self.app_config.database.mode == "datum":
+            self._state_table_checked = True
+            return False
         
         try:
             from sqlalchemy import text
