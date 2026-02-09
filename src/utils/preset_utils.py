@@ -38,6 +38,16 @@ def _load_app_config() -> dict:
     return _app_config_cache
 
 
+def _load_full_config():
+    """Load config using the full schema loader (respects env vars)."""
+    try:
+        from ..config.app_config_schema import load_config
+        return load_config("app_config.json")
+    except Exception as e:
+        print(f"[preset_utils] Could not load full config: {e}")
+        return None
+
+
 def _is_database_enabled() -> bool:
     """Check if database mode is enabled."""
     config = _load_app_config()
@@ -65,15 +75,19 @@ def _get_username() -> str:
 
 
 def _is_datum_mode() -> bool:
-    """Check if using Datum mode (from env var or config file)."""
+    """Check if using Datum mode (using full config loader that respects env vars)."""
+    # Use the full config loader which properly applies environment variable overrides
+    full_config = _load_full_config()
+    if full_config:
+        mode = full_config.database.mode
+        print(f"[Preset DEBUG] _is_datum_mode: mode='{mode}' (from full config loader)")
+        return mode == "datum"
+    
+    # Fallback: check environment variable directly
     import os
-    # Environment variable takes precedence (used on RStudio Connect)
     env_mode = os.environ.get("APP_DATABASE_MODE", "").lower()
-    if env_mode == "datum":
-        return True
-    # Fall back to config file
-    config = _load_app_config()
-    return config.get("database", {}).get("mode") == "datum"
+    print(f"[Preset DEBUG] _is_datum_mode fallback: APP_DATABASE_MODE='{env_mode}'")
+    return env_mode == "datum"
 
 
 def _get_config_instance(username: str = None):
