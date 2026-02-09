@@ -20,6 +20,19 @@ except ImportError:
     SQLALCHEMY_AVAILABLE = False
 
 
+def quote_identifier(name: str) -> str:
+    """
+    Properly quote a PostgreSQL identifier, handling schema-qualified names.
+    
+    Examples:
+        - "users" -> '"users"'
+        - "epitopes.epitopes_data" -> '"epitopes"."epitopes_data"'
+        - "public.my_table" -> '"public"."my_table"'
+    """
+    parts = name.split(".")
+    return ".".join(f'"{part}"' for part in parts)
+
+
 @dataclass
 class FilterCondition:
     """A single filter condition."""
@@ -132,7 +145,7 @@ class QueryBuilder:
         if include_mods_status and self.mods_table:
             select_clause = self._build_select_with_mods()
         else:
-            select_clause = f'SELECT * FROM "{self.data_table}"'
+            select_clause = f'SELECT * FROM {quote_identifier(self.data_table)}'
         
         # Build WHERE clause
         params: dict[str, Any] = {}
@@ -188,7 +201,7 @@ class QueryBuilder:
         if where_parts:
             where_clause = " WHERE " + " AND ".join(where_parts)
         
-        sql = f'SELECT COUNT(*) FROM "{self.data_table}"' + where_clause
+        sql = f'SELECT COUNT(*) FROM {quote_identifier(self.data_table)}' + where_clause
         return sql, params
     
     def _build_select_with_mods(self) -> str:
@@ -199,11 +212,14 @@ class QueryBuilder:
             for pk in self.primary_key
         )
         
+        mods_table_quoted = quote_identifier(self.mods_table)
+        data_table_quoted = quote_identifier(self.data_table)
+        
         return f"""
         SELECT d.*,
             COALESCE(
                 (SELECT m.mod_type 
-                 FROM "{self.mods_table}" m 
+                 FROM {mods_table_quoted} m 
                  WHERE {pk_conditions}
                    AND m.undone = FALSE
                  ORDER BY m.created_at DESC 
@@ -211,18 +227,18 @@ class QueryBuilder:
                 'unprocessed'
             ) AS _mod_status,
             (SELECT COUNT(*) 
-             FROM "{self.mods_table}" m 
+             FROM {mods_table_quoted} m 
              WHERE {pk_conditions}
                AND m.undone = FALSE
                AND m.mod_type = 'field_modification'
             ) AS _mod_count
-        FROM "{self.data_table}" d
+        FROM {data_table_quoted} d
         """
     
     def build_insert_modification(self) -> str:
         """Build INSERT statement for modifications table."""
         return f"""
-        INSERT INTO "{self.mods_table}" 
+        INSERT INTO {quote_identifier(self.mods_table)} 
             (row_pk, column_name, old_value, new_value, mod_type, created_by)
         VALUES 
             (:row_pk, :column_name, :old_value, :new_value, :mod_type, :created_by)
@@ -232,7 +248,7 @@ class QueryBuilder:
     def build_undo_modification(self) -> str:
         """Build UPDATE statement to mark modification as undone."""
         return f"""
-        UPDATE "{self.mods_table}"
+        UPDATE {quote_identifier(self.mods_table)}
         SET undone = TRUE
         WHERE id = :mod_id
         RETURNING id
@@ -241,7 +257,7 @@ class QueryBuilder:
     def build_get_modifications_for_row(self) -> str:
         """Build query to get all modifications for a specific row."""
         return f"""
-        SELECT * FROM "{self.mods_table}"
+        SELECT * FROM {quote_identifier(self.mods_table)}
         WHERE row_pk = :row_pk
           AND undone = FALSE
         ORDER BY created_at DESC
@@ -250,7 +266,7 @@ class QueryBuilder:
     def build_upsert_state(self, state_table: str) -> str:
         """Build UPSERT statement for UI state."""
         return f"""
-        INSERT INTO "{state_table}" 
+        INSERT INTO {quote_identifier(state_table)} 
             (user_id, session_id, filters, sort_column, sort_ascending, 
              current_page, rows_per_page, column_preset, updated_at)
         VALUES 
@@ -270,7 +286,7 @@ class QueryBuilder:
     def build_get_state(self, state_table: str) -> str:
         """Build query to get UI state."""
         return f"""
-        SELECT * FROM "{state_table}"
+        SELECT * FROM {quote_identifier(state_table)}
         WHERE user_id = :user_id AND session_id = :session_id
         """
 

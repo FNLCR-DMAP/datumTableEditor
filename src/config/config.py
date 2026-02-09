@@ -16,18 +16,15 @@ from .app_config_schema import AppConfig, load_config
 
 def _format_table_name(table_name: str) -> str:
     """
-    Format table name for SQL queries.
+    Format table name for SQL queries with proper PostgreSQL quoting.
     
-    If table_name contains a dot (schema.table), don't quote the whole thing.
-    Otherwise, quote it to handle special characters.
+    Properly quotes schema-qualified names by quoting each part separately:
+    - "users" -> '"users"'
+    - "epitopes.epitopes_data" -> '"epitopes"."epitopes_data"'
+    - "public.my_table" -> '"public"."my_table"'
     """
-    if '.' in table_name:
-        # Schema-qualified: schema.table -> schema.table (no quotes)
-        parts = table_name.split('.', 1)
-        return f'{parts[0]}.{parts[1]}'
-    else:
-        # Simple table name - quote it
-        return f'"{table_name}"'
+    parts = table_name.split('.')
+    return ".".join(f'"{part}"' for part in parts)
 
 
 # Load application configuration
