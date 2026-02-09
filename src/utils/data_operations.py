@@ -22,11 +22,21 @@ except ImportError:
     DB_AVAILABLE = False
 
 
-def _get_row_pk(df: pd.DataFrame, row_idx: int) -> dict:
-    """Extract primary key values for a row using positional index (iloc)."""
+def _get_row_pk(df: pd.DataFrame, row_idx: int, pk_cols: list = None) -> dict:
+    """Extract primary key values for a row using positional index (iloc).
+    
+    Args:
+        df: DataFrame containing the data
+        row_idx: Row index (positional, for iloc)
+        pk_cols: Optional list of primary key column names. If not provided,
+                 falls back to loading from global config.
+    """
     try:
-        from ..config.config import app_config
-        pk_cols = app_config.table.primary_key
+        if pk_cols is None:
+            # Fallback to global config if pk_cols not provided
+            from ..config.config import app_config
+            pk_cols = app_config.table.primary_key
+        
         row = df.iloc[row_idx]
         result = {pk: row[pk] for pk in pk_cols if pk in df.columns}
         print(f"DEBUG _get_row_pk: row_idx={row_idx}, pk_cols={pk_cols}, result={result}")
@@ -192,8 +202,13 @@ def perform_cell_edit(
     # Use iloc for positional indexing (row is a position, not a label)
     updated_df.iloc[row, updated_df.columns.get_loc(col)] = new_value
     
+    # Get primary key columns - prefer config_instance if available
+    pk_cols = None
+    if config_instance and hasattr(config_instance, 'app_config'):
+        pk_cols = config_instance.app_config.table.primary_key
+    
     # Get row primary key for database operations
-    row_pk = _get_row_pk(df, row)
+    row_pk = _get_row_pk(df, row, pk_cols)
     
     # Save to database if enabled (use config_instance if provided)
     db_id = None
