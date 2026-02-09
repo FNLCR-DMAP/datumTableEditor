@@ -291,6 +291,8 @@ class ConfigInstance:
             ORDER BY d."{pk_columns[0]}"
             """
             
+            print(f"DEBUG Datum query: {query[:500]}...")  # Debug: show query
+            
             response = client.execute_sql(
                 sql=query,
                 database=self.app_config.database.datum_database,
@@ -299,6 +301,13 @@ class ConfigInstance:
             )
             
             df = pd.DataFrame(response.data)
+            
+            # Debug: check if _mod_status column exists and show sample values
+            if '_mod_status' in df.columns:
+                status_counts = df['_mod_status'].value_counts().to_dict()
+                print(f"DEBUG _mod_status counts: {status_counts}")
+            else:
+                print(f"DEBUG: _mod_status column NOT in result. Columns: {list(df.columns)}")
             
             # Apply field modifications to the data (same as direct mode)
             df = self._apply_field_modifications_datum(df, client)
@@ -408,14 +417,19 @@ class ConfigInstance:
             mods_table = self.app_config.database.mods_table
             mods_table_sql = _format_table_name(mods_table)
             
-            response = client.execute_sql(
-                sql=f'''SELECT id, row_pk, column_name, old_value, new_value, 
+            query = f'''SELECT id, row_pk, column_name, old_value, new_value, 
                        mod_type, created_by, created_at, undone
-                       FROM {mods_table_sql} ORDER BY created_at ASC''',
+                       FROM {mods_table_sql} ORDER BY created_at ASC'''
+            print(f"DEBUG Loading modifications from Datum: {query}")
+            
+            response = client.execute_sql(
+                sql=query,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            
+            print(f"DEBUG Modifications response: {len(response.data)} rows")
             
             log = []
             for row in response.data:
@@ -1120,6 +1134,332 @@ class ConfigInstance:
             print(f"⚠ Could not load UI state via Datum: {e}")
         
         return default_state
+
+    # =========================================================================
+    # Preset Management (Datum-aware)
+    # =========================================================================
+    
+    def _get_preset_table_name(self) -> str:
+        """Generate the user preset table name: {data_table_base}_{username}_column_presets"""
+        # Extract base table name (without schema)
+        data_table = self.app_config.database.data_table
+        if '.' in data_table:
+            base_name = data_table.split('.')[-1]
+        else:
+            base_name = data_table
+        safe_username = "".join(c if c.isalnum() else "_" for c in self.username).lower()
+        
+        # Include schema if present
+        if '.' in data_table:
+            schema = data_table.split('.')[0]
+            return f"{schema}.{base_name}_{safe_username}_column_presets"
+        return f"{base_name}_{safe_username}_column_presets"
+    
+    def _ensure_preset_table_exists(self) -> bool:
+        """Create the preset table if it doesn't exist."""
+        if self.app_config.database.mode == "datum":
+            return self._ensure_preset_table_exists_datum()
+        
+        try:
+            from sqlalchemy import text
+            
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            
+            with engine.connect() as conn:
+                conn.execute(text(f'''
+                    CREATE TABLE IF NOT EXISTS {preset_table_sql} (
+                        id SERIAL PRIMARY KEY,
+                        preset_name VARCHAR(255) NOT NULL UNIQUE,
+                        columns JSONB NOT NULL,
+                        is_default BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                '''))
+                conn.commit()
+            return True
+        except Exception as e:
+            print(f"⚠ Could not create preset table: {e}")
+            return False
+    
+    def _ensure_preset_table_exists_datum(self) -> bool:
+        """Create preset table via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            client.execute_sql(
+                sql=f'''
+                    CREATE TABLE IF NOT EXISTS {preset_table_sql} (
+                        id SERIAL PRIMARY KEY,
+                        preset_name VARCHAR(255) NOT NULL UNIQUE,
+                        columns JSONB NOT NULL,
+                        is_default BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return True
+        except Exception as e:
+            print(f"⚠ Could not create preset table via Datum: {e}")
+            return False
+    
+    def save_preset(self, preset_name: str, columns: Any, is_default: bool = False) -> Optional[int]:
+        """Save a column preset."""
+        self._ensure_preset_table_exists()
+        
+        if self.app_config.database.mode == "datum":
+            return self._save_preset_datum(preset_name, columns, is_default)
+        
+        try:
+            from sqlalchemy import text
+            
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            engine = self._get_engine()
+            if engine is None:
+                return None
+            
+            with engine.connect() as conn:
+                if is_default:
+                    conn.execute(text(f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE'))
+                
+                result = conn.execute(
+                    text(f'''
+                        INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
+                        VALUES (:preset_name, :columns, :is_default, CURRENT_TIMESTAMP)
+                        ON CONFLICT (preset_name) 
+                        DO UPDATE SET 
+                            columns = EXCLUDED.columns,
+                            is_default = EXCLUDED.is_default,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING id
+                    '''),
+                    {
+                        "preset_name": preset_name,
+                        "columns": json.dumps(columns),
+                        "is_default": is_default
+                    }
+                )
+                preset_id = result.scalar()
+                conn.commit()
+                return preset_id
+        except Exception as e:
+            print(f"⚠ Could not save preset: {e}")
+            return None
+    
+    def _save_preset_datum(self, preset_name: str, columns: Any, is_default: bool) -> Optional[int]:
+        """Save preset via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return None
+            
+            client = DatumClient(base_url=base_url, token=token)
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            # Clear existing default if setting new default
+            if is_default:
+                client.execute_sql(
+                    sql=f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE',
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+            
+            columns_json = json.dumps(columns).replace("'", "''")
+            preset_name_sql = preset_name.replace("'", "''")
+            
+            response = client.execute_sql(
+                sql=f'''
+                    INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
+                    VALUES ('{preset_name_sql}', '{columns_json}'::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
+                    ON CONFLICT (preset_name) 
+                    DO UPDATE SET 
+                        columns = EXCLUDED.columns,
+                        is_default = EXCLUDED.is_default,
+                        updated_at = CURRENT_TIMESTAMP
+                    RETURNING id
+                ''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            if response.data:
+                return response.data[0].get("id")
+            return None
+        except Exception as e:
+            print(f"⚠ Could not save preset via Datum: {e}")
+            return None
+    
+    def get_presets(self) -> List[Dict]:
+        """Load all presets for the current user."""
+        self._ensure_preset_table_exists()
+        
+        if self.app_config.database.mode == "datum":
+            return self._get_presets_datum()
+        
+        try:
+            from sqlalchemy import text
+            
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            engine = self._get_engine()
+            if engine is None:
+                return []
+            
+            with engine.connect() as conn:
+                result = conn.execute(text(f'''
+                    SELECT id, preset_name, columns, is_default, created_at, updated_at
+                    FROM {preset_table_sql}
+                    ORDER BY preset_name
+                '''))
+                
+                presets = []
+                for row in result:
+                    presets.append({
+                        "id": row[0],
+                        "preset_name": row[1],
+                        "columns": row[2],
+                        "is_default": row[3],
+                        "created_at": row[4].isoformat() if row[4] else None,
+                        "updated_at": row[5].isoformat() if row[5] else None
+                    })
+                return presets
+        except Exception as e:
+            print(f"⚠ Could not load presets: {e}")
+            return []
+    
+    def _get_presets_datum(self) -> List[Dict]:
+        """Load presets via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return []
+            
+            client = DatumClient(base_url=base_url, token=token)
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            response = client.execute_sql(
+                sql=f'''
+                    SELECT id, preset_name, columns, is_default, created_at, updated_at
+                    FROM {preset_table_sql}
+                    ORDER BY preset_name
+                ''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            presets = []
+            for row in response.data:
+                columns = row.get("columns", {})
+                if isinstance(columns, str):
+                    columns = json.loads(columns)
+                presets.append({
+                    "id": row.get("id"),
+                    "preset_name": row.get("preset_name"),
+                    "columns": columns,
+                    "is_default": row.get("is_default", False),
+                    "created_at": row.get("created_at"),
+                    "updated_at": row.get("updated_at")
+                })
+            return presets
+        except Exception as e:
+            print(f"⚠ Could not load presets via Datum: {e}")
+            return []
+    
+    def delete_preset(self, preset_name: str) -> bool:
+        """Delete a preset by name."""
+        if self.app_config.database.mode == "datum":
+            return self._delete_preset_datum(preset_name)
+        
+        try:
+            from sqlalchemy import text
+            
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(f'DELETE FROM {preset_table_sql} WHERE preset_name = :preset_name'),
+                    {"preset_name": preset_name}
+                )
+                conn.commit()
+                return result.rowcount > 0
+        except Exception as e:
+            print(f"⚠ Could not delete preset: {e}")
+            return False
+    
+    def _delete_preset_datum(self, preset_name: str) -> bool:
+        """Delete preset via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            preset_table = self._get_preset_table_name()
+            preset_table_sql = _format_table_name(preset_table)
+            preset_name_sql = preset_name.replace("'", "''")
+            
+            client.execute_sql(
+                sql=f"DELETE FROM {preset_table_sql} WHERE preset_name = '{preset_name_sql}'",
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return True
+        except Exception as e:
+            print(f"⚠ Could not delete preset via Datum: {e}")
+            return False
+    
+    def get_default_preset(self) -> Optional[Dict]:
+        """Get the default preset for current user."""
+        presets = self.get_presets()
+        for p in presets:
+            if p.get("is_default"):
+                return p
+        return None
 
 
 def load_config_instance(config_path: str = "app_config.json", username: str = "default_user") -> ConfigInstance:

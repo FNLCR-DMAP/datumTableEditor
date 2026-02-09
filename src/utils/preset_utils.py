@@ -64,6 +64,23 @@ def _get_username() -> str:
     return config.get("presets", {}).get("default_user", _default_username)
 
 
+def _is_datum_mode() -> bool:
+    """Check if using Datum mode."""
+    config = _load_app_config()
+    return config.get("database", {}).get("mode") == "datum"
+
+
+def _get_config_instance(username: str = None):
+    """Get a ConfigInstance for Datum mode preset operations."""
+    try:
+        from ..config.config_instance import ConfigInstance
+        user = username or _get_username()
+        return ConfigInstance(config_path="app_config.json", username=user)
+    except Exception as e:
+        print(f"[preset_utils] Could not create ConfigInstance: {e}")
+        return None
+
+
 def load_presets(presets_file: Path, default_columns: list, table_name: str = None, username: str = None) -> dict:
     """
     Load column presets from database or file.
@@ -77,6 +94,33 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
     Returns:
         Dictionary of preset names to preset data (columns and widths)
     """
+    # Use ConfigInstance for Datum mode
+    if _is_datum_mode():
+        try:
+            config_instance = _get_config_instance(username)
+            if config_instance:
+                presets = config_instance.get_presets()
+                
+                if not presets:
+                    return {"Default": {"columns": list(default_columns), "widths": {}}}
+                
+                result = {}
+                for preset in presets:
+                    name = preset["preset_name"]
+                    columns = preset["columns"]
+                    if isinstance(columns, dict) and "columns" in columns:
+                        result[name] = columns
+                    else:
+                        result[name] = {"columns": columns, "widths": {}}
+                
+                if "Default" not in result:
+                    result["Default"] = {"columns": list(default_columns), "widths": {}}
+                
+                return result
+        except Exception as e:
+            print(f"[preset_utils] Datum load failed: {e}")
+        return {"Default": {"columns": list(default_columns), "widths": {}}}
+    
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
@@ -135,6 +179,43 @@ def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None,
         table_name: Base table name to scope presets (for multi-widget support)
         username: Username for user-scoped presets (from Posit Connect session.user)
     """
+    # Use ConfigInstance for Datum mode
+    if _is_datum_mode():
+        try:
+            config_instance = _get_config_instance(username)
+            if config_instance:
+                # Get existing presets to find deleted ones
+                existing_presets = config_instance.get_presets()
+                existing = {p["preset_name"] for p in existing_presets}
+                
+                # Find current default
+                current_default = None
+                for p in existing_presets:
+                    if p.get("is_default"):
+                        current_default = p["preset_name"]
+                        break
+                
+                new_names = set(presets_dict.keys())
+                
+                # Delete removed presets
+                for name in existing - new_names:
+                    config_instance.delete_preset(name)
+                
+                # If current default was deleted, set new default
+                if current_default and current_default not in new_names:
+                    current_default = "Default" if "Default" in new_names else next(iter(new_names), None)
+                
+                # Save/update all presets
+                for name, data in presets_dict.items():
+                    columns_data = data if isinstance(data, dict) else {"columns": data, "widths": {}}
+                    is_default = (name == current_default) if current_default else (name == "Default")
+                    config_instance.save_preset(name, columns_data, is_default=is_default)
+                
+                return
+        except Exception as e:
+            print(f"[preset_utils] Datum save failed: {e}")
+        return
+    
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
@@ -191,6 +272,19 @@ def load_active_preset(active_preset_file: Path, table_name: str = None, usernam
     Returns:
         Name of the active preset, or "Default" if not found
     """
+    # Use ConfigInstance for Datum mode
+    if _is_datum_mode():
+        try:
+            config_instance = _get_config_instance(username)
+            if config_instance:
+                default_preset = config_instance.get_default_preset()
+                if default_preset:
+                    return default_preset["preset_name"]
+            return "Default"
+        except Exception as e:
+            print(f"[preset_utils] Datum load active preset failed: {e}")
+        return "Default"
+    
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
@@ -223,6 +317,23 @@ def save_active_preset(active_preset_file: Path, preset_name: str, table_name: s
         table_name: Base table name to scope presets (for multi-widget support)
         username: Username for user-scoped presets (from Posit Connect session.user)
     """
+    # Use ConfigInstance for Datum mode - set the preset as default
+    if _is_datum_mode():
+        try:
+            config_instance = _get_config_instance(username)
+            if config_instance:
+                # Get existing presets and update defaults
+                presets = config_instance.get_presets()
+                for p in presets:
+                    # Clear old default, set new default
+                    is_default = (p["preset_name"] == preset_name)
+                    if p.get("is_default") != is_default:
+                        config_instance.save_preset(p["preset_name"], p["columns"], is_default=is_default)
+                return
+        except Exception as e:
+            print(f"[preset_utils] Datum save active preset failed: {e}")
+        return
+    
     if _is_database_enabled():
         try:
             service = _get_presets_service(table_name)
