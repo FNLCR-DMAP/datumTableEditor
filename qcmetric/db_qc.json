@@ -3,11 +3,11 @@
   "_generated": true,
   "_summary": {
     "total_functions": 92,
-    "unused_functions": 31,
+    "unused_functions": 10,
     "fully_annotated_functions": 79,
     "function_coverage_percent": 85.9,
     "parameter_coverage_percent": 94.4,
-    "mypy_errors": 21
+    "mypy_errors": 118
   },
   "files": {},
   "function_mapping": {
@@ -34,24 +34,24 @@
       ],
       "used": [
         "_connection",
+        "clear_session",
         "close",
         "columns",
+        "fetch_page",
+        "get_all_session_data",
         "get_database_operations",
+        "get_modifications_for_row",
         "get_session_book",
         "initialize",
         "load_ui_state",
         "primary_key",
+        "reset_database_operations",
+        "save_modification",
         "save_ui_state",
         "undo_modification"
       ],
       "unused": [
-        "__init__",
-        "clear_session",
-        "fetch_page",
-        "get_all_session_data",
-        "get_modifications_for_row",
-        "reset_database_operations",
-        "save_modification"
+        "__init__"
       ],
       "framework_managed": [
         "_connection",
@@ -84,7 +84,9 @@
         "engine",
         "ensure_tables_exist",
         "get_column_names",
+        "get_pk_dict",
         "get_pk_tuple",
+        "get_primary_key",
         "get_schema_manager",
         "get_table_schema",
         "get_table_schema",
@@ -93,8 +95,6 @@
       "unused": [
         "__init__",
         "generate_default_preset",
-        "get_pk_dict",
-        "get_primary_key",
         "get_row_count"
       ],
       "framework_managed": [
@@ -173,10 +173,16 @@
         "append_page",
         "clear",
         "clear_all",
+        "clear_book",
         "get_book",
         "get_next_page_number",
+        "get_pk_exclusion_list",
+        "get_pk_json",
         "get_pk_tuple",
+        "get_row_by_pk",
+        "get_stats",
         "has_more_pages",
+        "reconcile_data",
         "remove_book",
         "row_count",
         "set_context",
@@ -185,13 +191,7 @@
       ],
       "unused": [
         "__init__",
-        "__init__",
-        "clear_book",
-        "get_pk_exclusion_list",
-        "get_pk_json",
-        "get_row_by_pk",
-        "get_stats",
-        "reconcile_data"
+        "__init__"
       ],
       "framework_managed": [
         "known_pks",
@@ -229,26 +229,26 @@
         "_ensure_table_exists",
         "_get_preset_table_name",
         "_load_from_config",
+        "create_user_preset_table",
         "delete_preset",
+        "delete_user_preset",
         "engine",
         "get_default_preset",
         "get_default_preset",
+        "get_preset_by_name",
         "get_presets",
+        "get_user_preset_table_name",
+        "list_user_preset_tables",
         "list_users",
+        "load_user_presets",
         "main",
         "save_preset",
+        "save_user_preset",
         "set_default",
         "table_name"
       ],
       "unused": [
-        "__init__",
-        "create_user_preset_table",
-        "delete_user_preset",
-        "get_preset_by_name",
-        "get_user_preset_table_name",
-        "list_user_preset_tables",
-        "load_user_presets",
-        "save_user_preset"
+        "__init__"
       ],
       "framework_managed": [
         "engine",
@@ -401,6 +401,254 @@
     }
   },
   "mypy_errors": {
+    "src/utils/data_utils.py": [
+      {
+        "line": 37,
+        "column": 60,
+        "level": "error",
+        "message": "Incompatible default for argument \"row_pk\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 37,
+        "column": 60,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 37,
+        "column": 60,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 135,
+        "column": 68,
+        "level": "error",
+        "message": "Incompatible default for argument \"pk_cols\" (default has type \"None\", argument has type \"list[Any]\")  [assignment]"
+      },
+      {
+        "line": 135,
+        "column": 68,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 135,
+        "column": 68,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 156,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 3 to \"get_row_status\" has incompatible type \"dict[Any, Any] | None\"; expected \"dict[Any, Any]\"  [arg-type]"
+      },
+      {
+        "line": 161,
+        "column": 75,
+        "level": "error",
+        "message": "Incompatible default for argument \"pk_cols\" (default has type \"None\", argument has type \"list[Any]\")  [assignment]"
+      },
+      {
+        "line": 161,
+        "column": 75,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 161,
+        "column": 75,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 184,
+        "column": 43,
+        "level": "error",
+        "message": "Argument 3 to \"get_row_status\" has incompatible type \"dict[Any, Any] | None\"; expected \"dict[Any, Any]\"  [arg-type]"
+      }
+    ],
+    "src/config/app_config_schema.py": [
+      {
+        "line": 344,
+        "column": 42,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"Literal['csv', 'json', 'api', 'database']\")  [assignment]"
+      },
+      {
+        "line": 354,
+        "column": 47,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"Literal['local', 'api', 'database']\")  [assignment]"
+      }
+    ],
+    "src/adapter/datum.py": [
+      {
+        "line": 7,
+        "column": 1,
+        "level": "error",
+        "message": "Library stubs not installed for \"requests\"  [import-untyped]"
+      },
+      {
+        "line": 7,
+        "column": 1,
+        "level": "note",
+        "message": "Hint: \"python3 -m pip install types-requests\""
+      },
+      {
+        "line": 7,
+        "column": 1,
+        "level": "note",
+        "message": "(or run \"mypy --install-types\" to install all missing stub packages)"
+      },
+      {
+        "line": 7,
+        "column": 1,
+        "level": "note",
+        "message": "See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports"
+      },
+      {
+        "line": 183,
+        "column": 19,
+        "level": "error",
+        "message": "Unexpected keyword argument \"schema_\" for \"PostgresSqlRequest\"; did you mean \"schema\"?  [call-arg]"
+      }
+    ],
+    "src/config/config_instance.py": [
+      {
+        "line": 44,
+        "column": 29,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"AppConfig\")  [assignment]"
+      },
+      {
+        "line": 48,
+        "column": 22,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"Path\")  [assignment]"
+      },
+      {
+        "line": 49,
+        "column": 36,
+        "level": "error",
+        "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"Path\")  [assignment]"
+      },
+      {
+        "line": 97,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 166,
+        "column": 13,
+        "level": "error",
+        "message": "Need type annotation for \"edited_cells\" (hint: \"edited_cells: dict[<type>, <type>] = ...\")  [var-annotated]"
+      },
+      {
+        "line": 223,
+        "column": 16,
+        "level": "error",
+        "message": "Incompatible return value type (got \"None\", expected \"str\")  [return-value]"
+      },
+      {
+        "line": 270,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 370,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 405,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 428,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 457,
+        "column": 28,
+        "level": "error",
+        "message": "Incompatible default for argument \"sort_column\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 457,
+        "column": 28,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 457,
+        "column": 28,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 461,
+        "column": 25,
+        "level": "error",
+        "message": "Incompatible default for argument \"filters\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 461,
+        "column": 25,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 461,
+        "column": 25,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 462,
+        "column": 30,
+        "level": "error",
+        "message": "Incompatible default for argument \"column_preset\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 462,
+        "column": 30,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 462,
+        "column": 30,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 473,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 517,
+        "column": 25,
+        "level": "error",
+        "message": "Need type annotation for \"default_state\"  [var-annotated]"
+      },
+      {
+        "line": 533,
+        "column": 36,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      }
+    ],
     "src/db/user_presets.py": [
       {
         "line": 50,
@@ -533,6 +781,356 @@
         "column": 16,
         "level": "error",
         "message": "\"TableSchema\" has no attribute \"column_names\"; maybe \"get_column_names\"?  [attr-defined]"
+      }
+    ],
+    "src/utils/preset_utils.py": [
+      {
+        "line": 47,
+        "column": 44,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 47,
+        "column": 44,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 47,
+        "column": 44,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 67,
+        "column": 79,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 67,
+        "column": 79,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 67,
+        "column": 79,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 67,
+        "column": 101,
+        "level": "error",
+        "message": "Incompatible default for argument \"username\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 128,
+        "column": 76,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 128,
+        "column": 76,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 128,
+        "column": 76,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 128,
+        "column": 98,
+        "level": "error",
+        "message": "Incompatible default for argument \"username\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 171,
+        "column": 53,
+        "level": "error",
+        "message": "Argument 3 to \"save_preset\" of \"UserPresetsService\" has incompatible type \"dict[Any, Any]\"; expected \"list[Any]\"  [arg-type]"
+      },
+      {
+        "line": 182,
+        "column": 68,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 182,
+        "column": 68,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 182,
+        "column": 68,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 182,
+        "column": 90,
+        "level": "error",
+        "message": "Incompatible default for argument \"username\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 216,
+        "column": 86,
+        "level": "error",
+        "message": "Incompatible default for argument \"table_name\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 216,
+        "column": 86,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 216,
+        "column": 86,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 216,
+        "column": 108,
+        "level": "error",
+        "message": "Incompatible default for argument \"username\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      }
+    ],
+    "src/config/config.py": [
+      {
+        "line": 152,
+        "column": 28,
+        "level": "error",
+        "message": "Name \"csv_path\" is not defined  [name-defined]"
+      },
+      {
+        "line": 165,
+        "column": 32,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 463,
+        "column": 32,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 535,
+        "column": 32,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 577,
+        "column": 32,
+        "level": "error",
+        "message": "Argument 1 to \"create_engine\" has incompatible type \"str | None\"; expected \"str | URL\"  [arg-type]"
+      },
+      {
+        "line": 752,
+        "column": 24,
+        "level": "error",
+        "message": "Incompatible default for argument \"sort_column\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 752,
+        "column": 24,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 752,
+        "column": 24,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 756,
+        "column": 21,
+        "level": "error",
+        "message": "Incompatible default for argument \"filters\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 756,
+        "column": 21,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 756,
+        "column": 21,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 757,
+        "column": 26,
+        "level": "error",
+        "message": "Incompatible default for argument \"column_preset\" (default has type \"None\", argument has type \"str\")  [assignment]"
+      },
+      {
+        "line": 757,
+        "column": 26,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 757,
+        "column": 26,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 766,
+        "column": 31,
+        "level": "error",
+        "message": "Argument \"connection_string\" to \"DatabaseConfig\" has incompatible type \"str | None\"; expected \"str\"  [arg-type]"
+      },
+      {
+        "line": 780,
+        "column": 26,
+        "level": "error",
+        "message": "Argument 1 to \"list\" has incompatible type \"dict_items[Any, Any]\"; expected \"Iterable[dict[Any, Any]]\"  [arg-type]"
+      },
+      {
+        "line": 791,
+        "column": 21,
+        "level": "error",
+        "message": "Need type annotation for \"default_state\"  [var-annotated]"
+      },
+      {
+        "line": 804,
+        "column": 31,
+        "level": "error",
+        "message": "Argument \"connection_string\" to \"DatabaseConfig\" has incompatible type \"str | None\"; expected \"str\"  [arg-type]"
+      }
+    ],
+    "src/utils/table_utils.py": [
+      {
+        "line": 65,
+        "column": 170,
+        "level": "error",
+        "message": "Incompatible default for argument \"edited_cells\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 65,
+        "column": 170,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 65,
+        "column": 170,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 65,
+        "column": 195,
+        "level": "error",
+        "message": "Incompatible default for argument \"pk_columns\" (default has type \"None\", argument has type \"list[Any]\")  [assignment]"
+      },
+      {
+        "line": 127,
+        "column": 149,
+        "level": "error",
+        "message": "Incompatible default for argument \"edited_cells\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 127,
+        "column": 149,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 127,
+        "column": 149,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 127,
+        "column": 174,
+        "level": "error",
+        "message": "Incompatible default for argument \"pk_columns\" (default has type \"None\", argument has type \"list[Any]\")  [assignment]"
+      },
+      {
+        "line": 141,
+        "column": 163,
+        "level": "error",
+        "message": "Incompatible default for argument \"edited_cells\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 141,
+        "column": 163,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 141,
+        "column": 163,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 141,
+        "column": 188,
+        "level": "error",
+        "message": "Incompatible default for argument \"pk_columns\" (default has type \"None\", argument has type \"list[Any]\")  [assignment]"
+      },
+      {
+        "line": 156,
+        "column": 26,
+        "level": "error",
+        "message": "Incompatible default for argument \"edited_cells\" (default has type \"None\", argument has type \"dict[Any, Any]\")  [assignment]"
+      },
+      {
+        "line": 156,
+        "column": 26,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 156,
+        "column": 26,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      },
+      {
+        "line": 157,
+        "column": 24,
+        "level": "error",
+        "message": "Incompatible default for argument \"pk_columns\" (default has type \"None\", argument has type \"list[Any]\")  [assignment]"
+      },
+      {
+        "line": 157,
+        "column": 24,
+        "level": "note",
+        "message": "PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True"
+      },
+      {
+        "line": 157,
+        "column": 24,
+        "level": "note",
+        "message": "Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase"
+      }
+    ],
+    "src/server.py": [
+      {
+        "line": 187,
+        "column": 22,
+        "level": "error",
+        "message": "Need type annotation for \"active_filters\"  [var-annotated]"
       }
     ]
   }

@@ -3,10 +3,10 @@
   "_generated": true,
   "_summary": {
     "total_functions": 78,
-    "unused_functions": 3,
-    "fully_annotated_functions": 73,
-    "function_coverage_percent": 93.6,
-    "parameter_coverage_percent": 97.3,
+    "unused_functions": 0,
+    "fully_annotated_functions": 71,
+    "function_coverage_percent": 91.0,
+    "parameter_coverage_percent": 96.6,
     "mypy_errors": 0
   },
   "files": {},
@@ -112,12 +112,10 @@
         "process_undo_action"
       ],
       "used": [
-        "process_cell_edit_action",
-        "process_undo_action"
-      ],
-      "unused": [
         "process_approval_action",
-        "process_rejection_action"
+        "process_cell_edit_action",
+        "process_rejection_action",
+        "process_undo_action"
       ]
     },
     "src/utils/filter_handlers.py": {
@@ -245,14 +243,12 @@
         "build_log_entry_approval",
         "build_log_entry_field_modification",
         "build_log_entry_rejection",
+        "build_log_entry_undo",
         "build_log_entry_undone",
         "build_modifications_log",
         "build_status_histogram_bar",
         "format_row",
         "format_row"
-      ],
-      "unused": [
-        "build_log_entry_undo"
       ]
     }
   },
@@ -283,12 +279,26 @@
       "functions": {
         "total": 14,
         "with_return_type": 14,
-        "fully_annotated": 14
+        "fully_annotated": 12
       },
       "parameters": {
-        "total": 41,
+        "total": 43,
         "annotated": 41
-      }
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "perform_undo",
+          "name": "config_instance",
+          "line": 50
+        },
+        {
+          "type": "parameter",
+          "function": "perform_cell_edit",
+          "name": "config_instance",
+          "line": 161
+        }
+      ]
     },
     "src/utils/data_utils.py": {
       "functions": {
@@ -398,8 +408,8 @@
         "fully_annotated": 8
       },
       "parameters": {
-        "total": 7,
-        "annotated": 7
+        "total": 16,
+        "annotated": 16
       }
     },
     "src/utils/table_utils.py": {
@@ -409,8 +419,8 @@
         "fully_annotated": 7
       },
       "parameters": {
-        "total": 28,
-        "annotated": 28
+        "total": 36,
+        "annotated": 36
       }
     },
     "src/utils/ui_components.py": {
