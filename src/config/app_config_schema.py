@@ -375,6 +375,20 @@ def _apply_env_overrides(config: AppConfig, username: Optional[str] = None) -> A
             # Personalize state table per user
             config.database.state_table = f"{config.database.state_table}_{username}"
     
+    # Datum mode overrides
+    if os.environ.get("APP_DATABASE_MODE"):
+        config.database.mode = os.environ["APP_DATABASE_MODE"]
+    if os.environ.get("DATUM_BASE_URL"):
+        config.database.datum_base_url = os.environ["DATUM_BASE_URL"]
+    if os.environ.get("DATUM_API_TOKEN"):
+        config.database.datum_token = os.environ["DATUM_API_TOKEN"]
+    if os.environ.get("DATUM_DATABASE"):
+        config.database.datum_database = os.environ["DATUM_DATABASE"]
+    if os.environ.get("DATUM_SCHEMA"):
+        config.database.datum_schema = os.environ["DATUM_SCHEMA"]
+    if os.environ.get("DATUM_SERVICE_NAME"):
+        config.database.datum_service_name = os.environ["DATUM_SERVICE_NAME"]
+    
     return config
 
 
