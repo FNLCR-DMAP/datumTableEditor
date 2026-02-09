@@ -731,6 +731,10 @@ class ConfigInstance:
         **kwargs  # Ignore extra args for compatibility
     ) -> bool:
         """Save UI state to database for this config instance."""
+        # Skip for datum mode - state operations not supported via proxy
+        if self.app_config.database.mode == "datum":
+            return False
+        
         try:
             from sqlalchemy import text
             
@@ -791,6 +795,10 @@ class ConfigInstance:
             "filters": {},
             "column_preset": None
         }
+        
+        # Skip for datum mode - state operations not supported via proxy
+        if self.app_config.database.mode == "datum":
+            return default_state
         
         # Ensure state table exists first
         self._ensure_state_table_exists()
