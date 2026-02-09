@@ -497,13 +497,14 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
+            mods_table_sql = _format_table_name(mods_table)
             
             old_val_str = str(old_value) if old_value is not None else None
             new_val_str = str(new_value) if new_value is not None else None
             row_pk_json = json.dumps(row_pk).replace("'", "''")
             
             sql = f'''
-                INSERT INTO "{mods_table}" 
+                INSERT INTO {mods_table_sql} 
                     (row_pk, column_name, old_value, new_value, mod_type)
                 VALUES 
                     ('{row_pk_json}'::jsonb, '{column}', 
@@ -567,9 +568,10 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
+            mods_table_sql = _format_table_name(mods_table)
             
             client.execute_sql(
-                sql=f'UPDATE "{mods_table}" SET undone = TRUE WHERE id = {mod_id}',
+                sql=f'UPDATE {mods_table_sql} SET undone = TRUE WHERE id = {mod_id}',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
@@ -649,9 +651,10 @@ class ConfigInstance:
             
             where_clause = " AND ".join(where_parts)
             new_val_sql = f"'{new_value}'" if new_value is not None else "NULL"
+            data_table_sql = _format_table_name(data_table)
             
             client.execute_sql(
-                sql=f'UPDATE "{data_table}" SET "{column}" = {new_val_sql} WHERE {where_clause}',
+                sql=f'UPDATE {data_table_sql} SET "{column}" = {new_val_sql} WHERE {where_clause}',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
@@ -681,10 +684,10 @@ class ConfigInstance:
             if '.' in state_table:
                 schema, table_name = state_table.split('.', 1)
                 schema_sql = schema
-                table_sql = f'{schema}."{table_name}"'
+                table_sql = _format_table_name(state_table)
             else:
                 schema_sql = None
-                table_sql = f'"{state_table}"'
+                table_sql = _format_table_name(state_table)
             
             engine = self._get_engine()
             if engine is None:
