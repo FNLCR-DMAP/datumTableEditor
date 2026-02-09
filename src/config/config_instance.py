@@ -309,6 +309,9 @@ class ConfigInstance:
             else:
                 print(f"DEBUG: _mod_status column NOT in result. Columns: {list(df.columns)}")
             
+            # Clean up any corrupted modifications before applying
+            self._cleanup_corrupted_modifications_datum()
+            
             # Apply field modifications to the data (same as direct mode)
             df = self._apply_field_modifications_datum(df, client)
             
@@ -360,13 +363,30 @@ class ConfigInstance:
                     old_value = mod.get("old_value")
                     new_value = mod.get("new_value")
                     
+                    # CRITICAL: Skip modifications with empty row_pk to prevent updating ALL rows
+                    if not row_pk:
+                        print(f"⚠ SKIPPING modification [{idx}] - empty row_pk would update ALL rows!")
+                        continue
+                    
                     if col_name in df.columns:
                         # Build mask to find the row
                         mask = pd.Series([True] * len(df))
+                        pk_matched = False
                         for pk_col in pk_columns:
                             if pk_col in row_pk and pk_col in df.columns:
                                 mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
+                                pk_matched = True
+                        
+                        # Only apply if we actually matched on a PK column
+                        if not pk_matched:
+                            print(f"⚠ SKIPPING modification [{idx}] - no PK columns matched in row_pk")
+                            continue
+                            
                         if mask.any():
+                            matched_count = mask.sum()
+                            if matched_count > 1:
+                                print(f"⚠ WARNING: modification [{idx}] matched {matched_count} rows - applying anyway")
+                            
                             # Create PK tuple for stable cell key (hashable)
                             pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
                             cell_key = (pk_tuple, col_name)
@@ -743,6 +763,65 @@ class ConfigInstance:
         except Exception as e:
             print(f"✗ Error marking modification undone via Datum: {e}")
             return False
+
+    def cleanup_corrupted_modifications(self):
+        """
+        Delete modifications with empty row_pk from database.
+        These records are corrupted and will cause all rows to be updated.
+        """
+        if self.app_config.database.mode == "datum":
+            return self._cleanup_corrupted_modifications_datum()
+        return 0
+    
+    def _cleanup_corrupted_modifications_datum(self):
+        """Clean up corrupted modifications via Datum."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                print("⚠ Datum credentials not configured for cleanup")
+                return 0
+            
+            client = DatumClient(base_url=base_url, token=token)
+            mods_table = self.app_config.database.mods_table
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # First count how many will be deleted
+            count_sql = f"""
+                SELECT COUNT(*) as cnt FROM {mods_table_sql}
+                WHERE mod_type = 'field_modification'
+                  AND (row_pk IS NULL OR row_pk = '{{}}'::jsonb)
+            """
+            count_response = client.execute_sql(
+                sql=count_sql,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            count = count_response.data[0].get("cnt", 0) if count_response.data else 0
+            
+            if count > 0:
+                # Delete corrupted records
+                delete_sql = f"""
+                    DELETE FROM {mods_table_sql}
+                    WHERE mod_type = 'field_modification'
+                      AND (row_pk IS NULL OR row_pk = '{{}}'::jsonb)
+                """
+                client.execute_sql(
+                    sql=delete_sql,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                print(f"✓ Cleaned up {count} corrupted field_modification records with empty row_pk")
+            
+            return count
+        except Exception as e:
+            print(f"✗ Error cleaning up corrupted modifications: {e}")
+            return 0
 
     def update_data_in_db(self, row_pk: dict, column: str, new_value):
         """Update the actual data in the database."""
