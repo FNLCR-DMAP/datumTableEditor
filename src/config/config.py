@@ -36,7 +36,21 @@ app_config = load_config()
 # Setup paths (backward compatible - project root is 2 levels up from src/config/)
 project_root = Path(__file__).parent.parent.parent
 data_dir = project_root / "data"
-data_dir.mkdir(exist_ok=True)
+# Note: Don't create data_dir at import time - filesystem may be read-only (e.g., RStudio Connect)
+# Directory will be created lazily when needed for exports
+
+
+def ensure_data_dir() -> bool:
+    """
+    Ensure data directory exists for file exports.
+    Returns True if directory exists/created, False if filesystem is read-only.
+    """
+    try:
+        data_dir.mkdir(exist_ok=True)
+        return True
+    except OSError:
+        # Read-only filesystem (e.g., RStudio Connect)
+        return False
 
 
 # Load data based on source type (database only)

@@ -78,9 +78,9 @@ class ConfigInstance:
             username=self.username
         )
         
-        # Setup paths
+        # Setup paths (don't create at init - filesystem may be read-only)
         self.data_dir = project_root / "data"
-        self.data_dir.mkdir(exist_ok=True)
+        # Note: Directory created lazily when needed for exports
         
         # Load data from database
         self.df = self._load_data()
@@ -92,6 +92,18 @@ class ConfigInstance:
         # Modifications log path (for reference only)
         self.modifications_log_path = self.data_dir / "modifications_log.json"
     
+    def ensure_data_dir(self) -> bool:
+        """
+        Ensure data directory exists for file exports.
+        Returns True if directory exists/created, False if filesystem is read-only.
+        """
+        try:
+            self.data_dir.mkdir(exist_ok=True)
+            return True
+        except OSError:
+            # Read-only filesystem (e.g., RStudio Connect)
+            return False
+
     def _load_data(self) -> pd.DataFrame:
         """Load data from database."""
         if self.app_config.database.mode == "datum":

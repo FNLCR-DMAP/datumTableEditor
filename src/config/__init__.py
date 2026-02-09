@@ -25,6 +25,7 @@ def _lazy_import_config():
         all_columns,
         display_columns,
         data_dir,
+        ensure_data_dir,
         modifications_log_path,
         load_modifications_log,
         save_modification_to_db,
@@ -39,6 +40,7 @@ def _lazy_import_config():
         "all_columns": all_columns,
         "display_columns": display_columns,
         "data_dir": data_dir,
+        "ensure_data_dir": ensure_data_dir,
         "modifications_log_path": modifications_log_path,
         "load_modifications_log": load_modifications_log,
         "save_modification_to_db": save_modification_to_db,
@@ -64,6 +66,7 @@ __all__ = [
     "all_columns",
     "display_columns",
     "data_dir",
+    "ensure_data_dir",
     "modifications_log_path",
     "load_modifications_log",
     "save_modification_to_db",
@@ -77,7 +80,7 @@ def __getattr__(name):
     """Lazy import for backward compatibility with config.py globals."""
     _lazy_config_names = {
         "app_config", "df_original", "all_columns", "display_columns",
-        "data_dir", "modifications_log_path", "load_modifications_log",
+        "data_dir", "ensure_data_dir", "modifications_log_path", "load_modifications_log",
         "save_modification_to_db", "mark_modification_undone_in_db",
         "save_ui_state", "load_ui_state", "load_data_from_source",
     }
