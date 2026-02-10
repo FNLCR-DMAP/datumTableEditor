@@ -534,7 +534,7 @@ class ConfigInstance:
                        mod_type, created_by, created_at, undone
                        FROM {mods_table_sql} ORDER BY created_at ASC'''
             
-            print(f"[Datum DEBUG] Loading modifications from {mods_table_sql}")
+            print(f"[Datum DEBUG] Loading modifications from {mods_table_sql}, database={self.app_config.database.datum_database}, schema={self.app_config.database.datum_schema}")
             
             response = client.execute_sql(
                 sql=query,
@@ -544,6 +544,10 @@ class ConfigInstance:
             )
             
             print(f"[Datum DEBUG] Loaded {len(response.data)} raw modifications")
+            # Show latest few IDs to verify new entries
+            if response.data:
+                latest_ids = [r.get("id") for r in response.data[-5:]]
+                print(f"[Datum DEBUG] Latest 5 modification IDs: {latest_ids}")
             
             log = []
             for row in response.data:
@@ -767,7 +771,7 @@ class ConfigInstance:
             # Escape column name for SQL
             column_escaped = column.replace("'", "''")
             
-            # Single INSERT auto-commits in PostgreSQL
+            # Use explicit transaction to ensure commit
             sql = f'''
                 INSERT INTO {mods_table_sql} 
                     (row_pk, column_name, old_value, new_value, mod_type, created_by)
@@ -780,6 +784,8 @@ class ConfigInstance:
             '''
             
             print(f"[Datum DEBUG] Saving modification: pk={row_pk_json}, col={column}, old={old_val_str[:50] if old_val_str else None}..., new={new_val_str[:50] if new_val_str else None}...")
+            print(f"[Datum DEBUG] INSERT SQL table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}")
+            print(f"[Datum DEBUG] Full SQL: {sql}")
             
             response = client.execute_sql(
                 sql=sql,
@@ -793,6 +799,29 @@ class ConfigInstance:
             if response.data:
                 mod_id = response.data[0].get("id")
                 print(f"[Datum DEBUG] ✓ Saved modification with id={mod_id}")
+                
+                # Verify the row actually exists by querying it back
+                verify_sql = f"SELECT id, row_pk, column_name, mod_type FROM {mods_table_sql} WHERE id = {mod_id}"
+                try:
+                    verify_response = client.execute_sql(
+                        sql=verify_sql,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                    print(f"[Datum DEBUG] Verification query result: {verify_response.data}")
+                    
+                    # Also count total modifications
+                    count_sql = f"SELECT COUNT(*) as total FROM {mods_table_sql}"
+                    count_response = client.execute_sql(
+                        sql=count_sql,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                    print(f"[Datum DEBUG] Total modifications in table: {count_response.data}")
+                except Exception as ve:
+                    print(f"[Datum DEBUG] Verification query failed: {ve}")
                 
                 # Invalidate cache after successful insert
                 self.invalidate_mods_cache()
