@@ -410,12 +410,16 @@ class ConfigInstance:
             ORDER BY created_at ASC
             """
             
+            print(f"[Datum DEBUG] Applying field modifications, query: {mods_query[:200]}...")
+            
             response = client.execute_sql(
                 sql=mods_query,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            
+            print(f"[Datum DEBUG] Found {len(response.data)} field modifications to apply")
             
             # Store edited cells info
             self.edited_cells = {}
@@ -430,8 +434,11 @@ class ConfigInstance:
                     old_value = mod.get("old_value")
                     new_value = mod.get("new_value")
                     
+                    print(f"[Datum DEBUG] Mod {idx}: pk={row_pk}, col={col_name}, old={old_value[:30] if old_value else None}..., new={new_value[:30] if new_value else None}...")
+                    
                     # Skip modifications with empty row_pk
                     if not row_pk:
+                        print(f"[Datum DEBUG] Skipping mod {idx}: empty row_pk")
                         continue
                     
                     if col_name in df.columns:
@@ -454,6 +461,10 @@ class ConfigInstance:
                             # Apply modification using direct index access
                             for row_idx in row_indices:
                                 df.at[row_idx, col_name] = new_value
+                        else:
+                            print(f"[Datum DEBUG] No matching row found for pk_json={pk_json}")
+                    else:
+                        print(f"[Datum DEBUG] Column {col_name} not in dataframe")
             
             mod_count = len(self.edited_cells)
             if mod_count > 0:
@@ -523,12 +534,16 @@ class ConfigInstance:
                        mod_type, created_by, created_at, undone
                        FROM {mods_table_sql} ORDER BY created_at ASC'''
             
+            print(f"[Datum DEBUG] Loading modifications from {mods_table_sql}")
+            
             response = client.execute_sql(
                 sql=query,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            
+            print(f"[Datum DEBUG] Loaded {len(response.data)} raw modifications")
             
             log = []
             for row in response.data:
@@ -550,9 +565,13 @@ class ConfigInstance:
                     }
                 })
             
-            return self._aggregate_approval_rejection_entries(log)
+            result = self._aggregate_approval_rejection_entries(log)
+            print(f"[Datum DEBUG] After aggregation: {len(result)} modifications")
+            return result
         except Exception as e:
             print(f"✗ Error loading modifications from Datum: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _load_modifications_from_db(self) -> List[Dict]:
@@ -731,22 +750,32 @@ class ConfigInstance:
                 else:
                     serializable_pk[k] = v
             
-            row_pk_json = json.dumps(serializable_pk).replace("'", "''")
+            # Use sort_keys=True for consistent JSON representation
+            row_pk_json = json.dumps(serializable_pk, sort_keys=True).replace("'", "''")
             
             # Escape username for SQL
             safe_username = self.username.replace("'", "''") if self.username else 'unknown'
+            
+            # Escape old/new values for SQL (handle single quotes)
+            old_val_escaped = old_val_str.replace("'", "''") if old_val_str else None
+            new_val_escaped = new_val_str.replace("'", "''") if new_val_str else None
+            
+            # Escape column name for SQL
+            column_escaped = column.replace("'", "''")
             
             # Single INSERT auto-commits in PostgreSQL
             sql = f'''
                 INSERT INTO {mods_table_sql} 
                     (row_pk, column_name, old_value, new_value, mod_type, created_by)
                 VALUES 
-                    ('{row_pk_json}'::jsonb, '{column}', 
-                     {f"'{old_val_str}'" if old_val_str else 'NULL'}, 
-                     {f"'{new_val_str}'" if new_val_str else 'NULL'}, 
+                    ('{row_pk_json}'::jsonb, '{column_escaped}', 
+                     {f"'{old_val_escaped}'" if old_val_escaped else 'NULL'}, 
+                     {f"'{new_val_escaped}'" if new_val_escaped else 'NULL'}, 
                      '{mod_type}', '{safe_username}')
                 RETURNING id
             '''
+            
+            print(f"[Datum DEBUG] Saving modification: pk={row_pk_json}, col={column}, old={old_val_str[:50] if old_val_str else None}..., new={new_val_str[:50] if new_val_str else None}...")
             
             response = client.execute_sql(
                 sql=sql,
@@ -755,13 +784,17 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
+            print(f"[Datum DEBUG] Response data: {response.data}")
+            
             if response.data:
                 mod_id = response.data[0].get("id")
+                print(f"[Datum DEBUG] ✓ Saved modification with id={mod_id}")
                 
                 # Invalidate cache after successful insert
                 self.invalidate_mods_cache()
                 
                 return mod_id
+            print(f"[Datum DEBUG] ⚠ No id returned from INSERT")
             return None
         except Exception as e:
             print(f"✗ Error saving modification to Datum: {e}")

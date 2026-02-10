@@ -688,12 +688,11 @@ class TestPkHelpers:
         """Should return row_index dict on error."""
         from src.utils.data_operations import _get_row_pk
         
-        # Pass a row index that triggers the except block
-        with patch('src.utils.data_operations.app_config', None):
-            result = _get_row_pk(sample_data, 0)
-            
-            # Should fall back to row_index
-            assert "row_index" in result or "PatientID_Mutsequence" in result
+        # Pass an invalid row index to trigger the except block
+        result = _get_row_pk(sample_data, 999)  # Out of bounds
+        
+        # Should fall back to row_index
+        assert result == {"row_index": 999}
 
 
 class TestDatabaseBranches:
