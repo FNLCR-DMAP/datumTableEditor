@@ -43,9 +43,17 @@ function initRowSelection() {
             // Determine if we're selecting or deselecting based on last clicked checkbox state
             const shouldCheck = checkbox.checked;
             
+            // Extract namespace prefix from the clicked checkbox (e.g., "module-" from "module-select_0")
+            const namespaceMatch = checkbox.id.match(/^(.+-)?select_\d+$/);
+            const prefix = namespaceMatch && namespaceMatch[1] ? namespaceMatch[1] : '';
+            
             // Select/deselect all rows in range
             for (let i = start; i <= end; i++) {
-                const rowCheckbox = document.getElementById(`select_${i}`);
+                // Try with namespace prefix first, then without
+                let rowCheckbox = document.getElementById(`${prefix}select_${i}`);
+                if (!rowCheckbox) {
+                    rowCheckbox = document.querySelector(`input[type="checkbox"][id$="select_${i}"]`);
+                }
                 if (rowCheckbox && rowCheckbox.checked !== shouldCheck) {
                     rowCheckbox.checked = shouldCheck;
                     updateRowHighlight(rowCheckbox);
