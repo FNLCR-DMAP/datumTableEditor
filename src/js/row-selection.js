@@ -17,15 +17,21 @@ function initRowSelection() {
     if (!table) return;
     
     // Apply initial highlighting for any pre-checked checkboxes (handle namespaced IDs)
-    const checkboxes = table.querySelectorAll('input[type="checkbox"][id*="select_"]');
+    const checkboxes = table.querySelectorAll('input[type="checkbox"][id*="select_"]:not(#select_all_page)');
     checkboxes.forEach(function(checkbox) {
         updateRowHighlight(checkbox);
     });
+    
+    // Update header checkbox state based on current selections
+    updateSelectAllCheckbox();
     
     // Use event delegation for checkbox clicks (handle namespaced IDs)
     table.addEventListener('click', function(e) {
         const checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
         if (!checkbox) return;
+        
+        // Skip the header "select all" checkbox - it has its own handler
+        if (checkbox.id === 'select_all_page') return;
         
         // Extract row index from checkbox id (select_0, select_1, etc.)
         const match = checkbox.id.match(/select_(\d+)/);
@@ -70,6 +76,9 @@ function initRowSelection() {
         
         // Update last selected row
         lastSelectedRow = currentRow;
+        
+        // Update header checkbox state
+        updateSelectAllCheckbox();
     });
     
     // Also listen for programmatic checkbox changes (from Shiny)
@@ -77,6 +86,7 @@ function initRowSelection() {
         const checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
         if (checkbox) {
             updateRowHighlight(checkbox);
+            updateSelectAllCheckbox();
         }
     });
 }
@@ -98,7 +108,7 @@ window.selectAllRows = function() {
 };
 
 window.deselectAllRows = function() {
-    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="select_"]');
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id*="select_"]');
     checkboxes.forEach(function(checkbox) {
         if (checkbox.checked) {
             checkbox.checked = false;
@@ -111,7 +121,57 @@ window.deselectAllRows = function() {
         }
     });
     lastSelectedRow = null;
+    // Also uncheck the header checkbox
+    const selectAllCheckbox = document.getElementById('select_all_page');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
 };
+
+// Toggle select all for current page (called from header checkbox)
+window.toggleSelectAllPage = function(headerCheckbox) {
+    const shouldCheck = headerCheckbox.checked;
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id*="select_"]:not(#select_all_page)');
+    
+    checkboxes.forEach(function(checkbox) {
+        if (checkbox.checked !== shouldCheck) {
+            checkbox.checked = shouldCheck;
+            updateRowHighlight(checkbox);
+            if (typeof setShinyInput !== 'undefined') {
+                const inputName = checkbox.id.includes('-') ? checkbox.id.split('-').pop() : checkbox.id;
+                setShinyInput(inputName, shouldCheck, {priority: 'event'}, checkbox);
+            }
+        }
+    });
+    
+    if (!shouldCheck) {
+        lastSelectedRow = null;
+    }
+};
+
+// Update header checkbox state based on row selections
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('select_all_page');
+    if (!selectAllCheckbox) return;
+    
+    const rowCheckboxes = document.querySelectorAll('input[type="checkbox"][id*="select_"]:not(#select_all_page)');
+    if (rowCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
+    
+    const checkedCount = Array.from(rowCheckboxes).filter(cb => cb.checked).length;
+    
+    if (checkedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (checkedCount === rowCheckboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
+}
 
 // Reset last selected row when page changes
 window.resetRowSelection = function() {
