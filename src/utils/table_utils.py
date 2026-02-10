@@ -37,12 +37,11 @@ def build_draggable_header_cell(col: str, width_style: str = "") -> ui.tags.th:
 
 def build_table_header(cols: list, widths: dict, default_width: int = 130) -> ui.tags.thead:
     """Build the complete table header."""
-    # Select-all checkbox for the header
-    select_all_checkbox = ui.tags.input_(
-        type="checkbox",
-        id="select_all_page",
-        title="Select/Deselect all rows on this page",
-        onclick="toggleSelectAllPage(this)"
+    # Select-all checkbox for the header using HTML() since input_ is reserved
+    select_all_checkbox = ui.HTML(
+        '<input type="checkbox" id="select_all_page" '
+        'title="Select/Deselect all rows on this page" '
+        'onclick="toggleSelectAllPage(this)">'
     )
     
     header_cells = [
