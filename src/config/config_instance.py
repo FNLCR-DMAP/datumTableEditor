@@ -771,8 +771,9 @@ class ConfigInstance:
             # Escape column name for SQL
             column_escaped = column.replace("'", "''")
             
-            # INSERT without created_by (column may not exist in all databases)
+            # INSERT with explicit BEGIN/COMMIT for Datum proxy transaction safety
             sql = f'''
+                BEGIN;
                 INSERT INTO {mods_table_sql} 
                     (row_pk, column_name, old_value, new_value, mod_type)
                 VALUES 
@@ -780,7 +781,8 @@ class ConfigInstance:
                      {f"'{old_val_escaped}'" if old_val_escaped else 'NULL'}, 
                      {f"'{new_val_escaped}'" if new_val_escaped else 'NULL'}, 
                      '{mod_type}')
-                RETURNING id
+                RETURNING id;
+                COMMIT;
             '''
             
             print(f"[Datum DEBUG] Saving modification: pk={row_pk_json}, col={column}, old={old_val_str[:50] if old_val_str else None}..., new={new_val_str[:50] if new_val_str else None}...")
