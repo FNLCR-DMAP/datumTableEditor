@@ -388,11 +388,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             ascending = (direction == 'asc')
             data.set(sort_dataframe(data.get(), col, direction))
             current_sort.set({"column": col, "ascending": ascending})
+            # Reset to first page when sorting
+            current_page.set(1)
             # Persist sort state to database
             save_ui_state(
                 sort_column=col,
                 sort_ascending=ascending,
-                current_page=current_page.get(),
+                current_page=1,
                 rows_per_page=int(rows_per_page_value.get()),
                 column_preset=active_preset.get()
             )

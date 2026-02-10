@@ -102,7 +102,7 @@
     "default_sort_ascending": true,
     
     "default_rows_per_page": 25,
-    "rows_per_page_options": [10, 25, 50, 100, "all"],
+    "rows_per_page_options": [10, 25, 50, 100],
     
     "editable_columns": [],
     "readonly_columns": ["PatientID", "Variant_key"],

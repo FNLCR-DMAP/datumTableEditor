@@ -183,11 +183,6 @@ class DatumClient:
         request = PostgresSqlRequest(sql=sql, database=database, schema_=schema)
         body_dict = request.model_dump(by_alias=True, exclude_none=True)
         
-        # Debug: log the actual request being sent
-        is_insert = sql.strip().upper().startswith("INSERT")
-        if is_insert or "modifications" in sql.lower():
-            print(f"DEBUG Datum request - service: {service_name}, body: {body_dict}")
-        
         proxy_resp = self._call_proxy(
             service_name=service_name,
             endpoint_name="sql",
@@ -200,10 +195,6 @@ class DatumClient:
             raise RuntimeError(
                 f"PostgreSQL SQL API error: status={proxy_resp.status}, body={proxy_resp.body}"
             )
-        
-        # Debug: log raw response for modifications queries
-        if is_insert or "modifications" in sql.lower():
-            print(f"DEBUG Datum response - status: {proxy_resp.status}, body_preview: {proxy_resp.body[:500] if len(proxy_resp.body) > 500 else proxy_resp.body}")
         
         # Parse the inner response body
         return PostgresSqlResponse.model_validate(json.loads(proxy_resp.body))

@@ -736,9 +736,8 @@ class ConfigInstance:
             # Escape username for SQL
             safe_username = self.username.replace("'", "''") if self.username else 'unknown'
             
-            # Build INSERT statement - add explicit BEGIN/COMMIT for transaction safety
+            # Single INSERT auto-commits in PostgreSQL
             sql = f'''
-                BEGIN;
                 INSERT INTO {mods_table_sql} 
                     (row_pk, column_name, old_value, new_value, mod_type, created_by)
                 VALUES 
@@ -746,8 +745,7 @@ class ConfigInstance:
                      {f"'{old_val_str}'" if old_val_str else 'NULL'}, 
                      {f"'{new_val_str}'" if new_val_str else 'NULL'}, 
                      '{mod_type}', '{safe_username}')
-                RETURNING id;
-                COMMIT;
+                RETURNING id
             '''
             
             response = client.execute_sql(
@@ -1062,10 +1060,9 @@ class ConfigInstance:
                 except Exception:
                     pass  # Schema may already exist
             
-            # Create table if not exists (with explicit transaction)
+            # Create table if not exists - DDL auto-commits
             client.execute_sql(
                 sql=f'''
-                    BEGIN;
                     CREATE TABLE IF NOT EXISTS {state_table_sql} (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255),
@@ -1078,8 +1075,7 @@ class ConfigInstance:
                         column_preset VARCHAR(255),
                         updated_at TIMESTAMP DEFAULT NOW(),
                         UNIQUE(user_id, session_id)
-                    );
-                    COMMIT;
+                    )
                 ''',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
@@ -1401,7 +1397,6 @@ class ConfigInstance:
             
             client.execute_sql(
                 sql=f'''
-                    BEGIN;
                     CREATE TABLE IF NOT EXISTS {preset_table_sql} (
                         id SERIAL PRIMARY KEY,
                         preset_name VARCHAR(255) NOT NULL UNIQUE,
@@ -1409,8 +1404,7 @@ class ConfigInstance:
                         is_default BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                    COMMIT;
+                    )
                 ''',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
@@ -1484,7 +1478,7 @@ class ConfigInstance:
             # Clear existing default if setting new default
             if is_default:
                 client.execute_sql(
-                    sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE; COMMIT;',
+                    sql=f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE',
                     database=self.app_config.database.datum_database,
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
@@ -1493,9 +1487,8 @@ class ConfigInstance:
             columns_json = json.dumps(columns).replace("'", "''")
             preset_name_sql = preset_name.replace("'", "''")
             
-            # Use explicit BEGIN/COMMIT for transaction safety with Datum
+            # Single UPSERT auto-commits
             sql = f'''
-                    BEGIN;
                     INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
                     VALUES ('{preset_name_sql}', '{columns_json}'::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
                     ON CONFLICT (preset_name) 
@@ -1503,8 +1496,7 @@ class ConfigInstance:
                         columns = EXCLUDED.columns,
                         is_default = EXCLUDED.is_default,
                         updated_at = CURRENT_TIMESTAMP
-                    RETURNING id;
-                    COMMIT;
+                    RETURNING id
                 '''
             
             response = client.execute_sql(

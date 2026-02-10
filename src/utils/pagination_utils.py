@@ -16,8 +16,7 @@ def build_rows_per_page_selector(selected_value: str) -> ui.div:
                 "10": "10",
                 "25": "25",
                 "50": "50",
-                "100": "100",
-                "all": "All"
+                "100": "100"
             },
             selected=selected_value,
             width="70px"
