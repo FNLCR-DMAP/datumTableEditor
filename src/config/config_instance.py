@@ -127,25 +127,22 @@ class ConfigInstance:
             data_table_sql = _format_table_name(data_table)
             mods_table_sql = _format_table_name(mods_table)
             
-            # Build PK match condition for subquery
-            pk_conditions = " AND ".join(
-                f"m.row_pk->>'{pk}' = d.\"{pk}\"::text"
-                for pk in pk_columns
-            )
+            # OPTIMIZED: Use a single JOIN with DISTINCT ON instead of correlated subquery
+            # This is much faster as the database can use indexes on mods_table
+            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
             
-            # Query with modification status via subquery
             query = f"""
-            SELECT d.*,
-                COALESCE(
-                    (SELECT m.mod_type 
-                     FROM {mods_table_sql} m 
-                     WHERE {pk_conditions}
-                       AND m.undone = FALSE
-                     ORDER BY m.created_at DESC 
-                     LIMIT 1),
-                    'unprocessed'
-                ) AS _mod_status
+            SELECT d.*, 
+                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
             FROM {data_table_sql} d
+            LEFT JOIN LATERAL (
+                SELECT mod_type 
+                FROM {mods_table_sql} m
+                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                  AND m.undone = FALSE
+                ORDER BY m.created_at DESC
+                LIMIT 1
+            ) ms ON TRUE
             ORDER BY d."{pk_columns[0]}"
             """
             
@@ -156,7 +153,7 @@ class ConfigInstance:
             
             df = pd.DataFrame(rows, columns=columns)
             
-            # Apply field modifications to the data
+            # Apply field modifications to the data (also optimized)
             df = self._apply_field_modifications(df, engine)
             
             return df
@@ -168,21 +165,56 @@ class ConfigInstance:
         """
         Apply field modifications to the dataframe AND track which cells were edited.
         Tracks the FIRST old_value as the original value for each cell.
+        
+        OPTIMIZED: Only queries mods for PKs present in the current dataframe,
+        avoiding full table scan when mods table is large.
         """
         try:
             from sqlalchemy import text
+            
+            if df.empty:
+                self.edited_cells = {}
+                return df
             
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = _format_table_name(mods_table)
             
-            # Query field modifications - include old_value for original tracking
-            # Order by created_at ASC so first edit contains the original value
+            # OPTIMIZED: Build list of PKs from current dataframe
+            # Create JSONB array of all PKs in the current view
+            pk_values = []
+            pk_index = {}  # Map pk_json -> row indices for fast lookup
+            for idx, row in df.iterrows():
+                pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+                # Convert to JSON-compatible types
+                serializable_pk = {}
+                for k, v in pk_dict.items():
+                    if hasattr(v, 'item'):  # numpy scalar
+                        serializable_pk[k] = v.item()
+                    elif pd.isna(v):
+                        serializable_pk[k] = None
+                    else:
+                        serializable_pk[k] = v
+                pk_json = json.dumps(serializable_pk, sort_keys=True)
+                pk_values.append(pk_json)
+                if pk_json not in pk_index:
+                    pk_index[pk_json] = []
+                pk_index[pk_json].append(idx)
+            
+            if not pk_values:
+                self.edited_cells = {}
+                return df
+            
+            # OPTIMIZED: Query only modifications for PKs in current view
+            # Use ANY with jsonb array for efficient filtering
+            pk_array = "ARRAY[" + ",".join(f"'{pv}'::jsonb" for pv in pk_values) + "]"
+            
             mods_query = f"""
             SELECT row_pk, column_name, old_value, new_value 
             FROM {mods_table_sql}
             WHERE mod_type = 'field_modification' 
               AND undone = FALSE
+              AND row_pk = ANY({pk_array})
             ORDER BY created_at ASC
             """
             
@@ -191,7 +223,6 @@ class ConfigInstance:
                 mods_data = result.fetchall()
             
             # Store edited cells info: {(pk_tuple, col_name): {"original": first_old_value, "current": latest_new_value}}
-            # PK is stored as a tuple of (pk_col, pk_val) pairs for hashability
             self.edited_cells = {}
             
             if mods_data:
@@ -204,29 +235,27 @@ class ConfigInstance:
                     new_value = mod[3]
                     
                     if col_name in df.columns:
-                        # Build mask to find the row
-                        mask = pd.Series([True] * len(df))
-                        for pk_col in pk_columns:
-                            if pk_col in row_pk and pk_col in df.columns:
-                                mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
-                        if mask.any():
+                        # OPTIMIZED: Use pre-built index instead of building mask each time
+                        pk_json = json.dumps(row_pk, sort_keys=True)
+                        row_indices = pk_index.get(pk_json, [])
+                        
+                        if row_indices:
                             # Create PK tuple for stable cell key (hashable)
                             pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
                             cell_key = (pk_tuple, col_name)
                             
                             # Track edited cell - keep FIRST old_value as original
                             if cell_key not in self.edited_cells:
-                                # First edit for this cell - old_value is the original
                                 self.edited_cells[cell_key] = {
                                     "original": old_value,
                                     "current": new_value
                                 }
                             else:
-                                # Subsequent edit - update current, keep original
                                 self.edited_cells[cell_key]["current"] = new_value
                             
-                            # Apply modification to df (show current edited value)
-                            df.loc[mask, col_name] = new_value
+                            # Apply modification to df using direct index access
+                            for idx in row_indices:
+                                df.at[idx, col_name] = new_value
             
             return df
         except Exception as e:
@@ -269,25 +298,21 @@ class ConfigInstance:
             data_table_sql = _format_table_name(data_table)
             mods_table_sql = _format_table_name(mods_table)
             
-            # Build PK match condition for subquery
-            pk_conditions = " AND ".join(
-                f"m.row_pk->>'{pk}' = d.\"{pk}\"::text"
-                for pk in pk_columns
-            )
+            # OPTIMIZED: Use LATERAL JOIN instead of correlated subquery
+            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
             
-            # Query with modification status via subquery (same as direct mode)
             query = f"""
-            SELECT d.*,
-                COALESCE(
-                    (SELECT m.mod_type 
-                     FROM {mods_table_sql} m 
-                     WHERE {pk_conditions}
-                       AND m.undone = FALSE
-                     ORDER BY m.created_at DESC 
-                     LIMIT 1),
-                    'unprocessed'
-                ) AS _mod_status
+            SELECT d.*, 
+                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
             FROM {data_table_sql} d
+            LEFT JOIN LATERAL (
+                SELECT mod_type 
+                FROM {mods_table_sql} m
+                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                  AND m.undone = FALSE
+                ORDER BY m.created_at DESC
+                LIMIT 1
+            ) ms ON TRUE
             ORDER BY d."{pk_columns[0]}"
             """
             
@@ -312,7 +337,7 @@ class ConfigInstance:
             # Clean up any corrupted modifications before applying
             self._cleanup_corrupted_modifications_datum()
             
-            # Apply field modifications to the data (same as direct mode)
+            # Apply field modifications to the data (also optimized)
             df = self._apply_field_modifications_datum(df, client)
             
             return df
@@ -324,19 +349,50 @@ class ConfigInstance:
         """
         Apply field modifications to the dataframe via Datum proxy.
         Tracks the FIRST old_value as the original value for each cell.
+        
+        OPTIMIZED: Only queries mods for PKs present in the current dataframe.
         """
         try:
+            if df.empty:
+                self.edited_cells = {}
+                return df
+            
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = _format_table_name(mods_table)
             
-            # Query field modifications - include old_value for original tracking
-            # Order by created_at ASC so first edit contains the original value
+            # OPTIMIZED: Build list of PKs from current dataframe
+            pk_values = []
+            pk_index = {}  # Map pk_json -> row indices for fast lookup
+            for idx, row in df.iterrows():
+                pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+                serializable_pk = {}
+                for k, v in pk_dict.items():
+                    if hasattr(v, 'item'):
+                        serializable_pk[k] = v.item()
+                    elif pd.isna(v):
+                        serializable_pk[k] = None
+                    else:
+                        serializable_pk[k] = v
+                pk_json = json.dumps(serializable_pk, sort_keys=True)
+                pk_values.append(pk_json)
+                if pk_json not in pk_index:
+                    pk_index[pk_json] = []
+                pk_index[pk_json].append(idx)
+            
+            if not pk_values:
+                self.edited_cells = {}
+                return df
+            
+            # OPTIMIZED: Query only modifications for PKs in current view
+            pk_array = "ARRAY[" + ",".join(f"'{pv}'::jsonb" for pv in pk_values) + "]"
+            
             mods_query = f"""
             SELECT row_pk, column_name, old_value, new_value 
             FROM {mods_table_sql}
             WHERE mod_type = 'field_modification' 
               AND undone = FALSE
+              AND row_pk = ANY({pk_array})
             ORDER BY created_at ASC
             """
             
@@ -354,44 +410,27 @@ class ConfigInstance:
                 print(f"DEBUG APPLY: Processing {len(response.data)} field_modification records")
                 for idx, mod in enumerate(response.data):
                     row_pk_raw = mod.get("row_pk", {})
-                    print(f"DEBUG APPLY [{idx}]: row_pk_raw type={type(row_pk_raw).__name__}, value={row_pk_raw}")
                     row_pk = row_pk_raw
                     if isinstance(row_pk, str):
                         row_pk = json.loads(row_pk)
-                        print(f"DEBUG APPLY [{idx}]: row_pk after JSON parse: {row_pk}")
                     col_name = mod.get("column_name")
                     old_value = mod.get("old_value")
                     new_value = mod.get("new_value")
                     
-                    # CRITICAL: Skip modifications with empty row_pk to prevent updating ALL rows
+                    # Skip modifications with empty row_pk
                     if not row_pk:
-                        print(f"⚠ SKIPPING modification [{idx}] - empty row_pk would update ALL rows!")
+                        print(f"⚠ SKIPPING modification [{idx}] - empty row_pk")
                         continue
                     
                     if col_name in df.columns:
-                        # Build mask to find the row
-                        mask = pd.Series([True] * len(df))
-                        pk_matched = False
-                        for pk_col in pk_columns:
-                            if pk_col in row_pk and pk_col in df.columns:
-                                mask &= (df[pk_col].astype(str) == str(row_pk[pk_col]))
-                                pk_matched = True
+                        # OPTIMIZED: Use pre-built index instead of building mask
+                        pk_json = json.dumps(row_pk, sort_keys=True)
+                        row_indices = pk_index.get(pk_json, [])
                         
-                        # Only apply if we actually matched on a PK column
-                        if not pk_matched:
-                            print(f"⚠ SKIPPING modification [{idx}] - no PK columns matched in row_pk")
-                            continue
-                            
-                        if mask.any():
-                            matched_count = mask.sum()
-                            if matched_count > 1:
-                                print(f"⚠ WARNING: modification [{idx}] matched {matched_count} rows - applying anyway")
-                            
-                            # Create PK tuple for stable cell key (hashable)
+                        if row_indices:
                             pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
                             cell_key = (pk_tuple, col_name)
                             
-                            # Track edited cell - keep FIRST old_value as original
                             if cell_key not in self.edited_cells:
                                 self.edited_cells[cell_key] = {
                                     "original": old_value,
@@ -400,8 +439,9 @@ class ConfigInstance:
                             else:
                                 self.edited_cells[cell_key]["current"] = new_value
                             
-                            # Apply modification to df
-                            df.loc[mask, col_name] = new_value
+                            # Apply modification using direct index access
+                            for row_idx in row_indices:
+                                df.at[row_idx, col_name] = new_value
             
             mod_count = len(self.edited_cells)
             if mod_count > 0:
@@ -608,9 +648,9 @@ class ConfigInstance:
                 result = conn.execute(
                     text(f'''
                         INSERT INTO {table_sql} 
-                            (row_pk, column_name, old_value, new_value, mod_type)
+                            (row_pk, column_name, old_value, new_value, mod_type, created_by)
                         VALUES 
-                            (:row_pk, :column_name, :old_value, :new_value, :mod_type)
+                            (:row_pk, :column_name, :old_value, :new_value, :mod_type, :created_by)
                         RETURNING id
                     '''),
                     {
@@ -618,7 +658,8 @@ class ConfigInstance:
                         "column_name": column,
                         "old_value": str(old_value) if old_value is not None else None,
                         "new_value": str(new_value) if new_value is not None else None,
-                        "mod_type": mod_type
+                        "mod_type": mod_type,
+                        "created_by": self.username
                     }
                 )
                 mod_id = result.scalar()
@@ -664,16 +705,19 @@ class ConfigInstance:
             print(f"DEBUG INSERT serializable_pk: {serializable_pk}")
             print(f"DEBUG INSERT row_pk_json: {row_pk_json}")
             
+            # Escape username for SQL
+            safe_username = self.username.replace("'", "''") if self.username else 'unknown'
+            
             # Build INSERT statement - add explicit BEGIN/COMMIT for transaction safety
             sql = f'''
                 BEGIN;
                 INSERT INTO {mods_table_sql} 
-                    (row_pk, column_name, old_value, new_value, mod_type)
+                    (row_pk, column_name, old_value, new_value, mod_type, created_by)
                 VALUES 
                     ('{row_pk_json}'::jsonb, '{column}', 
                      {f"'{old_val_str}'" if old_val_str else 'NULL'}, 
                      {f"'{new_val_str}'" if new_val_str else 'NULL'}, 
-                     '{mod_type}')
+                     '{mod_type}', '{safe_username}')
                 RETURNING id;
                 COMMIT;
             '''

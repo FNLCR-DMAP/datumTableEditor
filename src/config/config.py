@@ -477,9 +477,9 @@ def save_modification_to_db(row_pk: dict, column: str, old_value, new_value, mod
             result = conn.execute(
                 text(f'''
                     INSERT INTO {mods_table_sql} 
-                        (row_pk, column_name, old_value, new_value, mod_type)
+                        (row_pk, column_name, old_value, new_value, mod_type, created_by)
                     VALUES 
-                        (:row_pk, :column_name, :old_value, :new_value, :mod_type)
+                        (:row_pk, :column_name, :old_value, :new_value, :mod_type, :created_by)
                     RETURNING id
                 '''),
                 {
@@ -487,7 +487,8 @@ def save_modification_to_db(row_pk: dict, column: str, old_value, new_value, mod
                     "column_name": column,
                     "old_value": str(old_value) if old_value is not None else None,
                     "new_value": str(new_value) if new_value is not None else None,
-                    "mod_type": mod_type
+                    "mod_type": mod_type,
+                    "created_by": "unknown"  # Fallback when user context unavailable
                 }
             )
             mod_id = result.scalar()
@@ -513,9 +514,9 @@ def _save_modification_to_datum(row_pk: dict, column: str, old_value, new_value,
         
         query = f"""
             INSERT INTO {mods_table_sql} 
-                (row_pk, column_name, old_value, new_value, mod_type)
+                (row_pk, column_name, old_value, new_value, mod_type, created_by)
             VALUES 
-                ('{row_pk_json}'::jsonb, '{column_sql}', {old_val_sql}, {new_val_sql}, '{mod_type_sql}')
+                ('{row_pk_json}'::jsonb, '{column_sql}', {old_val_sql}, {new_val_sql}, '{mod_type_sql}', 'unknown')
             RETURNING id
         """
         
