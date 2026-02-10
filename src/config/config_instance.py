@@ -884,7 +884,7 @@ class ConfigInstance:
             mods_table_sql = _format_table_name(mods_table)
             
             client.execute_sql(
-                sql=f'UPDATE {mods_table_sql} SET undone = TRUE WHERE id = {mod_id}',
+                sql=f'BEGIN; UPDATE {mods_table_sql} SET undone = TRUE WHERE id = {mod_id}; COMMIT;',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
@@ -938,11 +938,13 @@ class ConfigInstance:
             count = count_response.data[0].get("cnt", 0) if count_response.data else 0
             
             if count > 0:
-                # Delete corrupted records
+                # Delete corrupted records with explicit BEGIN/COMMIT
                 delete_sql = f"""
+                    BEGIN;
                     DELETE FROM {mods_table_sql}
                     WHERE mod_type = 'field_modification'
-                      AND (row_pk IS NULL OR row_pk = '{{}}'::jsonb)
+                      AND (row_pk IS NULL OR row_pk = '{{}}'::jsonb);
+                    COMMIT;
                 """
                 client.execute_sql(
                     sql=delete_sql,
@@ -1030,7 +1032,7 @@ class ConfigInstance:
             data_table_sql = _format_table_name(data_table)
             
             client.execute_sql(
-                sql=f'UPDATE {data_table_sql} SET "{column}" = {new_val_sql} WHERE {where_clause}',
+                sql=f'BEGIN; UPDATE {data_table_sql} SET "{column}" = {new_val_sql} WHERE {where_clause}; COMMIT;',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
@@ -1257,6 +1259,7 @@ class ConfigInstance:
             user_sql = self.username.replace("'", "''")
             
             sql = f'''
+                BEGIN;
                 INSERT INTO {state_table_sql} 
                     (user_id, session_id, sort_column, sort_ascending, 
                      current_page, rows_per_page, filters, column_preset, updated_at)
@@ -1271,7 +1274,8 @@ class ConfigInstance:
                     rows_per_page = {rows_per_page},
                     filters = '{filters_json}'::jsonb,
                     column_preset = {preset_sql},
-                    updated_at = NOW()
+                    updated_at = NOW();
+                COMMIT;
             '''
             
             client.execute_sql(
@@ -1546,7 +1550,7 @@ class ConfigInstance:
             # Clear existing default if setting new default
             if is_default:
                 client.execute_sql(
-                    sql=f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE',
+                    sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE; COMMIT;',
                     database=self.app_config.database.datum_database,
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
@@ -1555,8 +1559,9 @@ class ConfigInstance:
             columns_json = json.dumps(columns).replace("'", "''")
             preset_name_sql = preset_name.replace("'", "''")
             
-            # Single UPSERT auto-commits
+            # UPSERT with explicit BEGIN/COMMIT for Datum proxy
             sql = f'''
+                    BEGIN;
                     INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
                     VALUES ('{preset_name_sql}', '{columns_json}'::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
                     ON CONFLICT (preset_name) 
@@ -1564,7 +1569,8 @@ class ConfigInstance:
                         columns = EXCLUDED.columns,
                         is_default = EXCLUDED.is_default,
                         updated_at = CURRENT_TIMESTAMP
-                    RETURNING id
+                    RETURNING id;
+                    COMMIT;
                 '''
             
             print(f"[Datum DEBUG] Saving preset: name={preset_name}, is_default={is_default}")
@@ -1720,7 +1726,7 @@ class ConfigInstance:
             preset_name_sql = preset_name.replace("'", "''")
             
             client.execute_sql(
-                sql=f"DELETE FROM {preset_table_sql} WHERE preset_name = '{preset_name_sql}'",
+                sql=f"BEGIN; DELETE FROM {preset_table_sql} WHERE preset_name = '{preset_name_sql}'; COMMIT;",
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
