@@ -45,6 +45,10 @@ class ConfigInstance:
     modifications_log_path: Path = field(default=None)
     _state_table_checked: bool = field(default=False, repr=False)
     _engine: Any = field(default=None, repr=False)
+    _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
+    _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
+    _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
+    _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
     
     def __post_init__(self):
         """Load config and data after initialization."""
@@ -101,10 +105,29 @@ class ConfigInstance:
             return False
 
     def _load_data(self) -> pd.DataFrame:
-        """Load data from database."""
+        """Load data from database with caching."""
+        import time
+        cache_ttl = 30  # Cache data for 30 seconds
+        
+        # Check if we have valid cached data
+        if self._data_cache is not None and (time.time() - self._data_cache_time) < cache_ttl:
+            return self._data_cache.copy()
+        
         if self.app_config.database.mode == "datum":
-            return self._load_from_datum()
-        return self._load_from_database()
+            df = self._load_from_datum()
+        else:
+            df = self._load_from_database()
+        
+        # Update cache
+        self._data_cache = df.copy()
+        self._data_cache_time = time.time()
+        
+        return df
+    
+    def invalidate_data_cache(self):
+        """Invalidate the data cache to force reload on next access."""
+        self._data_cache = None
+        self._data_cache_time = 0
     
     def _load_from_database(self) -> pd.DataFrame:
         """Load data from PostgreSQL database with modification status."""
@@ -316,8 +339,6 @@ class ConfigInstance:
             ORDER BY d."{pk_columns[0]}"
             """
             
-            print(f"DEBUG Datum query: {query[:500]}...")  # Debug: show query
-            
             response = client.execute_sql(
                 sql=query,
                 database=self.app_config.database.datum_database,
@@ -326,13 +347,6 @@ class ConfigInstance:
             )
             
             df = pd.DataFrame(response.data)
-            
-            # Debug: check if _mod_status column exists and show sample values
-            if '_mod_status' in df.columns:
-                status_counts = df['_mod_status'].value_counts().to_dict()
-                print(f"DEBUG _mod_status counts: {status_counts}")
-            else:
-                print(f"DEBUG: _mod_status column NOT in result. Columns: {list(df.columns)}")
             
             # Clean up any corrupted modifications before applying
             self._cleanup_corrupted_modifications_datum()
@@ -407,7 +421,6 @@ class ConfigInstance:
             self.edited_cells = {}
             
             if response.data:
-                print(f"DEBUG APPLY: Processing {len(response.data)} field_modification records")
                 for idx, mod in enumerate(response.data):
                     row_pk_raw = mod.get("row_pk", {})
                     row_pk = row_pk_raw
@@ -419,7 +432,6 @@ class ConfigInstance:
                     
                     # Skip modifications with empty row_pk
                     if not row_pk:
-                        print(f"⚠ SKIPPING modification [{idx}] - empty row_pk")
                         continue
                     
                     if col_name in df.columns:
@@ -459,11 +471,37 @@ class ConfigInstance:
             return [col for col in self.app_config.table.default_columns if col in self.df.columns]
         return self.all_columns[:12]  # Default to first 12 columns
     
-    def load_modifications_log(self) -> List[Dict]:
-        """Load modifications log from database."""
+    def load_modifications_log(self, force_refresh: bool = False) -> List[Dict]:
+        """
+        Load modifications log from database with caching.
+        
+        Args:
+            force_refresh: If True, bypass cache and reload from DB
+        """
+        import time
+        
+        # Use cached data if available and not expired (cache for 5 seconds)
+        cache_ttl = 5.0
+        if not force_refresh and self._mods_log_cache is not None:
+            if time.time() - self._mods_log_cache_time < cache_ttl:
+                return self._mods_log_cache
+        
+        # Load from database
         if self.app_config.database.mode == "datum":
-            return self._load_modifications_from_datum()
-        return self._load_modifications_from_db()
+            result = self._load_modifications_from_datum()
+        else:
+            result = self._load_modifications_from_db()
+        
+        # Update cache
+        self._mods_log_cache = result
+        self._mods_log_cache_time = time.time()
+        
+        return result
+    
+    def invalidate_mods_cache(self):
+        """Invalidate the modifications log cache (call after making changes)."""
+        self._mods_log_cache = None
+        self._mods_log_cache_time = 0
     
     def _load_modifications_from_datum(self) -> List[Dict]:
         """Load modifications via Datum proxy."""
@@ -485,18 +523,12 @@ class ConfigInstance:
                        mod_type, created_by, created_at, undone
                        FROM {mods_table_sql} ORDER BY created_at ASC'''
             
-            # Debug: log the Datum parameters for SELECT
-            print(f"DEBUG SELECT - table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}, service: {self.app_config.database.datum_service_name}")
-            print(f"DEBUG Loading modifications from Datum: {query}")
-            
             response = client.execute_sql(
                 sql=query,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
-            
-            print(f"DEBUG Modifications response: {len(response.data)} rows")
             
             log = []
             for row in response.data:
@@ -627,9 +659,6 @@ class ConfigInstance:
     
     def save_modification_to_db(self, row_pk: dict, column: str, old_value, new_value, mod_type: str = "field_modification"):
         """Save a single modification to the database using this config instance."""
-        # Debug: log entry point
-        print(f"DEBUG save_modification_to_db: row_pk={row_pk}, column={column}, mod_type={mod_type}")
-        
         if self.app_config.database.mode == "datum":
             return self._save_modification_to_datum(row_pk, column, old_value, new_value, mod_type)
         
@@ -664,6 +693,10 @@ class ConfigInstance:
                 )
                 mod_id = result.scalar()
                 conn.commit()
+                
+                # Invalidate cache after successful insert
+                self.invalidate_mods_cache()
+                
                 return mod_id
         except Exception as e:
             print(f"✗ Error saving modification to DB: {e}")
@@ -700,11 +733,6 @@ class ConfigInstance:
             
             row_pk_json = json.dumps(serializable_pk).replace("'", "''")
             
-            # Debug: log row_pk input and serialization
-            print(f"DEBUG INSERT row_pk input: type={type(row_pk).__name__}, value={row_pk}")
-            print(f"DEBUG INSERT serializable_pk: {serializable_pk}")
-            print(f"DEBUG INSERT row_pk_json: {row_pk_json}")
-            
             # Escape username for SQL
             safe_username = self.username.replace("'", "''") if self.username else 'unknown'
             
@@ -722,10 +750,6 @@ class ConfigInstance:
                 COMMIT;
             '''
             
-            # Debug: log the Datum parameters
-            print(f"DEBUG INSERT - table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}, service: {self.app_config.database.datum_service_name}")
-            print(f"DEBUG INSERT SQL VALUES clause: ('{row_pk_json}'::jsonb, '{column}', ...)")
-            
             response = client.execute_sql(
                 sql=sql,
                 database=self.app_config.database.datum_database,
@@ -733,19 +757,11 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
-            print(f"DEBUG INSERT response: {response.data}")
-            
             if response.data:
                 mod_id = response.data[0].get("id")
                 
-                # Debug: immediately verify the INSERT by querying back
-                verify_response = client.execute_sql(
-                    sql=f"SELECT COUNT(*) as cnt FROM {mods_table_sql}",
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
-                print(f"DEBUG VERIFY after INSERT - total rows in {mods_table_sql}: {verify_response.data}")
+                # Invalidate cache after successful insert
+                self.invalidate_mods_cache()
                 
                 return mod_id
             return None
@@ -777,6 +793,10 @@ class ConfigInstance:
                     {"mod_id": mod_id}
                 )
                 conn.commit()
+                
+                # Invalidate cache after successful update
+                self.invalidate_mods_cache()
+                
                 return True
         except Exception as e:
             print(f"✗ Error marking modification undone: {e}")
@@ -803,6 +823,10 @@ class ConfigInstance:
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            
+            # Invalidate cache after successful update
+            self.invalidate_mods_cache()
+            
             return True
         except Exception as e:
             print(f"✗ Error marking modification undone via Datum: {e}")
@@ -1451,14 +1475,11 @@ class ConfigInstance:
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
             
             if not base_url or not token:
-                print(f"[Preset DEBUG] Save failed - Datum credentials missing")
                 return None
             
             client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
-            
-            print(f"[Preset DEBUG] Saving preset '{preset_name}' to table: {preset_table_sql}")
             
             # Clear existing default if setting new default
             if is_default:
@@ -1492,8 +1513,6 @@ class ConfigInstance:
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
-            
-            print(f"[Preset DEBUG] Save response: {response.data}")
             
             if response.data:
                 return response.data[0].get("id")
@@ -1552,7 +1571,6 @@ class ConfigInstance:
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
             
             if not base_url or not token:
-                print(f"[Preset DEBUG] Datum credentials missing: base_url={bool(base_url)}, token={bool(token)}")
                 return []
             
             client = DatumClient(base_url=base_url, token=token)
@@ -1564,7 +1582,6 @@ class ConfigInstance:
                     FROM {preset_table_sql}
                     ORDER BY preset_name
                 '''
-            print(f"[Preset DEBUG] Querying presets: {query.strip()}")
             
             response = client.execute_sql(
                 sql=query,
@@ -1572,8 +1589,6 @@ class ConfigInstance:
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
-            
-            print(f"[Preset DEBUG] Response: {len(response.data)} rows")
             
             presets = []
             for row in response.data:
