@@ -822,12 +822,25 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         message = export_status_report(summary_data, status_counts, data_dir / "modification_status_report.csv")
         ui.notification_show(message, type="message", duration=5)
     
-    # Event: Export CSV
-    @reactive.Effect
-    @reactive.event(input.export_btn)
-    def _export_csv():
-        message = export_csv(data.get(), data_dir / "data_modified.csv")
-        ui.notification_show(message, type="message", duration=3)
+    # Event: Export CSV - Download handler (selected rows only)
+    @render.download(filename="data_modified.csv")
+    def export_btn():
+        """Generate CSV file for download with selected rows only."""
+        import io
+        current_df = data.get()
+        selected_indices = get_selected_row_indices(input, len(current_df))
+        
+        if not selected_indices:
+            ui.notification_show("Please select rows to export", type="warning", duration=3)
+            return  # Return nothing - no download
+        
+        # Filter to selected rows only
+        selected_df = current_df.iloc[selected_indices]
+        
+        output = io.StringIO()
+        selected_df.to_csv(output, index=False)
+        ui.notification_show(f"Exported {len(selected_indices)} row(s)", type="message", duration=2)
+        yield output.getvalue()
     
     # Event: Reload data
     @reactive.Effect
