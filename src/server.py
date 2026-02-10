@@ -775,6 +775,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if row is not None and col:
             current_df = data.get()
             current_log = mods_log.get()
+            # Debug: verify config instance is correct
+            print(f"DEBUG: config type={type(config)}, db_mode={config.app_config.database.mode if hasattr(config, 'app_config') else 'N/A'}")
             updated_df, updated_log = perform_cell_edit(current_df, current_log, row, col, old_val, new_val, config_instance=config)
             print(f"DEBUG: perform_cell_edit returned, log entries: {len(updated_log)}")
             data.set(updated_df)

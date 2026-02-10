@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional
 
-# Import config for database operations
+# Import config for database operations (fallback only, prefer config_instance)
 try:
     from ..config.config import (
         app_config,
@@ -18,8 +18,11 @@ try:
         update_data_in_db
     )
     DB_AVAILABLE = True
-except ImportError:
+    print(f"[data_operations] Loaded global config, DB_AVAILABLE=True, mode={app_config.database.mode if hasattr(app_config, 'database') else 'unknown'}")
+except ImportError as e:
     DB_AVAILABLE = False
+    app_config = None
+    print(f"[data_operations] Could not load global config: {e}, DB_AVAILABLE=False")
 
 
 def _get_row_pk(df: pd.DataFrame, row_idx: int, pk_cols: list = None) -> dict:
@@ -195,7 +198,12 @@ def perform_cell_edit(
     Returns:
         (updated_df, updated_log)
     """
+    import sys
+    print(f"[Datum DEBUG] perform_cell_edit ENTER: row={row}, col={col}, config_instance={config_instance is not None}", flush=True)
+    sys.stdout.flush()
+    
     if col not in df.columns:
+        print(f"[Datum DEBUG] Column {col} not in df.columns, returning early", flush=True)
         return df, log
     
     updated_df = df.copy()
@@ -206,26 +214,42 @@ def perform_cell_edit(
     pk_cols = None
     if config_instance and hasattr(config_instance, 'app_config'):
         pk_cols = config_instance.app_config.table.primary_key
+        print(f"[Datum DEBUG] Got pk_cols from config_instance: {pk_cols}", flush=True)
     
     # Get row primary key for database operations
     row_pk = _get_row_pk(df, row, pk_cols)
+    print(f"[Datum DEBUG] row_pk={row_pk}", flush=True)
     
     # Save to database if enabled (use config_instance if provided)
     db_id = None
-    print(f"[Datum DEBUG] perform_cell_edit: config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}")
+    print(f"[Datum DEBUG] config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     if config_instance:
-        print(f"[Datum DEBUG] Using config_instance to save modification")
+        print(f"[Datum DEBUG] Using config_instance to save modification", flush=True)
         # Update the data table
-        config_instance.update_data_in_db(row_pk, col, new_value)
+        try:
+            update_result = config_instance.update_data_in_db(row_pk, col, new_value)
+            print(f"[Datum DEBUG] update_data_in_db returned: {update_result}", flush=True)
+        except Exception as e:
+            print(f"[Datum DEBUG] ERROR in update_data_in_db: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+        
         # Save modification record
-        db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
-        print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}")
+        try:
+            db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+            print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
+        except Exception as e:
+            print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
     elif DB_AVAILABLE and app_config.database.enabled:
-        print(f"[Datum DEBUG] Using global app_config to save modification")
+        print(f"[Datum DEBUG] Using global app_config to save modification", flush=True)
         # Update the data table
         update_data_in_db(row_pk, col, new_value)
         # Save modification record
         db_id = save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+    else:
+        print(f"[Datum DEBUG] No database save - config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     
     updated_log = log.copy()
     log_entry = {
