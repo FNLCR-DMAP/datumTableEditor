@@ -212,12 +212,16 @@ def perform_cell_edit(
     
     # Save to database if enabled (use config_instance if provided)
     db_id = None
+    print(f"[Datum DEBUG] perform_cell_edit: config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}")
     if config_instance:
+        print(f"[Datum DEBUG] Using config_instance to save modification")
         # Update the data table
         config_instance.update_data_in_db(row_pk, col, new_value)
         # Save modification record
         db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+        print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}")
     elif DB_AVAILABLE and app_config.database.enabled:
+        print(f"[Datum DEBUG] Using global app_config to save modification")
         # Update the data table
         update_data_in_db(row_pk, col, new_value)
         # Save modification record

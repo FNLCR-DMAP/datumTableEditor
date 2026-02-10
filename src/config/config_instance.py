@@ -678,9 +678,13 @@ class ConfigInstance:
     
     def save_modification_to_db(self, row_pk: dict, column: str, old_value, new_value, mod_type: str = "field_modification"):
         """Save a single modification to the database using this config instance."""
-        if self.app_config.database.mode == "datum":
+        db_mode = self.app_config.database.mode
+        print(f"[Datum DEBUG] save_modification_to_db called: mode={db_mode}, pk={row_pk}, col={column}")
+        
+        if db_mode == "datum":
             return self._save_modification_to_datum(row_pk, column, old_value, new_value, mod_type)
         
+        print(f"[Datum DEBUG] Using direct SQLAlchemy mode (not datum)")
         try:
             from sqlalchemy import text
             
