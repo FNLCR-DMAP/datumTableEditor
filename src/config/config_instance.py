@@ -771,15 +771,15 @@ class ConfigInstance:
             # Escape column name for SQL
             column_escaped = column.replace("'", "''")
             
-            # Use explicit transaction to ensure commit
+            # INSERT without created_by (column may not exist in all databases)
             sql = f'''
                 INSERT INTO {mods_table_sql} 
-                    (row_pk, column_name, old_value, new_value, mod_type, created_by)
+                    (row_pk, column_name, old_value, new_value, mod_type)
                 VALUES 
                     ('{row_pk_json}'::jsonb, '{column_escaped}', 
                      {f"'{old_val_escaped}'" if old_val_escaped else 'NULL'}, 
                      {f"'{new_val_escaped}'" if new_val_escaped else 'NULL'}, 
-                     '{mod_type}', '{safe_username}')
+                     '{mod_type}')
                 RETURNING id
             '''
             
@@ -1565,6 +1565,10 @@ class ConfigInstance:
                     RETURNING id
                 '''
             
+            print(f"[Datum DEBUG] Saving preset: name={preset_name}, is_default={is_default}")
+            print(f"[Datum DEBUG] Preset table: {preset_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}")
+            print(f"[Datum DEBUG] Preset SQL: {sql}")
+            
             response = client.execute_sql(
                 sql=sql,
                 database=self.app_config.database.datum_database,
@@ -1572,8 +1576,13 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
+            print(f"[Datum DEBUG] Preset save response: {response.data}")
+            
             if response.data:
-                return response.data[0].get("id")
+                preset_id = response.data[0].get("id")
+                print(f"[Datum DEBUG] Preset saved with ID: {preset_id}")
+                return preset_id
+            print("[Datum DEBUG] No data returned from preset save")
             return None
         except Exception as e:
             print(f"⚠ Could not save preset via Datum: {e}")
