@@ -847,7 +847,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Event: Export CSV - Download handler (selected rows only)
     @render.download(filename="data_selected.csv")
-    def export_btn():
+    async def export_btn():
         """Generate CSV file for download with selected rows only."""
         import io
         current_df = data.get()
@@ -855,7 +855,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         
         if not selected_indices:
             ui.notification_show("Please select rows to export", type="warning", duration=3)
-            return  # Return nothing - no download
+            return
         
         # Filter to selected rows only
         selected_df = current_df.iloc[selected_indices]
@@ -875,14 +875,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         return f"{safe_title}_data_filtered.csv"
     
     @render.download(filename=_get_export_filename)
-    def export_all_btn():
+    async def export_all_btn():
         """Generate CSV file for download with all rows matching current filter/sort criteria."""
         import io
         current_df = data.get()
         
         if current_df.empty:
             ui.notification_show("No data to export", type="warning", duration=3)
-            return  # Return nothing - no download
+            return
         
         # Get filtered row indices (respects search, status filter, column filters)
         filtered_indices = _get_filtered_rows()
