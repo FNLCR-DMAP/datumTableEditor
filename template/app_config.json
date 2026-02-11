@@ -24,6 +24,7 @@
     "pool_size": 5,
     "max_overflow": 10,
     "pool_timeout": 30,
+    "max_rows": null,
     "max_rows_per_page": 100,
     "default_rows_per_page": 25,
     "_datum_comment": "Datum proxy settings (only used when mode=datum)",

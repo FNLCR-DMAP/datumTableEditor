@@ -297,6 +297,10 @@ class ConfigInstance:
             # This is much faster as the database can use indexes on mods_table
             pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
             
+            # Apply max_rows limit if configured
+            max_rows = self.app_config.database.max_rows
+            limit_clause = f"LIMIT {max_rows}" if max_rows else ""
+            
             query = f"""
             SELECT d.*, 
                    COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
@@ -310,6 +314,7 @@ class ConfigInstance:
                 LIMIT 1
             ) ms ON TRUE
             ORDER BY d."{pk_columns[0]}"
+            {limit_clause}
             """
             
             with engine.connect() as conn:
@@ -470,6 +475,10 @@ class ConfigInstance:
             # OPTIMIZED: Use LATERAL JOIN instead of correlated subquery
             pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
             
+            # Apply max_rows limit if configured
+            max_rows = self.app_config.database.max_rows
+            limit_clause = f"LIMIT {max_rows}" if max_rows else ""
+            
             query = f"""
             SELECT d.*, 
                    COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
@@ -483,6 +492,7 @@ class ConfigInstance:
                 LIMIT 1
             ) ms ON TRUE
             ORDER BY d."{pk_columns[0]}"
+            {limit_clause}
             """
             
             response = client.execute_sql(

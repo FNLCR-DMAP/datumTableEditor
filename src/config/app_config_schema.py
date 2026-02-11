@@ -185,7 +185,8 @@ class DatabaseConfig:
     max_overflow: int = 10
     pool_timeout: int = 30
     
-    # Pagination settings
+    # Data loading settings
+    max_rows: Optional[int] = None  # Maximum rows to load from database (None = all)
     max_rows_per_page: int = 100
     default_rows_per_page: int = 25
 
@@ -330,6 +331,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.pool_size = db.get("pool_size", config.database.pool_size)
         config.database.max_overflow = db.get("max_overflow", config.database.max_overflow)
         config.database.pool_timeout = db.get("pool_timeout", config.database.pool_timeout)
+        config.database.max_rows = db.get("max_rows")  # Optional limit on total rows loaded
         config.database.max_rows_per_page = db.get("max_rows_per_page", config.database.max_rows_per_page)
         config.database.default_rows_per_page = db.get("default_rows_per_page", config.database.default_rows_per_page)
     
