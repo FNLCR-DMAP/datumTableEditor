@@ -160,8 +160,27 @@ class DataFetcher:
         """Column names in the table."""
         return self._columns.copy()
     
-    def _build_where_clause(self, params: QueryParams) -> Tuple[str, Dict[str, Any]]:
-        """Build WHERE clause from query parameters."""
+    def _escape_sql_value(self, value: Any) -> str:
+        """Escape a value for direct SQL interpolation (for Datum mode)."""
+        if value is None:
+            return "NULL"
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        if isinstance(value, (int, float)):
+            return str(value)
+        # String: escape single quotes by doubling them
+        escaped = str(value).replace("'", "''")
+        return f"'{escaped}'"
+    
+    def _build_where_clause(self, params: QueryParams, use_params: bool = True) -> Tuple[str, Dict[str, Any]]:
+        """
+        Build WHERE clause from query parameters.
+        
+        Args:
+            params: Query parameters
+            use_params: If True, use parameterized queries (:param). 
+                       If False, interpolate values directly (for Datum).
+        """
         conditions = []
         sql_params = {}
         param_idx = 0
@@ -173,16 +192,23 @@ class DataFetcher:
             
             if isinstance(value, list):
                 # IN clause for multi-select
-                placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
-                conditions.append(f'"{col}" IN ({placeholders})')
-                for i, v in enumerate(value):
-                    sql_params[f"p{param_idx + i}"] = v
-                param_idx += len(value)
+                if use_params:
+                    placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
+                    conditions.append(f'"{col}" IN ({placeholders})')
+                    for i, v in enumerate(value):
+                        sql_params[f"p{param_idx + i}"] = v
+                    param_idx += len(value)
+                else:
+                    placeholders = ", ".join(self._escape_sql_value(v) for v in value)
+                    conditions.append(f'"{col}" IN ({placeholders})')
             else:
                 # Exact match
-                conditions.append(f'"{col}" = :p{param_idx}')
-                sql_params[f"p{param_idx}"] = value
-                param_idx += 1
+                if use_params:
+                    conditions.append(f'"{col}" = :p{param_idx}')
+                    sql_params[f"p{param_idx}"] = value
+                    param_idx += 1
+                else:
+                    conditions.append(f'"{col}" = {self._escape_sql_value(value)}')
         
         # Search term (ILIKE across searchable columns)
         if params.search_term:
@@ -191,12 +217,18 @@ class DataFetcher:
                 searchable_cols = [params.search_column]
             
             search_conditions = []
-            for col in searchable_cols:
-                search_conditions.append(f'CAST("{col}" AS TEXT) ILIKE :search_term')
-            
-            if search_conditions:
-                conditions.append(f"({' OR '.join(search_conditions)})")
-                sql_params["search_term"] = f"%{params.search_term}%"
+            if use_params:
+                for col in searchable_cols:
+                    search_conditions.append(f'CAST("{col}" AS TEXT) ILIKE :search_term')
+                if search_conditions:
+                    conditions.append(f"({' OR '.join(search_conditions)})")
+                    sql_params["search_term"] = f"%{params.search_term}%"
+            else:
+                escaped_term = self._escape_sql_value(f"%{params.search_term}%")
+                for col in searchable_cols:
+                    search_conditions.append(f'CAST("{col}" AS TEXT) ILIKE {escaped_term}')
+                if search_conditions:
+                    conditions.append(f"({' OR '.join(search_conditions)})")
         
         where_clause = ""
         if conditions:
@@ -222,7 +254,9 @@ class DataFetcher:
             data_table_sql = _format_table_name(data_table)
             mods_table_sql = _format_table_name(mods_table)
             
-            where_clause, sql_params = self._build_where_clause(params)
+            # Use parameterized queries for SQLAlchemy, interpolated for Datum
+            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             # Build query with mod status for status filtering
             pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
@@ -245,13 +279,12 @@ class DataFetcher:
             WHERE 1=1 {self._build_status_filter_clause(params)}
             """
             
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
                     database=self.app_config.database.datum_database,
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
-                    params=sql_params,
                 )
                 return response.data[0]["cnt"] if response.data else 0
             else:
@@ -278,7 +311,9 @@ class DataFetcher:
             data_table_sql = _format_table_name(data_table)
             mods_table_sql = _format_table_name(mods_table)
             
-            where_clause, sql_params = self._build_where_clause(params)
+            # Use parameterized queries for SQLAlchemy, interpolated for Datum
+            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             # Order clause
             order_clause = ""
@@ -321,13 +356,12 @@ class DataFetcher:
             
             print(f"[DataFetcher] Fetching page {params.page}, size {params.page_size}, offset {offset}")
             
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
                     database=self.app_config.database.datum_database,
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
-                    params=sql_params,
                 )
                 df = pd.DataFrame(response.data)
             else:
@@ -345,7 +379,7 @@ class DataFetcher:
             return df
             
         except Exception as e:
-            print(f"✗ Error fetching page: {e}")
+            print(f"[X] Error fetching page: {e}")
             import traceback
             traceback.print_exc()
             return pd.DataFrame()
@@ -363,7 +397,9 @@ class DataFetcher:
             data_table_sql = _format_table_name(data_table)
             mods_table_sql = _format_table_name(mods_table)
             
-            where_clause, sql_params = self._build_where_clause(params)
+            # Use parameterized queries for SQLAlchemy, interpolated for Datum
+            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             # Order clause
             order_clause = ""
@@ -400,13 +436,12 @@ class DataFetcher:
             
             print(f"[DataFetcher] Fetching ALL filtered data for export...")
             
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
                     database=self.app_config.database.datum_database,
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
-                    params=sql_params,
                 )
                 df = pd.DataFrame(response.data)
             else:
@@ -424,7 +459,7 @@ class DataFetcher:
             return df
             
         except Exception as e:
-            print(f"✗ Error fetching all filtered: {e}")
+            print(f"[X] Error fetching all filtered: {e}")
             import traceback
             traceback.print_exc()
             return pd.DataFrame()
