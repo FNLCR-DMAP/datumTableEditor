@@ -119,7 +119,7 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
 
 def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str) -> ui.div:
     """Build a single dynamic filter element with multi-select support."""
-    # Format current value for display (show as comma-separated)
+    # Format current value for display
     display_value = current_value if current_value and current_value != "all" else ""
     
     # Build the list of unique values for the modal (exclude 'all')
@@ -134,11 +134,13 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
         ),
         ui.div(
-            ui.input_text(
+            # Use textarea for multi-line paste support
+            ui.input_text_area(
                 f"filter_{col_name}",
                 label=None,
                 value=display_value,
-                placeholder=f"Paste values (one per line) or click ⋮"
+                placeholder=f"Paste values (one per line) or click ⋮",
+                rows=3
             ),
             ui.tags.button(
                 "⋮",
