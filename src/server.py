@@ -846,10 +846,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         ui.notification_show(f"Exported {len(selected_indices)} row(s)", type="message", duration=2)
         yield output.getvalue()
     
-    # Event: Export All CSV - Download handler (all rows)
-    @render.download(filename="data_all.csv")
+    # Event: Export All CSV - Download handler (all filtered/sorted rows)
+    def _get_export_filename():
+        """Generate dynamic filename based on app title."""
+        # Sanitize app title for filename (remove special chars, replace spaces with underscores)
+        import re
+        title = app_config.app_title or "data"
+        safe_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')
+        return f"{safe_title}_data_filtered.csv"
+    
+    @render.download(filename=_get_export_filename)
     def export_all_btn():
-        """Generate CSV file for download with all rows."""
+        """Generate CSV file for download with all rows matching current filter/sort criteria."""
         import io
         current_df = data.get()
         
@@ -857,9 +865,28 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             ui.notification_show("No data to export", type="warning", duration=3)
             return  # Return nothing - no download
         
+        # Get filtered row indices (respects search, status filter, column filters)
+        filtered_indices = _get_filtered_rows()
+        
+        if not filtered_indices:
+            ui.notification_show("No rows match current filters", type="warning", duration=3)
+            return
+        
+        # Filter to matching rows
+        filtered_df = current_df.iloc[filtered_indices].copy()
+        
+        # Apply current sort
+        sort_state = current_sort.get()
+        if sort_state.get("column") and sort_state.get("column") in filtered_df.columns:
+            filtered_df = sort_dataframe(
+                filtered_df,
+                sort_state.get("column"),
+                "asc" if sort_state.get("ascending", True) else "desc"
+            )
+        
         output = io.StringIO()
-        current_df.to_csv(output, index=False)
-        ui.notification_show(f"Exported all {len(current_df)} row(s)", type="message", duration=2)
+        filtered_df.to_csv(output, index=False)
+        ui.notification_show(f"Exported {len(filtered_df)} filtered row(s)", type="message", duration=2)
         yield output.getvalue()
     
     # Event: Reload data
