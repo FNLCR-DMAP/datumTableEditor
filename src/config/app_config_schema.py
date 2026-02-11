@@ -187,6 +187,8 @@ class DatabaseConfig:
     
     # Data loading settings
     max_rows: Optional[int] = None  # Maximum rows to load from database (None = all)
+    page_buffer_size: int = 300  # Rows to fetch per page query (DB-level pagination)
+    lazy_loading: bool = False  # If True, use DB-level pagination instead of loading all data
     max_rows_per_page: int = 100
     default_rows_per_page: int = 25
 
@@ -332,6 +334,8 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.max_overflow = db.get("max_overflow", config.database.max_overflow)
         config.database.pool_timeout = db.get("pool_timeout", config.database.pool_timeout)
         config.database.max_rows = db.get("max_rows")  # Optional limit on total rows loaded
+        config.database.page_buffer_size = db.get("page_buffer_size", config.database.page_buffer_size)
+        config.database.lazy_loading = db.get("lazy_loading", config.database.lazy_loading)
         config.database.max_rows_per_page = db.get("max_rows_per_page", config.database.max_rows_per_page)
         config.database.default_rows_per_page = db.get("default_rows_per_page", config.database.default_rows_per_page)
     

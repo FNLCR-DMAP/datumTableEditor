@@ -13,7 +13,7 @@ from .app_config_schema import (
 )
 
 # Instance-based config (for widgets) - import first to avoid circular import
-from .config_instance import ConfigInstance, load_config_instance
+from .config_instance import ConfigInstance, load_config_instance, QueryParams, DataFetcher
 
 # Note: config.py has module-level loading which may cause issues
 # For widget-based usage, prefer ConfigInstance

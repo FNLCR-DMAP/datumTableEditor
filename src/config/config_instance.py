@@ -10,7 +10,7 @@ import os
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from .app_config_schema import AppConfig, load_config
 
@@ -26,6 +26,485 @@ def _format_table_name(table_name: str) -> str:
     """
     parts = table_name.split('.')
     return ".".join(f'"{part}"' for part in parts)
+
+
+@dataclass
+class QueryParams:
+    """Parameters for database queries - filters, sort, pagination."""
+    filters: Dict[str, Any] = field(default_factory=dict)  # column -> value(s)
+    search_term: str = ""
+    search_column: str = "all"  # "all" or specific column name
+    sort_column: Optional[str] = None
+    sort_ascending: bool = True
+    page: int = 1
+    page_size: int = 300
+    status_filters: List[str] = field(default_factory=lambda: ["unprocessed", "edited", "approved", "rejected"])
+
+
+@dataclass
+class DataFetcher:
+    """
+    Handles on-demand data fetching from database with pagination.
+    
+    Instead of loading all data at startup, this fetches:
+    - Row count on init (for pagination UI)
+    - Page data on demand (with filters/sort/pagination)
+    - All filtered data for export
+    """
+    app_config: AppConfig
+    _engine: Any = field(default=None, repr=False)
+    _datum_client: Any = field(default=None, repr=False)
+    _total_count: int = field(default=0, repr=False)
+    _columns: List[str] = field(default_factory=list, repr=False)
+    
+    def __post_init__(self):
+        """Initialize database connection and get initial count."""
+        self._init_connection()
+        self._fetch_metadata()
+    
+    def _init_connection(self):
+        """Initialize database connection based on mode."""
+        if self.app_config.database.mode == "datum":
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            if base_url and token:
+                self._datum_client = DatumClient(base_url=base_url, token=token)
+        else:
+            from sqlalchemy import create_engine
+            conn_string = self.app_config.database.connection_string
+            if conn_string:
+                self._engine = create_engine(conn_string)
+    
+    def _fetch_metadata(self):
+        """Fetch table row count and column names."""
+        try:
+            data_table = self.app_config.database.data_table
+            data_table_sql = _format_table_name(data_table)
+            
+            count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
+            columns_query = f"SELECT * FROM {data_table_sql} LIMIT 0"
+            
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                # Datum mode
+                response = self._datum_client.execute_sql(
+                    sql=count_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                self._total_count = response.data[0]["cnt"] if response.data else 0
+                
+                # Get columns
+                response = self._datum_client.execute_sql(
+                    sql=columns_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                self._columns = list(response.data[0].keys()) if response.data else []
+                # If no data, get columns from schema
+                if not self._columns:
+                    self._columns = self._get_columns_from_schema_datum()
+            else:
+                # Direct SQLAlchemy mode
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(count_query))
+                    row = result.fetchone()
+                    self._total_count = row[0] if row else 0
+                    
+                    # Get columns
+                    result = conn.execute(text(columns_query))
+                    self._columns = list(result.keys())
+            
+            print(f"📊 DataFetcher: Table has {self._total_count} rows, {len(self._columns)} columns")
+            
+        except Exception as e:
+            print(f"✗ Error fetching metadata: {e}")
+            self._total_count = 0
+            self._columns = []
+    
+    def _get_columns_from_schema_datum(self) -> List[str]:
+        """Get column names from information_schema via Datum."""
+        try:
+            data_table = self.app_config.database.data_table
+            schema = "public"
+            table_name = data_table
+            if "." in data_table:
+                schema, table_name = data_table.split(".", 1)
+            
+            query = f"""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_schema = '{schema}' AND table_name = '{table_name}'
+            ORDER BY ordinal_position
+            """
+            response = self._datum_client.execute_sql(
+                sql=query,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return [row["column_name"] for row in response.data]
+        except Exception as e:
+            print(f"✗ Error getting columns from schema: {e}")
+            return []
+    
+    @property
+    def total_count(self) -> int:
+        """Total row count in the table (unfiltered)."""
+        return self._total_count
+    
+    @property
+    def columns(self) -> List[str]:
+        """Column names in the table."""
+        return self._columns.copy()
+    
+    def _build_where_clause(self, params: QueryParams) -> Tuple[str, Dict[str, Any]]:
+        """Build WHERE clause from query parameters."""
+        conditions = []
+        sql_params = {}
+        param_idx = 0
+        
+        # Column filters
+        for col, value in params.filters.items():
+            if value is None or value == "" or value == []:
+                continue
+            
+            if isinstance(value, list):
+                # IN clause for multi-select
+                placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
+                conditions.append(f'"{col}" IN ({placeholders})')
+                for i, v in enumerate(value):
+                    sql_params[f"p{param_idx + i}"] = v
+                param_idx += len(value)
+            else:
+                # Exact match
+                conditions.append(f'"{col}" = :p{param_idx}')
+                sql_params[f"p{param_idx}"] = value
+                param_idx += 1
+        
+        # Search term (ILIKE across searchable columns)
+        if params.search_term:
+            searchable_cols = self.app_config.query.searchable_columns or self._columns
+            if params.search_column != "all" and params.search_column in self._columns:
+                searchable_cols = [params.search_column]
+            
+            search_conditions = []
+            for col in searchable_cols:
+                search_conditions.append(f'CAST("{col}" AS TEXT) ILIKE :search_term')
+            
+            if search_conditions:
+                conditions.append(f"({' OR '.join(search_conditions)})")
+                sql_params["search_term"] = f"%{params.search_term}%"
+        
+        where_clause = ""
+        if conditions:
+            where_clause = " WHERE " + " AND ".join(conditions)
+        
+        return where_clause, sql_params
+    
+    def _build_status_filter_clause(self, params: QueryParams) -> str:
+        """Build status filter clause using modification status."""
+        if not params.status_filters or set(params.status_filters) == {"unprocessed", "edited", "approved", "rejected"}:
+            return ""
+        
+        # Status is computed via LATERAL JOIN, filter on _mod_status
+        statuses = ", ".join(f"'{s}'" for s in params.status_filters)
+        return f" AND _mod_status IN ({statuses})"
+    
+    def get_filtered_count(self, params: QueryParams) -> int:
+        """Get count of rows matching the current filters."""
+        try:
+            data_table = self.app_config.database.data_table
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            data_table_sql = _format_table_name(data_table)
+            mods_table_sql = _format_table_name(mods_table)
+            
+            where_clause, sql_params = self._build_where_clause(params)
+            
+            # Build query with mod status for status filtering
+            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            
+            query = f"""
+            SELECT COUNT(*) as cnt FROM (
+                SELECT d.*, 
+                       COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+                FROM {data_table_sql} d
+                LEFT JOIN LATERAL (
+                    SELECT mod_type 
+                    FROM {mods_table_sql} m
+                    WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                      AND m.undone = FALSE
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                ) ms ON TRUE
+                {where_clause}
+            ) subq
+            WHERE 1=1 {self._build_status_filter_clause(params)}
+            """
+            
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                    params=sql_params,
+                )
+                return response.data[0]["cnt"] if response.data else 0
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(query), sql_params)
+                    row = result.fetchone()
+                    return row[0] if row else 0
+                    
+        except Exception as e:
+            print(f"✗ Error getting filtered count: {e}")
+            return 0
+    
+    def fetch_page(self, params: QueryParams) -> pd.DataFrame:
+        """
+        Fetch a page of data with filters, sort, and pagination.
+        
+        This is the main method called when displaying data.
+        """
+        try:
+            data_table = self.app_config.database.data_table
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            data_table_sql = _format_table_name(data_table)
+            mods_table_sql = _format_table_name(mods_table)
+            
+            where_clause, sql_params = self._build_where_clause(params)
+            
+            # Order clause
+            order_clause = ""
+            if params.sort_column and params.sort_column in self._columns:
+                direction = "ASC" if params.sort_ascending else "DESC"
+                order_clause = f'ORDER BY "{params.sort_column}" {direction}'
+            elif pk_columns:
+                order_clause = f'ORDER BY "{pk_columns[0]}" ASC'
+            
+            # Pagination
+            offset = (params.page - 1) * params.page_size
+            limit_clause = f"LIMIT {params.page_size} OFFSET {offset}"
+            
+            # Build query with mod status
+            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            status_filter = self._build_status_filter_clause(params)
+            
+            # Wrap in subquery to allow status filtering
+            inner_query = f"""
+            SELECT d.*, 
+                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+            FROM {data_table_sql} d
+            LEFT JOIN LATERAL (
+                SELECT mod_type 
+                FROM {mods_table_sql} m
+                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                  AND m.undone = FALSE
+                ORDER BY m.created_at DESC
+                LIMIT 1
+            ) ms ON TRUE
+            {where_clause}
+            """
+            
+            query = f"""
+            SELECT * FROM ({inner_query}) subq
+            WHERE 1=1 {status_filter}
+            {order_clause}
+            {limit_clause}
+            """
+            
+            print(f"[DataFetcher] Fetching page {params.page}, size {params.page_size}, offset {offset}")
+            
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                    params=sql_params,
+                )
+                df = pd.DataFrame(response.data)
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(query), sql_params)
+                    rows = result.fetchall()
+                    columns = result.keys()
+                df = pd.DataFrame(rows, columns=columns)
+            
+            # Apply field modifications
+            df = self._apply_field_modifications(df)
+            
+            print(f"[DataFetcher] Fetched {len(df)} rows")
+            return df
+            
+        except Exception as e:
+            print(f"✗ Error fetching page: {e}")
+            import traceback
+            traceback.print_exc()
+            return pd.DataFrame()
+    
+    def fetch_all_filtered(self, params: QueryParams) -> pd.DataFrame:
+        """
+        Fetch ALL data matching current filters (no pagination).
+        
+        Used for export functionality.
+        """
+        try:
+            data_table = self.app_config.database.data_table
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            data_table_sql = _format_table_name(data_table)
+            mods_table_sql = _format_table_name(mods_table)
+            
+            where_clause, sql_params = self._build_where_clause(params)
+            
+            # Order clause
+            order_clause = ""
+            if params.sort_column and params.sort_column in self._columns:
+                direction = "ASC" if params.sort_ascending else "DESC"
+                order_clause = f'ORDER BY "{params.sort_column}" {direction}'
+            elif pk_columns:
+                order_clause = f'ORDER BY "{pk_columns[0]}" ASC'
+            
+            # Build query with mod status (NO LIMIT for export)
+            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            status_filter = self._build_status_filter_clause(params)
+            
+            inner_query = f"""
+            SELECT d.*, 
+                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+            FROM {data_table_sql} d
+            LEFT JOIN LATERAL (
+                SELECT mod_type 
+                FROM {mods_table_sql} m
+                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                  AND m.undone = FALSE
+                ORDER BY m.created_at DESC
+                LIMIT 1
+            ) ms ON TRUE
+            {where_clause}
+            """
+            
+            query = f"""
+            SELECT * FROM ({inner_query}) subq
+            WHERE 1=1 {status_filter}
+            {order_clause}
+            """
+            
+            print(f"[DataFetcher] Fetching ALL filtered data for export...")
+            
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                    params=sql_params,
+                )
+                df = pd.DataFrame(response.data)
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(query), sql_params)
+                    rows = result.fetchall()
+                    columns = result.keys()
+                df = pd.DataFrame(rows, columns=columns)
+            
+            # Apply field modifications
+            df = self._apply_field_modifications(df)
+            
+            print(f"[DataFetcher] Fetched {len(df)} rows for export")
+            return df
+            
+        except Exception as e:
+            print(f"✗ Error fetching all filtered: {e}")
+            import traceback
+            traceback.print_exc()
+            return pd.DataFrame()
+    
+    def _apply_field_modifications(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply field modifications to the fetched data."""
+        if df.empty:
+            return df
+        
+        try:
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # Build list of PKs from current data
+            pk_values = []
+            pk_index = {}
+            for idx, row in df.iterrows():
+                pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+                serializable_pk = {}
+                for k, v in pk_dict.items():
+                    if hasattr(v, 'item'):
+                        serializable_pk[k] = v.item()
+                    elif pd.isna(v):
+                        serializable_pk[k] = None
+                    else:
+                        serializable_pk[k] = v
+                pk_json = json.dumps(serializable_pk, sort_keys=True)
+                pk_values.append(pk_json)
+                if pk_json not in pk_index:
+                    pk_index[pk_json] = []
+                pk_index[pk_json].append(idx)
+            
+            if not pk_values:
+                return df
+            
+            # Query modifications for these PKs
+            pk_array = "ARRAY[" + ",".join(f"'{pv}'::jsonb" for pv in pk_values) + "]"
+            mods_query = f"""
+            SELECT row_pk, column_name, new_value 
+            FROM {mods_table_sql}
+            WHERE mod_type = 'field_modification' 
+              AND undone = FALSE
+              AND row_pk = ANY({pk_array})
+            ORDER BY created_at ASC
+            """
+            
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=mods_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                mods = response.data
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(mods_query))
+                    mods = [dict(row._mapping) for row in result.fetchall()]
+            
+            # Apply modifications
+            for mod in mods:
+                row_pk = mod["row_pk"]
+                if isinstance(row_pk, str):
+                    row_pk = json.loads(row_pk)
+                pk_json = json.dumps(row_pk, sort_keys=True)
+                
+                if pk_json in pk_index:
+                    col = mod["column_name"]
+                    new_val = mod["new_value"]
+                    for idx in pk_index[pk_json]:
+                        if col in df.columns:
+                            df.at[idx, col] = new_val
+            
+            return df
+            
+        except Exception as e:
+            print(f"✗ Error applying field modifications: {e}")
+            return df
 
 
 @dataclass
@@ -50,6 +529,7 @@ class ConfigInstance:
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
+    _data_fetcher: DataFetcher = field(default=None, repr=False)  # Lazy loading fetcher
     
     def __post_init__(self):
         """Load config and data after initialization."""
@@ -83,12 +563,40 @@ class ConfigInstance:
         self.data_dir = project_root / "data"
         # Note: Directory created lazily when needed for exports
         
-        # Load data from database
-        self.df = self._load_data()
+        # Check if lazy loading is enabled
+        if self.app_config.database.lazy_loading:
+            # Lazy loading mode: only get metadata, fetch data on demand
+            self._data_fetcher = DataFetcher(app_config=self.app_config)
+            self.all_columns = self._data_fetcher.columns
+            # Create empty DataFrame with correct columns
+            self.df = pd.DataFrame(columns=self.all_columns)
+            print(f"📊 Lazy loading enabled: {self._data_fetcher.total_count} total rows, fetching on demand")
+        else:
+            # Traditional mode: load all data at startup
+            self.df = self._load_data()
+            self.all_columns = list(self.df.columns)
         
-        # Set columns
-        self.all_columns = list(self.df.columns)
         self.display_columns = self._get_display_columns()
+        
+        # Modifications log path (for reference only)
+        self.modifications_log_path = self.data_dir / "modifications_log.json"
+    
+    @property
+    def data_fetcher(self) -> Optional[DataFetcher]:
+        """Get the DataFetcher for lazy loading mode."""
+        return self._data_fetcher
+    
+    @property
+    def is_lazy_loading(self) -> bool:
+        """Check if lazy loading is enabled."""
+        return self._data_fetcher is not None
+    
+    @property
+    def total_row_count(self) -> int:
+        """Get total row count (from fetcher in lazy mode, from df otherwise)."""
+        if self._data_fetcher:
+            return self._data_fetcher.total_count
+        return len(self.df) if self.df is not None else 0
         
         # Modifications log path (for reference only)
         self.modifications_log_path = self.data_dir / "modifications_log.json"

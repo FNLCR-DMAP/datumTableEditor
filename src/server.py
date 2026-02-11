@@ -82,7 +82,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     print(f"[Session] User: {posit_username} (safe: {safe_username})")
     
     # Load config instance for this widget, passing the username for user-scoped tables
-    from .config.config_instance import load_config_instance
+    from .config.config_instance import load_config_instance, QueryParams
     print(f"[Config] Loading config from {config_path} for user: {safe_username}")
     config = load_config_instance(config_path, username=safe_username)
     
@@ -120,12 +120,23 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
     
+    # Check if lazy loading is enabled
+    is_lazy_loading = config.is_lazy_loading
+    
     # Load fresh data from source (database) on each session
     # This ensures browser refresh gets the latest data
-    initial_df = load_data_from_source() if app_config.database.enabled else df_original.copy()
+    if is_lazy_loading:
+        # In lazy loading mode, start with empty dataframe - data fetched on demand
+        initial_df = config.df  # Empty dataframe with correct columns
+        total_row_count = config.total_row_count
+        print(f"[Lazy Loading] Enabled. Total rows in DB: {total_row_count}")
+    else:
+        # Traditional mode: load all data at startup
+        initial_df = load_data_from_source() if app_config.database.enabled else df_original.copy()
+        total_row_count = len(initial_df)
     
-    # Apply initial sorting if saved
-    if ui_state.get("sort_column"):
+    # Apply initial sorting if saved (only in non-lazy mode)
+    if not is_lazy_loading and ui_state.get("sort_column"):
         initial_df = sort_dataframe(
             initial_df, 
             ui_state["sort_column"], 
@@ -134,6 +145,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Reactive values
     data = reactive.Value(initial_df)
+    total_rows = reactive.Value(total_row_count)  # Total rows for pagination UI
+    filtered_row_count = reactive.Value(total_row_count)  # Filtered count (updated on filter change)
     
     # Track edited cells from config - {(row_idx, col_name): new_value}
     edited_cells = reactive.Value(config.get_edited_cells())
@@ -284,6 +297,83 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             get_row_status_func=_get_row_status,
             search_column=search_column
         )
+
+    def _build_query_params(page: int = None, page_size: int = None, for_export: bool = False) -> QueryParams:
+        """Build QueryParams from current UI state for lazy loading."""
+        search = search_state.get()
+        sort_state = current_sort.get()
+        
+        # Get status filters
+        try:
+            status_filters = list(input.status_filter_multi())
+        except:
+            status_filters = ["unprocessed", "edited", "approved", "rejected"]
+        
+        # Convert active_filters to dict format expected by QueryParams
+        # active_filters: {column: "value1\nvalue2\n..."} -> {column: [values]}
+        filters_dict = {}
+        for col, val in active_filters.get().items():
+            if val:
+                values = [v.strip() for v in val.split("\n") if v.strip()]
+                if values:
+                    filters_dict[col] = values if len(values) > 1 else values[0]
+        
+        # Determine page size
+        if for_export:
+            actual_page_size = 1000000  # Large number for export (no limit)
+        elif page_size is not None:
+            actual_page_size = page_size
+        else:
+            rpp = rows_per_page_value.get()
+            actual_page_size = int(rpp) if rpp != "all" else app_config.database.page_buffer_size
+        
+        return QueryParams(
+            filters=filters_dict,
+            search_term=search.get("term", ""),
+            search_column=search.get("column", "all"),
+            sort_column=sort_state.get("column"),
+            sort_ascending=sort_state.get("ascending", True),
+            page=page if page is not None else current_page.get(),
+            page_size=actual_page_size,
+            status_filters=status_filters
+        )
+    
+    def _fetch_page_data() -> tuple:
+        """
+        Fetch current page data. Returns (df, filtered_count, total_count).
+        
+        In lazy loading mode: queries database
+        In traditional mode: slices in-memory data
+        """
+        if is_lazy_loading:
+            # Build query params and fetch from DB
+            params = _build_query_params()
+            fetched_df = config.data_fetcher.fetch_page(params)
+            
+            # Update filtered count
+            new_filtered_count = config.data_fetcher.get_filtered_count(params)
+            filtered_row_count.set(new_filtered_count)
+            
+            # Update the data reactive value with fetched data
+            data.set(fetched_df)
+            
+            return fetched_df, new_filtered_count, total_rows.get()
+        else:
+            # Traditional mode: use in-memory data
+            current_df = data.get()
+            filtered_indices = _get_filtered_rows()
+            return current_df, len(filtered_indices), len(current_df)
+    
+    def _fetch_all_filtered_data():
+        """Fetch all data matching current filters (for export)."""
+        if is_lazy_loading:
+            params = _build_query_params(for_export=True)
+            return config.data_fetcher.fetch_all_filtered(params)
+        else:
+            # Traditional mode: return filtered data
+            current_df = data.get()
+            filtered_indices = _get_filtered_rows()
+            return current_df.loc[filtered_indices] if filtered_indices else current_df
 
     # Wrapper functions for preset utilities (using file paths and username from this scope)
     def _save_presets(presets_dict):
@@ -579,15 +669,21 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def pagination_controls():
         """Render pagination controls with rows per page selector"""
-        filtered_indices = _get_filtered_rows()
-        total_rows = len(filtered_indices)
+        if is_lazy_loading:
+            # In lazy loading mode, use the filtered count from the fetcher
+            total_filtered = filtered_row_count.get()
+        else:
+            # Traditional mode: count filtered indices
+            filtered_indices = _get_filtered_rows()
+            total_filtered = len(filtered_indices)
+        
         rows_per_page_val = rows_per_page_value.get()
         
         if rows_per_page_val == "all":
-            return build_pagination_controls_all(total_rows, rows_per_page_val)
+            return build_pagination_controls_all(total_filtered, rows_per_page_val)
         
-        page, total_pages, start_row, end_row = calculate_pagination(total_rows, rows_per_page_val, current_page.get())
-        return build_pagination_controls_paged(page, total_pages, start_row, end_row, total_rows, rows_per_page_val)
+        page, total_pages, start_row, end_row = calculate_pagination(total_filtered, rows_per_page_val, current_page.get())
+        return build_pagination_controls_paged(page, total_pages, start_row, end_row, total_filtered, rows_per_page_val)
     
     # Sync rows_per_page input with reactive value
     @reactive.Effect
@@ -640,11 +736,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.next_page_btn)
     def _next_page():
-        filtered_indices = _get_filtered_rows()
+        # Get filtered count based on mode
+        if is_lazy_loading:
+            total_filtered = filtered_row_count.get()
+        else:
+            filtered_indices = _get_filtered_rows()
+            total_filtered = len(filtered_indices)
+        
         rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val != "all":
             rows_per_page = int(rows_per_page_val)
-            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            total_pages = max(1, (total_filtered + rows_per_page - 1) // rows_per_page)
             page = current_page.get()
             if page < total_pages:
                 new_page = page + 1
@@ -662,11 +764,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.last_page_btn)
     def _last_page():
-        filtered_indices = _get_filtered_rows()
+        # Get filtered count based on mode
+        if is_lazy_loading:
+            total_filtered = filtered_row_count.get()
+        else:
+            filtered_indices = _get_filtered_rows()
+            total_filtered = len(filtered_indices)
+        
         rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val != "all":
             rows_per_page = int(rows_per_page_val)
-            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            total_pages = max(1, (total_filtered + rows_per_page - 1) // rows_per_page)
             current_page.set(total_pages)
             # Persist page state
             sort_state = current_sort.get()
@@ -681,11 +789,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.page_jump_btn)
     def _page_jump():
-        filtered_indices = _get_filtered_rows()
+        # Get filtered count based on mode
+        if is_lazy_loading:
+            total_filtered = filtered_row_count.get()
+        else:
+            filtered_indices = _get_filtered_rows()
+            total_filtered = len(filtered_indices)
+        
         rows_per_page_val = rows_per_page_value.get()
         if rows_per_page_val != "all":
             rows_per_page = int(rows_per_page_val)
-            total_pages = max(1, (len(filtered_indices) + rows_per_page - 1) // rows_per_page)
+            total_pages = max(1, (total_filtered + rows_per_page - 1) // rows_per_page)
             try:
                 target_page = int(input.page_jump_input())
                 target_page = max(1, min(target_page, total_pages))
@@ -737,17 +851,28 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         _ = mods_log.get()
         _ = approval_status.get()
         
-        current_df = data.get()
-        filtered_indices = _get_filtered_rows()
-        paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+        if is_lazy_loading:
+            # Lazy loading mode: fetch data from database
+            current_df, filt_count, tot_count = _fetch_page_data()
+            # In lazy mode, all returned rows are the "paginated" data
+            paginated_indices = list(current_df.index)
+            filtered_count = filt_count
+            total_count = tot_count
+        else:
+            # Traditional mode: slice in-memory data
+            current_df = data.get()
+            filtered_indices = _get_filtered_rows()
+            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+            filtered_count = len(filtered_indices)
+            total_count = len(current_df)
         
         return build_table_container(
             paginated_indices=paginated_indices,
             current_df=current_df,
             cols=active_columns.get(),
             widths=column_widths.get(),
-            filtered_count=len(filtered_indices),
-            total_rows=len(current_df),
+            filtered_count=filtered_count,
+            total_rows=total_count,
             get_row_status_func=_get_row_status,
             edited_cells=edited_cells.get(),
             pk_columns=app_config.table.primary_key,
@@ -878,30 +1003,43 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def export_all_btn():
         """Generate CSV file for download with all rows matching current filter/sort criteria."""
         import io
-        current_df = data.get()
         
-        if current_df.empty:
-            ui.notification_show("No data to export", type="warning", duration=3)
-            return ""
-        
-        # Get filtered row indices (respects search, status filter, column filters)
-        filtered_indices = _get_filtered_rows()
-        
-        if not filtered_indices:
-            ui.notification_show("No rows match current filters", type="warning", duration=3)
-            return ""
-        
-        # Filter to matching rows
-        filtered_df = current_df.iloc[filtered_indices].copy()
-        
-        # Apply current sort
-        sort_state = current_sort.get()
-        if sort_state.get("column") and sort_state.get("column") in filtered_df.columns:
-            filtered_df = sort_dataframe(
-                filtered_df,
-                sort_state.get("column"),
-                "asc" if sort_state.get("ascending", True) else "desc"
-            )
+        # Use lazy loading fetch if enabled, otherwise use in-memory data
+        if is_lazy_loading:
+            # Fetch all filtered data from database (no pagination limit)
+            filtered_df = _fetch_all_filtered_data()
+            
+            if filtered_df.empty:
+                ui.notification_show("No rows match current filters", type="warning", duration=3)
+                return ""
+            
+            # Sort is already applied by the database query
+        else:
+            # Traditional mode: use in-memory data
+            current_df = data.get()
+            
+            if current_df.empty:
+                ui.notification_show("No data to export", type="warning", duration=3)
+                return ""
+            
+            # Get filtered row indices (respects search, status filter, column filters)
+            filtered_indices = _get_filtered_rows()
+            
+            if not filtered_indices:
+                ui.notification_show("No rows match current filters", type="warning", duration=3)
+                return ""
+            
+            # Filter to matching rows
+            filtered_df = current_df.iloc[filtered_indices].copy()
+            
+            # Apply current sort
+            sort_state = current_sort.get()
+            if sort_state.get("column") and sort_state.get("column") in filtered_df.columns:
+                filtered_df = sort_dataframe(
+                    filtered_df,
+                    sort_state.get("column"),
+                    "asc" if sort_state.get("ascending", True) else "desc"
+                )
         
         output = io.StringIO()
         filtered_df.to_csv(output, index=False)
@@ -912,9 +1050,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.reload_btn)
     def _reload_data():
-        # Reload fresh data from database
-        fresh_data = load_data_from_source()
-        data.set(fresh_data)
+        if is_lazy_loading:
+            # In lazy loading mode, refresh the fetcher metadata and re-fetch current page
+            config._data_fetcher._fetch_metadata()
+            total_rows.set(config.data_fetcher.total_count)
+            # Data will be re-fetched on next table render
+        else:
+            # Traditional mode: reload all data
+            fresh_data = load_data_from_source()
+            data.set(fresh_data)
         mods_log.set(load_modifications_log())
         ui.notification_show("Data reloaded from database.", type="message", duration=3)
     
