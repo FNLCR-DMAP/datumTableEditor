@@ -827,7 +827,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         ui.notification_show(message, type="message", duration=5)
     
     # Event: Export CSV - Download handler (selected rows only)
-    @render.download(filename="data_modified.csv")
+    @render.download(filename="data_selected.csv")
     def export_btn():
         """Generate CSV file for download with selected rows only."""
         import io
@@ -844,6 +844,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         output = io.StringIO()
         selected_df.to_csv(output, index=False)
         ui.notification_show(f"Exported {len(selected_indices)} row(s)", type="message", duration=2)
+        yield output.getvalue()
+    
+    # Event: Export All CSV - Download handler (all rows)
+    @render.download(filename="data_all.csv")
+    def export_all_btn():
+        """Generate CSV file for download with all rows."""
+        import io
+        current_df = data.get()
+        
+        if current_df.empty:
+            ui.notification_show("No data to export", type="warning", duration=3)
+            return  # Return nothing - no download
+        
+        output = io.StringIO()
+        current_df.to_csv(output, index=False)
+        ui.notification_show(f"Exported all {len(current_df)} row(s)", type="message", duration=2)
         yield output.getvalue()
     
     # Event: Reload data

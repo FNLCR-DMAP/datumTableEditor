@@ -222,7 +222,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     # Left side - Action Buttons
                     ui.div(
                         ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success"),
-                        ui.download_button("export_btn", "Export CSV", class_="btn btn-sm btn-info"),
+                        ui.download_button("export_btn", "Export Selected", class_="btn btn-sm btn-info"),
+                        ui.download_button("export_all_btn", "Export All", class_="btn btn-sm btn-outline-info"),
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success"),
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger"),
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
