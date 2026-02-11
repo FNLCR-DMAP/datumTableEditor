@@ -39,12 +39,14 @@ def get_filtered_rows(
         if current_status not in status_filters:
             continue
         
-        # Check dynamic column filters (supports comma-delimited multi-values)
+        # Check dynamic column filters (supports newline or comma-delimited multi-values)
         filter_pass = True
         for col_name, filter_value in column_filters.items():
             if filter_value and filter_value.strip() and filter_value != "all" and col_name in df.columns:
-                # Parse comma-delimited values and strip whitespace
-                filter_values = [v.strip() for v in filter_value.split(",") if v.strip()]
+                # Parse newline or comma-delimited values and strip whitespace
+                # Replace newlines with commas first, then split by comma
+                normalized = filter_value.replace('\n', ',').replace('\r', ',')
+                filter_values = [v.strip() for v in normalized.split(",") if v.strip()]
                 if filter_values:
                     row_value = str(row.get(col_name, ""))
                     # Row passes if its value matches ANY of the filter values

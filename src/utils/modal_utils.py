@@ -138,7 +138,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 f"filter_{col_name}",
                 label=None,
                 value=display_value,
-                placeholder=f"Enter values (comma-separated) or click ⋮"
+                placeholder=f"Paste values (one per line) or click ⋮"
             ),
             ui.tags.button(
                 "⋮",

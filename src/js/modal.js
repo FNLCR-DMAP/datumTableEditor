@@ -361,10 +361,10 @@ window.applyFilterValues = function() {
     var checkboxes = modal.querySelectorAll('#filter-values-checkboxes input[type="checkbox"]:checked');
     var selectedValues = Array.from(checkboxes).map(function(cb) { return cb.value; });
     
-    // Update the filter input
+    // Update the filter input (use newline delimiter for easier paste from cells)
     var filterInput = findElementInContext(currentFilterValuesContext, 'filter_' + currentFilterValuesColumn);
     if (filterInput) {
-        filterInput.value = selectedValues.join(', ');
+        filterInput.value = selectedValues.join('\n');
         // Trigger change event for Shiny
         filterInput.dispatchEvent(new Event('change', { bubbles: true }));
         filterInput.dispatchEvent(new Event('input', { bubbles: true }));
