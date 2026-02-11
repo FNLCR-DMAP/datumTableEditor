@@ -184,8 +184,25 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     _first_filter_sync = {"done": False}
     _first_search_filter_sync = {"done": False}
     
-    # Dynamic column filters - stores active filters as {column_name: selected_value}
-    active_filters = reactive.Value({})
+    # Initialize default filters from config
+    # Config format: {column: [values]} or {column: "value"}
+    # Internal format: {column: "value1\nvalue2\n..."} (newline-delimited string)
+    def _convert_default_filters(config_filters: dict) -> dict:
+        """Convert config default_filters to internal format."""
+        result = {}
+        for col, values in config_filters.items():
+            if isinstance(values, list):
+                # List of values -> newline-delimited string
+                result[col] = "\n".join(str(v) for v in values)
+            else:
+                # Single value -> string
+                result[col] = str(values) if values else ""
+        return result
+    
+    initial_filters = _convert_default_filters(app_config.query.default_filters) if hasattr(app_config, 'query') and app_config.query.default_filters else {}
+    
+    # Dynamic column filters - stores active filters as {column_name: "value1\nvalue2\n..."}
+    active_filters = reactive.Value(initial_filters)
     
     # Search state - updated only when search button is clicked
     search_state = reactive.Value({"term": "", "column": "all"})

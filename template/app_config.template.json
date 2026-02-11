@@ -51,7 +51,10 @@
       "PatientID": "text",
       "Gene_names": "text"
     },
-    "default_filters": {},
+    "default_filters": {
+      "_comment": "Default filters applied on load. Format: {column: [values]} or {column: \"value\"}",
+      "_example": "{ \"Status\": [\"pending\", \"review\"], \"Gene_names\": \"TP53\" }"
+    },
     "status_filter_enabled": true,
     "status_column": "Status",
     "search_case_sensitive": false,
