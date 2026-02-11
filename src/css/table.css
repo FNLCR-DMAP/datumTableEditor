@@ -249,6 +249,16 @@ table.edit-table > tbody > tr:hover > td {
     background-color: #e3f2fd !important;
 }
 
+/* Readonly Cell Styles */
+.readonly-cell {
+    cursor: default;
+    position: relative;
+    background-color: #f8f9fa;
+}
+.readonly-cell:hover {
+    background-color: #f0f0f0 !important;
+}
+
 /* Edited Cell - Brown Border */
 .editable-cell.cell-edited {
     border: 2px solid #8B4513 !important;
@@ -256,6 +266,12 @@ table.edit-table > tbody > tr:hover > td {
 }
 .editable-cell.cell-edited:hover {
     background-color: #F5DEB3 !important;
+}
+
+/* Readonly edited cell */
+.readonly-cell.cell-edited {
+    border: 2px solid #8B4513 !important;
+    background-color: #FFF8DC;
 }
 
 .cell-value {

@@ -750,7 +750,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows=len(current_df),
             get_row_status_func=_get_row_status,
             edited_cells=edited_cells.get(),
-            pk_columns=app_config.table.primary_key
+            pk_columns=app_config.table.primary_key,
+            editable_columns=app_config.table.editable_columns,
+            readonly_columns=app_config.table.readonly_columns
         )
     
     # Output: Approval status
