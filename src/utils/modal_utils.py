@@ -118,7 +118,13 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
 
 
 def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str) -> ui.div:
-    """Build a single dynamic filter element."""
+    """Build a single dynamic filter element with multi-select support."""
+    # Format current value for display (show as comma-separated)
+    display_value = current_value if current_value and current_value != "all" else ""
+    
+    # Build the list of unique values for the modal (exclude 'all')
+    value_options = [v for v in unique_values if v != "all"]
+    
     return ui.div(
         ui.div(
             ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
@@ -127,11 +133,27 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                            style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;"),
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
         ),
-        ui.input_select(
-            f"filter_{col_name}",
-            label=None,
-            choices={v: v if v != "all" else f"All {col_name}" for v in unique_values},
-            selected=current_value
+        ui.div(
+            ui.input_text(
+                f"filter_{col_name}",
+                label=None,
+                value=display_value,
+                placeholder=f"Enter values (comma-separated) or click ⋮"
+            ),
+            ui.tags.button(
+                "⋮",
+                class_="btn btn-sm btn-outline-secondary filter-values-btn",
+                onclick=f"openFilterValuesModal('{col_name}', event)",
+                title="Select from available values",
+                style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px;"
+            ),
+            style="position: relative;"
+        ),
+        # Hidden data attribute with unique values for the modal
+        ui.tags.div(
+            id=f"filter_values_{col_name}",
+            style="display: none;",
+            **{"data-values": ",".join(value_options[:500])}  # Limit to 500 values
         ),
         class_="filter-group",
         style="margin-bottom: 10px;"

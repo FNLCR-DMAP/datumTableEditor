@@ -39,13 +39,18 @@ def get_filtered_rows(
         if current_status not in status_filters:
             continue
         
-        # Check dynamic column filters
+        # Check dynamic column filters (supports comma-delimited multi-values)
         filter_pass = True
         for col_name, filter_value in column_filters.items():
-            if filter_value and filter_value != "all" and col_name in df.columns:
-                if str(row.get(col_name, "")) != filter_value:
-                    filter_pass = False
-                    break
+            if filter_value and filter_value.strip() and filter_value != "all" and col_name in df.columns:
+                # Parse comma-delimited values and strip whitespace
+                filter_values = [v.strip() for v in filter_value.split(",") if v.strip()]
+                if filter_values:
+                    row_value = str(row.get(col_name, ""))
+                    # Row passes if its value matches ANY of the filter values
+                    if row_value not in filter_values:
+                        filter_pass = False
+                        break
         
         if not filter_pass:
             continue

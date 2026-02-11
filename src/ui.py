@@ -334,6 +334,42 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     id="add-filter-modal"
                 ),
                 
+                # Filter Values Modal (for multi-select)
+                ui.div(
+                    ui.div(
+                        ui.div(
+                            ui.h3("Select Filter Values"),
+                            ui.tags.button("×", class_="modal-close", onclick="closeFilterValuesModal()"),
+                            class_="modal-header"
+                        ),
+                        ui.div(
+                            ui.div(
+                                ui.input_text("filter_values_search", label=None, placeholder="Search values..."),
+                                style="margin-bottom: 10px;"
+                            ),
+                            ui.div(
+                                ui.tags.button("Select All", class_="btn btn-sm btn-outline-primary", onclick="selectAllFilterValues()", style="margin-right: 5px;"),
+                                ui.tags.button("Clear All", class_="btn btn-sm btn-outline-secondary", onclick="clearAllFilterValues()"),
+                                style="margin-bottom: 10px;"
+                            ),
+                            ui.div(
+                                id="filter-values-checkboxes",
+                                style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;"
+                            ),
+                            ui.div(
+                                ui.tags.button("Apply", class_="btn btn-primary", onclick="applyFilterValues()", style="margin-right: 10px;"),
+                                ui.tags.button("Cancel", class_="btn btn-secondary", onclick="closeFilterValuesModal()"),
+                                style="margin-top: 15px; text-align: right;"
+                            ),
+                            class_="modal-body"
+                        ),
+                        class_="modal-content",
+                        style="max-width: 500px;"
+                    ),
+                    class_="modal-overlay",
+                    id="filter-values-modal"
+                ),
+                
                 # Data Table
                 ui.div(
                     ui.div(

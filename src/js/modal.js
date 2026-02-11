@@ -258,6 +258,139 @@ window.removeFilter = function(columnName, event) {
     }
 };
 
+// Filter Values Modal state
+var currentFilterValuesColumn = null;
+var currentFilterValuesContext = null;
+
+window.openFilterValuesModal = function(columnName, event) {
+    currentFilterValuesColumn = columnName;
+    currentFilterValuesContext = event ? event.target : document.activeElement;
+    
+    // Find the modal in the correct namespace context
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (!modal) return;
+    
+    // Get unique values from the hidden data element
+    var valuesEl = findElementInContext(currentFilterValuesContext, 'filter_values_' + columnName);
+    var values = valuesEl ? (valuesEl.getAttribute('data-values') || '').split(',').filter(function(v) { return v; }) : [];
+    
+    // Get current filter value from input
+    var filterInput = findElementInContext(currentFilterValuesContext, 'filter_' + columnName);
+    var currentValues = filterInput ? filterInput.value.split(',').map(function(v) { return v.trim(); }).filter(function(v) { return v; }) : [];
+    
+    // Build checkboxes
+    var checkboxContainer = modal.querySelector('#filter-values-checkboxes');
+    if (checkboxContainer) {
+        checkboxContainer.innerHTML = '';
+        values.forEach(function(value) {
+            var isChecked = currentValues.indexOf(value) !== -1;
+            var div = document.createElement('div');
+            div.className = 'filter-value-item';
+            div.style.cssText = 'padding: 5px 0; border-bottom: 1px solid #eee;';
+            div.innerHTML = '<label style="display: flex; align-items: center; cursor: pointer; margin: 0;">' +
+                '<input type="checkbox" value="' + escapeHtml(value) + '" ' + (isChecked ? 'checked' : '') + ' style="margin-right: 8px;">' +
+                '<span class="filter-value-text">' + escapeHtml(value) + '</span>' +
+                '</label>';
+            checkboxContainer.appendChild(div);
+        });
+        
+        if (values.length === 0) {
+            checkboxContainer.innerHTML = '<p style="color: #6c757d; margin: 0;">No values available</p>';
+        }
+    }
+    
+    // Clear search
+    var searchInput = modal.querySelector('#filter_values_search');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = function() {
+            filterValuesSearch(this.value);
+        };
+    }
+    
+    // Update modal title
+    var title = modal.querySelector('.modal-header h3');
+    if (title) {
+        title.textContent = 'Select Values for: ' + columnName;
+    }
+    
+    modal.classList.add('show');
+};
+
+window.closeFilterValuesModal = function() {
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (modal) modal.classList.remove('show');
+    currentFilterValuesColumn = null;
+    currentFilterValuesContext = null;
+};
+
+window.selectAllFilterValues = function() {
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (!modal) return;
+    var checkboxes = modal.querySelectorAll('#filter-values-checkboxes input[type="checkbox"]');
+    checkboxes.forEach(function(cb) {
+        if (cb.closest('.filter-value-item').style.display !== 'none') {
+            cb.checked = true;
+        }
+    });
+};
+
+window.clearAllFilterValues = function() {
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (!modal) return;
+    var checkboxes = modal.querySelectorAll('#filter-values-checkboxes input[type="checkbox"]');
+    checkboxes.forEach(function(cb) { cb.checked = false; });
+};
+
+window.filterValuesSearch = function(searchTerm) {
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (!modal) return;
+    var items = modal.querySelectorAll('.filter-value-item');
+    var term = searchTerm.toLowerCase();
+    items.forEach(function(item) {
+        var text = item.querySelector('.filter-value-text').textContent.toLowerCase();
+        item.style.display = text.indexOf(term) !== -1 ? '' : 'none';
+    });
+};
+
+window.applyFilterValues = function() {
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (!modal || !currentFilterValuesColumn) return;
+    
+    // Get all checked values
+    var checkboxes = modal.querySelectorAll('#filter-values-checkboxes input[type="checkbox"]:checked');
+    var selectedValues = Array.from(checkboxes).map(function(cb) { return cb.value; });
+    
+    // Update the filter input
+    var filterInput = findElementInContext(currentFilterValuesContext, 'filter_' + currentFilterValuesColumn);
+    if (filterInput) {
+        filterInput.value = selectedValues.join(', ');
+        // Trigger change event for Shiny
+        filterInput.dispatchEvent(new Event('change', { bubbles: true }));
+        filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    
+    closeFilterValuesModal();
+};
+
+// Helper to escape HTML
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Helper to find element by ID within context
+function findElementInContext(contextEl, elementId) {
+    if (!contextEl) return document.getElementById(elementId);
+    var nsEl = contextEl.closest('[data-shiny-ns]');
+    if (nsEl) {
+        var ns = nsEl.getAttribute('data-shiny-ns');
+        return document.getElementById(ns + elementId);
+    }
+    return document.getElementById(elementId);
+}
+
 // Undo a modification from the log
 window.undoModification = function(logIndex, event) {
     if (typeof setShinyInput !== 'undefined') {
