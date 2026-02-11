@@ -14,6 +14,8 @@
     "enabled": true,
     "_mode_options": "direct (SQLAlchemy) | datum (via Datum proxy)",
     "connection_string": "postgresql://her2@localhost/epitopes_db",
+    "source_table": "",
+    "_source_table_comment": "Optional: if data_table doesn't exist, it will be created as a copy of source_table",
     "data_table": "epitopes_data",
     "mods_table": "epitopes.modifications",
     "state_table": "epitopes.ui_state",

@@ -44,6 +44,7 @@ class ConfigInstance:
     data_dir: Path = field(default=None)
     modifications_log_path: Path = field(default=None)
     _state_table_checked: bool = field(default=False, repr=False)
+    _mods_table_checked: bool = field(default=False, repr=False)
     _engine: Any = field(default=None, repr=False)
     _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
@@ -128,10 +129,152 @@ class ConfigInstance:
         """Invalidate the data cache to force reload on next access."""
         self._data_cache = None
         self._data_cache_time = 0
-    
+
+    def _ensure_data_table_exists(self) -> bool:
+        """
+        Ensure the data_table exists. If not and source_table is configured,
+        create data_table as a copy of source_table.
+        Returns True if data_table exists (or was created), False otherwise.
+        """
+        if self.app_config.database.mode == "datum":
+            return self._ensure_data_table_exists_datum()
+        
+        try:
+            from sqlalchemy import text
+            
+            data_table = self.app_config.database.data_table
+            source_table = self.app_config.database.source_table
+            data_table_sql = _format_table_name(data_table)
+            
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            
+            # Check if data_table exists
+            with engine.connect() as conn:
+                # Parse schema.table to check existence properly
+                if '.' in data_table:
+                    schema, table_name = data_table.split('.', 1)
+                    check_sql = text("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_schema = :schema AND table_name = :table
+                        )
+                    """)
+                    result = conn.execute(check_sql, {"schema": schema, "table": table_name})
+                else:
+                    check_sql = text("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_name = :table
+                        )
+                    """)
+                    result = conn.execute(check_sql, {"table": data_table})
+                
+                table_exists = result.scalar()
+            
+            if table_exists:
+                return True
+            
+            # Table doesn't exist - check if we have a source table to copy from
+            if not source_table:
+                print(f"⚠ Data table {data_table_sql} does not exist and no source_table configured")
+                return False
+            
+            source_table_sql = _format_table_name(source_table)
+            print(f"📋 Creating {data_table_sql} as copy of {source_table_sql}...")
+            
+            with engine.connect() as conn:
+                # Create schema if needed
+                if '.' in data_table:
+                    schema = data_table.split('.', 1)[0]
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+                
+                # Create data_table as a copy of source_table (structure + data)
+                conn.execute(text(f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}'))
+                conn.commit()
+            
+            print(f"✓ Created {data_table_sql} from {source_table_sql}")
+            return True
+            
+        except Exception as e:
+            print(f"✗ Error ensuring data table exists: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _ensure_data_table_exists_datum(self) -> bool:
+        """Ensure data_table exists via Datum proxy, copying from source_table if needed."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            data_table = self.app_config.database.data_table
+            source_table = self.app_config.database.source_table
+            data_table_sql = _format_table_name(data_table)
+            
+            # Check if data_table exists by trying to select from it
+            try:
+                client.execute_sql(
+                    sql=f'SELECT 1 FROM {data_table_sql} LIMIT 1',
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                return True  # Table exists
+            except Exception:
+                pass  # Table doesn't exist, continue
+            
+            # Table doesn't exist - check if we have a source table to copy from
+            if not source_table:
+                print(f"⚠ Data table {data_table_sql} does not exist and no source_table configured")
+                return False
+            
+            source_table_sql = _format_table_name(source_table)
+            print(f"📋 Creating {data_table_sql} as copy of {source_table_sql} via Datum...")
+            
+            # Create schema if needed
+            if '.' in data_table:
+                schema = data_table.split('.', 1)[0]
+                try:
+                    client.execute_sql(
+                        sql=f'CREATE SCHEMA IF NOT EXISTS "{schema}"',
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                except Exception:
+                    pass  # Schema may already exist
+            
+            # Create data_table as a copy of source_table
+            client.execute_sql(
+                sql=f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            print(f"✓ Created {data_table_sql} from {source_table_sql} via Datum")
+            return True
+            
+        except Exception as e:
+            print(f"✗ Error ensuring data table exists via Datum: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def _load_from_database(self) -> pd.DataFrame:
         """Load data from PostgreSQL database with modification status."""
         try:
+            # Ensure data table exists (copy from source_table if needed)
+            self._ensure_data_table_exists()
+            
             from sqlalchemy import text
             
             data_table = self.app_config.database.data_table
@@ -306,6 +449,9 @@ class ConfigInstance:
     def _load_from_datum(self) -> pd.DataFrame:
         """Load data via Datum proxy."""
         try:
+            # Ensure data table exists (copy from source_table if needed)
+            self._ensure_data_table_exists()
+            
             from ..adapter.datum import DatumClient
             
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
@@ -513,10 +659,127 @@ class ConfigInstance:
         """Invalidate the modifications log cache (call after making changes)."""
         self._mods_log_cache = None
         self._mods_log_cache_time = 0
-    
+
+    def _ensure_mods_table_exists(self) -> bool:
+        """Create the modifications table if it doesn't exist. Only runs once per instance."""
+        # Skip if already checked this session
+        if self._mods_table_checked:
+            return True
+        
+        if self.app_config.database.mode == "datum":
+            return self._ensure_mods_table_exists_datum()
+        
+        try:
+            from sqlalchemy import text
+            
+            mods_table = self.app_config.database.mods_table
+            
+            # Parse schema.table format
+            if '.' in mods_table:
+                schema, table_name = mods_table.split('.', 1)
+                schema_sql = f'"{schema}"'
+                table_sql = _format_table_name(mods_table)
+            else:
+                schema_sql = None
+                table_sql = _format_table_name(mods_table)
+            
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            
+            with engine.connect() as conn:
+                # Create schema if needed
+                if schema_sql:
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                
+                # Create table if not exists
+                conn.execute(text(f'''
+                    CREATE TABLE IF NOT EXISTS {table_sql} (
+                        id SERIAL PRIMARY KEY,
+                        row_pk JSONB NOT NULL,
+                        column_name VARCHAR(255) NOT NULL,
+                        old_value TEXT,
+                        new_value TEXT,
+                        mod_type VARCHAR(50) NOT NULL,
+                        undone BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        created_by VARCHAR(255)
+                    )
+                '''))
+                conn.commit()
+            self._mods_table_checked = True
+            print(f"✓ Modifications table {table_sql} ensured")
+            return True
+        except Exception as e:
+            print(f"⚠ Could not create mods table: {e}")
+            return False
+
+    def _ensure_mods_table_exists_datum(self) -> bool:
+        """Create modifications table via Datum proxy if it doesn't exist."""
+        try:
+            from ..adapter.datum import DatumClient
+            
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            
+            if not base_url or not token:
+                return False
+            
+            client = DatumClient(base_url=base_url, token=token)
+            mods_table = self.app_config.database.mods_table
+            mods_table_sql = _format_table_name(mods_table)
+            
+            # Parse schema for CREATE SCHEMA
+            schema_sql = None
+            if '.' in mods_table:
+                schema = mods_table.split('.', 1)[0]
+                schema_sql = f'"{schema}"'
+            
+            # Create schema if needed
+            if schema_sql:
+                try:
+                    client.execute_sql(
+                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                except Exception:
+                    pass  # Schema may already exist
+            
+            # Create table if not exists - DDL auto-commits
+            client.execute_sql(
+                sql=f'''
+                    CREATE TABLE IF NOT EXISTS {mods_table_sql} (
+                        id SERIAL PRIMARY KEY,
+                        row_pk JSONB NOT NULL,
+                        column_name VARCHAR(255) NOT NULL,
+                        old_value TEXT,
+                        new_value TEXT,
+                        mod_type VARCHAR(50) NOT NULL,
+                        undone BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        created_by VARCHAR(255)
+                    )
+                ''',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            
+            self._mods_table_checked = True
+            print(f"✓ Modifications table {mods_table_sql} ensured via Datum")
+            return True
+        except Exception as e:
+            print(f"⚠ Could not create mods table via Datum: {e}")
+            return False
+
     def _load_modifications_from_datum(self) -> List[Dict]:
         """Load modifications via Datum proxy."""
         try:
+            # Ensure modifications table exists first
+            self._ensure_mods_table_exists()
+            
             from ..adapter.datum import DatumClient
             
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
@@ -581,6 +844,9 @@ class ConfigInstance:
     def _load_modifications_from_db(self) -> List[Dict]:
         """Load modifications from database."""
         try:
+            # Ensure modifications table exists first
+            self._ensure_mods_table_exists()
+            
             from sqlalchemy import text
             
             mods_table = self.app_config.database.mods_table
@@ -732,6 +998,9 @@ class ConfigInstance:
     def _save_modification_to_datum(self, row_pk: dict, column: str, old_value, new_value, mod_type: str):
         """Save modification via Datum proxy."""
         try:
+            # Ensure modifications table exists first
+            self._ensure_mods_table_exists()
+            
             from ..adapter.datum import DatumClient
             
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")

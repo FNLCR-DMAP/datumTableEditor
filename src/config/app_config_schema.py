@@ -171,7 +171,8 @@ class DatabaseConfig:
     datum_schema: Optional[str] = None
     
     # Table names
-    data_table: str = "epitopes_data"
+    source_table: Optional[str] = None  # Original read-only source table (optional)
+    data_table: str = "epitopes_data"  # Working copy (created from source_table if doesn't exist)
     mods_table: str = "epitopes_modifications"
     state_table: str = "epitopes_ui_state"
     
@@ -317,6 +318,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.datum_service_name = db.get("datum_service_name", config.database.datum_service_name)
         config.database.datum_database = db.get("datum_database")
         config.database.datum_schema = db.get("datum_schema")
+        config.database.source_table = db.get("source_table")  # Optional source table
         config.database.data_table = db.get("data_table", config.database.data_table)
         config.database.mods_table = db.get("mods_table", config.database.mods_table)
         config.database.state_table = db.get("state_table", config.database.state_table)
