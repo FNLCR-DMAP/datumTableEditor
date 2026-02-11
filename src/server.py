@@ -847,7 +847,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Event: Export CSV - Download handler (selected rows only)
     @render.download(filename="data_selected.csv")
-    async def export_btn():
+    def export_btn():
         """Generate CSV file for download with selected rows only."""
         import io
         current_df = data.get()
@@ -855,7 +855,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         
         if not selected_indices:
             ui.notification_show("Please select rows to export", type="warning", duration=3)
-            return
+            return ""
         
         # Filter to selected rows only
         selected_df = current_df.iloc[selected_indices]
@@ -863,7 +863,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         output = io.StringIO()
         selected_df.to_csv(output, index=False)
         ui.notification_show(f"Exported {len(selected_indices)} row(s)", type="message", duration=2)
-        yield output.getvalue()
+        return output.getvalue()
     
     # Event: Export All CSV - Download handler (all filtered/sorted rows)
     def _get_export_filename():
@@ -875,21 +875,21 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         return f"{safe_title}_data_filtered.csv"
     
     @render.download(filename=_get_export_filename)
-    async def export_all_btn():
+    def export_all_btn():
         """Generate CSV file for download with all rows matching current filter/sort criteria."""
         import io
         current_df = data.get()
         
         if current_df.empty:
             ui.notification_show("No data to export", type="warning", duration=3)
-            return
+            return ""
         
         # Get filtered row indices (respects search, status filter, column filters)
         filtered_indices = _get_filtered_rows()
         
         if not filtered_indices:
             ui.notification_show("No rows match current filters", type="warning", duration=3)
-            return
+            return ""
         
         # Filter to matching rows
         filtered_df = current_df.iloc[filtered_indices].copy()
@@ -906,7 +906,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         output = io.StringIO()
         filtered_df.to_csv(output, index=False)
         ui.notification_show(f"Exported {len(filtered_df)} filtered row(s)", type="message", duration=2)
-        yield output.getvalue()
+        return output.getvalue()
     
     # Event: Reload data
     @reactive.Effect
