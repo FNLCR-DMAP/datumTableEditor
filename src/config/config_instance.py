@@ -28,19 +28,43 @@ def _format_table_name(table_name: str) -> str:
     return ".".join(f'"{part}"' for part in parts)
 
 
-def _build_mod_status_expr(status_column: str = None) -> str:
+def _build_mod_status_expr(status_column: str = None, status_labels: dict = None) -> str:
     """
     Build the SQL expression for _mod_status.
     
     Falls back to the data table's status_column if the mods table has no entry,
-    only when the column value is a recognized status.
+    matching against configured status_labels values (case-insensitive).
+    
+    Args:
+        status_column: Name of the status column in the data table
+        status_labels: Dict mapping internal keys to display labels, e.g.
+                       {"approved": "Accepted", "rejected": "Rejected", ...}
     """
     if status_column:
         col = f'd."{status_column}"'
+        # Build CASE WHEN branches for each status, matching both internal key and label
+        when_clauses = []
+        if status_labels:
+            for internal_key, label in status_labels.items():
+                if internal_key == "unprocessed":
+                    continue  # unprocessed is the default/fallback
+                # Match either the internal key or the configured label
+                values = {internal_key.lower(), label.lower()}
+                in_list = ", ".join(f"'{v}'" for v in sorted(values))
+                when_clauses.append(
+                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN '{internal_key}'"
+                )
+        else:
+            # Default: recognize the standard internal keys
+            when_clauses.append(
+                f"WHEN LOWER(CAST({col} AS TEXT)) IN ('approved', 'rejected', 'edited') "
+                f"THEN LOWER(CAST({col} AS TEXT))"
+            )
+        
+        case_expr = " ".join(when_clauses)
         return (
             f"COALESCE(ms.mod_type, "
-            f"CASE WHEN LOWER(CAST({col} AS TEXT)) IN ('approved', 'rejected', 'edited') "
-            f"THEN LOWER(CAST({col} AS TEXT)) ELSE 'unprocessed' END)"
+            f"CASE {case_expr} ELSE 'unprocessed' END)"
         )
     return "COALESCE(ms.mod_type, 'unprocessed')"
 
@@ -390,7 +414,7 @@ class DataFetcher:
             
             query = f"""
             SELECT _mod_status, COUNT(*) as cnt FROM (
-                SELECT {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                SELECT {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
@@ -447,7 +471,7 @@ class DataFetcher:
             query = f"""
             SELECT COUNT(*) as cnt FROM (
                 SELECT d.*, 
-                       {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                       {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
@@ -517,7 +541,7 @@ class DataFetcher:
             # Wrap in subquery to allow status filtering
             inner_query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -598,7 +622,7 @@ class DataFetcher:
             
             inner_query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -1031,7 +1055,7 @@ class ConfigInstance:
             
             query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -1211,7 +1235,7 @@ class ConfigInstance:
             
             query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 

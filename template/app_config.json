@@ -140,5 +140,11 @@
   "enable_undo": true,
   "enable_copy_column": true,
   "enable_status_filter": true,
+  "status_labels": {
+    "unprocessed": "Unreviewed",
+    "edited": "Edited",
+    "approved": "Accepted",
+    "rejected": "Rejected"
+  },
   "fix_filter": false
 }

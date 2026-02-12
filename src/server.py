@@ -290,7 +290,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 sort_ascending=params.sort_ascending,
                 page=1,
                 page_size=1,
-                status_filters=["unprocessed", "edited", "approved", "rejected"]
+                status_filters=list(app_config.status_labels.keys())
             )
             return config.data_fetcher.get_status_counts(count_params)
         pk_cols = app_config.table.primary_key if hasattr(app_config.table, 'primary_key') else None
@@ -312,7 +312,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         try:
             status_filters = list(input.status_filter_multi())
         except:
-            status_filters = ["unprocessed", "edited", "approved", "rejected"]
+            status_filters = list(app_config.status_labels.keys())
         
         return get_filtered_rows(
             df=current_df,
@@ -333,7 +333,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         try:
             status_filters = list(input.status_filter_multi())
         except:
-            status_filters = ["unprocessed", "edited", "approved", "rejected"]
+            status_filters = list(app_config.status_labels.keys())
         
         # Convert active_filters to dict format expected by QueryParams
         # active_filters: {column: "value1\nvalue2\n..."} -> {column: [values]}
@@ -448,13 +448,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         try:
             selected = list(input.status_filter_multi())
         except:
-            selected = ["unprocessed", "edited", "approved", "rejected"]
+            selected = list(app_config.status_labels.keys())
+        
+        # Get configured labels
+        labels = app_config.status_labels
         
         bars = []
         for status, count in counts.items():
             pct = (count / total) * 100
             is_checked = status in selected
-            bars.append(build_status_histogram_bar(status, count, pct, is_checked))
+            bars.append(build_status_histogram_bar(status, count, pct, is_checked, label=labels.get(status)))
         return ui.div(*bars)
     
     # Output: Current preset name
@@ -932,7 +935,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             pk_columns=app_config.table.primary_key,
             editable_columns=app_config.table.editable_columns,
             readonly_columns=app_config.table.readonly_columns,
-            show_status_column=app_config.enable_approval_workflow
+            show_status_column=app_config.enable_approval_workflow,
+            status_labels=app_config.status_labels
         )
     
     # Output: Approval status

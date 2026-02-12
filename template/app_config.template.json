@@ -151,6 +151,13 @@
   "enable_copy_column": true,
   "enable_status_filter": true,
   "_enable_status_filter_comment": "Show status distribution and filter in sidebar",
+  "status_labels": {
+    "unprocessed": "Unreviewed",
+    "edited": "Edited",
+    "approved": "Accepted",
+    "rejected": "Rejected"
+  },
+  "_status_labels_comment": "Display labels for each status. Internal keys (unprocessed/edited/approved/rejected) must not change. Values in the database status_column matching these labels are also recognized.",
   "fix_filter": false,
   "_fix_filter_comment": "When true, locks filters to only the default_filters defined above. Users cannot add or remove filters."
 }

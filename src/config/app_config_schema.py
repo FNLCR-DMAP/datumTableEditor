@@ -217,6 +217,16 @@ class AppConfig:
     enable_copy_column: bool = True
     enable_status_filter: bool = True  # Show status filter in sidebar
     fix_filter: bool = False  # Lock filters to only the default_filters from config
+    
+    # Configurable status labels: internal_key -> display_label
+    # Internal keys: unprocessed, edited, approved, rejected
+    # Also used to recognize values in database.status_column
+    status_labels: dict = field(default_factory=lambda: {
+        "unprocessed": "Unprocessed",
+        "edited": "Edited",
+        "approved": "Approved",
+        "rejected": "Rejected"
+    })
 
 
 # =============================================================================
@@ -349,6 +359,10 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_undo = file_config.get("enable_undo", config.enable_undo)
     config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
+    
+    # Status labels
+    if "status_labels" in file_config:
+        config.status_labels.update(file_config["status_labels"])
     
     return config
 

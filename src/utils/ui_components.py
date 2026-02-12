@@ -149,8 +149,9 @@ def build_log_entry_field_modification(timestamp: str, details: dict, log_idx: i
     )
 
 
-def build_status_histogram_bar(status: str, count: int, pct: float, is_checked: bool) -> ui.div:
+def build_status_histogram_bar(status: str, count: int, pct: float, is_checked: bool, label: str = None) -> ui.div:
     """Build a single bar for the status histogram."""
+    display_label = label or status.capitalize()
     return ui.div(
         ui.tags.label(
             ui.tags.input(
@@ -160,7 +161,7 @@ def build_status_histogram_bar(status: str, count: int, pct: float, is_checked: 
                 class_="status-checkbox",
                 **{"data-status": status}
             ),
-            ui.span(f"{status.capitalize()}", class_=f"histogram-label status-label-{status}"),
+            ui.span(display_label, class_=f"histogram-label status-label-{status}"),
             class_="histogram-checkbox-label"
         ),
         ui.div(

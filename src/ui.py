@@ -75,6 +75,11 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     enable_export = config.app_config.enable_export
     enable_status_filter = config.app_config.enable_status_filter
     
+    # Status labels from config
+    status_labels = config.app_config.status_labels
+    status_choices = {k: v for k, v in status_labels.items()}
+    status_all_keys = list(status_labels.keys())
+    
     return ui.page_fluid(
         # Hidden input to pass config path to server (completely hidden)
         ui.div(
@@ -173,13 +178,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_checkbox_group(
                             "status_filter_multi",
                             label=None,
-                            choices={
-                                "unprocessed": "Unprocessed",
-                                "edited": "Edited",
-                                "approved": "Approved",
-                                "rejected": "Rejected"
-                            },
-                            selected=["unprocessed", "edited", "approved", "rejected"]
+                            choices=status_choices,
+                            selected=status_all_keys
                         ),
                         class_="stats-section",
                         style="" if enable_status_filter else "display: none;"
@@ -188,8 +188,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_checkbox_group(
                             "status_filter_multi",
                             label=None,
-                            choices={"unprocessed": "Unprocessed", "edited": "Edited", "approved": "Approved", "rejected": "Rejected"},
-                            selected=["unprocessed", "edited", "approved", "rejected"]
+                            choices=status_choices,
+                            selected=status_all_keys
                         ),
                         style="display: none;"
                     ),
