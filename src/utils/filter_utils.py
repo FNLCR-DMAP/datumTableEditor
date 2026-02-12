@@ -49,7 +49,7 @@ def get_filtered_rows(
                 filter_values = [v.strip() for v in normalized.split(",") if v.strip()]
                 if filter_values:
                     row_value = str(row.get(col_name, ""))
-                    # Row passes if its value matches ANY of the filter values
+                    # Row passes if its value matches ANY of the filter values (exact match)
                     if row_value not in filter_values:
                         filter_pass = False
                         break
@@ -57,7 +57,7 @@ def get_filtered_rows(
         if not filter_pass:
             continue
         
-        # Check search filter
+        # Check search filter (case-insensitive contains)
         if search_term.strip():
             search_lower = search_term.lower().strip()
             row_matches = False

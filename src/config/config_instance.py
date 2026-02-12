@@ -194,21 +194,21 @@ class DataFetcher:
                 # IN clause for multi-select
                 if use_params:
                     placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
-                    conditions.append(f'"{col}" IN ({placeholders})')
+                    conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
                     for i, v in enumerate(value):
-                        sql_params[f"p{param_idx + i}"] = v
+                        sql_params[f"p{param_idx + i}"] = str(v)
                     param_idx += len(value)
                 else:
-                    placeholders = ", ".join(self._escape_sql_value(v) for v in value)
-                    conditions.append(f'"{col}" IN ({placeholders})')
+                    placeholders = ", ".join(self._escape_sql_value(str(v)) for v in value)
+                    conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
             else:
                 # Exact match
                 if use_params:
-                    conditions.append(f'"{col}" = :p{param_idx}')
-                    sql_params[f"p{param_idx}"] = value
+                    conditions.append(f'CAST("{col}" AS TEXT) = :p{param_idx}')
+                    sql_params[f"p{param_idx}"] = str(value)
                     param_idx += 1
                 else:
-                    conditions.append(f'"{col}" = {self._escape_sql_value(value)}')
+                    conditions.append(f'CAST("{col}" AS TEXT) = {self._escape_sql_value(str(value))}')
         
         # Search term (ILIKE across searchable columns)
         if params.search_term:
