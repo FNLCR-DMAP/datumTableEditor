@@ -411,8 +411,17 @@ let pendingExportType = null;  // 'selected' or 'all'
 window.openExportConfirmModal = function(event, exportType) {
     currentExportModalContext = event ? event.target : document.activeElement;
     pendingExportType = exportType;
+    
+    // Reset modal state: show the "I Understand" button, hide any previous download UI
     var modal = findModalInContext(currentExportModalContext, 'export-confirm-modal');
-    if (modal) modal.classList.add('show');
+    if (modal) {
+        var confirmBtn = modal.querySelector('#export-confirm-btn');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'I Understand';
+        }
+        modal.classList.add('show');
+    }
 };
 
 window.closeExportConfirmModal = function() {
@@ -422,16 +431,23 @@ window.closeExportConfirmModal = function() {
     pendingExportType = null;
 };
 
-window.confirmExportDownload = function() {
-    // Find the hidden download button and click it
-    var btnId = pendingExportType === 'all' ? 'export_all_btn' : 'export_btn';
-    var downloadBtn = findElementInContext(currentExportModalContext, btnId);
+window.confirmExportDownload = function(event) {
+    // Disable the button and show preparing state
+    var contextEl = event ? event.target : currentExportModalContext;
+    var modal = findModalInContext(currentExportModalContext, 'export-confirm-modal');
+    if (modal) {
+        var confirmBtn = modal.querySelector('#export-confirm-btn');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Preparing...';
+        }
+    }
     
-    // Close the modal first
-    closeExportConfirmModal();
-    
-    // Trigger the actual download
-    if (downloadBtn) {
-        downloadBtn.click();
+    // Send signal to server to prepare the data
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('confirm_export', {
+            type: pendingExportType || 'all',
+            ts: Date.now()
+        }, {priority: 'event'}, currentExportModalContext);
     }
 };

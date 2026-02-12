@@ -971,81 +971,149 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         message = export_status_report(summary_data, status_counts, data_dir / "modification_status_report.csv")
         ui.notification_show(message, type="message", duration=5)
     
-    # Event: Export CSV - Download handler (selected rows only)
-    @render.download(filename="data_selected.csv")
-    async def export_btn():
-        """Generate CSV file for download with selected rows only."""
-        import io
-        current_df = data.get()
-        selected_indices = get_selected_row_indices(input, len(current_df))
-        
-        if not selected_indices:
-            ui.notification_show("Please select rows to export", type="warning", duration=3)
-            return
-        
-        # Filter to selected rows only
-        selected_df = current_df.iloc[selected_indices]
-        
-        output = io.StringIO()
-        selected_df.to_csv(output, index=False)
-        ui.notification_show(f"Exported {len(selected_indices)} row(s)", type="message", duration=2)
-        yield output.getvalue()
+    # === Export Flow: confirm → prepare → download ===
+    # Reactive values for export state
+    export_state = reactive.Value("idle")  # "idle" | "preparing" | "ready" | "error"
+    export_csv_data = reactive.Value("")   # Prepared CSV content
+    export_row_count = reactive.Value(0)   # Number of rows in export
+    export_type = reactive.Value("all")    # "selected" | "all"
     
-    # Event: Export All CSV - Download handler (all filtered/sorted rows)
+    # Step 1: User clicks "I Understand" → triggers data preparation
+    @reactive.Effect
+    @reactive.event(input.confirm_export)
+    def _prepare_export():
+        """Prepare export data after user confirms PHI/PII warning."""
+        import io
+        
+        req = input.confirm_export()
+        etype = req.get("type", "all") if isinstance(req, dict) else "all"
+        export_type.set(etype)
+        export_state.set("preparing")
+        
+        try:
+            if etype == "selected":
+                # Export selected rows
+                current_df = data.get()
+                selected_indices = get_selected_row_indices(input, len(current_df))
+                
+                if not selected_indices:
+                    ui.notification_show("Please select rows to export", type="warning", duration=3)
+                    export_state.set("idle")
+                    return
+                
+                result_df = current_df.iloc[selected_indices]
+            else:
+                # Export all filtered/sorted rows
+                if is_lazy_loading:
+                    result_df = _fetch_all_filtered_data()
+                else:
+                    current_df = data.get()
+                    if current_df.empty:
+                        ui.notification_show("No data to export", type="warning", duration=3)
+                        export_state.set("idle")
+                        return
+                    
+                    filtered_indices = _get_filtered_rows()
+                    if not filtered_indices:
+                        ui.notification_show("No rows match current filters", type="warning", duration=3)
+                        export_state.set("idle")
+                        return
+                    
+                    result_df = current_df.iloc[filtered_indices].copy()
+                    sort_state = current_sort.get()
+                    if sort_state.get("column") and sort_state.get("column") in result_df.columns:
+                        result_df = sort_dataframe(
+                            result_df,
+                            sort_state.get("column"),
+                            "asc" if sort_state.get("ascending", True) else "desc"
+                        )
+            
+            if result_df.empty:
+                ui.notification_show("No data to export", type="warning", duration=3)
+                export_state.set("idle")
+                return
+            
+            output = io.StringIO()
+            result_df.to_csv(output, index=False)
+            export_csv_data.set(output.getvalue())
+            export_row_count.set(len(result_df))
+            export_state.set("ready")
+        except Exception as e:
+            ui.notification_show(f"Export failed: {str(e)}", type="error", duration=5)
+            export_state.set("error")
+    
+    # Step 2: Dynamic UI in modal shows status + download button when ready
+    @render.ui
+    def export_download_ui():
+        """Render export status indicator and download button in the modal."""
+        state = export_state.get()
+        
+        if state == "idle":
+            return ui.div()
+        
+        if state == "preparing":
+            return ui.div(
+                ui.div(
+                    ui.tags.span(
+                        class_="spinner-border spinner-border-sm",
+                        role="status",
+                        style="margin-right: 8px;"
+                    ),
+                    "Preparing data for download...",
+                    style="display: flex; align-items: center; color: #0d6efd; font-weight: 500;"
+                ),
+                style="margin-top: 16px; padding: 12px; background: #f0f7ff; border-radius: 6px;"
+            )
+        
+        if state == "ready":
+            row_count = export_row_count.get()
+            etype = export_type.get()
+            label = f"selected" if etype == "selected" else "filtered"
+            return ui.div(
+                ui.div(
+                    ui.tags.span("✅ ", style="font-size: 18px; margin-right: 6px;"),
+                    f"Data ready — {row_count} {label} row(s)",
+                    style="font-weight: 500; color: #198754; margin-bottom: 10px;"
+                ),
+                ui.download_button(
+                    "export_prepared_btn",
+                    "⬇ Download CSV",
+                    class_="btn btn-success",
+                    style="width: 100%;"
+                ),
+                style="margin-top: 16px; padding: 12px; background: #f0fff4; border-radius: 6px;"
+            )
+        
+        if state == "error":
+            return ui.div(
+                "❌ Export failed. Please close and try again.",
+                style="margin-top: 16px; padding: 12px; background: #fff0f0; border-radius: 6px; color: #dc3545; font-weight: 500;"
+            )
+        
+        return ui.div()
+    
+    # Step 3: Actual download handler — serves the prepared CSV
     def _get_export_filename():
-        """Generate dynamic filename based on app title."""
-        # Sanitize app title for filename (remove special chars, replace spaces with underscores)
+        """Generate dynamic filename based on app title and export type."""
         import re
         title = app_config.app_title or "data"
         safe_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')
-        return f"{safe_title}_data_filtered.csv"
+        etype = export_type.get()
+        suffix = "selected" if etype == "selected" else "filtered"
+        return f"{safe_title}_data_{suffix}.csv"
     
     @render.download(filename=_get_export_filename)
-    async def export_all_btn():
-        """Generate CSV file for download with all rows matching current filter/sort criteria."""
-        import io
-        
-        # Use lazy loading fetch if enabled, otherwise use in-memory data
-        if is_lazy_loading:
-            # Fetch all filtered data from database (no pagination limit)
-            filtered_df = _fetch_all_filtered_data()
-            
-            if filtered_df.empty:
-                ui.notification_show("No rows match current filters", type="warning", duration=3)
-                return
-            
-            # Sort is already applied by the database query
-        else:
-            # Traditional mode: use in-memory data
-            current_df = data.get()
-            
-            if current_df.empty:
-                ui.notification_show("No data to export", type="warning", duration=3)
-                return
-            
-            # Get filtered row indices (respects search, status filter, column filters)
-            filtered_indices = _get_filtered_rows()
-            
-            if not filtered_indices:
-                ui.notification_show("No rows match current filters", type="warning", duration=3)
-                return
-            
-            # Filter to matching rows
-            filtered_df = current_df.iloc[filtered_indices].copy()
-            
-            # Apply current sort
-            sort_state = current_sort.get()
-            if sort_state.get("column") and sort_state.get("column") in filtered_df.columns:
-                filtered_df = sort_dataframe(
-                    filtered_df,
-                    sort_state.get("column"),
-                    "asc" if sort_state.get("ascending", True) else "desc"
-                )
-        
-        output = io.StringIO()
-        filtered_df.to_csv(output, index=False)
-        ui.notification_show(f"Exported {len(filtered_df)} filtered row(s)", type="message", duration=2)
-        yield output.getvalue()
+    async def export_prepared_btn():
+        """Serve the prepared CSV data."""
+        csv_content = export_csv_data.get()
+        if not csv_content:
+            return
+        row_count = export_row_count.get()
+        ui.notification_show(f"Exported {row_count} row(s)", type="message", duration=2)
+        # Reset export state after download
+        export_state.set("idle")
+        export_csv_data.set("")
+        yield csv_content
     
     # Event: Reload data
     @reactive.Effect

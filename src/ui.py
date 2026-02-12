@@ -240,9 +240,6 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success") if enable_save_button else None,
                         ui.tags.button("Export Selected", class_="btn btn-sm btn-info", onclick="openExportConfirmModal(event, 'selected')") if enable_export else None,
                         ui.tags.button("Export All", class_="btn btn-sm btn-outline-info", onclick="openExportConfirmModal(event, 'all')") if enable_export else None,
-                        # Hidden actual download buttons (triggered after user confirms PHI/PII warning)
-                        ui.download_button("export_btn", "Export Selected", class_="btn btn-sm btn-info", style="display: none;") if enable_export else None,
-                        ui.download_button("export_all_btn", "Export All", class_="btn btn-sm btn-outline-info", style="display: none;") if enable_export else None,
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success") if enable_approval_workflow else None,
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
@@ -428,6 +425,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 "regulations and institutional policies.",
                                 style="margin-bottom: 0; color: #555; line-height: 1.6;"
                             ),
+                            # Dynamic area: shows preparing spinner → download button when ready
+                            ui.output_ui("export_download_ui"),
                             class_="modal-body"
                         ),
                         ui.div(
@@ -440,9 +439,11 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             ui.tags.button(
                                 "I Understand",
                                 class_="btn btn-primary",
-                                onclick="confirmExportDownload()"
+                                id="export-confirm-btn",
+                                onclick="confirmExportDownload(event)"
                             ),
-                            style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;"
+                            style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;",
+                            id="export-modal-footer"
                         ),
                         class_="modal-content",
                         style="max-width: 480px;"
