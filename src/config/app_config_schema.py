@@ -210,10 +210,12 @@ class AppConfig:
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     
     # Feature flags
-    enable_approval_workflow: bool = True
+    enable_approval_workflow: bool = True  # Show approve/reject buttons and status column
+    enable_save_button: bool = True  # Show save button
     enable_export: bool = True
     enable_undo: bool = True
     enable_copy_column: bool = True
+    enable_status_filter: bool = True  # Show status filter in sidebar
 
 
 # =============================================================================
@@ -341,8 +343,10 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     
     # Feature flags
     config.enable_approval_workflow = file_config.get("enable_approval_workflow", config.enable_approval_workflow)
+    config.enable_save_button = file_config.get("enable_save_button", config.enable_save_button)
     config.enable_export = file_config.get("enable_export", config.enable_export)
     config.enable_undo = file_config.get("enable_undo", config.enable_undo)
+    config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
     
     return config
 

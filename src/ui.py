@@ -69,6 +69,12 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     app_title = config.app_config.app_title or "Data Editor"
     table_title = config.app_config.table.title or app_title
     
+    # Feature flags
+    enable_approval_workflow = config.app_config.enable_approval_workflow
+    enable_save_button = config.app_config.enable_save_button
+    enable_export = config.app_config.enable_export
+    enable_status_filter = config.app_config.enable_status_filter
+    
     return ui.page_fluid(
         # Hidden input to pass config path to server (completely hidden)
         ui.div(
@@ -159,7 +165,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         class_="table-name-section"
                     ),
                     
-                    # Stats Histogram Section (with filter checkboxes)
+                    # Stats Histogram Section (with filter checkboxes) - conditional
                     ui.div(
                         ui.h4("Status Distribution"),
                         ui.output_ui("stats_histogram"),
@@ -175,7 +181,17 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             },
                             selected=["unprocessed", "edited", "approved", "rejected"]
                         ),
-                        class_="stats-section"
+                        class_="stats-section",
+                        style="" if enable_status_filter else "display: none;"
+                    ) if enable_status_filter else ui.div(
+                        # Hidden default filter when status filter is disabled
+                        ui.input_checkbox_group(
+                            "status_filter_multi",
+                            label=None,
+                            choices={"unprocessed": "Unprocessed", "edited": "Edited", "approved": "Approved", "rejected": "Rejected"},
+                            selected=["unprocessed", "edited", "approved", "rejected"]
+                        ),
+                        style="display: none;"
                     ),
                     
                     # Search Filter
@@ -219,13 +235,13 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             ui.div(
                 # Top Toolbar - Actions + Preset + Add Column
                 ui.div(
-                    # Left side - Action Buttons
+                    # Left side - Action Buttons (conditionally rendered based on config)
                     ui.div(
-                        ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success"),
-                        ui.download_button("export_btn", "Export Selected", class_="btn btn-sm btn-info"),
-                        ui.download_button("export_all_btn", "Export All", class_="btn btn-sm btn-outline-info"),
-                        ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success"),
-                        ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger"),
+                        ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success") if enable_save_button else None,
+                        ui.download_button("export_btn", "Export Selected", class_="btn btn-sm btn-info") if enable_export else None,
+                        ui.download_button("export_all_btn", "Export All", class_="btn btn-sm btn-outline-info") if enable_export else None,
+                        ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success") if enable_approval_workflow else None,
+                        ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
                         ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows()"),
                         class_="toolbar-left"

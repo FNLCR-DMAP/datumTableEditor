@@ -257,8 +257,11 @@ def generate_target_report(
         functions = get_functions_from_file(py_file)
         decorated = get_decorated_functions(py_file)
         
-        used = [f for f in functions if f in all_calls]
-        unused = [f for f in functions if f not in all_calls and f not in decorated]
+        # Dunder methods are implicitly called by Python, not "unused"
+        dunder_methods = {f for f in functions if f.startswith('__') and f.endswith('__')}
+        
+        used = [f for f in functions if f in all_calls or f in dunder_methods]
+        unused = [f for f in functions if f not in all_calls and f not in decorated and f not in dunder_methods]
         
         report["function_mapping"][rel_path] = {
             "total": len(functions),

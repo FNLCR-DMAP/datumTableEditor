@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 78,
+    "total_functions": 81,
     "unused_functions": 0,
-    "fully_annotated_functions": 71,
-    "function_coverage_percent": 91.0,
-    "parameter_coverage_percent": 96.6,
+    "fully_annotated_functions": 72,
+    "function_coverage_percent": 88.9,
+    "parameter_coverage_percent": 96.8,
     "mypy_errors": 0
   },
   "files": {},
@@ -179,22 +179,28 @@
       ]
     },
     "src/utils/preset_utils.py": {
-      "total": 8,
+      "total": 11,
       "functions": [
+        "_get_config_instance",
         "_get_presets_service",
         "_get_username",
         "_is_database_enabled",
+        "_is_datum_mode",
         "_load_app_config",
+        "_load_full_config",
         "load_active_preset",
         "load_presets",
         "save_active_preset",
         "save_presets"
       ],
       "used": [
+        "_get_config_instance",
         "_get_presets_service",
         "_get_username",
         "_is_database_enabled",
+        "_is_datum_mode",
         "_load_app_config",
+        "_load_full_config",
         "load_active_preset",
         "load_presets",
         "save_active_preset",
@@ -282,21 +288,21 @@
         "fully_annotated": 12
       },
       "parameters": {
-        "total": 43,
-        "annotated": 41
+        "total": 44,
+        "annotated": 42
       },
       "missing": [
         {
           "type": "parameter",
           "function": "perform_undo",
           "name": "config_instance",
-          "line": 50
+          "line": 66
         },
         {
           "type": "parameter",
           "function": "perform_cell_edit",
           "name": "config_instance",
-          "line": 161
+          "line": 177
         }
       ]
     },
@@ -403,14 +409,26 @@
     },
     "src/utils/preset_utils.py": {
       "functions": {
-        "total": 8,
-        "with_return_type": 8,
-        "fully_annotated": 8
+        "total": 11,
+        "with_return_type": 9,
+        "fully_annotated": 9
       },
       "parameters": {
-        "total": 16,
-        "annotated": 16
-      }
+        "total": 17,
+        "annotated": 17
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "_load_full_config",
+          "line": 41
+        },
+        {
+          "type": "return",
+          "function": "_get_config_instance",
+          "line": 93
+        }
+      ]
     },
     "src/utils/table_utils.py": {
       "functions": {
@@ -419,8 +437,8 @@
         "fully_annotated": 7
       },
       "parameters": {
-        "total": 36,
-        "annotated": 36
+        "total": 44,
+        "annotated": 44
       }
     },
     "src/utils/ui_components.py": {

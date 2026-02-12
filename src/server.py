@@ -877,7 +877,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             edited_cells=edited_cells.get(),
             pk_columns=app_config.table.primary_key,
             editable_columns=app_config.table.editable_columns,
-            readonly_columns=app_config.table.readonly_columns
+            readonly_columns=app_config.table.readonly_columns,
+            show_status_column=app_config.enable_approval_workflow
         )
     
     # Output: Approval status

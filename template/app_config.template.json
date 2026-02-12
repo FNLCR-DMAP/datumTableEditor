@@ -124,7 +124,12 @@
   },
   
   "enable_approval_workflow": true,
+  "_enable_approval_workflow_comment": "Show approve/reject buttons and status column",
+  "enable_save_button": true,
+  "_enable_save_button_comment": "Show the save button in toolbar",
   "enable_export": true,
   "enable_undo": true,
-  "enable_copy_column": true
+  "enable_copy_column": true,
+  "enable_status_filter": true,
+  "_enable_status_filter_comment": "Show status distribution and filter in sidebar"
 }
