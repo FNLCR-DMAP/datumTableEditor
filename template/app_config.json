@@ -60,7 +60,9 @@
       "date_of_batch_upload": {"op": "between", "value": ["2026-01-31", "2026-02-07"]},
       "test_code_2": {"op": "contains", "value": "methylation"},
       "is_dna_sample": "TRUE",
-      "dna_rna_number": {"op": "regex", "value": "^(.*[^R])$"}
+      "dna_rna_number": {"op": "regex", "value": "^(.*[^R])$"},
+      "library_id": {"op": "not_empty"},
+      "ngs_test": {"op": "in", "value": ["ctTSO500_v1", "WESomatic_v1", "RNA_Access_v2", "RNA_Access_v3", "RNA_Access_v1", "TSO500v4", "WEGermline_v1", "TSO500v5", "WESomatic_v4", "WESomatic_v2", "WESomatic_v3", "TSO500", "TSO500v3"]}
     },
     "status_filter_enabled": true,
     "status_column": "Status",

@@ -179,7 +179,7 @@ class DataFetcher:
         Filter values can be:
           - A string or list of strings: exact match (= / IN)
           - An operator dict {"op": "...", "value": ...}: rich operator
-            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, regex
+            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, not_empty, regex
         
         Args:
             params: Query parameters
@@ -258,6 +258,14 @@ class DataFetcher:
                         param_idx += 1
                     else:
                         conditions.append(f'CAST("{col}" AS TEXT) {sql_op} {self._escape_sql_value(str(fval))}')
+                
+                elif op == "not_empty":
+                    if use_params:
+                        conditions.append(f'("{col}" IS NOT NULL AND CAST("{col}" AS TEXT) != :p{param_idx})')
+                        sql_params[f"p{param_idx}"] = ""
+                        param_idx += 1
+                    else:
+                        conditions.append(f'("{col}" IS NOT NULL AND CAST("{col}" AS TEXT) != \'\')')
                 
                 elif op == "regex":
                     if use_params:

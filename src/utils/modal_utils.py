@@ -125,7 +125,9 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     op_label = OPERATOR_LABELS.get(op, op)
     
     # Format value display
-    if isinstance(value, list):
+    if op in ("not_empty",):
+        value_display = ""  # no-value operator
+    elif isinstance(value, list):
         if op == "between" and len(value) == 2:
             value_display = f"{value[0]}  →  {value[1]}"
         else:

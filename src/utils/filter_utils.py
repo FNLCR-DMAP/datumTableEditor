@@ -6,7 +6,7 @@ Supports two filter value formats:
   - Operator dict: {"op": "not_contains", "value": "RT"} → rich operator
 
 Supported operators:
-  in, not_in, contains, not_contains, between, gt, gte, lt, lte, regex
+  in, not_in, contains, not_contains, between, gt, gte, lt, lte, not_empty, regex
 """
 
 import re
@@ -28,6 +28,7 @@ OPERATOR_LABELS = {
     "lt": "<",
     "lte": "≤",
     "regex": "matches",
+    "not_empty": "is not empty",
 }
 
 
@@ -83,6 +84,11 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     elif op == "lte":
         try: return float(row_str) <= float(fval)
         except (ValueError, TypeError): return row_str <= str(fval)
+    
+    elif op == "not_empty":
+        if row_value_raw is None or pd.isna(row_value_raw):
+            return False
+        return row_str.strip() != ""
     
     elif op == "regex":
         try:
