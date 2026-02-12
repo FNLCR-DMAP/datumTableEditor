@@ -60,8 +60,11 @@
       "Gene_names": "text"
     },
     "default_filters": {
-      "_comment": "Default filters applied on load. Format: {column: [values]} or {column: \"value\"}",
-      "_example": "{ \"Status\": [\"pending\", \"review\"], \"Gene_names\": \"TP53\" }"
+      "_comment": "Default filters applied on load. Plain values use exact match. Operator objects enable rich filtering.",
+      "_format": "column: [values] | column: 'value' | column: {'op': '...', 'value': ...}",
+      "_operators": "in, not_in, contains, not_contains, between, gt, gte, lt, lte",
+      "_example_simple": "{ 'Status': ['pending', 'review'], 'Gene_names': 'TP53' }",
+      "_example_operators": "{ 'Date': {'op': 'between', 'value': ['2025-01-01', '2025-12-31']}, 'Physician': {'op': 'not_in', 'value': ['XI']}, 'ID': {'op': 'not_contains', 'value': 'RT'} }"
     },
     "status_filter_enabled": true,
     "status_column": "Status",

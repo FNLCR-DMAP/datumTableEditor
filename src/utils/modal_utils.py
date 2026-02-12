@@ -4,6 +4,7 @@ Modal and dialog builders for the Epitopes Data Editor.
 
 import pandas as pd
 from shiny import ui
+from .filter_utils import _is_operator_filter, OPERATOR_LABELS
 
 
 def build_current_column_tag(col: str, index: int) -> ui.div:
@@ -117,6 +118,42 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
     return ui.div(*column_buttons, style="max-height: 400px; overflow-y: auto;")
 
 
+def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: bool = False) -> ui.div:
+    """Build a read-only display element for an operator filter."""
+    op = filter_def.get("op", "in")
+    value = filter_def.get("value")
+    op_label = OPERATOR_LABELS.get(op, op)
+    
+    # Format value display
+    if isinstance(value, list):
+        if op == "between" and len(value) == 2:
+            value_display = f"{value[0]}  →  {value[1]}"
+        else:
+            value_display = ", ".join(str(v) for v in value)
+    else:
+        value_display = str(value) if value is not None else ""
+    
+    # Build remove button (hidden when filters are fixed)
+    remove_btn = ui.tags.button("×", class_="remove-filter-btn", 
+                       onclick=f"removeFilter('{col_name}', event)",
+                       style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;") if not fix_filter else ui.span()
+    
+    return ui.div(
+        ui.div(
+            ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
+            remove_btn,
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
+        ),
+        ui.div(
+            ui.tags.span(op_label, style="font-size: 11px; color: #fff; background: #6c757d; padding: 2px 6px; border-radius: 3px; margin-right: 6px;"),
+            ui.tags.span(value_display, style="font-size: 12px; color: #333; word-break: break-word;"),
+            style="padding: 6px 8px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;"
+        ),
+        class_="filter-group",
+        style="margin-bottom: 10px;"
+    )
+
+
 def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False) -> ui.div:
     """Build a single dynamic filter element with multi-select support."""
     # Format current value for display
@@ -177,12 +214,18 @@ def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame, fix_filter: boo
         )
     
     filter_elements = []
-    for col_name in filters:
+    for col_name, filter_value in filters.items():
+        # Operator dict → render as read-only label (no DataFrame dependency)
+        if _is_operator_filter(filter_value):
+            filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter))
+            continue
+        
+        # Simple string filter needs the column in the DataFrame for unique values
         if col_name not in df.columns:
             continue
         
         unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
-        current_value = filters.get(col_name, "all")
+        current_value = filter_value if filter_value else "all"
         filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter))
     
     return ui.div(*filter_elements)

@@ -176,6 +176,11 @@ class DataFetcher:
         """
         Build WHERE clause from query parameters.
         
+        Filter values can be:
+          - A string or list of strings: exact match (= / IN)
+          - An operator dict {"op": "...", "value": ...}: rich operator
+            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte
+        
         Args:
             params: Query parameters
             use_params: If True, use parameterized queries (:param). 
@@ -190,6 +195,73 @@ class DataFetcher:
             if value is None or value == "" or value == []:
                 continue
             
+            # ── Operator dict filter ──
+            if isinstance(value, dict) and "op" in value:
+                op = value.get("op", "in")
+                fval = value.get("value")
+                
+                if op == "in":
+                    vals = fval if isinstance(fval, list) else [fval]
+                    if use_params:
+                        placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
+                        conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
+                        for i, v in enumerate(vals):
+                            sql_params[f"p{param_idx + i}"] = str(v)
+                        param_idx += len(vals)
+                    else:
+                        placeholders = ", ".join(self._escape_sql_value(str(v)) for v in vals)
+                        conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
+                
+                elif op == "not_in":
+                    vals = fval if isinstance(fval, list) else [fval]
+                    if use_params:
+                        placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
+                        conditions.append(f'CAST("{col}" AS TEXT) NOT IN ({placeholders})')
+                        for i, v in enumerate(vals):
+                            sql_params[f"p{param_idx + i}"] = str(v)
+                        param_idx += len(vals)
+                    else:
+                        placeholders = ", ".join(self._escape_sql_value(str(v)) for v in vals)
+                        conditions.append(f'CAST("{col}" AS TEXT) NOT IN ({placeholders})')
+                
+                elif op == "contains":
+                    if use_params:
+                        conditions.append(f'CAST("{col}" AS TEXT) ILIKE :p{param_idx}')
+                        sql_params[f"p{param_idx}"] = f"%{fval}%"
+                        param_idx += 1
+                    else:
+                        conditions.append(f'CAST("{col}" AS TEXT) ILIKE {self._escape_sql_value(f"%{fval}%")}')
+                
+                elif op == "not_contains":
+                    if use_params:
+                        conditions.append(f'CAST("{col}" AS TEXT) NOT ILIKE :p{param_idx}')
+                        sql_params[f"p{param_idx}"] = f"%{fval}%"
+                        param_idx += 1
+                    else:
+                        conditions.append(f'CAST("{col}" AS TEXT) NOT ILIKE {self._escape_sql_value(f"%{fval}%")}')
+                
+                elif op == "between":
+                    if isinstance(fval, list) and len(fval) == 2:
+                        if use_params:
+                            conditions.append(f'CAST("{col}" AS TEXT) BETWEEN :p{param_idx} AND :p{param_idx + 1}')
+                            sql_params[f"p{param_idx}"] = str(fval[0])
+                            sql_params[f"p{param_idx + 1}"] = str(fval[1])
+                            param_idx += 2
+                        else:
+                            conditions.append(f'CAST("{col}" AS TEXT) BETWEEN {self._escape_sql_value(str(fval[0]))} AND {self._escape_sql_value(str(fval[1]))}')
+                
+                elif op in ("gt", "gte", "lt", "lte"):
+                    sql_op = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[op]
+                    if use_params:
+                        conditions.append(f'CAST("{col}" AS TEXT) {sql_op} :p{param_idx}')
+                        sql_params[f"p{param_idx}"] = str(fval)
+                        param_idx += 1
+                    else:
+                        conditions.append(f'CAST("{col}" AS TEXT) {sql_op} {self._escape_sql_value(str(fval))}')
+                
+                continue
+            
+            # ── Simple value filter (original behavior) ──
             if isinstance(value, list):
                 # IN clause for multi-select
                 if use_params:

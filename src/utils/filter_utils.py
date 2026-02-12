@@ -1,9 +1,87 @@
 """
 Filtering utilities for search and column filters.
+
+Supports two filter value formats:
+  - Simple string: "val1\\nval2" → exact match (IN)
+  - Operator dict: {"op": "not_contains", "value": "RT"} → rich operator
+
+Supported operators:
+  in, not_in, contains, not_contains, between, gt, gte, lt, lte
 """
 
 import pandas as pd
-from typing import Callable
+from typing import Any, Callable
+
+
+# ── Operator helpers ──────────────────────────────────────────────
+
+OPERATOR_LABELS = {
+    "in": "is",
+    "not_in": "is not",
+    "contains": "contains",
+    "not_contains": "does not contain",
+    "between": "between",
+    "gt": ">",
+    "gte": "≥",
+    "lt": "<",
+    "lte": "≤",
+}
+
+
+def _is_operator_filter(filter_value) -> bool:
+    """Check if a filter value is an operator dict."""
+    return isinstance(filter_value, dict) and "op" in filter_value
+
+
+def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
+    """
+    Evaluate a single row value against an operator filter definition.
+    
+    Args:
+        row_value_raw: The raw cell value from the DataFrame row
+        filter_def: {"op": "...", "value": ...}
+    """
+    op = filter_def.get("op", "in")
+    fval = filter_def.get("value")
+    row_str = str(row_value_raw) if row_value_raw is not None else ""
+    
+    if op == "in":
+        targets = fval if isinstance(fval, list) else [fval]
+        return row_str in [str(t) for t in targets]
+    
+    elif op == "not_in":
+        targets = fval if isinstance(fval, list) else [fval]
+        return row_str not in [str(t) for t in targets]
+    
+    elif op == "contains":
+        return str(fval).lower() in row_str.lower()
+    
+    elif op == "not_contains":
+        return str(fval).lower() not in row_str.lower()
+    
+    elif op == "between":
+        if isinstance(fval, list) and len(fval) == 2:
+            lo, hi = str(fval[0]), str(fval[1])
+            return lo <= row_str <= hi
+        return True  # malformed — don't filter
+    
+    elif op == "gt":
+        try: return float(row_str) > float(fval)
+        except (ValueError, TypeError): return row_str > str(fval)
+    
+    elif op == "gte":
+        try: return float(row_str) >= float(fval)
+        except (ValueError, TypeError): return row_str >= str(fval)
+    
+    elif op == "lt":
+        try: return float(row_str) < float(fval)
+        except (ValueError, TypeError): return row_str < str(fval)
+    
+    elif op == "lte":
+        try: return float(row_str) <= float(fval)
+        except (ValueError, TypeError): return row_str <= str(fval)
+    
+    return True  # unknown op — don't filter
 
 
 def get_filtered_rows(
@@ -18,12 +96,16 @@ def get_filtered_rows(
     """
     Get filtered row indices based on search, status filter, and dynamic column filters.
     
+    Filter values can be:
+      - A string ("val1\\nval2"): exact match, row value must be one of the values
+      - An operator dict ({"op": "not_contains", "value": "RT"}): rich operator
+    
     Args:
         df: DataFrame containing the data
         active_columns: List of currently active/visible columns
         search_term: Search string to filter by
-        status_filters: List of status values to include (e.g., ["unprocessed", "edited"])
-        column_filters: Dictionary of {column_name: filter_value}
+        status_filters: List of status values to include
+        column_filters: Dictionary of {column_name: filter_value_or_operator_dict}
         get_row_status_func: Function that returns status for a given row index
         search_column: Column to search in, or "all" for all active columns
         
@@ -33,26 +115,35 @@ def get_filtered_rows(
     filtered_indices = []
     
     for idx, row in df.iterrows():
-        # idx is the actual DataFrame index, row is the Series
         # Check status filter
         current_status = get_row_status_func(idx)
         if current_status not in status_filters:
             continue
         
-        # Check dynamic column filters (supports newline or comma-delimited multi-values)
+        # Check dynamic column filters
         filter_pass = True
         for col_name, filter_value in column_filters.items():
-            if filter_value and filter_value.strip() and filter_value != "all" and col_name in df.columns:
-                # Parse newline or comma-delimited values and strip whitespace
-                # Replace newlines with commas first, then split by comma
-                normalized = filter_value.replace('\n', ',').replace('\r', ',')
-                filter_values = [v.strip() for v in normalized.split(",") if v.strip()]
-                if filter_values:
-                    row_value = str(row.get(col_name, ""))
-                    # Row passes if its value matches ANY of the filter values (exact match)
-                    if row_value not in filter_values:
-                        filter_pass = False
-                        break
+            if col_name not in df.columns:
+                continue
+            
+            # Operator dict filter
+            if _is_operator_filter(filter_value):
+                if not _row_matches_operator(row.get(col_name), filter_value):
+                    filter_pass = False
+                    break
+                continue
+            
+            # Simple string filter (original behavior)
+            if not filter_value or not str(filter_value).strip() or filter_value == "all":
+                continue
+            
+            normalized = str(filter_value).replace('\n', ',').replace('\r', ',')
+            filter_values = [v.strip() for v in normalized.split(",") if v.strip()]
+            if filter_values:
+                row_value = str(row.get(col_name, ""))
+                if row_value not in filter_values:
+                    filter_pass = False
+                    break
         
         if not filter_pass:
             continue
@@ -63,11 +154,9 @@ def get_filtered_rows(
             row_matches = False
             
             if search_column and search_column != "all" and search_column in df.columns:
-                # Search in specific column
                 if search_lower in str(row[search_column]).lower():
                     row_matches = True
             else:
-                # Search in all active columns
                 for col in active_columns:
                     if col in df.columns and search_lower in str(row[col]).lower():
                         row_matches = True

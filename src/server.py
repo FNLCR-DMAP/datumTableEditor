@@ -198,13 +198,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     _first_search_filter_sync = {"done": False}
     
     # Initialize default filters from config
-    # Config format: {column: [values]} or {column: "value"}
-    # Internal format: {column: "value1\nvalue2\n..."} (newline-delimited string)
+    # Config format: {column: [values]} or {column: "value"} or {column: {"op": "...", "value": ...}}
+    # Internal format: {column: "value1\nvalue2\n..."} or {column: {"op": "...", "value": ...}}
     def _convert_default_filters(config_filters: dict) -> dict:
-        """Convert config default_filters to internal format."""
+        """Convert config default_filters to internal format.
+        
+        Operator dicts ({"op": "...", "value": ...}) are passed through as-is.
+        Simple values are converted to newline-delimited strings.
+        """
         result = {}
         for col, values in config_filters.items():
-            if isinstance(values, list):
+            if col.startswith("_"):  # skip _comment, _example keys
+                continue
+            if isinstance(values, dict) and "op" in values:
+                # Operator filter — pass through as-is
+                result[col] = values
+            elif isinstance(values, list):
                 # List of values -> newline-delimited string
                 result[col] = "\n".join(str(v) for v in values)
             else:
@@ -311,10 +320,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         
         # Convert active_filters to dict format expected by QueryParams
         # active_filters: {column: "value1\nvalue2\n..."} -> {column: [values]}
+        # Operator dicts ({"op": "...", "value": ...}) pass through as-is
         filters_dict = {}
         for col, val in active_filters.get().items():
-            if val:
-                values = [v.strip() for v in val.split("\n") if v.strip()]
+            if isinstance(val, dict) and "op" in val:
+                # Operator filter — pass through directly
+                filters_dict[col] = val
+            elif val:
+                values = [v.strip() for v in str(val).split("\n") if v.strip()]
                 if values:
                     filters_dict[col] = values if len(values) > 1 else values[0]
         
