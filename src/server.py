@@ -275,7 +275,24 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         return get_row_status(row_idx, current_log, row_pk)
     
     def _get_status_counts():
-        """Wrapper for get_status_counts that uses reactive values"""
+        """Wrapper for get_status_counts that uses reactive values.
+        In lazy loading mode, queries DB for overall counts instead of page-only."""
+        if is_lazy_loading:
+            # Use DB query for full dataset status distribution
+            params = _build_query_params()
+            # Build params without status filters to get counts for all statuses
+            from .config.config_instance import QueryParams as QP
+            count_params = QP(
+                filters=params.filters,
+                search_term=params.search_term,
+                search_column=params.search_column,
+                sort_column=params.sort_column,
+                sort_ascending=params.sort_ascending,
+                page=1,
+                page_size=1,
+                status_filters=["unprocessed", "edited", "approved", "rejected"]
+            )
+            return config.data_fetcher.get_status_counts(count_params)
         pk_cols = app_config.table.primary_key if hasattr(app_config.table, 'primary_key') else None
         return get_status_counts(data.get(), mods_log.get(), pk_cols)
     
@@ -650,11 +667,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Add filter button (hidden for Default preset)
     @render.ui
     def add_filter_btn_ui():
-        """Render the '+' add filter button only for non-Default presets and when filters aren't fixed."""
+        """Render the '+' add filter button when filters aren't fixed."""
         if app_config.fix_filter:
             return ui.div()  # Filters are locked by config
-        if active_preset.get() == "Default":
-            return ui.div()  # No button for Default preset
         return ui.tags.button(
             "+",
             class_="btn btn-sm btn-outline-primary add-filter-btn",
@@ -677,9 +692,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _add_filter():
         if app_config.fix_filter:
             ui.notification_show("Filters are locked by configuration.", type="warning", duration=3)
-            return
-        if active_preset.get() == "Default":
-            ui.notification_show("Cannot add filters to the Default preset. Please create or switch to a custom preset.", type="warning", duration=3)
             return
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:

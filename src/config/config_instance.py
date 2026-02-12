@@ -28,6 +28,23 @@ def _format_table_name(table_name: str) -> str:
     return ".".join(f'"{part}"' for part in parts)
 
 
+def _build_mod_status_expr(status_column: str = None) -> str:
+    """
+    Build the SQL expression for _mod_status.
+    
+    Falls back to the data table's status_column if the mods table has no entry,
+    only when the column value is a recognized status.
+    """
+    if status_column:
+        col = f'd."{status_column}"'
+        return (
+            f"COALESCE(ms.mod_type, "
+            f"CASE WHEN LOWER(CAST({col} AS TEXT)) IN ('approved', 'rejected', 'edited') "
+            f"THEN LOWER(CAST({col} AS TEXT)) ELSE 'unprocessed' END)"
+        )
+    return "COALESCE(ms.mod_type, 'unprocessed')"
+
+
 @dataclass
 class QueryParams:
     """Parameters for database queries - filters, sort, pagination."""
@@ -342,6 +359,75 @@ class DataFetcher:
         statuses = ", ".join(f"'{s}'" for s in params.status_filters)
         return f" AND _mod_status IN ({statuses})"
     
+    def get_status_counts(self, params: QueryParams = None) -> dict:
+        """Get overall status distribution counts from DB.
+        
+        Args:
+            params: Optional query params for filters (excluding status filter).
+                    If None, counts across all rows.
+        
+        Returns:
+            Dict like {"unprocessed": N, "edited": N, "approved": N, "rejected": N}
+        """
+        counts = {"unprocessed": 0, "edited": 0, "approved": 0, "rejected": 0}
+        try:
+            data_table = self.app_config.database.data_table
+            mods_table = self.app_config.database.mods_table
+            pk_columns = self.app_config.table.primary_key
+            data_table_sql = _format_table_name(data_table)
+            mods_table_sql = _format_table_name(mods_table)
+            
+            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            
+            # Build WHERE clause from filters (but ignore status_filters)
+            where_clause = ""
+            sql_params = {}
+            if params:
+                # Create a copy without status filters so we count all statuses
+                where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
+            
+            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            
+            query = f"""
+            SELECT _mod_status, COUNT(*) as cnt FROM (
+                SELECT {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
+                FROM {data_table_sql} d
+                LEFT JOIN LATERAL (
+                    SELECT mod_type 
+                    FROM {mods_table_sql} m
+                    WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                      AND m.undone = FALSE
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                ) ms ON TRUE
+                {where_clause}
+            ) subq
+            GROUP BY _mod_status
+            """
+            
+            if is_datum:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                for row in response.data:
+                    status = row.get("_mod_status", "unprocessed")
+                    if status in counts:
+                        counts[status] = row.get("cnt", 0)
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(query), sql_params)
+                    for row in result.fetchall():
+                        status = row[0] or "unprocessed"
+                        if status in counts:
+                            counts[status] = row[1]
+        except Exception as e:
+            print(f"✗ Error getting status counts: {e}")
+        return counts
+
     def get_filtered_count(self, params: QueryParams) -> int:
         """Get count of rows matching the current filters."""
         try:
@@ -361,7 +447,7 @@ class DataFetcher:
             query = f"""
             SELECT COUNT(*) as cnt FROM (
                 SELECT d.*, 
-                       COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+                       {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
@@ -431,7 +517,7 @@ class DataFetcher:
             # Wrap in subquery to allow status filtering
             inner_query = f"""
             SELECT d.*, 
-                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -512,7 +598,7 @@ class DataFetcher:
             
             inner_query = f"""
             SELECT d.*, 
-                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -945,7 +1031,7 @@ class ConfigInstance:
             
             query = f"""
             SELECT d.*, 
-                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -1125,7 +1211,7 @@ class ConfigInstance:
             
             query = f"""
             SELECT d.*, 
-                   COALESCE(ms.mod_type, 'unprocessed') AS _mod_status
+                   {_build_mod_status_expr(self.app_config.database.status_column)} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
