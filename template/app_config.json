@@ -57,12 +57,10 @@
       "Gene_names": "text"
     },
     "default_filters": {
-      "date_of_batch_upload": {"op": "between", "value": ["2026-01-31", "2026-02-07"]},
-      "test_code_2": {"op": "contains", "value": "methylation"},
-      "is_dna_sample": "TRUE",
-      "dna_rna_number": {"op": "regex", "value": "^(.*[^R])$"},
-      "library_id": {"op": "not_empty"},
-      "ngs_test": {"op": "in", "value": ["ctTSO500_v1", "WESomatic_v1", "RNA_Access_v2", "RNA_Access_v3", "RNA_Access_v1", "TSO500v4", "WEGermline_v1", "TSO500v5", "WESomatic_v4", "WESomatic_v2", "WESomatic_v3", "TSO500", "TSO500v3"]}
+      "ngs_test": {"op": "in", "value": ["RNA_Access", "RNA_Access_v1", "RNA_Access_v2", "RNA_Access_v3"]},
+      "sequencing_date": {"op": "last_n_days", "value": 7},
+      "status": {"op": "in", "value": ["Completed", "Others"]},
+      "clinical_or_research": "Clinical"
     },
     "status_filter_enabled": true,
     "status_column": "Status",
@@ -87,30 +85,42 @@
     "primary_key": ["PatientID_Mutsequence"],
     
     "default_columns": [
-      "PatientID",
-      "Variant_key",
-      "Gene_names",
-      "Wt_nmer",
-      "Mut_nmer",
-      "Status",
-      "Comments",
-      "aa_changes",
-      "cDNA_changes",
-      "WtNMerReviewed",
-      "MutNMerReviewed",
-      "Max_Read2Count"
+      "library_id",
+      "fcid",
+      "accession_id_dna_rna_number2",
+      "sample_type",
+      "clinical_or_research",
+      "status",
+      "received_date",
+      "sequencing_date",
+      "rna_nucleic_acid_qc",
+      "molecular_pathologist",
+      "sex",
+      "age",
+      "age_at_specimen_collection",
+      "tumor_content_percent_tumor",
+      "qci_primary_site",
+      "specimen_type",
+      "qci_tissue_diagnosis",
+      "all_mutations",
+      "full_surgical_pathology_report_diagnosis",
+      "primary_tumor_site_full",
+      "site_of_metastasis_full",
+      "histologic_diagnosis_full",
+      "pmr"
     ],
     
     "default_column_width": 130,
     
     "default_column_widths": {
-      "PatientID": 120,
-      "Variant_key": 150,
-      "Gene_names": 120,
-      "Comments": 200
+      "library_id": 120,
+      "accession_id_dna_rna_number2": 180,
+      "full_surgical_pathology_report_diagnosis": 250,
+      "all_mutations": 200,
+      "qci_tissue_diagnosis": 180
     },
     
-    "default_sort_column": "PatientID",
+    "default_sort_column": "library_id",
     "default_sort_ascending": true,
     
     "default_rows_per_page": 25,

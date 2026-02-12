@@ -6,10 +6,11 @@ Supports two filter value formats:
   - Operator dict: {"op": "not_contains", "value": "RT"} → rich operator
 
 Supported operators:
-  in, not_in, contains, not_contains, between, gt, gte, lt, lte, not_empty, regex
+  in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, regex
 """
 
 import re
+from datetime import datetime, timedelta
 
 import pandas as pd
 from typing import Any, Callable
@@ -29,6 +30,7 @@ OPERATOR_LABELS = {
     "lte": "≤",
     "regex": "matches",
     "not_empty": "is not empty",
+    "last_n_days": "within last N days",
 }
 
 
@@ -84,6 +86,17 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     elif op == "lte":
         try: return float(row_str) <= float(fval)
         except (ValueError, TypeError): return row_str <= str(fval)
+    
+    elif op == "last_n_days":
+        try:
+            n = int(fval)
+            cutoff = datetime.now() - timedelta(days=n)
+            parsed = pd.to_datetime(row_str, errors="coerce")
+            if pd.isna(parsed):
+                return False
+            return parsed >= cutoff
+        except (ValueError, TypeError):
+            return True  # malformed — don't filter
     
     elif op == "not_empty":
         if row_value_raw is None or pd.isna(row_value_raw):

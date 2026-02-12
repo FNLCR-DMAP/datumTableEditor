@@ -127,6 +127,8 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     # Format value display
     if op in ("not_empty",):
         value_display = ""  # no-value operator
+    elif op == "last_n_days":
+        value_display = f"{value} days"  # show "7 days"
     elif isinstance(value, list):
         if op == "between" and len(value) == 2:
             value_display = f"{value[0]}  →  {value[1]}"
