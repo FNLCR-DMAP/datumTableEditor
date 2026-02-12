@@ -62,9 +62,13 @@
     "default_filters": {
       "_comment": "Default filters applied on load. Plain values use exact match. Operator objects enable rich filtering.",
       "_format": "column: [values] | column: 'value' | column: {'op': '...', 'value': ...}",
-      "_operators": "in, not_in, contains, not_contains, between, gt, gte, lt, lte",
+      "_operators": "in, not_in, contains, not_contains, between, gt, gte, lt, lte, regex",
       "_example_simple": "{ 'Status': ['pending', 'review'], 'Gene_names': 'TP53' }",
-      "_example_operators": "{ 'Date': {'op': 'between', 'value': ['2025-01-01', '2025-12-31']}, 'Physician': {'op': 'not_in', 'value': ['XI']}, 'ID': {'op': 'not_contains', 'value': 'RT'} }"
+      "_example_operators": "{ 'Date': {'op': 'between', 'value': ['2025-01-01', '2025-12-31']}, 'ID': {'op': 'not_contains', 'value': 'RT'}, 'Code': {'op': 'regex', 'value': '^DNA'} }",
+      "date_of_batch_upload": {"op": "between", "value": ["2026-01-31", "2026-02-07"]},
+      "test_code_2": {"op": "contains", "value": "methylation"},
+      "is_dna_sample": "TRUE",
+      "dna_rna_number": {"op": "regex", "value": "^(.*[^R])$"}
     },
     "status_filter_enabled": true,
     "status_column": "Status",

@@ -56,7 +56,12 @@
       "PatientID": "text",
       "Gene_names": "text"
     },
-    "default_filters": {},
+    "default_filters": {
+      "date_of_batch_upload": {"op": "between", "value": ["2026-01-31", "2026-02-07"]},
+      "test_code_2": {"op": "contains", "value": "methylation"},
+      "is_dna_sample": "TRUE",
+      "dna_rna_number": {"op": "regex", "value": "^(.*[^R])$"}
+    },
     "status_filter_enabled": true,
     "status_column": "Status",
     "search_case_sensitive": false,

@@ -6,8 +6,10 @@ Supports two filter value formats:
   - Operator dict: {"op": "not_contains", "value": "RT"} → rich operator
 
 Supported operators:
-  in, not_in, contains, not_contains, between, gt, gte, lt, lte
+  in, not_in, contains, not_contains, between, gt, gte, lt, lte, regex
 """
+
+import re
 
 import pandas as pd
 from typing import Any, Callable
@@ -25,6 +27,7 @@ OPERATOR_LABELS = {
     "gte": "≥",
     "lt": "<",
     "lte": "≤",
+    "regex": "matches",
 }
 
 
@@ -80,6 +83,12 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     elif op == "lte":
         try: return float(row_str) <= float(fval)
         except (ValueError, TypeError): return row_str <= str(fval)
+    
+    elif op == "regex":
+        try:
+            return bool(re.search(str(fval), row_str))
+        except re.error:
+            return True  # invalid regex — don't filter
     
     return True  # unknown op — don't filter
 
