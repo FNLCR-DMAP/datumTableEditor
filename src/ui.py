@@ -219,7 +219,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ui.div(
                         ui.div(
                             ui.h4("Column Filters", style="display: inline-block; margin: 0;"),
-                            ui.tags.button("+", class_="btn btn-sm btn-outline-primary add-filter-btn", onclick="openAddFilterModal(event)", style="margin-left: 10px; padding: 2px 8px; font-size: 12px;"),
+                            ui.output_ui("add_filter_btn_ui"),
                             class_="filter-header"
                         ),
                         ui.output_ui("dynamic_filters"),

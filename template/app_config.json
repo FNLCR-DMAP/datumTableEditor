@@ -122,5 +122,6 @@
   "enable_export": true,
   "enable_undo": true,
   "enable_copy_column": true,
-  "enable_status_filter": true
+  "enable_status_filter": true,
+  "fix_filter": false
 }

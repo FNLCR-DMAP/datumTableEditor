@@ -216,6 +216,7 @@ class AppConfig:
     enable_undo: bool = True
     enable_copy_column: bool = True
     enable_status_filter: bool = True  # Show status filter in sidebar
+    fix_filter: bool = False  # Lock filters to only the default_filters from config
 
 
 # =============================================================================
@@ -347,6 +348,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_export = file_config.get("enable_export", config.enable_export)
     config.enable_undo = file_config.get("enable_undo", config.enable_undo)
     config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
+    config.fix_filter = file_config.get("fix_filter", config.fix_filter)
     
     return config
 

@@ -626,7 +626,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def dynamic_filters():
         """Render active dynamic filters"""
-        return build_dynamic_filters_panel(active_filters.get(), data.get())
+        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter)
+    
+    # Output: Add filter button (hidden for Default preset)
+    @render.ui
+    def add_filter_btn_ui():
+        """Render the '+' add filter button only for non-Default presets and when filters aren't fixed."""
+        if app_config.fix_filter:
+            return ui.div()  # Filters are locked by config
+        if active_preset.get() == "Default":
+            return ui.div()  # No button for Default preset
+        return ui.tags.button(
+            "+",
+            class_="btn btn-sm btn-outline-primary add-filter-btn",
+            onclick="openAddFilterModal(event)",
+            style="margin-left: 10px; padding: 2px 8px; font-size: 12px;"
+        )
     
     # Output: Available columns for filter modal
     @render.ui
@@ -641,6 +656,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.add_filter_column)
     def _add_filter():
+        if app_config.fix_filter:
+            ui.notification_show("Filters are locked by configuration.", type="warning", duration=3)
+            return
+        if active_preset.get() == "Default":
+            ui.notification_show("Cannot add filters to the Default preset. Please create or switch to a custom preset.", type="warning", duration=3)
+            return
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:
             active_filters.set(add_filter(active_filters.get(), col_name))
@@ -649,6 +670,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.remove_filter_column)
     def _remove_filter():
+        if app_config.fix_filter:
+            return  # Filters are locked by config
         col_name = parse_filter_column(input.remove_filter_column())
         if col_name:
             active_filters.set(remove_filter(active_filters.get(), col_name))

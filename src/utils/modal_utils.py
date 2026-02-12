@@ -117,7 +117,7 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
     return ui.div(*column_buttons, style="max-height: 400px; overflow-y: auto;")
 
 
-def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str) -> ui.div:
+def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False) -> ui.div:
     """Build a single dynamic filter element with multi-select support."""
     # Format current value for display
     display_value = current_value if current_value and current_value != "all" else ""
@@ -125,12 +125,15 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     # Build the list of unique values for the modal (exclude 'all')
     value_options = [v for v in unique_values if v != "all"]
     
+    # Build remove button (hidden when filters are fixed)
+    remove_btn = ui.tags.button("×", class_="remove-filter-btn", 
+                       onclick=f"removeFilter('{col_name}', event)",
+                       style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;") if not fix_filter else ui.span()
+    
     return ui.div(
         ui.div(
             ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
-            ui.tags.button("×", class_="remove-filter-btn", 
-                           onclick=f"removeFilter('{col_name}', event)",
-                           style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;"),
+            remove_btn,
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
         ),
         ui.div(
@@ -162,9 +165,13 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     )
 
 
-def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame) -> ui.div:
+def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame, fix_filter: bool = False) -> ui.div:
     """Build the complete dynamic filters panel."""
     if not filters:
+        if fix_filter:
+            return ui.div(
+                ui.p("No default filters configured.", style="font-size: 12px; color: #6c757d; margin: 5px 0;")
+            )
         return ui.div(
             ui.p("No filters active. Click + to add a filter.", style="font-size: 12px; color: #6c757d; margin: 5px 0;")
         )
@@ -176,6 +183,6 @@ def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame) -> ui.div:
         
         unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
         current_value = filters.get(col_name, "all")
-        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value))
+        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter))
     
     return ui.div(*filter_elements)

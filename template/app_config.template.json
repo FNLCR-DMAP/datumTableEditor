@@ -131,5 +131,7 @@
   "enable_undo": true,
   "enable_copy_column": true,
   "enable_status_filter": true,
-  "_enable_status_filter_comment": "Show status distribution and filter in sidebar"
+  "_enable_status_filter_comment": "Show status distribution and filter in sidebar",
+  "fix_filter": false,
+  "_fix_filter_comment": "When true, locks filters to only the default_filters defined above. Users cannot add or remove filters."
 }

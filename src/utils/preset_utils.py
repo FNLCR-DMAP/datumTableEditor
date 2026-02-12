@@ -1,9 +1,7 @@
 """
 Preset management utilities for column presets and active preset persistence.
 
-Supports both file-based and database-backed storage.
-When database.enabled=true in app_config.json, uses UserPresetsService.
-Otherwise, falls back to JSON file storage.
+Supports database-backed storage via Datum mode or UserPresetsService.
 
 Updated to support multiple widget instances with different table identifiers.
 """
@@ -39,10 +37,15 @@ def _load_app_config() -> dict:
 
 
 def _load_full_config():
-    """Load config using the full schema loader (respects env vars)."""
+    """Load config using the full schema loader (respects env vars).
+    
+    Note: We call load_config() with no arguments so it resolves the config
+    path relative to its own __file__ location (project root), rather than
+    depending on the current working directory (which differs on Posit Connect).
+    """
     try:
         from ..config.app_config_schema import load_config
-        return load_config("app_config.json")
+        return load_config()
     except Exception as e:
         print(f"[preset_utils] Could not load full config: {e}")
         return None
@@ -103,10 +106,10 @@ def _get_config_instance(username: str = None):
 
 def load_presets(presets_file: Path, default_columns: list, table_name: str = None, username: str = None) -> dict:
     """
-    Load column presets from database or file.
+    Load column presets from database.
     
     Args:
-        presets_file: Path to the presets JSON file (used as fallback)
+        presets_file: Unused (kept for API compatibility)
         default_columns: Default columns to use if no presets exist
         table_name: Base table name to scope presets (for multi-widget support)
         username: Username for user-scoped presets (from Posit Connect session.user)
@@ -174,32 +177,17 @@ def load_presets(presets_file: Path, default_columns: list, table_name: str = No
             
             return result
         except Exception as e:
-            print(f"[preset_utils] DB load failed, falling back to file: {e}")
+            print(f"[preset_utils] DB load failed: {e}")
     
-    # Fall back to file-based storage
-    if presets_file.exists():
-        try:
-            with open(presets_file) as f:
-                preset_data = json.load(f)
-                # Handle old format (list) and new format (dict with columns/widths)
-                result = {}
-                for name, value in preset_data.items():
-                    if isinstance(value, list):
-                        result[name] = {"columns": value, "widths": {}}
-                    else:
-                        result[name] = value
-                return result
-        except Exception:
-            pass
     return {"Default": {"columns": list(default_columns), "widths": {}}}
 
 
 def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None, username: str = None) -> None:
     """
-    Save column presets to database or file.
+    Save column presets to database.
     
     Args:
-        presets_file: Path to the presets JSON file (used as fallback)
+        presets_file: Unused (kept for API compatibility)
         presets_dict: Dictionary of preset names to preset data
         table_name: Base table name to scope presets (for multi-widget support)
         username: Username for user-scoped presets (from Posit Connect session.user)
@@ -278,19 +266,17 @@ def save_presets(presets_file: Path, presets_dict: dict, table_name: str = None,
             
             return
         except Exception as e:
-            print(f"[preset_utils] DB save failed, falling back to file: {e}")
+            print(f"[preset_utils] DB save failed: {e}")
     
-    # Fall back to file-based storage
-    with open(presets_file, "w") as f:
-        json.dump(presets_dict, f, indent=2)
+    print("[preset_utils] WARNING: No database backend available, presets not saved")
 
 
 def load_active_preset(active_preset_file: Path, table_name: str = None, username: str = None) -> str:
     """
-    Load the last active preset name from database or file.
+    Load the last active preset name from database.
     
     Args:
-        active_preset_file: Path to the active preset JSON file (used as fallback)
+        active_preset_file: Unused (kept for API compatibility)
         table_name: Base table name to scope presets (for multi-widget support)
         username: Username for user-scoped presets (from Posit Connect session.user)
         
@@ -319,25 +305,17 @@ def load_active_preset(active_preset_file: Path, table_name: str = None, usernam
                 return default_preset["preset_name"]
             return "Default"
         except Exception as e:
-            print(f"[preset_utils] DB load active preset failed, falling back to file: {e}")
+            print(f"[preset_utils] DB load active preset failed: {e}")
     
-    # Fall back to file-based storage
-    if active_preset_file.exists():
-        try:
-            with open(active_preset_file) as f:
-                data = json.load(f)
-                return data.get("active_preset", "Default")
-        except Exception:
-            pass
     return "Default"
 
 
 def save_active_preset(active_preset_file: Path, preset_name: str, table_name: str = None, username: str = None) -> None:
     """
-    Save the active preset name to database or file.
+    Save the active preset name to database.
     
     Args:
-        active_preset_file: Path to the active preset JSON file (used as fallback)
+        active_preset_file: Unused (kept for API compatibility)
         preset_name: Name of the preset to save as active
         table_name: Base table name to scope presets (for multi-widget support)
         username: Username for user-scoped presets (from Posit Connect session.user)
@@ -366,8 +344,6 @@ def save_active_preset(active_preset_file: Path, preset_name: str, table_name: s
             service.set_default(user, preset_name)
             return
         except Exception as e:
-            print(f"[preset_utils] DB save active preset failed, falling back to file: {e}")
+            print(f"[preset_utils] DB save active preset failed: {e}")
     
-    # Fall back to file-based storage
-    with open(active_preset_file, "w") as f:
-        json.dump({"active_preset": preset_name}, f)
+    print("[preset_utils] WARNING: No database backend available, active preset not saved")
