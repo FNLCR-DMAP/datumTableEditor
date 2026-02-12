@@ -398,7 +398,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.text
     def data_summary():
         df = data.get()
-        return f"{len(df)} rows x {len(df.columns)} columns"
+        num_cols = len(df.columns)
+        if is_lazy_loading:
+            # Use the full dataset count from the DB, not the current page size
+            total = total_rows.get()
+        else:
+            total = len(df)
+        return f"{total} rows x {num_cols} columns"
     
     # Output: Stats histogram
     @render.ui
