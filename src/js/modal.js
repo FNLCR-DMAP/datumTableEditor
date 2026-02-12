@@ -167,6 +167,8 @@ document.addEventListener('click', function(e) {
             closeAddFilterModal();
         } else if (e.target.id === 'log-modal' || e.target.querySelector('.modal-header h3')?.textContent?.includes('Modification')) {
             closeLogModal();
+        } else if (e.target.id === 'export-confirm-modal') {
+            closeExportConfirmModal();
         }
     }
 });
@@ -399,5 +401,37 @@ window.undoModification = function(logIndex, event) {
             index: logIndex,
             ts: Date.now()
         }, {priority: 'event'}, contextEl);
+    }
+};
+
+// Export PHI/PII Confirmation Modal
+let currentExportModalContext = null;
+let pendingExportType = null;  // 'selected' or 'all'
+
+window.openExportConfirmModal = function(event, exportType) {
+    currentExportModalContext = event ? event.target : document.activeElement;
+    pendingExportType = exportType;
+    var modal = findModalInContext(currentExportModalContext, 'export-confirm-modal');
+    if (modal) modal.classList.add('show');
+};
+
+window.closeExportConfirmModal = function() {
+    var modal = findModalInContext(currentExportModalContext, 'export-confirm-modal');
+    if (modal) modal.classList.remove('show');
+    currentExportModalContext = null;
+    pendingExportType = null;
+};
+
+window.confirmExportDownload = function() {
+    // Find the hidden download button and click it
+    var btnId = pendingExportType === 'all' ? 'export_all_btn' : 'export_btn';
+    var downloadBtn = findElementInContext(currentExportModalContext, btnId);
+    
+    // Close the modal first
+    closeExportConfirmModal();
+    
+    // Trigger the actual download
+    if (downloadBtn) {
+        downloadBtn.click();
     }
 };

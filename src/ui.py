@@ -238,8 +238,11 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     # Left side - Action Buttons (conditionally rendered based on config)
                     ui.div(
                         ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success") if enable_save_button else None,
-                        ui.download_button("export_btn", "Export Selected", class_="btn btn-sm btn-info") if enable_export else None,
-                        ui.download_button("export_all_btn", "Export All", class_="btn btn-sm btn-outline-info") if enable_export else None,
+                        ui.tags.button("Export Selected", class_="btn btn-sm btn-info", onclick="openExportConfirmModal(event, 'selected')") if enable_export else None,
+                        ui.tags.button("Export All", class_="btn btn-sm btn-outline-info", onclick="openExportConfirmModal(event, 'all')") if enable_export else None,
+                        # Hidden actual download buttons (triggered after user confirms PHI/PII warning)
+                        ui.download_button("export_btn", "Export Selected", class_="btn btn-sm btn-info", style="display: none;") if enable_export else None,
+                        ui.download_button("export_all_btn", "Export All", class_="btn btn-sm btn-outline-info", style="display: none;") if enable_export else None,
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success") if enable_approval_workflow else None,
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
@@ -399,6 +402,53 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                 ui.div(
                     ui.output_ui("pagination_controls"),
                     class_="pagination-controls-section"
+                ),
+                
+                # Export PHI/PII Confirmation Modal
+                ui.div(
+                    ui.div(
+                        ui.div(
+                            ui.h3("Sensitive Data Export Warning"),
+                            ui.tags.button("×", class_="modal-close", onclick="closeExportConfirmModal()"),
+                            class_="modal-header"
+                        ),
+                        ui.div(
+                            ui.tags.p(
+                                "The data you are about to download may contain ",
+                                ui.tags.strong("Protected Health Information (PHI)"),
+                                " and/or ",
+                                ui.tags.strong("Personally Identifiable Information (PII)"),
+                                ".",
+                                style="margin-bottom: 12px; line-height: 1.6;"
+                            ),
+                            ui.tags.p(
+                                "Please ensure you have the appropriate permissions and authorization "
+                                "to download and store this data. You are responsible for handling "
+                                "the exported file in compliance with all applicable data privacy "
+                                "regulations and institutional policies.",
+                                style="margin-bottom: 0; color: #555; line-height: 1.6;"
+                            ),
+                            class_="modal-body"
+                        ),
+                        ui.div(
+                            ui.tags.button(
+                                "Cancel",
+                                class_="btn btn-secondary",
+                                onclick="closeExportConfirmModal()",
+                                style="margin-right: 10px;"
+                            ),
+                            ui.tags.button(
+                                "I Understand",
+                                class_="btn btn-primary",
+                                onclick="confirmExportDownload()"
+                            ),
+                            style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;"
+                        ),
+                        class_="modal-content",
+                        style="max-width: 480px;"
+                    ),
+                    class_="modal-overlay",
+                    id="export-confirm-modal"
                 ),
                 
                 # Modifications Log Modal

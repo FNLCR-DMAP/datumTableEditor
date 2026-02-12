@@ -437,8 +437,8 @@
         "fully_annotated": 7
       },
       "parameters": {
-        "total": 44,
-        "annotated": 44
+        "total": 49,
+        "annotated": 49
       }
     },
     "src/utils/ui_components.py": {
