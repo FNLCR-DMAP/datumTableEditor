@@ -262,7 +262,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
-        """Wrapper for get_row_status that uses reactive log and PK for accurate matching"""
+        """Wrapper for get_row_status that uses reactive log and PK for accurate matching.
+        Falls back to _mod_status column (SQL-computed with status_column mapping) when
+        the modifications log has no entries for this row."""
         current_df = data.get()
         current_log = mods_log.get()
         # Get the primary key for this row (using DataFrame index label, not position)
@@ -272,7 +274,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
         except:
             row_pk = None
-        return get_row_status(row_idx, current_log, row_pk)
+        status = get_row_status(row_idx, current_log, row_pk)
+        # If log says unprocessed, check the SQL-computed _mod_status column
+        # which already maps status_column values via status_labels
+        if status == "unprocessed" and "_mod_status" in current_df.columns:
+            try:
+                db_status = str(current_df.loc[row_idx, "_mod_status"]).strip().lower()
+                if db_status in ("edited", "approved", "rejected"):
+                    return db_status
+            except:
+                pass
+        return status
     
     def _get_status_counts():
         """Wrapper for get_status_counts that uses reactive values.
@@ -293,6 +305,35 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 status_filters=list(app_config.status_labels.keys())
             )
             return config.data_fetcher.get_status_counts(count_params)
+        # Non-lazy mode: use _mod_status column if available (already mapped by SQL)
+        current_df = data.get()
+        if "_mod_status" in current_df.columns:
+            counts = {k: 0 for k in app_config.status_labels.keys()}
+            for status in current_df["_mod_status"]:
+                s = str(status).strip().lower() if status else "unprocessed"
+                if s in counts:
+                    counts[s] += 1
+                else:
+                    counts["unprocessed"] = counts.get("unprocessed", 0) + 1
+            # Overlay live modifications from the log
+            current_log = mods_log.get()
+            if current_log:
+                pk_cols = app_config.table.primary_key
+                for idx in current_df.index:
+                    try:
+                        row = current_df.loc[idx]
+                        row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
+                        log_status = get_row_status(idx, current_log, row_pk)
+                        db_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
+                        if log_status != "unprocessed" and log_status != db_status:
+                            # Log overrides DB status
+                            if db_status in counts:
+                                counts[db_status] = max(0, counts[db_status] - 1)
+                            if log_status in counts:
+                                counts[log_status] += 1
+                    except:
+                        pass
+            return counts
         pk_cols = app_config.table.primary_key if hasattr(app_config.table, 'primary_key') else None
         return get_status_counts(data.get(), mods_log.get(), pk_cols)
     
