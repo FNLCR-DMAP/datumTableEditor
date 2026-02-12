@@ -914,6 +914,8 @@ class ConfigInstance:
         try:
             # Ensure data table exists (copy from source_table if needed)
             self._ensure_data_table_exists()
+            # Ensure modifications table exists (data query joins against it for _mod_status)
+            self._ensure_mods_table_exists()
             
             from sqlalchemy import text
             
@@ -1096,6 +1098,8 @@ class ConfigInstance:
         try:
             # Ensure data table exists (copy from source_table if needed)
             self._ensure_data_table_exists()
+            # Ensure modifications table exists (data query joins against it for _mod_status)
+            self._ensure_mods_table_exists()
             
             from ..adapter.datum import DatumClient
             
@@ -1604,6 +1608,9 @@ class ConfigInstance:
         if db_mode == "datum":
             return self._save_modification_to_datum(row_pk, column, old_value, new_value, mod_type)
         
+        # Ensure modifications table exists first
+        self._ensure_mods_table_exists()
+        
         print(f"[Datum DEBUG] Using direct SQLAlchemy mode (not datum)")
         try:
             from sqlalchemy import text
@@ -2093,6 +2100,9 @@ class ConfigInstance:
                 sort_column, sort_ascending, current_page, 
                 rows_per_page, filters, column_preset
             )
+        
+        # Ensure state table exists first
+        self._ensure_state_table_exists()
         
         try:
             from sqlalchemy import text
