@@ -50,8 +50,14 @@ def update_filter_values(filters: Dict[str, str], input_obj: Any) -> Tuple[Dict[
         filter_id = f"filter_{col_name}"
         try:
             current_val = getattr(input_obj, filter_id)()
-            if current_val and new_filters.get(col_name) != current_val:
+            prev_val = new_filters.get(col_name)
+            if current_val and prev_val != current_val:
+                # User typed or selected filter values
                 new_filters[col_name] = current_val
+                updated = True
+            elif not current_val and prev_val and prev_val != "all":
+                # User cleared the filter → reset to "all" (no filter)
+                new_filters[col_name] = "all"
                 updated = True
         except Exception:
             # Only catch Exception; let SilentException/SilentCancelOutputException

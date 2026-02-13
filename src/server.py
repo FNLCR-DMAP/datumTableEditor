@@ -384,7 +384,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if isinstance(val, dict) and "op" in val:
                 # Operator filter — pass through directly
                 filters_dict[col] = val
-            elif val:
+            elif val and str(val).strip() and val != "all":
                 values = [v.strip() for v in str(val).split("\n") if v.strip()]
                 if values:
                     filters_dict[col] = values if len(values) > 1 else values[0]

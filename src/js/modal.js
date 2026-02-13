@@ -273,12 +273,22 @@ window.openFilterValuesModal = function(columnName, event) {
     if (!modal) return;
     
     // Get unique values from the hidden data element
-    var valuesEl = findElementInContext(currentFilterValuesContext, 'filter_values_' + columnName);
+    // The hidden div is NOT Shiny-namespaced, so find it relative to the filter group
+    var filterGroup = currentFilterValuesContext.closest('.filter-group');
+    var valuesEl = filterGroup ? filterGroup.querySelector('[data-values]') : null;
+    // Fallback: try by raw ID (no namespace)
+    if (!valuesEl) {
+        valuesEl = document.getElementById('filter_values_' + columnName);
+    }
     var values = valuesEl ? (valuesEl.getAttribute('data-values') || '').split(',').filter(function(v) { return v; }) : [];
     
-    // Get current filter value from input
-    var filterInput = findElementInContext(currentFilterValuesContext, 'filter_' + columnName);
-    var currentValues = filterInput ? filterInput.value.split(',').map(function(v) { return v.trim(); }).filter(function(v) { return v; }) : [];
+    // Get current filter value from textarea inside the Shiny input container
+    var filterContainer = findElementInContext(currentFilterValuesContext, 'filter_' + columnName);
+    var filterInput = filterContainer ? (filterContainer.tagName === 'TEXTAREA' ? filterContainer : filterContainer.querySelector('textarea')) : null;
+    var currentValues = [];
+    if (filterInput && filterInput.value) {
+        currentValues = filterInput.value.split('\n').map(function(v) { return v.trim(); }).filter(function(v) { return v; });
+    }
     
     // Build checkboxes
     var checkboxContainer = modal.querySelector('#filter-values-checkboxes');
@@ -363,13 +373,18 @@ window.applyFilterValues = function() {
     var checkboxes = modal.querySelectorAll('#filter-values-checkboxes input[type="checkbox"]:checked');
     var selectedValues = Array.from(checkboxes).map(function(cb) { return cb.value; });
     
-    // Update the filter input (use newline delimiter for easier paste from cells)
-    var filterInput = findElementInContext(currentFilterValuesContext, 'filter_' + currentFilterValuesColumn);
-    if (filterInput) {
-        filterInput.value = selectedValues.join('\n');
-        // Trigger change event for Shiny
-        filterInput.dispatchEvent(new Event('change', { bubbles: true }));
-        filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+    // Update the filter textarea (use newline delimiter for easier paste from cells)
+    var filterContainer = findElementInContext(currentFilterValuesContext, 'filter_' + currentFilterValuesColumn);
+    var filterTextarea = filterContainer ? (filterContainer.tagName === 'TEXTAREA' ? filterContainer : filterContainer.querySelector('textarea')) : null;
+    if (filterTextarea) {
+        filterTextarea.value = selectedValues.join('\n');
+        // Trigger change event for Shiny to pick up the new value
+        filterTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+        filterTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (typeof setShinyInput !== 'undefined') {
+        // Fallback: set Shiny input directly
+        setShinyInput('filter_' + currentFilterValuesColumn, selectedValues.join('\n'),
+            {priority: 'event'}, currentFilterValuesContext);
     }
     
     closeFilterValuesModal();
