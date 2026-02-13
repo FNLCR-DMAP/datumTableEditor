@@ -193,7 +193,7 @@ class DataFetcher:
             print(f"✗ Error getting columns from schema: {e}")
             return []
     
-    def get_unique_values(self, column: str, limit: int = 500) -> List[str]:
+    def get_unique_values(self, column: str, limit: int = 5000) -> List[str]:
         """Fetch distinct values for a column from the database.
         
         Used by the filter UI to populate dropdown options in lazy loading mode.

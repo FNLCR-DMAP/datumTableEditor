@@ -49,103 +49,75 @@ class TestUIStatePersistence:
 class TestColumnPresets:
     """Tests for column preset management."""
     
-    def test_load_presets_from_file(self, tmp_path):
-        """Loading presets should parse JSON correctly."""
-        from unittest.mock import patch
+    def test_load_presets_returns_default_when_empty(self, tmp_path):
+        """Loading presets from empty DB should return Default."""
+        from unittest.mock import MagicMock
         from src.utils.preset_utils import load_presets
         
-        # Create a presets file in the expected format (flat structure for file mode)
-        presets_file = tmp_path / "presets.json"
-        presets_data = {
-            "Default": {"columns": ["PatientID", "Gene_names", "Variant_key", "Status"], "widths": {}},
-            "Minimal": {"columns": ["PatientID", "Status"], "widths": {}}
-        }
-        presets_file.write_text(json.dumps(presets_data))
+        mock_config = MagicMock()
+        mock_config.username = "testuser"
+        mock_config._get_preset_table_name.return_value = "test_testuser_column_presets"
+        mock_config.get_presets.return_value = []
         
-        # Mock database to be disabled so file fallback is used
-        with patch('src.utils.preset_utils._is_database_enabled', return_value=False):
-            presets = load_presets(
-                presets_file=presets_file,
-                default_columns=["PatientID", "Gene_names"],
-                table_name="test_table",
-                username="testuser"
-            )
+        presets = load_presets(mock_config, ["PatientID", "Gene_names"])
         
-        # Should have Default preset
         assert "Default" in presets
-        # The structure may be dict with columns/widths or just a list
         default_preset = presets["Default"]
         assert default_preset is not None
     
     def test_save_and_load_preset_roundtrip(self, tmp_path):
-        """Saving and loading a preset should preserve data (file fallback)."""
-        from unittest.mock import patch
+        """Saving and loading a preset should preserve data."""
+        from unittest.mock import MagicMock
         from src.utils.preset_utils import save_presets, load_presets
-        
-        presets_file = tmp_path / "presets.json"
-        presets_file.write_text("{}")
         
         columns = ["PatientID", "Gene_names", "Status"]
         
-        # save_presets takes a dict of all presets
         presets_dict = {
             "Default": {"columns": ["Default"], "widths": {}},
             "MyPreset": {"columns": columns, "widths": {}}
         }
         
-        # Mock database to be disabled so file fallback is used
-        with patch('src.utils.preset_utils._is_database_enabled', return_value=False):
-            save_presets(
-                presets_file=presets_file,
-                presets_dict=presets_dict,
-                table_name="test_table",
-                username="testuser"
-            )
-            
-            # Reload and verify preset exists
-            loaded = load_presets(
-                presets_file=presets_file,
-                default_columns=["Default"],
-                table_name="test_table",
-                username="testuser"
-            )
-            
-            assert "MyPreset" in loaded
+        mock_config = MagicMock()
+        mock_config.username = "testuser"
+        mock_config._get_preset_table_name.return_value = "test_testuser_column_presets"
+        mock_config.get_presets.return_value = []
+        
+        save_presets(mock_config, presets_dict)
+        
+        # Simulate what DB would return after save
+        mock_config.get_presets.return_value = [
+            {"preset_name": "Default", "columns": ["Default"], "is_default": True},
+            {"preset_name": "MyPreset", "columns": columns, "is_default": False}
+        ]
+        
+        loaded = load_presets(mock_config, ["Default"])
+        assert "MyPreset" in loaded
     
     def test_presets_user_isolation(self, tmp_path):
-        """Presets should be isolated per user (with DB backend), or shared with file fallback."""
-        from unittest.mock import patch
+        """Presets should be scoped by user (via ConfigInstance username)."""
+        from unittest.mock import MagicMock
         from src.utils.preset_utils import save_presets, load_presets
         
-        presets_file = tmp_path / "presets.json"
-        presets_file.write_text("{}")
-        
-        # User 1 creates preset (file fallback doesn't scope by user)
-        presets_dict_user1 = {
+        presets_dict = {
             "Default": {"columns": ["Default"], "widths": {}},
             "User1Preset": {"columns": ["A", "B"], "widths": {}}
         }
         
-        # Mock database to be disabled so file fallback is used
-        with patch('src.utils.preset_utils._is_database_enabled', return_value=False):
-            save_presets(
-                presets_file=presets_file,
-                presets_dict=presets_dict_user1,
-                table_name="test_table",
-                username="user1"
-            )
-            
-            # With file fallback (no DB), presets are NOT user-scoped
-            # This test validates the file fallback works
-            loaded = load_presets(
-                presets_file=presets_file,
-                default_columns=["Default"],
-                table_name="test_table",
-                username="user1"
-            )
-            
-            # User1 should see their own preset
-            assert "User1Preset" in loaded
+        mock_config = MagicMock()
+        mock_config.username = "user1"
+        mock_config._get_preset_table_name.return_value = "test_user1_column_presets"
+        mock_config.get_presets.return_value = []
+        
+        save_presets(mock_config, presets_dict)
+        
+        # Simulate DB result for user1
+        mock_config.get_presets.return_value = [
+            {"preset_name": "Default", "columns": ["Default"], "is_default": True},
+            {"preset_name": "User1Preset", "columns": ["A", "B"], "is_default": False}
+        ]
+        
+        loaded = load_presets(mock_config, ["Default"])
+        assert "User1Preset" in loaded
 
 
 class TestActivePresetPersistence:
@@ -153,48 +125,32 @@ class TestActivePresetPersistence:
     
     def test_load_active_preset_default(self, tmp_path):
         """Loading missing active preset should return 'Default'."""
-        from unittest.mock import patch
+        from unittest.mock import MagicMock
         from src.utils.preset_utils import load_active_preset
         
-        missing_file = tmp_path / "missing_active.json"
+        mock_config = MagicMock()
+        mock_config.get_default_preset.return_value = None
         
-        # Mock database to be disabled so file fallback is used
-        with patch('src.utils.preset_utils._is_database_enabled', return_value=False):
-            loaded = load_active_preset(
-                active_preset_file=missing_file,
-                table_name="test_table",
-                username="testuser"
-            )
-            
-            assert loaded == "Default"
+        loaded = load_active_preset(mock_config)
+        
+        assert loaded == "Default"
     
     def test_save_and_load_active_preset(self, tmp_path):
-        """Saving and loading active preset should work (file fallback)."""
-        from unittest.mock import patch
+        """Saving and loading active preset should work."""
+        from unittest.mock import MagicMock
         from src.utils.preset_utils import save_active_preset, load_active_preset
         
-        active_preset_file = tmp_path / "active_preset.json"
+        mock_config = MagicMock()
+        mock_config.get_presets.return_value = [
+            {"preset_name": "Default", "is_default": True, "columns": ["A"]},
+            {"preset_name": "MyActive", "is_default": False, "columns": ["B"]}
+        ]
         
-        # Mock database to be disabled so file fallback is used
-        with patch('src.utils.preset_utils._is_database_enabled', return_value=False):
-            save_active_preset(
-                active_preset_file=active_preset_file,
-                preset_name="MyActive",
-                table_name="test_table",
-                username="testuser"
-            )
-            
-            # Verify file was written with correct format
-            import json
-            with open(active_preset_file) as f:
-                data = json.load(f)
-            
-            assert data.get("active_preset") == "MyActive"
-            
-            loaded = load_active_preset(
-                active_preset_file=active_preset_file,
-                table_name="test_table",
-                username="testuser"
-            )
-            
-            assert loaded == "MyActive"
+        save_active_preset(mock_config, "MyActive")
+        
+        # Simulate what DB would return after setting active
+        mock_config.get_default_preset.return_value = {"preset_name": "MyActive"}
+        
+        loaded = load_active_preset(mock_config)
+        
+        assert loaded == "MyActive"

@@ -199,7 +199,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         ui.tags.div(
             id=f"filter_values_{col_name}",
             style="display: none;",
-            **{"data-values": ",".join(value_options[:500])}  # Limit to 500 values
+            **{"data-values": ",".join(value_options[:5000])}  # Limit to 5000 values
         ),
         class_="filter-group",
         style="margin-bottom: 10px;"

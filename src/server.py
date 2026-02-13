@@ -109,13 +109,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Load UI state for this instance."""
         return config.load_ui_state()
     
-    # File paths for presets
-    presets_file = data_dir / "column_presets.json"
-    active_preset_file = data_dir / "active_preset.json"
-    
-    # Get table name for scoping presets (for multi-widget support)
-    # Use mods_table as it's unique per widget instance (e.g., epitopes.modifications vs epitopes.modifications_clone)
-    preset_table_name = app_config.database.mods_table.replace('.', '_').replace('-', '_')
+    # Presets use the server's ConfigInstance directly (handles datum & direct modes)
     
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
@@ -162,14 +156,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     approval_status = reactive.Value(initial_status)
     approval_timestamp = reactive.Value(initial_timestamp)
     
-    # Load presets (scoped by preset_table_name and username)
-    print(f"[Preset] Loading presets for scope: {preset_table_name}, user: {safe_username}")
-    loaded_presets = load_presets(presets_file, display_columns, preset_table_name, safe_username)
+    # Load presets via ConfigInstance (scoped by data_table + username)
+    loaded_presets = load_presets(config, display_columns)
     column_presets = reactive.Value(loaded_presets)
     
     # Load last active preset (persists across refreshes)
-    initial_active_preset = load_active_preset(active_preset_file, preset_table_name, safe_username)
-    print(f"[Preset] Active preset for {preset_table_name}/{safe_username}: {initial_active_preset}")
+    initial_active_preset = load_active_preset(config)
+    print(f"[Preset] Active preset for {safe_username}: {initial_active_preset}")
     # Ensure the preset exists, fallback to Default if not
     if initial_active_preset not in loaded_presets:
         initial_active_preset = "Default"
@@ -448,10 +441,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     # Wrapper functions for preset utilities (using file paths and username from this scope)
     def _save_presets(presets_dict):
-        save_presets(presets_file, presets_dict, preset_table_name, safe_username)
+        save_presets(config, presets_dict)
     
     def _save_active_preset(preset_name):
-        save_active_preset(active_preset_file, preset_name, preset_table_name, safe_username)
+        save_active_preset(config, preset_name)
 
     # Output: Namespace holder for JavaScript
     @render.ui
@@ -512,7 +505,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.refresh_preset)
     def _refresh_presets():
         """Reload presets from file when triggered"""
-        fresh_presets = load_presets(presets_file, display_columns, preset_table_name, safe_username)
+        fresh_presets = load_presets(config, display_columns)
         column_presets.set(fresh_presets)
         
         # Also refresh active_columns based on current preset
