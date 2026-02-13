@@ -42,14 +42,20 @@ def update_filter_values(filters: Dict[str, str], input_obj: Any) -> Tuple[Dict[
     updated = False
     new_filters = filters.copy()
     
-    for col_name in list(filters.keys()):
+    for col_name, filter_value in list(filters.items()):
+        # Operator-dict filters (e.g. {"op": "not_contains", ...}) are rendered
+        # as read-only labels — they have no input_text_area to read.
+        if isinstance(filter_value, dict) and "op" in filter_value:
+            continue
         filter_id = f"filter_{col_name}"
         try:
             current_val = getattr(input_obj, filter_id)()
             if current_val and new_filters.get(col_name) != current_val:
                 new_filters[col_name] = current_val
                 updated = True
-        except:
+        except Exception:
+            # Only catch Exception; let SilentException/SilentCancelOutputException
+            # (BaseException subclasses) propagate so Shiny's reactive graph stays intact
             pass
     
     return new_filters, updated

@@ -53,8 +53,17 @@ def ensure_data_dir() -> bool:
 # Load data based on source type (database only)
 def _load_initial_data() -> pd.DataFrame:
     """Load initial data from database."""
+    if not app_config.database.enabled:
+        print("⚠ Database not enabled, skipping initial load")
+        return pd.DataFrame()
     if app_config.database.mode == "datum":
+        if not (app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL")):
+            print("⚠ Datum mode but no datum_base_url configured, skipping initial load")
+            return pd.DataFrame()
         return _load_from_datum()
+    if not app_config.database.connection_string:
+        print("⚠ No connection_string configured, skipping initial load")
+        return pd.DataFrame()
     return _load_from_database()
 
 
