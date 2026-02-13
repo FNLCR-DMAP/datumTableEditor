@@ -468,13 +468,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Data summary text
     @render.text
     def data_summary():
-        df = data.get()
-        num_cols = len(df.columns)
         if is_lazy_loading:
-            # Use the full dataset count from the DB, not the current page size
+            # Use the full dataset count and all known columns
             total = total_rows.get()
+            num_cols = len(config.all_columns)
         else:
+            df = data.get()
             total = len(df)
+            num_cols = len(df.columns)
         return f"{total} rows x {num_cols} columns"
     
     # Output: Stats histogram
@@ -706,6 +707,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def dynamic_filters():
         """Render active dynamic filters"""
+        if is_lazy_loading:
+            # In lazy mode, data.get() may be empty; pass all known columns
+            # and a callback to fetch unique values from DB
+            return build_dynamic_filters_panel(
+                active_filters.get(), data.get(),
+                fix_filter=app_config.fix_filter,
+                all_columns=config.all_columns,
+                get_unique_values_func=config.data_fetcher.get_unique_values
+            )
         return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter)
     
     # Output: Add filter button (hidden for Default preset)
@@ -725,9 +735,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def available_filter_columns():
         """Render list of columns that can be added as filters"""
-        df = data.get()
         filters = active_filters.get()
-        available_cols = [col for col in df.columns if col not in filters]
+        # In lazy mode, data.get() may have no columns; use config.all_columns
+        if is_lazy_loading:
+            all_cols = config.all_columns
+        else:
+            all_cols = list(data.get().columns)
+        available_cols = [col for col in all_cols if col not in filters and not col.startswith('_')]
         return build_filter_column_buttons(available_cols)
     
     # Handle adding a filter

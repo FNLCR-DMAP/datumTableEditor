@@ -143,8 +143,10 @@ class DataFetcher:
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
                 )
-                self._columns = list(response.data[0].keys()) if response.data else []
-                # If no data, get columns from schema
+                # Use response.columns (always present) rather than
+                # response.data[0].keys() which fails when LIMIT 0 returns no rows
+                self._columns = list(response.columns) if response.columns else []
+                # Fallback: try information_schema
                 if not self._columns:
                     self._columns = self._get_columns_from_schema_datum()
             else:
@@ -191,6 +193,32 @@ class DataFetcher:
             print(f"✗ Error getting columns from schema: {e}")
             return []
     
+    def get_unique_values(self, column: str, limit: int = 500) -> List[str]:
+        """Fetch distinct values for a column from the database.
+        
+        Used by the filter UI to populate dropdown options in lazy loading mode.
+        """
+        try:
+            data_table_sql = _format_table_name(self.app_config.database.data_table)
+            query = f'SELECT DISTINCT "{column}" FROM {data_table_sql} WHERE "{column}" IS NOT NULL ORDER BY "{column}" LIMIT {limit}'
+            
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                return [str(row[column]) for row in response.data]
+            elif self._engine:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(query))
+                    return [str(row[0]) for row in result.fetchall()]
+        except Exception as e:
+            print(f"[DataFetcher] Error getting unique values for {column}: {e}")
+        return []
+
     @property
     def total_count(self) -> int:
         """Total row count in the table (unfiltered)."""

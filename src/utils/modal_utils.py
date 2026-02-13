@@ -206,8 +206,22 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     )
 
 
-def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame, fix_filter: bool = False) -> ui.div:
-    """Build the complete dynamic filters panel."""
+def build_dynamic_filters_panel(
+    filters: dict,
+    df: pd.DataFrame,
+    fix_filter: bool = False,
+    all_columns: list = None,
+    get_unique_values_func=None
+) -> ui.div:
+    """Build the complete dynamic filters panel.
+    
+    Args:
+        filters: Active filters dict
+        df: Current DataFrame (may be empty in lazy loading mode)
+        fix_filter: Whether filters are locked
+        all_columns: All known column names (for lazy loading when df has no columns)
+        get_unique_values_func: Callback to fetch unique values from DB (lazy mode)
+    """
     if not filters:
         if fix_filter:
             return ui.div(
@@ -217,6 +231,10 @@ def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame, fix_filter: boo
             ui.p("No filters active. Click + to add a filter.", style="font-size: 12px; color: #6c757d; margin: 5px 0;")
         )
     
+    known_columns = set(df.columns)
+    if all_columns:
+        known_columns.update(all_columns)
+    
     filter_elements = []
     for col_name, filter_value in filters.items():
         # Operator dict → render as read-only label (no DataFrame dependency)
@@ -224,11 +242,19 @@ def build_dynamic_filters_panel(filters: dict, df: pd.DataFrame, fix_filter: boo
             filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter))
             continue
         
-        # Simple string filter needs the column in the DataFrame for unique values
-        if col_name not in df.columns:
+        # Skip columns that aren't known at all
+        if col_name not in known_columns:
             continue
         
-        unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
+        # Get unique values: prefer DB query (lazy mode), fall back to DataFrame
+        if col_name in df.columns and len(df) > 0:
+            unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
+        elif get_unique_values_func:
+            db_values = get_unique_values_func(col_name)
+            unique_values = ["all"] + db_values
+        else:
+            unique_values = ["all"]
+        
         current_value = filter_value if filter_value else "all"
         filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter))
     
