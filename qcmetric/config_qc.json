@@ -3,7 +3,7 @@
   "_generated": true,
   "_summary": {
     "total_functions": 4,
-    "unused_functions": 1,
+    "unused_functions": 0,
     "fully_annotated_functions": 4,
     "function_coverage_percent": 100.0,
     "parameter_coverage_percent": 100.0,
@@ -22,10 +22,8 @@
       "used": [
         "_apply_env_overrides",
         "_merge_config",
+        "export_config_schema",
         "load_config"
-      ],
-      "unused": [
-        "export_config_schema"
       ]
     }
   },

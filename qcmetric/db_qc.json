@@ -3,7 +3,7 @@
   "_generated": true,
   "_summary": {
     "total_functions": 93,
-    "unused_functions": 3,
+    "unused_functions": 0,
     "fully_annotated_functions": 80,
     "function_coverage_percent": 86.0,
     "parameter_coverage_percent": 94.4,
@@ -82,18 +82,16 @@
         "create_state_table",
         "engine",
         "ensure_tables_exist",
+        "generate_default_preset",
         "get_column_names",
         "get_pk_dict",
         "get_pk_tuple",
         "get_primary_key",
+        "get_row_count",
         "get_schema_manager",
         "get_table_schema",
         "get_table_schema",
         "table_exists"
-      ],
-      "unused": [
-        "generate_default_preset",
-        "get_row_count"
       ],
       "framework_managed": [
         "engine"
@@ -128,6 +126,7 @@
         "build_get_modifications_for_row",
         "build_get_state",
         "build_insert_modification",
+        "build_search_filter",
         "build_select_query",
         "build_undo_modification",
         "build_upsert_state",
@@ -137,9 +136,6 @@
         "quote_identifier",
         "to_sql",
         "to_sql"
-      ],
-      "unused": [
-        "build_search_filter"
       ]
     },
     "src/db/session_book.py": {

@@ -1,0 +1,243 @@
+{
+  "_meta": {
+    "description": "Golden SQL strings extracted from QueryBuilder and DataFetcher. Any change here means a potential SQL regression.",
+    "generator": "tooling/src/sql/extract_golden_sql.py"
+  },
+  "query_builder": {
+    "no_filters_clean_select": {
+      "sql": "SELECT * FROM \"epitopes\".\"epitopes_data\" ORDER BY \"PatientID_Mutsequence\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "single_equals_filter": {
+      "sql": "SELECT * FROM \"data_table\" WHERE \"Status\" = :f0_Status ORDER BY \"id\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "f0_Status": "Pending",
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "stacked_and_chain": {
+      "sql": "SELECT * FROM \"data\" WHERE \"Status\" = :f0_Status AND \"Gene_names\" IN (:f1_Gene_names_0, :f1_Gene_names_1) AND \"Comments\" IS NOT NULL ORDER BY \"id\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "f0_Status": "Pending",
+        "f1_Gene_names_0": "BRCA1",
+        "f1_Gene_names_1": "TP53",
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "sort_asc": {
+      "sql": "SELECT * FROM \"data\" ORDER BY \"PatientID\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "sort_desc": {
+      "sql": "SELECT * FROM \"data\" ORDER BY \"PatientID\" DESC LIMIT :limit OFFSET :offset",
+      "params": {
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "page_1": {
+      "params": {
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "page_2": {
+      "params": {
+        "limit": 25,
+        "offset": 25
+      }
+    },
+    "page_3": {
+      "params": {
+        "limit": 10,
+        "offset": 20
+      }
+    },
+    "select_with_filter": {
+      "sql": "SELECT * FROM \"data\" WHERE \"Status\" = :f0_Status ORDER BY \"id\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "f0_Status": "Pending",
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "count_with_filter": {
+      "sql": "SELECT COUNT(*) FROM \"data\" WHERE \"Status\" = :f0_Status",
+      "params": {
+        "f0_Status": "Pending"
+      }
+    },
+    "insert_modification": {
+      "sql": "\n        INSERT INTO \"schema\".\"mods\" \n            (row_pk, column_name, old_value, new_value, mod_type, created_by)\n        VALUES \n            (:row_pk, :column_name, :old_value, :new_value, :mod_type, :created_by)\n        RETURNING id\n        "
+    },
+    "undo_modification": {
+      "sql": "\n        UPDATE \"schema\".\"mods\"\n        SET undone = TRUE\n        WHERE id = :mod_id\n        RETURNING id\n        "
+    },
+    "lateral_join_mods_status": {
+      "sql": "\n        SELECT d.*,\n            COALESCE(\n                (SELECT m.mod_type \n                 FROM \"schema\".\"mods\" m \n                 WHERE m.row_pk->>'PatientID_Mutsequence' = d.\"PatientID_Mutsequence\"::text\n                   AND m.undone = FALSE\n                 ORDER BY m.created_at DESC \n                 LIMIT 1),\n                'unprocessed'\n            ) AS _mod_status,\n            (SELECT COUNT(*) \n             FROM \"schema\".\"mods\" m \n             WHERE m.row_pk->>'PatientID_Mutsequence' = d.\"PatientID_Mutsequence\"::text\n               AND m.undone = FALSE\n               AND m.mod_type = 'field_modification'\n            ) AS _mod_count\n        FROM \"schema\".\"data\" d\n         ORDER BY \"PatientID_Mutsequence\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "no_mods_status": {
+      "sql": "SELECT * FROM \"schema\".\"data\" ORDER BY \"PatientID_Mutsequence\" ASC LIMIT :limit OFFSET :offset",
+      "params": {
+        "limit": 25,
+        "offset": 0
+      }
+    },
+    "upsert_state": {
+      "sql": "\n        INSERT INTO \"public\".\"ui_state\" \n            (user_id, session_id, filters, sort_column, sort_ascending, \n             current_page, rows_per_page, column_preset, updated_at)\n        VALUES \n            (:user_id, :session_id, :filters, :sort_column, :sort_ascending,\n             :current_page, :rows_per_page, :column_preset, NOW())\n        ON CONFLICT (user_id, session_id) \n        DO UPDATE SET\n            filters = EXCLUDED.filters,\n            sort_column = EXCLUDED.sort_column,\n            sort_ascending = EXCLUDED.sort_ascending,\n            current_page = EXCLUDED.current_page,\n            rows_per_page = EXCLUDED.rows_per_page,\n            column_preset = EXCLUDED.column_preset,\n            updated_at = NOW()\n        "
+    },
+    "get_state": {
+      "sql": "\n        SELECT * FROM \"public\".\"ui_state\"\n        WHERE user_id = :user_id AND session_id = :session_id\n        "
+    },
+    "get_modifications_for_row": {
+      "sql": "\n        SELECT * FROM \"schema\".\"mods\"\n        WHERE row_pk = :row_pk\n          AND undone = FALSE\n        ORDER BY created_at DESC\n        "
+    },
+    "full_filter_sort_paginate_mods": {
+      "sql": "\n        SELECT d.*,\n            COALESCE(\n                (SELECT m.mod_type \n                 FROM \"epi\".\"modifications\" m \n                 WHERE m.row_pk->>'PatientID_Mutsequence' = d.\"PatientID_Mutsequence\"::text\n                   AND m.undone = FALSE\n                 ORDER BY m.created_at DESC \n                 LIMIT 1),\n                'unprocessed'\n            ) AS _mod_status,\n            (SELECT COUNT(*) \n             FROM \"epi\".\"modifications\" m \n             WHERE m.row_pk->>'PatientID_Mutsequence' = d.\"PatientID_Mutsequence\"::text\n               AND m.undone = FALSE\n               AND m.mod_type = 'field_modification'\n            ) AS _mod_count\n        FROM \"epi\".\"epitopes_data\" d\n         WHERE \"Gene_names\" IN (:f0_Gene_names_0, :f0_Gene_names_1) AND \"Status\" ILIKE :f1_Status ORDER BY \"PatientID\" DESC LIMIT :limit OFFSET :offset",
+      "params": {
+        "f0_Gene_names_0": "BRCA1",
+        "f0_Gene_names_1": "TP53",
+        "f1_Status": "%Pend%",
+        "limit": 25,
+        "offset": 50
+      }
+    },
+    "full_filter_count": {
+      "sql": "SELECT COUNT(*) FROM \"epi\".\"epitopes_data\" WHERE \"Gene_names\" IN (:f0_Gene_names_0, :f0_Gene_names_1) AND \"Status\" ILIKE :f1_Status",
+      "params": {
+        "f0_Gene_names_0": "BRCA1",
+        "f0_Gene_names_1": "TP53",
+        "f1_Status": "%Pend%"
+      }
+    },
+    "insert_modification_public": {
+      "sql": "\n        INSERT INTO \"public\".\"mods\" \n            (row_pk, column_name, old_value, new_value, mod_type, created_by)\n        VALUES \n            (:row_pk, :column_name, :old_value, :new_value, :mod_type, :created_by)\n        RETURNING id\n        "
+    }
+  },
+  "data_fetcher_where": {
+    "empty_params": {
+      "where": "",
+      "params": {}
+    },
+    "simple_equals": {
+      "where": " WHERE CAST(\"Status\" AS TEXT) = :p0",
+      "params": {
+        "p0": "Pending"
+      }
+    },
+    "list_in": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) IN (:p0, :p1)",
+      "params": {
+        "p0": "BRCA1",
+        "p1": "TP53"
+      }
+    },
+    "not_contains": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) NOT ILIKE :p0",
+      "params": {
+        "p0": "%BRCA%"
+      }
+    },
+    "between": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) BETWEEN :p0 AND :p1",
+      "params": {
+        "p0": "A",
+        "p1": "M"
+      }
+    },
+    "regex": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) ~* :p0",
+      "params": {
+        "p0": "^TP"
+      }
+    },
+    "search_all_columns": {
+      "where": " WHERE (CAST(\"Gene_names\" AS TEXT) ILIKE :search_term OR CAST(\"Status\" AS TEXT) ILIKE :search_term)",
+      "params": {
+        "search_term": "%PAT%"
+      }
+    },
+    "search_specific_column": {
+      "where": " WHERE (CAST(\"Gene_names\" AS TEXT) ILIKE :search_term)",
+      "params": {
+        "search_term": "%TP53%"
+      }
+    },
+    "filter_plus_search": {
+      "where": " WHERE CAST(\"Status\" AS TEXT) = :p0 AND (CAST(\"Gene_names\" AS TEXT) ILIKE :search_term OR CAST(\"Status\" AS TEXT) ILIKE :search_term)",
+      "params": {
+        "p0": "Pending",
+        "search_term": "%BRCA%"
+      }
+    },
+    "interpolated_mode": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) IN ('BRCA1', 'TP53') AND (CAST(\"Gene_names\" AS TEXT) ILIKE '%PAT%' OR CAST(\"Status\" AS TEXT) ILIKE '%PAT%')",
+      "params": {}
+    },
+    "gt_operator": {
+      "where": " WHERE CAST(\"Score\" AS TEXT) > :p0",
+      "params": {
+        "p0": "50"
+      }
+    },
+    "not_empty": {
+      "where": " WHERE (\"Comments\" IS NOT NULL AND CAST(\"Comments\" AS TEXT) != :p0)",
+      "params": {
+        "p0": ""
+      }
+    },
+    "contains_parameterized": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) ILIKE :p0",
+      "params": {
+        "p0": "%BRC%"
+      }
+    },
+    "contains_interpolated": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) ILIKE '%BRC%'",
+      "params": {}
+    },
+    "complex_multi_filter": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) NOT ILIKE :p0 AND CAST(\"Status\" AS TEXT) IN (:p1, :p2) AND (\"Comments\" IS NOT NULL AND CAST(\"Comments\" AS TEXT) != :p3) AND (CAST(\"PatientID\" AS TEXT) ILIKE :search_term)",
+      "params": {
+        "p0": "%BRCA%",
+        "p1": "Pending",
+        "p2": "Reviewed",
+        "p3": "",
+        "search_term": "%PAT%"
+      }
+    },
+    "status_filter_all": {
+      "clause": ""
+    },
+    "status_filter_subset": {
+      "clause": " AND _mod_status IN ('unprocessed', 'edited')"
+    },
+    "progression_step1_filter_only": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) IN (:p0, :p1)",
+      "params": {
+        "p0": "BRCA1",
+        "p1": "TP53"
+      }
+    },
+    "progression_step2_filter_plus_search": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) IN (:p0, :p1) AND (CAST(\"Gene_names\" AS TEXT) ILIKE :search_term OR CAST(\"Status\" AS TEXT) ILIKE :search_term)",
+      "params": {
+        "p0": "BRCA1",
+        "p1": "TP53",
+        "search_term": "%PAT001%"
+      }
+    }
+  }
+}

@@ -11,6 +11,7 @@ Tests:
 import pytest
 import pandas as pd
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 from datetime import datetime
 
@@ -751,3 +752,57 @@ class TestDatabaseBranches:
             
             assert error is None
             assert updated_df.iloc[0]["Gene_names"] == original_value
+
+
+class TestSaveModificationsToFile:
+    """Tests for save_modifications_to_file function."""
+
+    def test_saves_log_and_state(self, tmp_path):
+        """Should save both log and data state files."""
+        from src.utils.data_operations import save_modifications_to_file
+
+        df = pd.DataFrame({"A": [1, 2], "B": ["x", "y"]})
+        log = [{"type": "field_modification", "timestamp": "2024-01-01"}]
+        log_path = tmp_path / "log.json"
+        state_path = tmp_path / "state.json"
+
+        with patch('src.utils.data_operations.DB_AVAILABLE', False):
+            msg = save_modifications_to_file(df, log, log_path, state_path)
+
+        assert "Saved 1 modifications" in msg
+        assert log_path.exists()
+        assert state_path.exists()
+
+        saved_log = json.loads(log_path.read_text())
+        assert len(saved_log) == 1
+        assert saved_log[0]["type"] == "field_modification"
+
+    def test_db_mode_returns_message(self):
+        """In DB mode, should return DB message without writing files."""
+        from src.utils.data_operations import save_modifications_to_file
+
+        df = pd.DataFrame({"A": [1]})
+        log = [{"type": "field_modification"}]
+
+        mock_config = MagicMock()
+        mock_config.database.enabled = True
+
+        with patch('src.utils.data_operations.DB_AVAILABLE', True), \
+             patch('src.utils.data_operations.app_config', mock_config):
+            msg = save_modifications_to_file(df, log, Path("/nope/log.json"), Path("/nope/state.json"))
+
+        assert "database" in msg.lower()
+
+    def test_empty_log(self, tmp_path):
+        """Should handle empty log correctly."""
+        from src.utils.data_operations import save_modifications_to_file
+
+        df = pd.DataFrame({"A": [1]})
+        log = []
+        log_path = tmp_path / "log.json"
+        state_path = tmp_path / "state.json"
+
+        with patch('src.utils.data_operations.DB_AVAILABLE', False):
+            msg = save_modifications_to_file(df, log, log_path, state_path)
+
+        assert "0 modifications" in msg

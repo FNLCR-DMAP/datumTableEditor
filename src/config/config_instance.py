@@ -19,13 +19,42 @@ def _format_table_name(table_name: str) -> str:
     """
     Format table name for SQL queries with proper PostgreSQL quoting.
     
-    Properly quotes schema-qualified names by quoting each part separately:
+    Properly quotes schema-qualified names by quoting each part separately,
+    and escapes embedded double-quotes by doubling them:
     - "users" -> '"users"'
     - "epitopes.epitopes_data" -> '"epitopes"."epitopes_data"'
-    - "public.my_table" -> '"public"."my_table"'
+    - 'evil"name' -> '"evil""name"'
     """
     parts = table_name.split('.')
-    return ".".join(f'"{part}"' for part in parts)
+    return ".".join(f'"{part.replace(chr(34), chr(34)*2)}"' for part in parts)
+
+
+def _escape_identifier(name: str) -> str:
+    """Escape a SQL identifier (column/table name) for double-quote wrapping.
+    
+    PostgreSQL identifiers: embedded " must be doubled.
+    Returns the name ready to be placed inside double-quotes.
+    """
+    return name.replace('"', '""')
+
+
+def _escape_literal(value) -> str:
+    """Escape a value for direct SQL string literal interpolation.
+    
+    - None  -> NULL
+    - bool  -> TRUE / FALSE
+    - int/float -> str(value)
+    - str   -> single-quoted with ' doubled and NUL bytes stripped
+    """
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, (int, float)):
+        return str(value)
+    # Strip NUL bytes and escape single quotes by doubling
+    s = str(value).replace('\x00', '').replace("'", "''")
+    return f"'{s}'"
 
 
 def _build_mod_status_expr(status_column: str = None, status_labels: dict = None) -> str:
@@ -41,7 +70,7 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
                        {"approved": "Accepted", "rejected": "Rejected", ...}
     """
     if status_column:
-        col = f'd."{status_column}"'
+        col = f'd."{_escape_identifier(status_column)}"'
         # Build CASE WHEN branches for each status, matching both internal key and label
         when_clauses = []
         if status_labels:
@@ -49,10 +78,13 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
                 if internal_key == "unprocessed":
                     continue  # unprocessed is the default/fallback
                 # Match either the internal key or the configured label
-                values = {internal_key.lower(), label.lower()}
-                in_list = ", ".join(f"'{v}'" for v in sorted(values))
+                # Escape both values for safe SQL literal interpolation
+                safe_key = internal_key.lower().replace("'", "''")
+                safe_label = label.lower().replace("'", "''")
+                values = sorted(set([safe_key, safe_label]))
+                in_list = ", ".join(f"'{v}'" for v in values)
                 when_clauses.append(
-                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN '{internal_key}'"
+                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN '{safe_key}'"
                 )
         else:
             # Default: recognize the standard internal keys
@@ -179,7 +211,7 @@ class DataFetcher:
             
             query = f"""
             SELECT column_name FROM information_schema.columns 
-            WHERE table_schema = '{schema}' AND table_name = '{table_name}'
+            WHERE table_schema = '{schema.replace("'", "''")}' AND table_name = '{table_name.replace("'", "''")}'
             ORDER BY ordinal_position
             """
             response = self._datum_client.execute_sql(
@@ -200,7 +232,8 @@ class DataFetcher:
         """
         try:
             data_table_sql = _format_table_name(self.app_config.database.data_table)
-            query = f'SELECT DISTINCT "{column}" FROM {data_table_sql} WHERE "{column}" IS NOT NULL ORDER BY "{column}" LIMIT {limit}'
+            safe_col = _escape_identifier(column)
+            query = f'SELECT DISTINCT "{safe_col}" FROM {data_table_sql} WHERE "{safe_col}" IS NOT NULL ORDER BY "{safe_col}" LIMIT {limit}'
             
             if self.app_config.database.mode == "datum" and self._datum_client:
                 response = self._datum_client.execute_sql(
@@ -230,15 +263,18 @@ class DataFetcher:
         return self._columns.copy()
     
     def _escape_sql_value(self, value: Any) -> str:
-        """Escape a value for direct SQL interpolation (for Datum mode)."""
+        """Escape a value for direct SQL interpolation (for Datum mode).
+        
+        Strips NUL bytes and doubles single quotes for safe PostgreSQL literals.
+        """
         if value is None:
             return "NULL"
         if isinstance(value, bool):
             return "TRUE" if value else "FALSE"
         if isinstance(value, (int, float)):
             return str(value)
-        # String: escape single quotes by doubling them
-        escaped = str(value).replace("'", "''")
+        # Strip NUL bytes and escape single quotes by doubling them
+        escaped = str(value).replace('\x00', '').replace("'", "''")
         return f"'{escaped}'"
     
     def _build_where_clause(self, params: QueryParams, use_params: bool = True) -> Tuple[str, Dict[str, Any]]:
@@ -264,6 +300,9 @@ class DataFetcher:
             if value is None or value == "" or value == []:
                 continue
             
+            # Escape the column identifier for safe SQL quoting
+            safe_col = _escape_identifier(col)
+            
             # ── Operator dict filter ──
             if isinstance(value, dict) and "op" in value:
                 op = value.get("op", "in")
@@ -273,85 +312,85 @@ class DataFetcher:
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
-                        conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
                         for i, v in enumerate(vals):
                             sql_params[f"p{param_idx + i}"] = str(v)
                         param_idx += len(vals)
                     else:
                         placeholders = ", ".join(self._escape_sql_value(str(v)) for v in vals)
-                        conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
                 
                 elif op == "not_in":
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
-                        conditions.append(f'CAST("{col}" AS TEXT) NOT IN ({placeholders})')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT IN ({placeholders})')
                         for i, v in enumerate(vals):
                             sql_params[f"p{param_idx + i}"] = str(v)
                         param_idx += len(vals)
                     else:
                         placeholders = ", ".join(self._escape_sql_value(str(v)) for v in vals)
-                        conditions.append(f'CAST("{col}" AS TEXT) NOT IN ({placeholders})')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT IN ({placeholders})')
                 
                 elif op == "contains":
                     if use_params:
-                        conditions.append(f'CAST("{col}" AS TEXT) ILIKE :p{param_idx}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE :p{param_idx}')
                         sql_params[f"p{param_idx}"] = f"%{fval}%"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{col}" AS TEXT) ILIKE {self._escape_sql_value(f"%{fval}%")}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE {self._escape_sql_value(f"%{fval}%")}')
                 
                 elif op == "not_contains":
                     if use_params:
-                        conditions.append(f'CAST("{col}" AS TEXT) NOT ILIKE :p{param_idx}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT ILIKE :p{param_idx}')
                         sql_params[f"p{param_idx}"] = f"%{fval}%"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{col}" AS TEXT) NOT ILIKE {self._escape_sql_value(f"%{fval}%")}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT ILIKE {self._escape_sql_value(f"%{fval}%")}')
                 
                 elif op == "between":
                     if isinstance(fval, list) and len(fval) == 2:
                         if use_params:
-                            conditions.append(f'CAST("{col}" AS TEXT) BETWEEN :p{param_idx} AND :p{param_idx + 1}')
+                            conditions.append(f'CAST("{safe_col}" AS TEXT) BETWEEN :p{param_idx} AND :p{param_idx + 1}')
                             sql_params[f"p{param_idx}"] = str(fval[0])
                             sql_params[f"p{param_idx + 1}"] = str(fval[1])
                             param_idx += 2
                         else:
-                            conditions.append(f'CAST("{col}" AS TEXT) BETWEEN {self._escape_sql_value(str(fval[0]))} AND {self._escape_sql_value(str(fval[1]))}')
+                            conditions.append(f'CAST("{safe_col}" AS TEXT) BETWEEN {self._escape_sql_value(str(fval[0]))} AND {self._escape_sql_value(str(fval[1]))}')
                 
                 elif op in ("gt", "gte", "lt", "lte"):
                     sql_op = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[op]
                     if use_params:
-                        conditions.append(f'CAST("{col}" AS TEXT) {sql_op} :p{param_idx}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) {sql_op} :p{param_idx}')
                         sql_params[f"p{param_idx}"] = str(fval)
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{col}" AS TEXT) {sql_op} {self._escape_sql_value(str(fval))}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) {sql_op} {self._escape_sql_value(str(fval))}')
                 
                 elif op == "last_n_days":
                     n = int(fval) if fval is not None else 7
                     if use_params:
-                        conditions.append(f'CAST("{col}" AS DATE) >= (CURRENT_DATE - INTERVAL :p{param_idx})')
+                        conditions.append(f'CAST("{safe_col}" AS DATE) >= (CURRENT_DATE - INTERVAL :p{param_idx})')
                         sql_params[f"p{param_idx}"] = f"{n} days"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{col}" AS DATE) >= (CURRENT_DATE - INTERVAL \'{n} days\')')
+                        conditions.append(f'CAST("{safe_col}" AS DATE) >= (CURRENT_DATE - INTERVAL \'{n} days\')')
                 
                 elif op == "not_empty":
                     if use_params:
-                        conditions.append(f'("{col}" IS NOT NULL AND CAST("{col}" AS TEXT) != :p{param_idx})')
+                        conditions.append(f'("{safe_col}" IS NOT NULL AND CAST("{safe_col}" AS TEXT) != :p{param_idx})')
                         sql_params[f"p{param_idx}"] = ""
                         param_idx += 1
                     else:
-                        conditions.append(f'("{col}" IS NOT NULL AND CAST("{col}" AS TEXT) != \'\')')
+                        conditions.append(f'("{safe_col}" IS NOT NULL AND CAST("{safe_col}" AS TEXT) != \'\')')
                 
                 elif op == "regex":
                     if use_params:
-                        conditions.append(f'CAST("{col}" AS TEXT) ~* :p{param_idx}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) ~* :p{param_idx}')
                         sql_params[f"p{param_idx}"] = str(fval)
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{col}" AS TEXT) ~* {self._escape_sql_value(str(fval))}')
+                        conditions.append(f'CAST("{safe_col}" AS TEXT) ~* {self._escape_sql_value(str(fval))}')
                 
                 continue
             
@@ -360,21 +399,21 @@ class DataFetcher:
                 # IN clause for multi-select
                 if use_params:
                     placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
-                    conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
+                    conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
                     for i, v in enumerate(value):
                         sql_params[f"p{param_idx + i}"] = str(v)
                     param_idx += len(value)
                 else:
                     placeholders = ", ".join(self._escape_sql_value(str(v)) for v in value)
-                    conditions.append(f'CAST("{col}" AS TEXT) IN ({placeholders})')
+                    conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
             else:
                 # Exact match
                 if use_params:
-                    conditions.append(f'CAST("{col}" AS TEXT) = :p{param_idx}')
+                    conditions.append(f'CAST("{safe_col}" AS TEXT) = :p{param_idx}')
                     sql_params[f"p{param_idx}"] = str(value)
                     param_idx += 1
                 else:
-                    conditions.append(f'CAST("{col}" AS TEXT) = {self._escape_sql_value(str(value))}')
+                    conditions.append(f'CAST("{safe_col}" AS TEXT) = {self._escape_sql_value(str(value))}')
         
         # Search term (ILIKE across searchable columns)
         if params.search_term:
@@ -385,14 +424,16 @@ class DataFetcher:
             search_conditions = []
             if use_params:
                 for col in searchable_cols:
-                    search_conditions.append(f'CAST("{col}" AS TEXT) ILIKE :search_term')
+                    safe_col = _escape_identifier(col)
+                    search_conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE :search_term')
                 if search_conditions:
                     conditions.append(f"({' OR '.join(search_conditions)})")
                     sql_params["search_term"] = f"%{params.search_term}%"
             else:
                 escaped_term = self._escape_sql_value(f"%{params.search_term}%")
                 for col in searchable_cols:
-                    search_conditions.append(f'CAST("{col}" AS TEXT) ILIKE {escaped_term}')
+                    safe_col = _escape_identifier(col)
+                    search_conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE {escaped_term}')
                 if search_conditions:
                     conditions.append(f"({' OR '.join(search_conditions)})")
         
@@ -407,8 +448,14 @@ class DataFetcher:
         if not params.status_filters or set(params.status_filters) == {"unprocessed", "edited", "approved", "rejected"}:
             return ""
         
+        # Whitelist: only allow known status values
+        allowed = {"unprocessed", "edited", "approved", "rejected"}
+        safe_statuses = [s for s in params.status_filters if s in allowed]
+        if not safe_statuses:
+            return ""
+        
         # Status is computed via LATERAL JOIN, filter on _mod_status
-        statuses = ", ".join(f"'{s}'" for s in params.status_filters)
+        statuses = ", ".join(f"'{s}'" for s in safe_statuses)
         return f" AND _mod_status IN ({statuses})"
     
     def get_status_counts(self, params: QueryParams = None) -> dict:
@@ -438,7 +485,7 @@ class DataFetcher:
                 # Create a copy without status filters so we count all statuses
                 where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
-            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
             
             query = f"""
             SELECT _mod_status, COUNT(*) as cnt FROM (
@@ -494,7 +541,7 @@ class DataFetcher:
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             # Build query with mod status for status filtering
-            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
             
             query = f"""
             SELECT COUNT(*) as cnt FROM (
@@ -554,16 +601,16 @@ class DataFetcher:
             order_clause = ""
             if params.sort_column and params.sort_column in self._columns:
                 direction = "ASC" if params.sort_ascending else "DESC"
-                order_clause = f'ORDER BY "{params.sort_column}" {direction}'
+                order_clause = f'ORDER BY "{_escape_identifier(params.sort_column)}" {direction}'
             elif pk_columns:
-                order_clause = f'ORDER BY "{pk_columns[0]}" ASC'
+                order_clause = f'ORDER BY "{_escape_identifier(pk_columns[0])}" ASC'
             
             # Pagination
             offset = (params.page - 1) * params.page_size
             limit_clause = f"LIMIT {params.page_size} OFFSET {offset}"
             
             # Build query with mod status
-            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
             # Wrap in subquery to allow status filtering
@@ -640,12 +687,12 @@ class DataFetcher:
             order_clause = ""
             if params.sort_column and params.sort_column in self._columns:
                 direction = "ASC" if params.sort_ascending else "DESC"
-                order_clause = f'ORDER BY "{params.sort_column}" {direction}'
+                order_clause = f'ORDER BY "{_escape_identifier(params.sort_column)}" {direction}'
             elif pk_columns:
-                order_clause = f'ORDER BY "{pk_columns[0]}" ASC'
+                order_clause = f'ORDER BY "{_escape_identifier(pk_columns[0])}" ASC'
             
             # Build query with mod status (NO LIMIT for export)
-            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
             inner_query = f"""
@@ -732,7 +779,7 @@ class DataFetcher:
                 return df
             
             # Query modifications for these PKs
-            pk_array = "ARRAY[" + ",".join(f"'{pv}'::jsonb" for pv in pk_values) + "]"
+            pk_array = "ARRAY[" + ",".join(f"'{pv.replace(chr(39), chr(39)*2)}'::jsonb" for pv in pk_values) + "]"
             mods_query = f"""
             SELECT row_pk, column_name, new_value 
             FROM {mods_table_sql}
@@ -1075,7 +1122,7 @@ class ConfigInstance:
             
             # OPTIMIZED: Use a single JOIN with DISTINCT ON instead of correlated subquery
             # This is much faster as the database can use indexes on mods_table
-            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
             
             # Apply max_rows limit if configured
             max_rows = self.app_config.database.max_rows
@@ -1093,7 +1140,7 @@ class ConfigInstance:
                 ORDER BY m.created_at DESC
                 LIMIT 1
             ) ms ON TRUE
-            ORDER BY d."{pk_columns[0]}"
+            ORDER BY d."{_escape_identifier(pk_columns[0])}"
             {limit_clause}
             """
             
@@ -1158,7 +1205,7 @@ class ConfigInstance:
             
             # OPTIMIZED: Query only modifications for PKs in current view
             # Use ANY with jsonb array for efficient filtering
-            pk_array = "ARRAY[" + ",".join(f"'{pv}'::jsonb" for pv in pk_values) + "]"
+            pk_array = "ARRAY[" + ",".join(f"'{pv.replace(chr(39), chr(39)*2)}'::jsonb" for pv in pk_values) + "]"
             
             mods_query = f"""
             SELECT row_pk, column_name, old_value, new_value 
@@ -1255,7 +1302,7 @@ class ConfigInstance:
             mods_table_sql = _format_table_name(mods_table)
             
             # OPTIMIZED: Use LATERAL JOIN instead of correlated subquery
-            pk_json_build = ", ".join(f"'{pk}', d.\"{pk}\"::text" for pk in pk_columns)
+            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
             
             # Apply max_rows limit if configured
             max_rows = self.app_config.database.max_rows
@@ -1273,7 +1320,7 @@ class ConfigInstance:
                 ORDER BY m.created_at DESC
                 LIMIT 1
             ) ms ON TRUE
-            ORDER BY d."{pk_columns[0]}"
+            ORDER BY d."{_escape_identifier(pk_columns[0])}"
             {limit_clause}
             """
             
@@ -1337,7 +1384,7 @@ class ConfigInstance:
                 return df
             
             # OPTIMIZED: Query only modifications for PKs in current view
-            pk_array = "ARRAY[" + ",".join(f"'{pv}'::jsonb" for pv in pk_values) + "]"
+            pk_array = "ARRAY[" + ",".join(f"'{pv.replace(chr(39), chr(39)*2)}'::jsonb" for pv in pk_values) + "]"
             
             mods_query = f"""
             SELECT row_pk, column_name, old_value, new_value 
@@ -1469,7 +1516,7 @@ class ConfigInstance:
             # Parse schema.table format
             if '.' in mods_table:
                 schema, table_name = mods_table.split('.', 1)
-                schema_sql = f'"{schema}"'
+                schema_sql = f'"{_escape_identifier(schema)}"'
                 table_sql = _format_table_name(mods_table)
             else:
                 schema_sql = None
@@ -1525,7 +1572,7 @@ class ConfigInstance:
             schema_sql = None
             if '.' in mods_table:
                 schema = mods_table.split('.', 1)[0]
-                schema_sql = f'"{schema}"'
+                schema_sql = f'"{_escape_identifier(schema)}"'
             
             # Create schema if needed
             if schema_sql:
@@ -1823,17 +1870,21 @@ class ConfigInstance:
                     serializable_pk[k] = v
             
             # Use sort_keys=True for consistent JSON representation
-            row_pk_json = json.dumps(serializable_pk, sort_keys=True).replace("'", "''")
+            row_pk_json = json.dumps(serializable_pk, sort_keys=True).replace('\x00', '').replace("'", "''")
             
             # Escape username for SQL
-            safe_username = self.username.replace("'", "''") if self.username else 'unknown'
+            safe_username = self.username.replace('\x00', '').replace("'", "''") if self.username else 'unknown'
             
-            # Escape old/new values for SQL (handle single quotes)
-            old_val_escaped = old_val_str.replace("'", "''") if old_val_str else None
-            new_val_escaped = new_val_str.replace("'", "''") if new_val_str else None
+            # Escape old/new values for SQL (handle single quotes and NUL bytes)
+            old_val_escaped = old_val_str.replace('\x00', '').replace("'", "''") if old_val_str else None
+            new_val_escaped = new_val_str.replace('\x00', '').replace("'", "''") if new_val_str else None
             
             # Escape column name for SQL
-            column_escaped = column.replace("'", "''")
+            column_escaped = column.replace('\x00', '').replace("'", "''")
+            
+            # Whitelist mod_type values
+            allowed_mod_types = {"field_modification", "status_change", "approval", "rejection"}
+            safe_mod_type = mod_type if mod_type in allowed_mod_types else "field_modification"
             
             # INSERT with explicit BEGIN/COMMIT for Datum proxy transaction safety
             sql = f'''
@@ -1844,7 +1895,7 @@ class ConfigInstance:
                     ('{row_pk_json}'::jsonb, '{column_escaped}', 
                      {f"'{old_val_escaped}'" if old_val_escaped else 'NULL'}, 
                      {f"'{new_val_escaped}'" if new_val_escaped else 'NULL'}, 
-                     '{mod_type}')
+                     '{safe_mod_type}')
                 RETURNING id;
                 COMMIT;
             '''
@@ -1936,6 +1987,9 @@ class ConfigInstance:
         """Mark modification undone via Datum proxy."""
         try:
             from ..adapter.datum import DatumClient
+            
+            # Validate mod_id is an integer to prevent SQL injection
+            mod_id = int(mod_id)
             
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
@@ -2078,25 +2132,26 @@ class ConfigInstance:
             data_table = self.app_config.database.data_table
             pk_columns = self.app_config.table.primary_key
             
-            # Build WHERE clause from PK
+            # Build WHERE clause from PK — escape all values
             where_parts = []
             for pk_col in pk_columns:
                 if pk_col in row_pk:
+                    safe_col = _escape_identifier(pk_col)
                     pk_val = row_pk[pk_col]
-                    if isinstance(pk_val, str):
-                        where_parts.append(f'"{pk_col}" = \'{pk_val}\'')
-                    else:
-                        where_parts.append(f'"{pk_col}" = {pk_val}')
+                    escaped_val = self.data_fetcher._escape_sql_value(pk_val) if self.data_fetcher else _escape_literal(pk_val)
+                    where_parts.append(f'"{safe_col}" = {escaped_val}')
             
             if not where_parts:
                 return False
             
             where_clause = " AND ".join(where_parts)
-            new_val_sql = f"'{new_value}'" if new_value is not None else "NULL"
+            # Escape column name and new value
+            safe_column = _escape_identifier(column)
+            new_val_sql = _escape_literal(new_value)
             data_table_sql = _format_table_name(data_table)
             
             client.execute_sql(
-                sql=f'BEGIN; UPDATE {data_table_sql} SET "{column}" = {new_val_sql} WHERE {where_clause}; COMMIT;',
+                sql=f'BEGIN; UPDATE {data_table_sql} SET "{safe_column}" = {new_val_sql} WHERE {where_clause}; COMMIT;',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
@@ -2123,7 +2178,7 @@ class ConfigInstance:
             # Parse schema.table format
             if '.' in state_table:
                 schema, table_name = state_table.split('.', 1)
-                schema_sql = schema
+                schema_sql = f'"{_escape_identifier(schema)}"'
                 table_sql = _format_table_name(state_table)
             else:
                 schema_sql = None
@@ -2180,7 +2235,7 @@ class ConfigInstance:
             schema_sql = None
             if '.' in state_table:
                 schema = state_table.split('.', 1)[0]
-                schema_sql = f'"{schema}"'
+                schema_sql = f'"{_escape_identifier(schema)}"'
             
             # Create schema if needed
             if schema_sql:
@@ -2320,10 +2375,14 @@ class ConfigInstance:
             state_table_sql = _format_table_name(state_table)
             
             # Escape values for SQL
-            filters_json = json.dumps(filters).replace("'", "''") if filters else 'null'
-            sort_col_sql = f"'{sort_column}'" if sort_column else 'NULL'
-            preset_sql = f"'{column_preset}'" if column_preset else 'NULL'
+            filters_json = json.dumps(filters).replace('\x00', '').replace("'", "''") if filters else 'null'
+            sort_col_escaped = sort_column.replace("'", "''") if sort_column else None
+            sort_col_sql = f"'{sort_col_escaped}'" if sort_col_escaped else 'NULL'
+            preset_escaped = column_preset.replace("'", "''") if column_preset else None
+            preset_sql = f"'{preset_escaped}'" if preset_escaped else 'NULL'
             user_sql = self.username.replace("'", "''")
+            safe_page = int(current_page)
+            safe_rows = int(rows_per_page)
             
             sql = f'''
                 BEGIN;
@@ -2332,13 +2391,13 @@ class ConfigInstance:
                      current_page, rows_per_page, filters, column_preset, updated_at)
                 VALUES 
                     ('{user_sql}', 'default_session', {sort_col_sql}, {str(sort_ascending).upper()},
-                     {current_page}, {rows_per_page}, '{filters_json}'::jsonb, {preset_sql}, NOW())
+                     {safe_page}, {safe_rows}, '{filters_json}'::jsonb, {preset_sql}, NOW())
                 ON CONFLICT (user_id, session_id) 
                 DO UPDATE SET
                     sort_column = {sort_col_sql},
                     sort_ascending = {str(sort_ascending).upper()},
-                    current_page = {current_page},
-                    rows_per_page = {rows_per_page},
+                    current_page = {safe_page},
+                    rows_per_page = {safe_rows},
                     filters = '{filters_json}'::jsonb,
                     column_preset = {preset_sql},
                     updated_at = NOW();

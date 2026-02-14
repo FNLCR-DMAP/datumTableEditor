@@ -130,26 +130,34 @@ def perform_undo(
     if not mask.any():
         return None, None, None, f"Could not find row with PK: {row_pk}"
     
+    # Perform DB operations FIRST, before mutating the DataFrame
+    if config_instance:
+        try:
+            # Revert the data in database
+            config_instance.update_data_in_db(row_pk, col, old_value)
+            # Mark modification as undone
+            if db_id:
+                config_instance.mark_modification_undone_in_db(db_id)
+            # Save undo record
+            config_instance.save_modification_to_db(row_pk, col, new_value, old_value, "undo")
+        except Exception as e:
+            # DB failed — do NOT mutate the DataFrame
+            return None, None, None, f"Database error during undo: {e}"
+    elif DB_AVAILABLE and app_config.database.enabled:
+        try:
+            # Revert the data in database
+            update_data_in_db(row_pk, col, old_value)
+            # Mark modification as undone
+            if db_id:
+                mark_modification_undone_in_db(db_id)
+            # Save undo record
+            save_modification_to_db(row_pk, col, new_value, old_value, "undo")
+        except Exception as e:
+            return None, None, None, f"Database error during undo: {e}"
+    
+    # DB succeeded (or no DB) — now safe to apply the DataFrame mutation
     col_idx = updated_df.columns.get_loc(col)
     updated_df.iloc[mask.values, col_idx] = old_value
-    
-    # Update database if enabled (use config_instance if provided)
-    if config_instance:
-        # Revert the data in database
-        config_instance.update_data_in_db(row_pk, col, old_value)
-        # Mark modification as undone
-        if db_id:
-            config_instance.mark_modification_undone_in_db(db_id)
-        # Save undo record
-        config_instance.save_modification_to_db(row_pk, col, new_value, old_value, "undo")
-    elif DB_AVAILABLE and app_config.database.enabled:
-        # Revert the data in database
-        update_data_in_db(row_pk, col, old_value)
-        # Mark modification as undone
-        if db_id:
-            mark_modification_undone_in_db(db_id)
-        # Save undo record
-        save_modification_to_db(row_pk, col, new_value, old_value, "undo")
     
     # Mark the original modification as undone
     updated_log = log.copy()
@@ -206,10 +214,6 @@ def perform_cell_edit(
         print(f"[Datum DEBUG] Column {col} not in df.columns, returning early", flush=True)
         return df, log
     
-    updated_df = df.copy()
-    # Use iloc for positional indexing (row is a position, not a label)
-    updated_df.iloc[row, updated_df.columns.get_loc(col)] = new_value
-    
     # Get primary key columns - prefer config_instance if available
     pk_cols = None
     if config_instance and hasattr(config_instance, 'app_config'):
@@ -220,8 +224,9 @@ def perform_cell_edit(
     row_pk = _get_row_pk(df, row, pk_cols)
     print(f"[Datum DEBUG] row_pk={row_pk}", flush=True)
     
-    # Save to database if enabled (use config_instance if provided)
+    # Save to database FIRST, before mutating the DataFrame
     db_id = None
+    db_failed = False
     print(f"[Datum DEBUG] config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     if config_instance:
         print(f"[Datum DEBUG] Using config_instance to save modification", flush=True)
@@ -233,15 +238,17 @@ def perform_cell_edit(
             print(f"[Datum DEBUG] ERROR in update_data_in_db: {e}", flush=True)
             import traceback
             traceback.print_exc()
+            db_failed = True
         
-        # Save modification record
-        try:
-            db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
-            print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
-        except Exception as e:
-            print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
-            import traceback
-            traceback.print_exc()
+        # Save modification record (only if data update didn't fail)
+        if not db_failed:
+            try:
+                db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+                print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
+            except Exception as e:
+                print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
     elif DB_AVAILABLE and app_config.database.enabled:
         print(f"[Datum DEBUG] Using global app_config to save modification", flush=True)
         # Update the data table
@@ -250,6 +257,12 @@ def perform_cell_edit(
         db_id = save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
     else:
         print(f"[Datum DEBUG] No database save - config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
+    
+    # Only mutate the DataFrame AFTER successful DB writes (or when no DB is configured)
+    updated_df = df.copy()
+    if not db_failed:
+        # Use iloc for positional indexing (row is a position, not a label)
+        updated_df.iloc[row, updated_df.columns.get_loc(col)] = new_value
     
     updated_log = log.copy()
     log_entry = {

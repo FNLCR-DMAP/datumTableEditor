@@ -291,7 +291,7 @@ def run_frontend_qc(src_dir: Path) -> dict[str, Any]:
 
 def main() -> int:
     """Main entry point."""
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
     src_dir = project_root / "src"
     output_dir = project_root / "qcmetric"
     output_dir.mkdir(exist_ok=True)

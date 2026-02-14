@@ -281,7 +281,7 @@ def generate_qc_report(project_root: Path) -> dict:
 def main():
     # Determine paths
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent
+    project_root = script_dir.parent.parent.parent
     output_path = project_root / "qcmetric" / "server_function_qc.json"
     
     # Ensure output directory exists

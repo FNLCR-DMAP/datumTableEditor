@@ -3,7 +3,7 @@
   "_generated": true,
   "_summary": {
     "total_functions": 32,
-    "unused_functions": 1,
+    "unused_functions": 0,
     "fully_annotated_functions": 28,
     "function_coverage_percent": 87.5,
     "parameter_coverage_percent": 93.3,
@@ -68,6 +68,7 @@
         "get_data_loader",
         "get_persistence_manager",
         "load",
+        "load_data",
         "load_data_state",
         "load_data_state",
         "load_modifications_log",
@@ -78,9 +79,6 @@
         "save_data_state",
         "save_modifications_log",
         "save_modifications_log"
-      ],
-      "unused": [
-        "load_data"
       ],
       "framework_managed": [
         "dataframe"

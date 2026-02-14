@@ -203,3 +203,73 @@ class TestBuildDynamicFiltersPanel:
         
         assert "Status" in html
         # NonExistent should be skipped, not cause error
+
+
+class TestBuildOperatorFilterElement:
+    """Tests for build_operator_filter_element function."""
+
+    def test_basic_equals_filter(self):
+        """Should render column name and value."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Status", {"op": "=", "value": "active"})
+        html = str(result)
+
+        assert "Status" in html
+        assert "active" in html
+
+    def test_not_empty_no_value_display(self):
+        """not_empty operator should show empty value display."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Col", {"op": "not_empty", "value": None})
+        html = str(result)
+
+        assert "Col" in html
+
+    def test_last_n_days_shows_days(self):
+        """last_n_days should display 'N days'."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Date", {"op": "last_n_days", "value": 7})
+        html = str(result)
+
+        assert "7 days" in html
+
+    def test_between_shows_arrow(self):
+        """between operator should display 'a → b'."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Score", {"op": "between", "value": [1, 10]})
+        html = str(result)
+
+        assert "1" in html
+        assert "10" in html
+        assert "→" in html
+
+    def test_list_shows_comma_separated(self):
+        """List values should display comma-separated."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Type", {"op": "in", "value": ["a", "b", "c"]})
+        html = str(result)
+
+        assert "a, b, c" in html
+
+    def test_remove_button_present_by_default(self):
+        """Remove button should be present when fix_filter=False."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Col", {"op": "=", "value": "x"}, fix_filter=False)
+        html = str(result)
+
+        assert "removeFilter" in html
+
+    def test_remove_button_hidden_when_fixed(self):
+        """Remove button should NOT be present when fix_filter=True."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element("Col", {"op": "=", "value": "x"}, fix_filter=True)
+        html = str(result)
+
+        assert "removeFilter" not in html

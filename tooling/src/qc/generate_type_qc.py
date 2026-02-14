@@ -219,7 +219,7 @@ def generate_type_qc(project_root: Path) -> dict:
 
 def main():
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent
+    project_root = script_dir.parent.parent.parent
     output_path = project_root / "qcmetric" / "server_variable_type_qc.json"
     
     # Ensure output directory exists

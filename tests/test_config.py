@@ -145,3 +145,130 @@ class TestPKTupleCreation:
         assert isinstance(cell_key, tuple)
         assert len(cell_key) == 2
         assert cell_key[1] == col
+
+
+class TestExportConfigSchema:
+    """Tests for export_config_schema function."""
+
+    def test_returns_dict(self):
+        """Should return a dictionary."""
+        from src.config.app_config_schema import export_config_schema
+
+        result = export_config_schema()
+
+        assert isinstance(result, dict)
+
+    def test_has_expected_keys(self):
+        """Should contain expected top-level config keys."""
+        from src.config.app_config_schema import export_config_schema
+
+        result = export_config_schema()
+
+        assert "app_title" in result
+        assert "data_source" in result
+        assert "database" in result
+        assert "table" in result
+        assert "persistence" in result
+
+    def test_database_section_has_fields(self):
+        """Database section should document its fields."""
+        from src.config.app_config_schema import export_config_schema
+
+        result = export_config_schema()
+
+        assert "enabled" in result["database"]
+        assert "connection_string" in result["database"]
+
+
+class TestGetModificationStatus:
+    """Tests for get_modification_status function."""
+
+    def test_no_log_file(self, tmp_path, monkeypatch):
+        """No log file should return unprocessed status."""
+        import src.config.config as config_module
+        monkeypatch.setattr(config_module, "modifications_log_path", tmp_path / "nonexistent.json")
+
+        from src.config.config import get_modification_status
+        result = get_modification_status(0)
+
+        assert result["status"] == "unprocessed"
+        assert result["modifications_count"] == 0
+        assert result["modifications"] == []
+
+    def test_edited_status(self, tmp_path, monkeypatch):
+        """Row with field modifications should show 'edited'."""
+        import src.config.config as config_module
+
+        log = [{"type": "field_modification", "details": {"row_index": 0}, "timestamp": "2024-01-01"}]
+        log_path = tmp_path / "log.json"
+        log_path.write_text(json.dumps(log))
+        monkeypatch.setattr(config_module, "modifications_log_path", log_path)
+
+        from src.config.config import get_modification_status
+        result = get_modification_status(0)
+
+        assert result["status"] == "edited"
+        assert result["modifications_count"] == 1
+
+    def test_approved_status(self, tmp_path, monkeypatch):
+        """Row with approval entry should show 'approved'."""
+        import src.config.config as config_module
+
+        log = [{"type": "approval", "timestamp": "2024-01-01"}]
+        log_path = tmp_path / "log.json"
+        log_path.write_text(json.dumps(log))
+        monkeypatch.setattr(config_module, "modifications_log_path", log_path)
+
+        from src.config.config import get_modification_status
+        result = get_modification_status(0)
+
+        assert result["status"] == "approved"
+
+    def test_rejected_status(self, tmp_path, monkeypatch):
+        """Row with rejection entry should show 'rejected'."""
+        import src.config.config as config_module
+
+        log = [{"type": "rejection", "timestamp": "2024-01-01"}]
+        log_path = tmp_path / "log.json"
+        log_path.write_text(json.dumps(log))
+        monkeypatch.setattr(config_module, "modifications_log_path", log_path)
+
+        from src.config.config import get_modification_status
+        result = get_modification_status(0)
+
+        assert result["status"] == "rejected"
+
+    def test_unmodified_row(self, tmp_path, monkeypatch):
+        """Row not in log should show 'unprocessed' even with other mods."""
+        import src.config.config as config_module
+
+        log = [{"type": "field_modification", "details": {"row_index": 5}, "timestamp": "2024-01-01"}]
+        log_path = tmp_path / "log.json"
+        log_path.write_text(json.dumps(log))
+        monkeypatch.setattr(config_module, "modifications_log_path", log_path)
+
+        from src.config.config import get_modification_status
+        result = get_modification_status(0)
+
+        assert result["status"] == "unprocessed"
+        assert result["modifications_count"] == 0
+
+
+class TestGetAllModificationStatuses:
+    """Tests for get_all_modification_statuses function.
+    
+    Note: get_all_modification_statuses references a module-level csv_path that
+    is not defined in the current config.py (legacy code). Only the no-log-file
+    path can be tested without triggering the NameError.
+    """
+
+    def test_no_log_file(self, tmp_path, monkeypatch):
+        """No log file should return empty result."""
+        import src.config.config as config_module
+        monkeypatch.setattr(config_module, "modifications_log_path", tmp_path / "nonexistent.json")
+
+        from src.config.config import get_all_modification_statuses
+        result = get_all_modification_statuses()
+
+        assert result["rows"] == []
+        assert result["summary"]["total"] == 0

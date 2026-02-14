@@ -411,3 +411,126 @@ class TestPKBasedEditedCellLookup:
         # Since we're checking a specific td, this is approximate
         # The key point is cell-edited should NOT appear for this row's Gene_names
         assert "editable-cell" in tr_str
+
+
+class TestBuildDraggableHeaderCell:
+    """Tests for build_draggable_header_cell function — pinning tests."""
+
+    def test_contains_column_name(self):
+        """Header cell should display the column name."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Gene_names")
+        html = str(th)
+
+        assert "Gene_names" in html
+
+    def test_has_sort_buttons(self):
+        """Header cell should have ascending and descending sort buttons."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Status")
+        html = str(th)
+
+        assert "sort-asc-btn" in html
+        assert "sort-desc-btn" in html
+
+    def test_has_remove_column_button(self):
+        """Header cell should have a remove column button."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Status")
+        html = str(th)
+
+        assert "remove-col-btn" in html
+
+    def test_has_resize_handle(self):
+        """Header cell should have a resize handle."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Col")
+        html = str(th)
+
+        assert "resize-handle" in html
+
+    def test_draggable_attribute(self):
+        """Header cell should be draggable."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Col")
+        html = str(th)
+
+        assert 'draggable="true"' in html
+
+    def test_width_style_applied(self):
+        """Width style should be applied when provided."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Col", width_style="width: 150px;")
+        html = str(th)
+
+        assert "width: 150px" in html
+
+    def test_data_column_attribute(self):
+        """Header cell should have data-column attribute."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("MyCol")
+        html = str(th)
+
+        assert "MyCol" in html
+
+
+class TestBuildDataTable:
+    """Tests for build_data_table function — pinning tests."""
+
+    def test_returns_table_element(self, sample_data):
+        """Should return a table HTML element."""
+        from src.utils.table_utils import build_data_table
+
+        table = build_data_table(
+            paginated_indices=[0, 1],
+            current_df=sample_data,
+            cols=["PatientID", "Gene_names"],
+            widths={},
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["PatientID_Mutsequence"],
+        )
+        html = str(table)
+
+        assert "<table" in html
+        assert "edit-table" in html
+
+    def test_contains_header_and_body(self, sample_data):
+        """Table should contain thead and tbody."""
+        from src.utils.table_utils import build_data_table
+
+        table = build_data_table(
+            paginated_indices=[0],
+            current_df=sample_data,
+            cols=["PatientID"],
+            widths={},
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["PatientID_Mutsequence"],
+        )
+        html = str(table)
+
+        assert "<thead" in html
+        assert "<tbody" in html
+
+    def test_renders_correct_number_of_rows(self, sample_data):
+        """Should render one row per paginated index."""
+        from src.utils.table_utils import build_data_table
+
+        table = build_data_table(
+            paginated_indices=[0, 1, 2],
+            current_df=sample_data,
+            cols=["PatientID"],
+            widths={},
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["PatientID_Mutsequence"],
+        )
+        html = str(table)
+
+        # Each row gets a tr with data-row attribute
+        assert html.count("data-row=") >= 3

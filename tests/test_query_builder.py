@@ -311,3 +311,107 @@ class TestParseFiltersFromList:
         
         with pytest.raises(TypeError):
             parse_filters_from_list(None)
+
+
+class TestQuoteIdentifier:
+    """Tests for quote_identifier function."""
+
+    def test_simple_name(self):
+        """Test quoting a simple identifier."""
+        from src.db.query_builder import quote_identifier
+
+        assert quote_identifier("users") == '"users"'
+
+    def test_schema_qualified(self):
+        """Test quoting a schema-qualified identifier."""
+        from src.db.query_builder import quote_identifier
+
+        assert quote_identifier("public.my_table") == '"public"."my_table"'
+
+    def test_three_parts(self):
+        """Test quoting a three-part identifier."""
+        from src.db.query_builder import quote_identifier
+
+        assert quote_identifier("a.b.c") == '"a"."b"."c"'
+
+    def test_single_char(self):
+        """Test quoting a single character identifier."""
+        from src.db.query_builder import quote_identifier
+
+        assert quote_identifier("x") == '"x"'
+
+
+class TestBuildSearchFilter:
+    """Tests for build_search_filter function."""
+
+    def test_returns_filter_per_column(self):
+        """Should return one FilterCondition per column."""
+        from src.db.query_builder import build_search_filter
+
+        result = build_search_filter("test", ["A", "B", "C"])
+
+        assert len(result) == 3
+        assert all(f.column in ("A", "B", "C") for f in result)
+        assert all(f.value == "test" for f in result)
+
+    def test_default_case_insensitive(self):
+        """Default should use ILIKE (case-insensitive)."""
+        from src.db.query_builder import build_search_filter
+
+        result = build_search_filter("test", ["Col"])
+
+        assert result[0].operator == "ILIKE"
+
+    def test_case_sensitive(self):
+        """Case-sensitive search should use LIKE."""
+        from src.db.query_builder import build_search_filter
+
+        result = build_search_filter("test", ["Col"], case_sensitive=True)
+
+        assert result[0].operator == "LIKE"
+
+    def test_empty_columns(self):
+        """Empty columns list should return empty result."""
+        from src.db.query_builder import build_search_filter
+
+        result = build_search_filter("test", [])
+
+        assert result == []
+
+    def test_search_term_preserved(self):
+        """Search term should be passed through unchanged."""
+        from src.db.query_builder import build_search_filter
+
+        result = build_search_filter("Hello World", ["Col"])
+
+        assert result[0].value == "Hello World"
+
+
+class TestParseFilterFromDict:
+    """Tests for parse_filter_from_dict function."""
+
+    def test_basic_parse(self):
+        """Should parse a basic filter dict."""
+        from src.db.query_builder import parse_filter_from_dict
+
+        result = parse_filter_from_dict({"column": "Status", "operator": "=", "value": "active"})
+
+        assert result.column == "Status"
+        assert result.operator == "="
+        assert result.value == "active"
+
+    def test_default_operator(self):
+        """Should default to '=' operator."""
+        from src.db.query_builder import parse_filter_from_dict
+
+        result = parse_filter_from_dict({"column": "Status", "value": "active"})
+
+        assert result.operator == "="
+
+    def test_no_value(self):
+        """Should handle missing value (None)."""
+        from src.db.query_builder import parse_filter_from_dict
+
+        result = parse_filter_from_dict({"column": "Status", "operator": "IS NULL"})
+
+        assert result.value is None

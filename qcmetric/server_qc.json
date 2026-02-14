@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 81,
-    "unused_functions": 0,
-    "fully_annotated_functions": 72,
-    "function_coverage_percent": 88.9,
-    "parameter_coverage_percent": 96.8,
+    "total_functions": 78,
+    "unused_functions": 1,
+    "fully_annotated_functions": 69,
+    "function_coverage_percent": 88.5,
+    "parameter_coverage_percent": 96.1,
     "mypy_errors": 0
   },
   "files": {},
@@ -134,16 +134,20 @@
       ]
     },
     "src/utils/filter_utils.py": {
-      "total": 1,
+      "total": 3,
       "functions": [
+        "_is_operator_filter",
+        "_row_matches_operator",
         "get_filtered_rows"
       ],
       "used": [
+        "_is_operator_filter",
+        "_row_matches_operator",
         "get_filtered_rows"
       ]
     },
     "src/utils/modal_utils.py": {
-      "total": 8,
+      "total": 9,
       "functions": [
         "build_available_column_tag",
         "build_columns_modal_content",
@@ -152,6 +156,7 @@
         "build_dynamic_filter_element",
         "build_dynamic_filters_panel",
         "build_filter_column_buttons",
+        "build_operator_filter_element",
         "build_preset_menu_items"
       ],
       "used": [
@@ -162,6 +167,7 @@
         "build_dynamic_filter_element",
         "build_dynamic_filters_panel",
         "build_filter_column_buttons",
+        "build_operator_filter_element",
         "build_preset_menu_items"
       ]
     },
@@ -179,32 +185,22 @@
       ]
     },
     "src/utils/preset_utils.py": {
-      "total": 11,
+      "total": 5,
       "functions": [
-        "_get_config_instance",
-        "_get_presets_service",
-        "_get_username",
-        "_is_database_enabled",
-        "_is_datum_mode",
-        "_load_app_config",
-        "_load_full_config",
+        "_convert_presets_from_db",
         "load_active_preset",
         "load_presets",
         "save_active_preset",
         "save_presets"
       ],
       "used": [
-        "_get_config_instance",
-        "_get_presets_service",
-        "_get_username",
-        "_is_database_enabled",
-        "_is_datum_mode",
-        "_load_app_config",
-        "_load_full_config",
         "load_active_preset",
         "load_presets",
         "save_active_preset",
         "save_presets"
+      ],
+      "unused": [
+        "_convert_presets_from_db"
       ]
     },
     "src/utils/table_utils.py": {
@@ -376,25 +372,41 @@
     },
     "src/utils/filter_utils.py": {
       "functions": {
-        "total": 1,
-        "with_return_type": 1,
-        "fully_annotated": 1
+        "total": 3,
+        "with_return_type": 3,
+        "fully_annotated": 2
       },
       "parameters": {
-        "total": 7,
-        "annotated": 7
-      }
+        "total": 10,
+        "annotated": 9
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "_is_operator_filter",
+          "name": "filter_value",
+          "line": 37
+        }
+      ]
     },
     "src/utils/modal_utils.py": {
       "functions": {
-        "total": 8,
-        "with_return_type": 8,
+        "total": 9,
+        "with_return_type": 9,
         "fully_annotated": 8
       },
       "parameters": {
-        "total": 14,
-        "annotated": 14
-      }
+        "total": 21,
+        "annotated": 20
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "build_dynamic_filters_panel",
+          "name": "get_unique_values_func",
+          "line": 209
+        }
+      ]
     },
     "src/utils/pagination_utils.py": {
       "functions": {
@@ -409,26 +421,14 @@
     },
     "src/utils/preset_utils.py": {
       "functions": {
-        "total": 11,
-        "with_return_type": 9,
-        "fully_annotated": 9
+        "total": 5,
+        "with_return_type": 5,
+        "fully_annotated": 5
       },
       "parameters": {
-        "total": 17,
-        "annotated": 17
-      },
-      "missing": [
-        {
-          "type": "return",
-          "function": "_load_full_config",
-          "line": 41
-        },
-        {
-          "type": "return",
-          "function": "_get_config_instance",
-          "line": 93
-        }
-      ]
+        "total": 9,
+        "annotated": 9
+      }
     },
     "src/utils/table_utils.py": {
       "functions": {
@@ -437,8 +437,8 @@
         "fully_annotated": 7
       },
       "parameters": {
-        "total": 49,
-        "annotated": 49
+        "total": 54,
+        "annotated": 54
       }
     },
     "src/utils/ui_components.py": {
@@ -448,8 +448,8 @@
         "fully_annotated": 9
       },
       "parameters": {
-        "total": 20,
-        "annotated": 18
+        "total": 21,
+        "annotated": 19
       },
       "missing": [
         {

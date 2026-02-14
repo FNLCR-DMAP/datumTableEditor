@@ -2,10 +2,83 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Literal
 
 import requests
 from pydantic import BaseModel, Field
+
+
+# ---------------------------------------------------------------------------
+# SQL Safety Gate – blocks destructive DDL/DML at the adapter boundary
+# ---------------------------------------------------------------------------
+
+class DestructiveSqlError(Exception):
+    """Raised when SQL contains a blocked destructive operation."""
+    pass
+
+
+# Allowed statement types that the app legitimately sends through Datum.
+# Anything not matching these prefixes (after stripping BEGIN/COMMIT wrappers)
+# is rejected.
+_ALLOWED_STATEMENT_PREFIXES = re.compile(
+    r"^\s*"
+    r"(?:BEGIN|COMMIT|ROLLBACK"
+    r"|SELECT"
+    r"|INSERT\s+INTO"
+    r"|UPDATE"
+    r"|DELETE\s+FROM"
+    r"|CREATE\s+(?:TABLE|SCHEMA|INDEX)\s+IF\s+NOT\s+EXISTS"
+    r"|CREATE\s+(?:TABLE|SCHEMA|INDEX)"
+    r")"
+    r"\b",
+    re.IGNORECASE,
+)
+
+# Patterns that are ALWAYS blocked, regardless of statement type.
+# These catch destructive DDL even if somehow embedded.
+_BLOCKED_PATTERNS = re.compile(
+    r"\b(?:"
+    r"DROP\s+(?:TABLE|SCHEMA|DATABASE|INDEX|VIEW|FUNCTION|TRIGGER|SEQUENCE|TYPE)"
+    r"|TRUNCATE"
+    r"|ALTER\s+TABLE\s+\S+\s+DROP"
+    r"|ALTER\s+TABLE\s+\S+\s+RENAME"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def validate_sql_safety(sql: str) -> None:
+    """
+    Validate that a SQL string does not contain destructive operations.
+    
+    Raises DestructiveSqlError if the SQL contains blocked patterns like
+    DROP TABLE, TRUNCATE, ALTER TABLE ... DROP, etc.
+    
+    This is a defense-in-depth gate at the adapter layer. It does NOT
+    replace proper escaping — it catches catastrophic mistakes.
+    """
+    if not sql or not sql.strip():
+        return  # empty SQL is harmless (will fail at DB level)
+    
+    # 1. Check for unconditionally blocked destructive patterns
+    match = _BLOCKED_PATTERNS.search(sql)
+    if match:
+        raise DestructiveSqlError(
+            f"Blocked destructive SQL operation: '{match.group().strip()}' "
+            f"in query: {sql[:120]}..."
+        )
+    
+    # 2. Verify each statement starts with an allowed prefix.
+    #    Split on ';' to handle multi-statement strings (BEGIN; ...; COMMIT;)
+    for stmt in sql.split(';'):
+        stripped = stmt.strip()
+        if not stripped:
+            continue  # trailing semicolons produce empty segments
+        if not _ALLOWED_STATEMENT_PREFIXES.match(stripped):
+            raise DestructiveSqlError(
+                f"SQL statement not in allowlist: '{stripped[:80]}...'"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +253,9 @@ class DatumClient:
         Returns:
             PostgresSqlResponse with columns, data, and row_count
         """
+        # Safety gate: reject destructive SQL before it leaves the process
+        validate_sql_safety(sql)
+        
         request = PostgresSqlRequest(sql=sql, database=database, schema_=schema)
         body_dict = request.model_dump(by_alias=True, exclude_none=True)
         

@@ -453,3 +453,135 @@ class TestSqlalchemyNotAvailable:
             
             with pytest.raises(ImportError, match="SQLAlchemy"):
                 TestManager()
+
+
+class TestDatabaseSchemaManagerTableExists:
+    """Tests for DatabaseSchemaManager.table_exists — pinning test."""
+
+    def test_table_exists_returns_true(self):
+        """Should return True when table is in inspector's table names."""
+        from src.db.db_schema import DatabaseSchemaManager
+
+        mock_engine = MagicMock()
+        mock_inspector = MagicMock()
+        mock_inspector.get_table_names.return_value = ["users", "presets", "data"]
+
+        with patch('src.db.db_schema.inspect', return_value=mock_inspector):
+            mgr = DatabaseSchemaManager.__new__(DatabaseSchemaManager)
+            mgr._engine = mock_engine
+            mgr._conn_string = "mock://"
+
+            # Patch the engine property
+            type(mgr).engine = property(lambda self: self._engine)
+
+            assert mgr.table_exists("users") is True
+            assert mgr.table_exists("nonexistent") is False
+
+    def test_table_exists_empty_db(self):
+        """Should return False when database has no tables."""
+        from src.db.db_schema import DatabaseSchemaManager
+
+        mock_engine = MagicMock()
+        mock_inspector = MagicMock()
+        mock_inspector.get_table_names.return_value = []
+
+        with patch('src.db.db_schema.inspect', return_value=mock_inspector):
+            mgr = DatabaseSchemaManager.__new__(DatabaseSchemaManager)
+            mgr._engine = mock_engine
+            mgr._conn_string = "mock://"
+            type(mgr).engine = property(lambda self: self._engine)
+
+            assert mgr.table_exists("anything") is False
+
+
+class TestDatabaseSchemaManagerGetRowCount:
+    """Tests for DatabaseSchemaManager.get_row_count — pinning test."""
+
+    def test_count_without_where(self):
+        """Should return scalar count without WHERE clause."""
+        from src.db.db_schema import DatabaseSchemaManager
+
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 42
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_engine.connect.return_value = mock_conn
+
+        mgr = DatabaseSchemaManager.__new__(DatabaseSchemaManager)
+        mgr._engine = mock_engine
+        mgr._conn_string = "mock://"
+        type(mgr).engine = property(lambda self: self._engine)
+
+        result = mgr.get_row_count("my_table")
+
+        assert result == 42
+
+    def test_count_with_where(self):
+        """Should append WHERE clause when provided."""
+        from src.db.db_schema import DatabaseSchemaManager
+
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 5
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_engine.connect.return_value = mock_conn
+
+        mgr = DatabaseSchemaManager.__new__(DatabaseSchemaManager)
+        mgr._engine = mock_engine
+        mgr._conn_string = "mock://"
+        type(mgr).engine = property(lambda self: self._engine)
+
+        result = mgr.get_row_count("my_table", where_clause="status = 'active'")
+
+        assert result == 5
+        # Verify the SQL contains WHERE
+        call_args = mock_conn.execute.call_args
+        sql_text = str(call_args[0][0])
+        assert "WHERE" in sql_text
+
+    def test_count_returns_zero_on_none(self):
+        """Should return 0 when scalar returns None."""
+        from src.db.db_schema import DatabaseSchemaManager
+
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = None
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_engine.connect.return_value = mock_conn
+
+        mgr = DatabaseSchemaManager.__new__(DatabaseSchemaManager)
+        mgr._engine = mock_engine
+        mgr._conn_string = "mock://"
+        type(mgr).engine = property(lambda self: self._engine)
+
+        result = mgr.get_row_count("my_table")
+
+        assert result == 0
+
+
+class TestDatabaseSchemaManagerGenerateDefaultPreset:
+    """Tests for DatabaseSchemaManager.generate_default_preset — pinning test."""
+
+    def test_returns_columns_and_widths(self):
+        """Should return dict with columns list and empty widths."""
+        from src.db.db_schema import DatabaseSchemaManager
+
+        mgr = DatabaseSchemaManager.__new__(DatabaseSchemaManager)
+
+        mock_schema = MagicMock()
+        mock_schema.get_column_names.return_value = ["id", "name", "status"]
+        mgr.get_table_schema = MagicMock(return_value=mock_schema)
+
+        result = mgr.generate_default_preset("test_table")
+
+        assert result == {"columns": ["id", "name", "status"], "widths": {}}
+        mgr.get_table_schema.assert_called_once_with("test_table")

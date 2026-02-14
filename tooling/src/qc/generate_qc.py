@@ -320,7 +320,7 @@ def generate_target_report(
 
 def main():
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent
+    project_root = script_dir.parent.parent.parent
     config_path = script_dir / "config.json"
     
     # Load config
