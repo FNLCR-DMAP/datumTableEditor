@@ -9,10 +9,11 @@ from .filter_utils import _is_operator_filter, OPERATOR_LABELS
 
 def build_current_column_tag(col: str, index: int) -> ui.div:
     """Build a draggable current column tag for the column modal."""
+    safe_col = col.replace("\\", "\\\\").replace("'", "\\'")
     return ui.div(
-        ui.span("⠿", class_="drag-handle-modal", style="cursor: grab; margin-right: 6px; color: rgba(255,255,255,0.5);"),
+        ui.span("⠃", class_="drag-handle-modal", style="cursor: grab; margin-right: 6px; color: rgba(255,255,255,0.5);"),
         ui.span(f"{index}. {col}", style="margin-right: 8px;"),
-        ui.tags.button("×", class_="remove-modal-col", onclick=f"removeColumnFromModal('{col}', event)", 
+        ui.tags.button("×", class_="remove-modal-col", onclick=f"removeColumnFromModal('{safe_col}', event)", 
                        style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px;"),
         class_="current-col-tag modal-draggable-col",
         draggable="true",
@@ -23,10 +24,11 @@ def build_current_column_tag(col: str, index: int) -> ui.div:
 
 def build_available_column_tag(col: str) -> ui.div:
     """Build an available column tag for the column modal."""
+    safe_col = col.replace("\\", "\\\\").replace("'", "\\'")
     return ui.div(
         f"+ {col}",
         class_="add-col-tag",
-        onclick=f"addColumn('{col}', event)",
+        onclick=f"addColumn('{safe_col}', event)",
         style="display: inline-block; padding: 6px 12px; background: #e9ecef; border-radius: 4px; font-size: 12px; cursor: pointer; margin: 3px;"
     )
 
@@ -63,10 +65,11 @@ def build_preset_menu_items(presets: dict, current_preset: str) -> ui.div:
     items = []
     for name in presets.keys():
         is_active = name == current_preset
+        safe_name = name.replace("\\", "\\\\").replace("'", "\\'")
         delete_btn = ui.tags.span(
             "×", 
             class_="delete-preset", 
-            onclick=f"deletePreset('{name}', event)"
+            onclick=f"deletePreset('{safe_name}', event)"
         ) if name != "Default" else ""
         
         items.append(
@@ -74,7 +77,7 @@ def build_preset_menu_items(presets: dict, current_preset: str) -> ui.div:
                 name,
                 delete_btn,
                 class_=f"preset-menu-item {'active' if is_active else ''}",
-                onclick=f"loadPreset('{name}', event)"
+                onclick=f"loadPreset('{safe_name}', event)"
             )
         )
     
@@ -106,11 +109,12 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
     
     column_buttons = []
     for col in available_cols:
+        safe_col = col.replace("\\", "\\\\").replace("'", "\\'")
         column_buttons.append(
             ui.tags.button(
                 col,
                 class_="btn btn-outline-secondary btn-block",
-                onclick=f"addFilter('{col}', event)",
+                onclick=f"addFilter('{safe_col}', event)",
                 style="width: 100%; margin-bottom: 8px; text-align: left; padding: 8px 12px; font-size: 12px;"
             )
         )
@@ -138,8 +142,9 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
         value_display = str(value) if value is not None else ""
     
     # Build remove button (hidden when filters are fixed)
+    safe_col_name = col_name.replace("\\", "\\\\").replace("'", "\\'")
     remove_btn = ui.tags.button("×", class_="remove-filter-btn", 
-                       onclick=f"removeFilter('{col_name}', event)",
+                       onclick=f"removeFilter('{safe_col_name}', event)",
                        style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;") if not fix_filter else ui.span()
     
     return ui.div(
@@ -167,8 +172,9 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     value_options = [v for v in unique_values if v != "all"]
     
     # Build remove button (hidden when filters are fixed)
+    safe_col_name = col_name.replace("\\", "\\\\").replace("'", "\\'")
     remove_btn = ui.tags.button("×", class_="remove-filter-btn", 
-                       onclick=f"removeFilter('{col_name}', event)",
+                       onclick=f"removeFilter('{safe_col_name}', event)",
                        style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;") if not fix_filter else ui.span()
     
     return ui.div(
@@ -189,7 +195,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
             ui.tags.button(
                 "⋮",
                 class_="btn btn-sm btn-outline-secondary filter-values-btn",
-                onclick=f"openFilterValuesModal('{col_name}', event)",
+                onclick=f"openFilterValuesModal('{safe_col_name}', event)",
                 title="Select from available values",
                 style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px;"
             ),

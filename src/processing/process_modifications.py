@@ -158,11 +158,10 @@ class ModificationsProcessor:
                 column = details.get("column")
                 new_value = details.get("new_value")
                 
-                if row_idx is not None and column and new_value:
-                    # Escape single quotes in SQL
-                    safe_value = str(new_value).replace("'", "''")
+                if row_idx is not None and column and new_value is not None:
+                    from src.config.sql_types import SqlIdentifier, SqlLiteral
                     f.write(f"-- Row {row_idx}: {column}\n")
-                    f.write(f"UPDATE epitopes SET {column} = '{safe_value}' WHERE row_id = {row_idx};\n\n")
+                    f.write(f"UPDATE epitopes SET {SqlIdentifier(column)} = {SqlLiteral(new_value)} WHERE row_id = {SqlLiteral(int(row_idx))};\n\n")
         
         return output_path
     

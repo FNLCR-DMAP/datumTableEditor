@@ -13,48 +13,37 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Tuple
 
 from .app_config_schema import AppConfig, load_config
+from .sql_types import SqlIdentifier, SqlTableName, SqlLiteral, build_pk_json_expr, build_pk_array
 
+
+# ---------------------------------------------------------------------------
+# Backward-compatible wrappers (kept for test imports and transition period)
+# New code should use SqlIdentifier / SqlTableName / SqlLiteral directly.
+# ---------------------------------------------------------------------------
 
 def _format_table_name(table_name: str) -> str:
+    """Format table name for SQL queries with proper PostgreSQL quoting.
+
+    DEPRECATED — prefer SqlTableName(table_name) in new code.
     """
-    Format table name for SQL queries with proper PostgreSQL quoting.
-    
-    Properly quotes schema-qualified names by quoting each part separately,
-    and escapes embedded double-quotes by doubling them:
-    - "users" -> '"users"'
-    - "epitopes.epitopes_data" -> '"epitopes"."epitopes_data"'
-    - 'evil"name' -> '"evil""name"'
-    """
-    parts = table_name.split('.')
-    return ".".join(f'"{part.replace(chr(34), chr(34)*2)}"' for part in parts)
+    return str(SqlTableName(table_name))
 
 
 def _escape_identifier(name: str) -> str:
-    """Escape a SQL identifier (column/table name) for double-quote wrapping.
-    
-    PostgreSQL identifiers: embedded " must be doubled.
-    Returns the name ready to be placed inside double-quotes.
+    """Escape a SQL identifier for double-quote wrapping.
+
+    DEPRECATED — prefer SqlIdentifier(name) in new code.
+    Returns the escaped name WITHOUT outer quotes (for backward compat).
     """
-    return name.replace('"', '""')
+    return SqlIdentifier(name).escaped
 
 
 def _escape_literal(value) -> str:
     """Escape a value for direct SQL string literal interpolation.
-    
-    - None  -> NULL
-    - bool  -> TRUE / FALSE
-    - int/float -> str(value)
-    - str   -> single-quoted with ' doubled and NUL bytes stripped
+
+    DEPRECATED — prefer SqlLiteral(value) in new code.
     """
-    if value is None:
-        return "NULL"
-    if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
-    if isinstance(value, (int, float)):
-        return str(value)
-    # Strip NUL bytes and escape single quotes by doubling
-    s = str(value).replace('\x00', '').replace("'", "''")
-    return f"'{s}'"
+    return str(SqlLiteral(value))
 
 
 def _build_mod_status_expr(status_column: str = None, status_labels: dict = None) -> str:
@@ -70,7 +59,7 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
                        {"approved": "Accepted", "rejected": "Rejected", ...}
     """
     if status_column:
-        col = f'd."{_escape_identifier(status_column)}"'
+        col = f'd.{SqlIdentifier(status_column)}'
         # Build CASE WHEN branches for each status, matching both internal key and label
         when_clauses = []
         if status_labels:
@@ -78,13 +67,12 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
                 if internal_key == "unprocessed":
                     continue  # unprocessed is the default/fallback
                 # Match either the internal key or the configured label
-                # Escape both values for safe SQL literal interpolation
-                safe_key = internal_key.lower().replace("'", "''")
-                safe_label = label.lower().replace("'", "''")
+                safe_key = internal_key.lower()
+                safe_label = label.lower()
                 values = sorted(set([safe_key, safe_label]))
-                in_list = ", ".join(f"'{v}'" for v in values)
+                in_list = ", ".join(str(SqlLiteral(v)) for v in values)
                 when_clauses.append(
-                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN '{safe_key}'"
+                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN {SqlLiteral(safe_key)}"
                 )
         else:
             # Default: recognize the standard internal keys
@@ -153,7 +141,7 @@ class DataFetcher:
         """Fetch table row count and column names."""
         try:
             data_table = self.app_config.database.data_table
-            data_table_sql = _format_table_name(data_table)
+            data_table_sql = SqlTableName(data_table)
             
             count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
             columns_query = f"SELECT * FROM {data_table_sql} LIMIT 0"
@@ -211,7 +199,7 @@ class DataFetcher:
             
             query = f"""
             SELECT column_name FROM information_schema.columns 
-            WHERE table_schema = '{schema.replace("'", "''")}' AND table_name = '{table_name.replace("'", "''")}'
+            WHERE table_schema = {SqlLiteral(schema)} AND table_name = {SqlLiteral(table_name)}
             ORDER BY ordinal_position
             """
             response = self._datum_client.execute_sql(
@@ -231,9 +219,9 @@ class DataFetcher:
         Used by the filter UI to populate dropdown options in lazy loading mode.
         """
         try:
-            data_table_sql = _format_table_name(self.app_config.database.data_table)
-            safe_col = _escape_identifier(column)
-            query = f'SELECT DISTINCT "{safe_col}" FROM {data_table_sql} WHERE "{safe_col}" IS NOT NULL ORDER BY "{safe_col}" LIMIT {limit}'
+            data_table_sql = SqlTableName(self.app_config.database.data_table)
+            col_ident = SqlIdentifier(column)
+            query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
             
             if self.app_config.database.mode == "datum" and self._datum_client:
                 response = self._datum_client.execute_sql(
@@ -265,17 +253,9 @@ class DataFetcher:
     def _escape_sql_value(self, value: Any) -> str:
         """Escape a value for direct SQL interpolation (for Datum mode).
         
-        Strips NUL bytes and doubles single quotes for safe PostgreSQL literals.
+        Delegates to SqlLiteral for type-safe escaping.
         """
-        if value is None:
-            return "NULL"
-        if isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
-        if isinstance(value, (int, float)):
-            return str(value)
-        # Strip NUL bytes and escape single quotes by doubling them
-        escaped = str(value).replace('\x00', '').replace("'", "''")
-        return f"'{escaped}'"
+        return str(SqlLiteral(value))
     
     def _build_where_clause(self, params: QueryParams, use_params: bool = True) -> Tuple[str, Dict[str, Any]]:
         """
@@ -300,8 +280,8 @@ class DataFetcher:
             if value is None or value == "" or value == []:
                 continue
             
-            # Escape the column identifier for safe SQL quoting
-            safe_col = _escape_identifier(col)
+            # Type-safe column identifier — produces "col_name" via __str__
+            col_ident = SqlIdentifier(col)
             
             # ── Operator dict filter ──
             if isinstance(value, dict) and "op" in value:
@@ -312,85 +292,85 @@ class DataFetcher:
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
+                        conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
                         for i, v in enumerate(vals):
                             sql_params[f"p{param_idx + i}"] = str(v)
                         param_idx += len(vals)
                     else:
-                        placeholders = ", ".join(self._escape_sql_value(str(v)) for v in vals)
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
+                        placeholders = ", ".join(str(SqlLiteral(str(v))) for v in vals)
+                        conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
                 
                 elif op == "not_in":
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT IN ({placeholders})')
+                        conditions.append(f'CAST({col_ident} AS TEXT) NOT IN ({placeholders})')
                         for i, v in enumerate(vals):
                             sql_params[f"p{param_idx + i}"] = str(v)
                         param_idx += len(vals)
                     else:
-                        placeholders = ", ".join(self._escape_sql_value(str(v)) for v in vals)
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT IN ({placeholders})')
+                        placeholders = ", ".join(str(SqlLiteral(str(v))) for v in vals)
+                        conditions.append(f'CAST({col_ident} AS TEXT) NOT IN ({placeholders})')
                 
                 elif op == "contains":
                     if use_params:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE :p{param_idx}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) ILIKE :p{param_idx}')
                         sql_params[f"p{param_idx}"] = f"%{fval}%"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE {self._escape_sql_value(f"%{fval}%")}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) ILIKE {SqlLiteral(f"%{fval}%")}')
                 
                 elif op == "not_contains":
                     if use_params:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT ILIKE :p{param_idx}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) NOT ILIKE :p{param_idx}')
                         sql_params[f"p{param_idx}"] = f"%{fval}%"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) NOT ILIKE {self._escape_sql_value(f"%{fval}%")}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) NOT ILIKE {SqlLiteral(f"%{fval}%")}')
                 
                 elif op == "between":
                     if isinstance(fval, list) and len(fval) == 2:
                         if use_params:
-                            conditions.append(f'CAST("{safe_col}" AS TEXT) BETWEEN :p{param_idx} AND :p{param_idx + 1}')
+                            conditions.append(f'CAST({col_ident} AS TEXT) BETWEEN :p{param_idx} AND :p{param_idx + 1}')
                             sql_params[f"p{param_idx}"] = str(fval[0])
                             sql_params[f"p{param_idx + 1}"] = str(fval[1])
                             param_idx += 2
                         else:
-                            conditions.append(f'CAST("{safe_col}" AS TEXT) BETWEEN {self._escape_sql_value(str(fval[0]))} AND {self._escape_sql_value(str(fval[1]))}')
+                            conditions.append(f'CAST({col_ident} AS TEXT) BETWEEN {SqlLiteral(str(fval[0]))} AND {SqlLiteral(str(fval[1]))}')
                 
                 elif op in ("gt", "gte", "lt", "lte"):
                     sql_op = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[op]
                     if use_params:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) {sql_op} :p{param_idx}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) {sql_op} :p{param_idx}')
                         sql_params[f"p{param_idx}"] = str(fval)
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) {sql_op} {self._escape_sql_value(str(fval))}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) {sql_op} {SqlLiteral(str(fval))}')
                 
                 elif op == "last_n_days":
                     n = int(fval) if fval is not None else 7
                     if use_params:
-                        conditions.append(f'CAST("{safe_col}" AS DATE) >= (CURRENT_DATE - INTERVAL :p{param_idx})')
+                        conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - INTERVAL :p{param_idx})')
                         sql_params[f"p{param_idx}"] = f"{n} days"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{safe_col}" AS DATE) >= (CURRENT_DATE - INTERVAL \'{n} days\')')
+                        conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - INTERVAL \'{n} days\')')
                 
                 elif op == "not_empty":
                     if use_params:
-                        conditions.append(f'("{safe_col}" IS NOT NULL AND CAST("{safe_col}" AS TEXT) != :p{param_idx})')
+                        conditions.append(f'({col_ident} IS NOT NULL AND CAST({col_ident} AS TEXT) != :p{param_idx})')
                         sql_params[f"p{param_idx}"] = ""
                         param_idx += 1
                     else:
-                        conditions.append(f'("{safe_col}" IS NOT NULL AND CAST("{safe_col}" AS TEXT) != \'\')')
+                        conditions.append(f'({col_ident} IS NOT NULL AND CAST({col_ident} AS TEXT) != \'\')')
                 
                 elif op == "regex":
                     if use_params:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) ~* :p{param_idx}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) ~* :p{param_idx}')
                         sql_params[f"p{param_idx}"] = str(fval)
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST("{safe_col}" AS TEXT) ~* {self._escape_sql_value(str(fval))}')
+                        conditions.append(f'CAST({col_ident} AS TEXT) ~* {SqlLiteral(str(fval))}')
                 
                 continue
             
@@ -399,21 +379,21 @@ class DataFetcher:
                 # IN clause for multi-select
                 if use_params:
                     placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
-                    conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
+                    conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
                     for i, v in enumerate(value):
                         sql_params[f"p{param_idx + i}"] = str(v)
                     param_idx += len(value)
                 else:
-                    placeholders = ", ".join(self._escape_sql_value(str(v)) for v in value)
-                    conditions.append(f'CAST("{safe_col}" AS TEXT) IN ({placeholders})')
+                    placeholders = ", ".join(str(SqlLiteral(str(v))) for v in value)
+                    conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
             else:
                 # Exact match
                 if use_params:
-                    conditions.append(f'CAST("{safe_col}" AS TEXT) = :p{param_idx}')
+                    conditions.append(f'CAST({col_ident} AS TEXT) = :p{param_idx}')
                     sql_params[f"p{param_idx}"] = str(value)
                     param_idx += 1
                 else:
-                    conditions.append(f'CAST("{safe_col}" AS TEXT) = {self._escape_sql_value(str(value))}')
+                    conditions.append(f'CAST({col_ident} AS TEXT) = {SqlLiteral(str(value))}')
         
         # Search term (ILIKE across searchable columns)
         if params.search_term:
@@ -424,16 +404,16 @@ class DataFetcher:
             search_conditions = []
             if use_params:
                 for col in searchable_cols:
-                    safe_col = _escape_identifier(col)
-                    search_conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE :search_term')
+                    col_ident = SqlIdentifier(col)
+                    search_conditions.append(f'CAST({col_ident} AS TEXT) ILIKE :search_term')
                 if search_conditions:
                     conditions.append(f"({' OR '.join(search_conditions)})")
                     sql_params["search_term"] = f"%{params.search_term}%"
             else:
-                escaped_term = self._escape_sql_value(f"%{params.search_term}%")
+                escaped_term = SqlLiteral(f"%{params.search_term}%")
                 for col in searchable_cols:
-                    safe_col = _escape_identifier(col)
-                    search_conditions.append(f'CAST("{safe_col}" AS TEXT) ILIKE {escaped_term}')
+                    col_ident = SqlIdentifier(col)
+                    search_conditions.append(f'CAST({col_ident} AS TEXT) ILIKE {escaped_term}')
                 if search_conditions:
                     conditions.append(f"({' OR '.join(search_conditions)})")
         
@@ -455,7 +435,7 @@ class DataFetcher:
             return ""
         
         # Status is computed via LATERAL JOIN, filter on _mod_status
-        statuses = ", ".join(f"'{s}'" for s in safe_statuses)
+        statuses = ", ".join(str(SqlLiteral(s)) for s in safe_statuses)
         return f" AND _mod_status IN ({statuses})"
     
     def get_status_counts(self, params: QueryParams = None) -> dict:
@@ -473,8 +453,8 @@ class DataFetcher:
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = _format_table_name(data_table)
-            mods_table_sql = _format_table_name(mods_table)
+            data_table_sql = SqlTableName(data_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
             
@@ -485,7 +465,7 @@ class DataFetcher:
                 # Create a copy without status filters so we count all statuses
                 where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
-            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
+            pk_json_build = build_pk_json_expr(pk_columns)
             
             query = f"""
             SELECT _mod_status, COUNT(*) as cnt FROM (
@@ -494,7 +474,7 @@ class DataFetcher:
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
                     FROM {mods_table_sql} m
-                    WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                    WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE
                     ORDER BY m.created_at DESC
                     LIMIT 1
@@ -533,15 +513,15 @@ class DataFetcher:
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = _format_table_name(data_table)
-            mods_table_sql = _format_table_name(mods_table)
+            data_table_sql = SqlTableName(data_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             # Build query with mod status for status filtering
-            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
+            pk_json_build = build_pk_json_expr(pk_columns)
             
             query = f"""
             SELECT COUNT(*) as cnt FROM (
@@ -551,7 +531,7 @@ class DataFetcher:
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
                     FROM {mods_table_sql} m
-                    WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                    WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE
                     ORDER BY m.created_at DESC
                     LIMIT 1
@@ -590,8 +570,8 @@ class DataFetcher:
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = _format_table_name(data_table)
-            mods_table_sql = _format_table_name(mods_table)
+            data_table_sql = SqlTableName(data_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
@@ -601,16 +581,16 @@ class DataFetcher:
             order_clause = ""
             if params.sort_column and params.sort_column in self._columns:
                 direction = "ASC" if params.sort_ascending else "DESC"
-                order_clause = f'ORDER BY "{_escape_identifier(params.sort_column)}" {direction}'
+                order_clause = f'ORDER BY {SqlIdentifier(params.sort_column)} {direction}'
             elif pk_columns:
-                order_clause = f'ORDER BY "{_escape_identifier(pk_columns[0])}" ASC'
+                order_clause = f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
             
             # Pagination
             offset = (params.page - 1) * params.page_size
             limit_clause = f"LIMIT {params.page_size} OFFSET {offset}"
             
             # Build query with mod status
-            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
+            pk_json_build = build_pk_json_expr(pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
             # Wrap in subquery to allow status filtering
@@ -621,7 +601,7 @@ class DataFetcher:
             LEFT JOIN LATERAL (
                 SELECT mod_type 
                 FROM {mods_table_sql} m
-                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                WHERE m.row_pk = {pk_json_build}
                   AND m.undone = FALSE
                 ORDER BY m.created_at DESC
                 LIMIT 1
@@ -676,8 +656,8 @@ class DataFetcher:
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = _format_table_name(data_table)
-            mods_table_sql = _format_table_name(mods_table)
+            data_table_sql = SqlTableName(data_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
@@ -687,12 +667,12 @@ class DataFetcher:
             order_clause = ""
             if params.sort_column and params.sort_column in self._columns:
                 direction = "ASC" if params.sort_ascending else "DESC"
-                order_clause = f'ORDER BY "{_escape_identifier(params.sort_column)}" {direction}'
+                order_clause = f'ORDER BY {SqlIdentifier(params.sort_column)} {direction}'
             elif pk_columns:
-                order_clause = f'ORDER BY "{_escape_identifier(pk_columns[0])}" ASC'
+                order_clause = f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
             
             # Build query with mod status (NO LIMIT for export)
-            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
+            pk_json_build = build_pk_json_expr(pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
             inner_query = f"""
@@ -702,7 +682,7 @@ class DataFetcher:
             LEFT JOIN LATERAL (
                 SELECT mod_type 
                 FROM {mods_table_sql} m
-                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                WHERE m.row_pk = {pk_json_build}
                   AND m.undone = FALSE
                 ORDER BY m.created_at DESC
                 LIMIT 1
@@ -754,7 +734,7 @@ class DataFetcher:
         try:
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            mods_table_sql = _format_table_name(mods_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # Build list of PKs from current data
             pk_values = []
@@ -779,13 +759,13 @@ class DataFetcher:
                 return df
             
             # Query modifications for these PKs
-            pk_array = "ARRAY[" + ",".join(f"'{pv.replace(chr(39), chr(39)*2)}'::jsonb" for pv in pk_values) + "]"
+            pk_array_expr = build_pk_array(pk_values)
             mods_query = f"""
             SELECT row_pk, column_name, new_value 
             FROM {mods_table_sql}
             WHERE mod_type = 'field_modification' 
               AND undone = FALSE
-              AND row_pk = ANY({pk_array})
+              AND row_pk = ANY({pk_array_expr})
             ORDER BY created_at ASC
             """
             
@@ -969,7 +949,7 @@ class ConfigInstance:
             
             data_table = self.app_config.database.data_table
             source_table = self.app_config.database.source_table
-            data_table_sql = _format_table_name(data_table)
+            data_table_sql = SqlTableName(data_table)
             
             engine = self._get_engine()
             if engine is None:
@@ -1006,14 +986,15 @@ class ConfigInstance:
                 print(f"⚠ Data table {data_table_sql} does not exist and no source_table configured")
                 return False
             
-            source_table_sql = _format_table_name(source_table)
+            source_table_sql = SqlTableName(source_table)
             print(f"📋 Creating {data_table_sql} as copy of {source_table_sql}...")
             
             with engine.connect() as conn:
                 # Create schema if needed
                 if '.' in data_table:
                     schema = data_table.split('.', 1)[0]
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+                    schema_sql = SqlIdentifier(schema)
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
                 
                 # Create data_table as a copy of source_table (structure + data)
                 conn.execute(text(f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}'))
@@ -1042,7 +1023,7 @@ class ConfigInstance:
             client = DatumClient(base_url=base_url, token=token)
             data_table = self.app_config.database.data_table
             source_table = self.app_config.database.source_table
-            data_table_sql = _format_table_name(data_table)
+            data_table_sql = SqlTableName(data_table)
             
             # Check if data_table exists by trying to select from it
             try:
@@ -1061,15 +1042,16 @@ class ConfigInstance:
                 print(f"⚠ Data table {data_table_sql} does not exist and no source_table configured")
                 return False
             
-            source_table_sql = _format_table_name(source_table)
+            source_table_sql = SqlTableName(source_table)
             print(f"📋 Creating {data_table_sql} as copy of {source_table_sql} via Datum...")
             
             # Create schema if needed
             if '.' in data_table:
                 schema = data_table.split('.', 1)[0]
+                schema_sql = SqlIdentifier(schema)
                 try:
                     client.execute_sql(
-                        sql=f'CREATE SCHEMA IF NOT EXISTS "{schema}"',
+                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
                         database=self.app_config.database.datum_database,
                         schema=self.app_config.database.datum_schema,
                         service_name=self.app_config.database.datum_service_name,
@@ -1117,12 +1099,12 @@ class ConfigInstance:
                     f"Enabled: {self.app_config.database.enabled}"
                 )
             
-            data_table_sql = _format_table_name(data_table)
-            mods_table_sql = _format_table_name(mods_table)
+            data_table_sql = SqlTableName(data_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # OPTIMIZED: Use a single JOIN with DISTINCT ON instead of correlated subquery
             # This is much faster as the database can use indexes on mods_table
-            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
+            pk_json_build = build_pk_json_expr(pk_columns)
             
             # Apply max_rows limit if configured
             max_rows = self.app_config.database.max_rows
@@ -1135,12 +1117,12 @@ class ConfigInstance:
             LEFT JOIN LATERAL (
                 SELECT mod_type 
                 FROM {mods_table_sql} m
-                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                WHERE m.row_pk = {pk_json_build}
                   AND m.undone = FALSE
                 ORDER BY m.created_at DESC
                 LIMIT 1
             ) ms ON TRUE
-            ORDER BY d."{_escape_identifier(pk_columns[0])}"
+            ORDER BY d.{SqlIdentifier(pk_columns[0])}
             {limit_clause}
             """
             
@@ -1176,7 +1158,7 @@ class ConfigInstance:
             
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            mods_table_sql = _format_table_name(mods_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # OPTIMIZED: Build list of PKs from current dataframe
             # Create JSONB array of all PKs in the current view
@@ -1205,7 +1187,7 @@ class ConfigInstance:
             
             # OPTIMIZED: Query only modifications for PKs in current view
             # Use ANY with jsonb array for efficient filtering
-            pk_array = "ARRAY[" + ",".join(f"'{pv.replace(chr(39), chr(39)*2)}'::jsonb" for pv in pk_values) + "]"
+            pk_array = build_pk_array(pk_values)
             
             mods_query = f"""
             SELECT row_pk, column_name, old_value, new_value 
@@ -1298,11 +1280,11 @@ class ConfigInstance:
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = _format_table_name(data_table)
-            mods_table_sql = _format_table_name(mods_table)
+            data_table_sql = SqlTableName(data_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # OPTIMIZED: Use LATERAL JOIN instead of correlated subquery
-            pk_json_build = ", ".join(f"'{_escape_identifier(pk).replace(chr(39), chr(39)*2)}', d.\"{_escape_identifier(pk)}\"::text" for pk in pk_columns)
+            pk_json_build = build_pk_json_expr(pk_columns)
             
             # Apply max_rows limit if configured
             max_rows = self.app_config.database.max_rows
@@ -1315,12 +1297,12 @@ class ConfigInstance:
             LEFT JOIN LATERAL (
                 SELECT mod_type 
                 FROM {mods_table_sql} m
-                WHERE m.row_pk = jsonb_build_object({pk_json_build})
+                WHERE m.row_pk = {pk_json_build}
                   AND m.undone = FALSE
                 ORDER BY m.created_at DESC
                 LIMIT 1
             ) ms ON TRUE
-            ORDER BY d."{_escape_identifier(pk_columns[0])}"
+            ORDER BY d.{SqlIdentifier(pk_columns[0])}
             {limit_clause}
             """
             
@@ -1358,7 +1340,7 @@ class ConfigInstance:
             
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            mods_table_sql = _format_table_name(mods_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # OPTIMIZED: Build list of PKs from current dataframe
             pk_values = []
@@ -1384,7 +1366,7 @@ class ConfigInstance:
                 return df
             
             # OPTIMIZED: Query only modifications for PKs in current view
-            pk_array = "ARRAY[" + ",".join(f"'{pv.replace(chr(39), chr(39)*2)}'::jsonb" for pv in pk_values) + "]"
+            pk_array = build_pk_array(pk_values)
             
             mods_query = f"""
             SELECT row_pk, column_name, old_value, new_value 
@@ -1516,11 +1498,11 @@ class ConfigInstance:
             # Parse schema.table format
             if '.' in mods_table:
                 schema, table_name = mods_table.split('.', 1)
-                schema_sql = f'"{_escape_identifier(schema)}"'
-                table_sql = _format_table_name(mods_table)
+                schema_sql = str(SqlIdentifier(schema))
+                table_sql = SqlTableName(mods_table)
             else:
                 schema_sql = None
-                table_sql = _format_table_name(mods_table)
+                table_sql = SqlTableName(mods_table)
             
             engine = self._get_engine()
             if engine is None:
@@ -1566,13 +1548,13 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
-            mods_table_sql = _format_table_name(mods_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             # Parse schema for CREATE SCHEMA
             schema_sql = None
             if '.' in mods_table:
                 schema = mods_table.split('.', 1)[0]
-                schema_sql = f'"{_escape_identifier(schema)}"'
+                schema_sql = str(SqlIdentifier(schema))
             
             # Create schema if needed
             if schema_sql:
@@ -1854,7 +1836,7 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
-            mods_table_sql = _format_table_name(mods_table)
+            mods_table_sql = SqlTableName(mods_table)
             
             old_val_str = str(old_value) if old_value is not None else None
             new_val_str = str(new_value) if new_value is not None else None
@@ -1869,18 +1851,11 @@ class ConfigInstance:
                 else:
                     serializable_pk[k] = v
             
-            # Use sort_keys=True for consistent JSON representation
-            row_pk_json = json.dumps(serializable_pk, sort_keys=True).replace('\x00', '').replace("'", "''")
-            
-            # Escape username for SQL
-            safe_username = self.username.replace('\x00', '').replace("'", "''") if self.username else 'unknown'
-            
-            # Escape old/new values for SQL (handle single quotes and NUL bytes)
-            old_val_escaped = old_val_str.replace('\x00', '').replace("'", "''") if old_val_str else None
-            new_val_escaped = new_val_str.replace('\x00', '').replace("'", "''") if new_val_str else None
-            
-            # Escape column name for SQL
-            column_escaped = column.replace('\x00', '').replace("'", "''")
+            # Type-safe escaping via SqlLiteral — replaces manual .replace() chains
+            row_pk_json_lit = SqlLiteral(json.dumps(serializable_pk, sort_keys=True))
+            column_lit = SqlLiteral(column)
+            old_val_lit = SqlLiteral(old_val_str)
+            new_val_lit = SqlLiteral(new_val_str)
             
             # Whitelist mod_type values
             allowed_mod_types = {"field_modification", "status_change", "approval", "rejection"}
@@ -1892,15 +1867,15 @@ class ConfigInstance:
                 INSERT INTO {mods_table_sql} 
                     (row_pk, column_name, old_value, new_value, mod_type)
                 VALUES 
-                    ('{row_pk_json}'::jsonb, '{column_escaped}', 
-                     {f"'{old_val_escaped}'" if old_val_escaped else 'NULL'}, 
-                     {f"'{new_val_escaped}'" if new_val_escaped else 'NULL'}, 
-                     '{safe_mod_type}')
+                    ({row_pk_json_lit}::jsonb, {column_lit}, 
+                     {old_val_lit}, 
+                     {new_val_lit}, 
+                     {SqlLiteral(safe_mod_type)})
                 RETURNING id;
                 COMMIT;
             '''
             
-            print(f"[Datum DEBUG] Saving modification: pk={row_pk_json}, col={column}, old={old_val_str[:50] if old_val_str else None}..., new={new_val_str[:50] if new_val_str else None}...")
+            print(f"[Datum DEBUG] Saving modification: pk={row_pk_json_lit}, col={column}, old={old_val_str[:50] if old_val_str else None}..., new={new_val_str[:50] if new_val_str else None}...")
             print(f"[Datum DEBUG] INSERT SQL table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}")
             print(f"[Datum DEBUG] Full SQL: {sql}")
             
@@ -1918,7 +1893,8 @@ class ConfigInstance:
                 print(f"[Datum DEBUG] ✓ Saved modification with id={mod_id}")
                 
                 # Verify the row actually exists by querying it back
-                verify_sql = f"SELECT id, row_pk, column_name, mod_type FROM {mods_table_sql} WHERE id = {mod_id}"
+                mod_id_lit = SqlLiteral(int(mod_id))
+                verify_sql = f"SELECT id, row_pk, column_name, mod_type FROM {mods_table_sql} WHERE id = {mod_id_lit}"
                 try:
                     verify_response = client.execute_sql(
                         sql=verify_sql,
@@ -2097,7 +2073,8 @@ class ConfigInstance:
             params = {"new_value": new_value}
             for i, pk_col in enumerate(pk_columns):
                 if pk_col in row_pk:
-                    where_parts.append(f'"{pk_col}" = :pk_{i}')
+                    pk_col_sql = SqlIdentifier(pk_col)
+                    where_parts.append(f'{pk_col_sql} = :pk_{i}')
                     params[f"pk_{i}"] = row_pk[pk_col]
             
             if not where_parts:
@@ -2105,10 +2082,11 @@ class ConfigInstance:
             
             where_clause = " AND ".join(where_parts)
             table_sql = _format_table_name(data_table)
+            column_sql = SqlIdentifier(column)
             
             with engine.connect() as conn:
                 conn.execute(
-                    text(f'UPDATE {table_sql} SET "{column}" = :new_value WHERE {where_clause}'),
+                    text(f'UPDATE {table_sql} SET {column_sql} = :new_value WHERE {where_clause}'),
                     params
                 )
                 conn.commit()
@@ -2132,26 +2110,24 @@ class ConfigInstance:
             data_table = self.app_config.database.data_table
             pk_columns = self.app_config.table.primary_key
             
-            # Build WHERE clause from PK — escape all values
+            # Build WHERE clause from PK — type-safe escaping
             where_parts = []
             for pk_col in pk_columns:
                 if pk_col in row_pk:
-                    safe_col = _escape_identifier(pk_col)
-                    pk_val = row_pk[pk_col]
-                    escaped_val = self.data_fetcher._escape_sql_value(pk_val) if self.data_fetcher else _escape_literal(pk_val)
-                    where_parts.append(f'"{safe_col}" = {escaped_val}')
+                    col_ident = SqlIdentifier(pk_col)
+                    pk_val_lit = SqlLiteral(row_pk[pk_col])
+                    where_parts.append(f'{col_ident} = {pk_val_lit}')
             
             if not where_parts:
                 return False
             
             where_clause = " AND ".join(where_parts)
-            # Escape column name and new value
-            safe_column = _escape_identifier(column)
-            new_val_sql = _escape_literal(new_value)
-            data_table_sql = _format_table_name(data_table)
+            col_ident = SqlIdentifier(column)
+            new_val_lit = SqlLiteral(new_value)
+            data_table_sql = SqlTableName(data_table)
             
             client.execute_sql(
-                sql=f'BEGIN; UPDATE {data_table_sql} SET "{safe_column}" = {new_val_sql} WHERE {where_clause}; COMMIT;',
+                sql=f'BEGIN; UPDATE {data_table_sql} SET {col_ident} = {new_val_lit} WHERE {where_clause}; COMMIT;',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
@@ -2178,11 +2154,11 @@ class ConfigInstance:
             # Parse schema.table format
             if '.' in state_table:
                 schema, table_name = state_table.split('.', 1)
-                schema_sql = f'"{_escape_identifier(schema)}"'
-                table_sql = _format_table_name(state_table)
+                schema_sql = str(SqlIdentifier(schema))
+                table_sql = SqlTableName(state_table)
             else:
                 schema_sql = None
-                table_sql = _format_table_name(state_table)
+                table_sql = SqlTableName(state_table)
             
             engine = self._get_engine()
             if engine is None:
@@ -2229,13 +2205,13 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             state_table = self.app_config.database.state_table
-            state_table_sql = _format_table_name(state_table)
+            state_table_sql = SqlTableName(state_table)
             
             # Parse schema for CREATE SCHEMA
             schema_sql = None
             if '.' in state_table:
                 schema = state_table.split('.', 1)[0]
-                schema_sql = f'"{_escape_identifier(schema)}"'
+                schema_sql = str(SqlIdentifier(schema))
             
             # Create schema if needed
             if schema_sql:
@@ -2372,17 +2348,16 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             state_table = self.app_config.database.state_table
-            state_table_sql = _format_table_name(state_table)
+            state_table_sql = SqlTableName(state_table)
             
-            # Escape values for SQL
-            filters_json = json.dumps(filters).replace('\x00', '').replace("'", "''") if filters else 'null'
-            sort_col_escaped = sort_column.replace("'", "''") if sort_column else None
-            sort_col_sql = f"'{sort_col_escaped}'" if sort_col_escaped else 'NULL'
-            preset_escaped = column_preset.replace("'", "''") if column_preset else None
-            preset_sql = f"'{preset_escaped}'" if preset_escaped else 'NULL'
-            user_sql = self.username.replace("'", "''")
+            # Type-safe escaping via SqlLiteral
+            filters_json_lit = SqlLiteral(json.dumps(filters)) if filters else SqlLiteral(None)
+            sort_col_lit = SqlLiteral(sort_column)
+            preset_lit = SqlLiteral(column_preset)
+            user_lit = SqlLiteral(self.username)
             safe_page = int(current_page)
             safe_rows = int(rows_per_page)
+            sort_asc_lit = SqlLiteral(bool(sort_ascending))
             
             sql = f'''
                 BEGIN;
@@ -2390,16 +2365,16 @@ class ConfigInstance:
                     (user_id, session_id, sort_column, sort_ascending, 
                      current_page, rows_per_page, filters, column_preset, updated_at)
                 VALUES 
-                    ('{user_sql}', 'default_session', {sort_col_sql}, {str(sort_ascending).upper()},
-                     {safe_page}, {safe_rows}, '{filters_json}'::jsonb, {preset_sql}, NOW())
+                    ({user_lit}, 'default_session', {sort_col_lit}, {sort_asc_lit},
+                     {safe_page}, {safe_rows}, {filters_json_lit}::jsonb, {preset_lit}, NOW())
                 ON CONFLICT (user_id, session_id) 
                 DO UPDATE SET
-                    sort_column = {sort_col_sql},
-                    sort_ascending = {str(sort_ascending).upper()},
+                    sort_column = {sort_col_lit},
+                    sort_ascending = {sort_asc_lit},
                     current_page = {safe_page},
                     rows_per_page = {safe_rows},
-                    filters = '{filters_json}'::jsonb,
-                    column_preset = {preset_sql},
+                    filters = {filters_json_lit}::jsonb,
+                    column_preset = {preset_lit},
                     updated_at = NOW();
                 COMMIT;
             '''
@@ -2490,15 +2465,15 @@ class ConfigInstance:
             
             client = DatumClient(base_url=base_url, token=token)
             state_table = self.app_config.database.state_table
-            state_table_sql = _format_table_name(state_table)
-            user_sql = self.username.replace("'", "''")
+            state_table_sql = SqlTableName(state_table)
+            user_lit = SqlLiteral(self.username)
             
             response = client.execute_sql(
                 sql=f'''
                     SELECT sort_column, sort_ascending, current_page, 
                            rows_per_page, filters, column_preset
                     FROM {state_table_sql}
-                    WHERE user_id = '{user_sql}' AND session_id = 'default_session'
+                    WHERE user_id = {user_lit} AND session_id = 'default_session'
                 ''',
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
@@ -2682,14 +2657,14 @@ class ConfigInstance:
                     service_name=self.app_config.database.datum_service_name,
                 )
             
-            columns_json = json.dumps(columns).replace("'", "''")
-            preset_name_sql = preset_name.replace("'", "''")
+            columns_json_lit = SqlLiteral(json.dumps(columns))
+            preset_name_lit = SqlLiteral(preset_name)
             
             # UPSERT with explicit BEGIN/COMMIT for Datum proxy
             sql = f'''
                     BEGIN;
                     INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
-                    VALUES ('{preset_name_sql}', '{columns_json}'::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
+                    VALUES ({preset_name_lit}, {columns_json_lit}::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
                     ON CONFLICT (preset_name) 
                     DO UPDATE SET 
                         columns = EXCLUDED.columns,
@@ -2849,10 +2824,10 @@ class ConfigInstance:
             client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
-            preset_name_sql = preset_name.replace("'", "''")
+            preset_name_lit = SqlLiteral(preset_name)
             
             client.execute_sql(
-                sql=f"BEGIN; DELETE FROM {preset_table_sql} WHERE preset_name = '{preset_name_sql}'; COMMIT;",
+                sql=f"BEGIN; DELETE FROM {preset_table_sql} WHERE preset_name = {preset_name_lit}; COMMIT;",
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,

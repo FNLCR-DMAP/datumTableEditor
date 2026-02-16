@@ -178,7 +178,7 @@ class DatabaseOperations:
         """Get all column names."""
         if self._table_schema is None:
             raise RuntimeError("Database not initialized")
-        return self._table_schema.column_names
+        return self._table_schema.get_column_names()
     
     def get_session_book(self, session_id: str) -> SessionBook:
         """Get session book for a session."""

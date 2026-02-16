@@ -10,8 +10,10 @@ from typing import List, Tuple, Optional, Any, Callable
 
 def generate_clipboard_js(text: str) -> str:
     """Generate JavaScript code to copy text to clipboard."""
+    # Escape </script> to prevent tag breakout in inline scripts
+    safe_text = json.dumps(text).replace("</", "<\\/")
     return f"""
-        navigator.clipboard.writeText({json.dumps(text)}).then(function() {{
+        navigator.clipboard.writeText({safe_text}).then(function() {{
             console.log('Copied to clipboard');
         }}).catch(function(err) {{
             console.error('Could not copy: ', err);

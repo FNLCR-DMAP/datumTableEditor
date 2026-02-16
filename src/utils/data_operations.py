@@ -108,6 +108,21 @@ def perform_undo(
     if col not in df.columns:
         return None, None, None, f"Column '{col}' not found"
     
+    # F3 guard: only allow undo of the LATEST non-undone edit for this row+column.
+    # Undoing an older edit would clobber all subsequent edits without warning.
+    for later_idx in range(len(log) - 1, log_idx, -1):
+        later_mod = log[later_idx]
+        if (
+            later_mod.get("type") == "field_modification"
+            and not later_mod.get("undone", False)
+        ):
+            later_details = later_mod.get("details", {})
+            if later_details.get("column") == col and later_details.get("row_pk") == row_pk:
+                return None, None, None, (
+                    f"Cannot undo this edit — a newer edit exists for column '{col}' on this row. "
+                    f"Undo the latest edit first."
+                )
+    
     # Create copies to avoid mutating originals
     updated_df = df.copy()
     
@@ -245,6 +260,8 @@ def perform_cell_edit(
             try:
                 db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
                 print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
+                if db_id is None:
+                    print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{col}", flush=True)
             except Exception as e:
                 print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
                 import traceback
@@ -255,6 +272,8 @@ def perform_cell_edit(
         update_data_in_db(row_pk, col, new_value)
         # Save modification record
         db_id = save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+        if db_id is None:
+            print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{col}", flush=True)
     else:
         print(f"[Datum DEBUG] No database save - config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     
@@ -265,22 +284,23 @@ def perform_cell_edit(
         updated_df.iloc[row, updated_df.columns.get_loc(col)] = new_value
     
     updated_log = log.copy()
-    log_entry = {
-        "timestamp": datetime.now().isoformat(),
-        "type": "field_modification",
-        "details": {
-            "row_index": row,
-            "row_pk": row_pk,
-            "primary_key": _pk_to_string(row_pk),
-            "column": col,
-            "old_value": old_value,
-            "new_value": new_value,
+    # Only log the modification if DB succeeded (or no DB configured)
+    if not db_failed:
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "type": "field_modification",
+            "details": {
+                "row_index": row,
+                "row_pk": row_pk,
+                "primary_key": _pk_to_string(row_pk),
+                "column": col,
+                "old_value": old_value,
+                "new_value": new_value,
+            }
         }
-    }
-    if db_id:
-        log_entry["db_id"] = db_id
-    
-    updated_log.append(log_entry)
+        if db_id:
+            log_entry["db_id"] = db_id
+        updated_log.append(log_entry)
     
     return updated_df, updated_log
 

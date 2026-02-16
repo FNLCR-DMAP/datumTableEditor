@@ -14,17 +14,17 @@ from pathlib import Path
 from .app_config_schema import AppConfig, load_config
 
 
+from .sql_types import SqlTableName, SqlIdentifier, SqlLiteral
+
+
 def _format_table_name(table_name: str) -> str:
     """
     Format table name for SQL queries with proper PostgreSQL quoting.
     
-    Properly quotes schema-qualified names by quoting each part separately:
-    - "users" -> '"users"'
-    - "epitopes.epitopes_data" -> '"epitopes"."epitopes_data"'
-    - "public.my_table" -> '"public"."my_table"'
+    DEPRECATED — prefer SqlTableName(table_name) in new code.
+    Delegates to SqlTableName which also escapes embedded double-quotes.
     """
-    parts = table_name.split('.')
-    return ".".join(f'"{part}"' for part in parts)
+    return str(SqlTableName(table_name))
 
 
 # Load application configuration
@@ -114,7 +114,7 @@ def _load_from_datum() -> pd.DataFrame:
         
         # Build query that gets base data with modification status
         pk_conditions = " AND ".join(
-            f"m.row_pk->>'{pk}' = d.\"{pk}\"::text"
+            f"m.row_pk->>{SqlLiteral(pk)} = d.{SqlIdentifier(pk)}::text"
             for pk in pk_columns
         )
         
@@ -130,7 +130,7 @@ def _load_from_datum() -> pd.DataFrame:
                 'unprocessed'
             ) AS _mod_status
         FROM {data_table_sql} d
-        ORDER BY d."{pk_columns[0]}"
+        ORDER BY d.{SqlIdentifier(pk_columns[0])}
         """
         
         data = _execute_sql_via_datum(query)
@@ -191,7 +191,7 @@ def _load_from_database() -> pd.DataFrame:
         # Build query that applies latest modifications to each row
         # This query gets the base data and overlays any field modifications
         pk_conditions = " AND ".join(
-            f'm.row_pk->>\'{pk}\' = d."{pk}"::text'
+            f"m.row_pk->>{SqlLiteral(pk)} = d.{SqlIdentifier(pk)}::text"
             for pk in pk_columns
         )
         
@@ -208,7 +208,7 @@ def _load_from_database() -> pd.DataFrame:
                 'unprocessed'
             ) AS _mod_status
         FROM {data_table_sql} d
-        ORDER BY d."{pk_columns[0]}"
+        ORDER BY d.{SqlIdentifier(pk_columns[0])}
         """
         
         df = pd.read_sql(query, engine)
@@ -514,18 +514,18 @@ def _save_modification_to_datum(row_pk: dict, column: str, old_value, new_value,
         mods_table = app_config.database.mods_table
         mods_table_sql = _format_table_name(mods_table)
         
-        # Escape values for SQL
-        row_pk_json = json.dumps(row_pk).replace("'", "''")
-        old_val_sql = f"'{str(old_value).replace(chr(39), chr(39)+chr(39))}'" if old_value is not None else "NULL"
-        new_val_sql = f"'{str(new_value).replace(chr(39), chr(39)+chr(39))}'" if new_value is not None else "NULL"
-        column_sql = column.replace("'", "''")
-        mod_type_sql = mod_type.replace("'", "''")
+        # Escape values for SQL using type-safe wrappers
+        row_pk_json = SqlLiteral(json.dumps(row_pk))
+        old_val_sql = SqlLiteral(str(old_value) if old_value is not None else None)
+        new_val_sql = SqlLiteral(str(new_value) if new_value is not None else None)
+        column_sql = SqlLiteral(column)
+        mod_type_sql = SqlLiteral(mod_type)
         
         query = f"""
             INSERT INTO {mods_table_sql} 
                 (row_pk, column_name, old_value, new_value, mod_type, created_by)
             VALUES 
-                ('{row_pk_json}'::jsonb, '{column_sql}', {old_val_sql}, {new_val_sql}, '{mod_type_sql}', 'unknown')
+                ({row_pk_json}::jsonb, {column_sql}, {old_val_sql}, {new_val_sql}, {mod_type_sql}, 'unknown')
             RETURNING id
         """
         
@@ -629,19 +629,14 @@ def _update_data_via_datum(row_pk: dict, column: str, new_value):
         for pk in pk_cols:
             pk_val = row_pk.get(pk)
             if pk_val is not None:
-                escaped_val = str(pk_val).replace("'", "''")
-                where_parts.append(f'"{pk}" = \'{escaped_val}\'')
+                where_parts.append(f'{SqlIdentifier(pk)} = {SqlLiteral(str(pk_val))}')
         
         where_clause = " AND ".join(where_parts)
         
         # Escape the new value
-        if new_value is None:
-            new_val_sql = "NULL"
-        else:
-            escaped_new = str(new_value).replace("'", "''")
-            new_val_sql = f"'{escaped_new}'"
+        new_val_sql = SqlLiteral(new_value)
         
-        sql = f'UPDATE {data_table_sql} SET "{column}" = {new_val_sql} WHERE {where_clause}'
+        sql = f'UPDATE {data_table_sql} SET {SqlIdentifier(column)} = {new_val_sql} WHERE {where_clause}'
         
         _execute_sql_via_datum(sql)
         return True
