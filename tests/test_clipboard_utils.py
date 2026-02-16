@@ -135,3 +135,17 @@ class TestProcessCopyRequest:
         
         assert js is None
         assert "not found" in error
+
+
+class TestClipboardXssPrevention:
+    """Tests for clipboard XSS via </script> tag breakout (Finding #39)."""
+
+    def test_script_close_tag_escaped(self):
+        """Cell value containing </script> must not break out of inline script."""
+        from src.utils.clipboard_utils import generate_clipboard_js
+
+        result = generate_clipboard_js("value</script><script>alert(1)</script>")
+        # The literal </script> must not appear unescaped
+        assert "</script>" not in result
+        # The escaped form <\/script> should be present
+        assert "<\\/" in result

@@ -281,7 +281,7 @@ class TestDatabaseOperationsProperties:
             db_ops = DatabaseOperations(config=config)
             
             mock_schema = MagicMock()
-            mock_schema.column_names = ["id", "name", "status"]
+            mock_schema.get_column_names.return_value = ["id", "name", "status"]
             db_ops._table_schema = mock_schema
             
             assert db_ops.columns == ["id", "name", "status"]

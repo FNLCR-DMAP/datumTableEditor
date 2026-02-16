@@ -207,9 +207,9 @@ class TestFormatTableName:
         assert result == '"schema;DROP TABLE x"'
 
     def test_empty_string(self):
-        """Empty table name produces empty-quoted identifier."""
-        result = _format_table_name("")
-        assert result == '""'
+        """Empty table name now raises ValueError (not a valid table name)."""
+        with pytest.raises(ValueError):
+            _format_table_name("")
 
 
 class TestBuildWhereClauseInjection:
@@ -824,7 +824,7 @@ class TestPartialFailureCellEdit:
         assert df.iloc[0]["Gene_names"] == original_value
 
     def test_both_db_calls_raise_df_not_mutated(self, df, ci):
-        """Both DB calls fail; DataFrame is NOT mutated (fixed)."""
+        """Both DB calls fail; DataFrame is NOT mutated, no phantom log entry (fixed)."""
         ci.update_data_in_db.side_effect = RuntimeError("down")
         ci.save_modification_to_db.side_effect = RuntimeError("down")
 
@@ -834,7 +834,8 @@ class TestPartialFailureCellEdit:
         )
         # DataFrame NOT mutated because first DB call failed
         assert updated_df.iloc[0]["Gene_names"] == "BRCA1"
-        assert len(updated_log) == 1
+        # Log NOT mutated either — phantom log entry bug is fixed (Finding #30)
+        assert len(updated_log) == 0
 
 
 class TestPartialFailureUndo:
@@ -963,7 +964,8 @@ class TestEscapeIdentifier:
         assert _escape_identifier('a"b"c') == 'a""b""c'
 
     def test_empty_string(self):
-        assert _escape_identifier("") == ""
+        with pytest.raises(ValueError):
+            _escape_identifier("")
 
     def test_semicolon_untouched(self):
         """Semicolons are harmless inside double-quoted identifiers."""

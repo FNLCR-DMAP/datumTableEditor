@@ -1,4 +1,4 @@
-`"""
+"""
 E2E Test Configuration — Playwright against a live staging environment.
 
 PREREQUISITES (all must be true for E2E tests to run):

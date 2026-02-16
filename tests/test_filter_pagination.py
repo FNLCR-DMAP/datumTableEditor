@@ -334,3 +334,30 @@ class TestStatusCounts:
         # Total should equal row count
         total = counts["unprocessed"] + counts["edited"] + counts["approved"] + counts["rejected"]
         assert total == len(sample_data)
+
+
+class TestBetweenFilterNumeric:
+    """Tests for between filter numeric comparison (Finding #31)."""
+
+    def test_between_numeric_correct_ordering(self):
+        """Between should use numeric comparison when values are numbers."""
+        from src.utils.filter_utils import _row_matches_operator
+
+        # "9" > "15" lexicographically, but 9 < 15 numerically
+        assert _row_matches_operator("9", {"op": "between", "value": ["5", "15"]}) is True
+        assert _row_matches_operator("15", {"op": "between", "value": ["5", "15"]}) is True
+        assert _row_matches_operator("20", {"op": "between", "value": ["5", "15"]}) is False
+
+    def test_between_string_fallback(self):
+        """Between should fall back to string comparison for non-numeric values."""
+        from src.utils.filter_utils import _row_matches_operator
+
+        assert _row_matches_operator("banana", {"op": "between", "value": ["apple", "cherry"]}) is True
+        assert _row_matches_operator("date", {"op": "between", "value": ["apple", "cherry"]}) is False
+
+    def test_between_malformed_value(self):
+        """Malformed between value should not filter (return True)."""
+        from src.utils.filter_utils import _row_matches_operator
+
+        assert _row_matches_operator("5", {"op": "between", "value": ["only_one"]}) is True
+        assert _row_matches_operator("5", {"op": "between", "value": []}) is True

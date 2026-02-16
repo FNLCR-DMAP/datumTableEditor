@@ -806,3 +806,193 @@ class TestSaveModificationsToFile:
             msg = save_modifications_to_file(df, log, log_path, state_path)
 
         assert "0 modifications" in msg
+
+
+class TestUndoLatestEditGuard:
+    """Tests for F3: only allow undo of the latest edit per row+column."""
+
+    def _make_log(self, entries):
+        """Helper to build a modifications log."""
+        log = []
+        for i, (pk, col, old, new, undone) in enumerate(entries):
+            log.append({
+                "db_id": i + 1,
+                "timestamp": f"2026-02-08T10:{i:02d}:00",
+                "type": "field_modification",
+                "undone": undone,
+                "details": {
+                    "row_pk": {"PatientID_Mutsequence": pk},
+                    "column": col,
+                    "old_value": old,
+                    "new_value": new,
+                }
+            })
+        return log
+
+    def test_undo_latest_edit_allowed(self, sample_data):
+        """Undoing the most recent edit for a row+column should succeed."""
+        from src.utils.data_operations import perform_undo
+
+        # Single edit on PK002/Gene_names
+        log = self._make_log([
+            ("PK002", "Gene_names", "TP53", "TP53_v2", False),
+        ])
+        # PK002 is index 1 in sample_data, Gene_names col exists
+        updated_df, updated_log, msg, err = perform_undo(sample_data, log, 0)
+        assert err is None
+        assert msg is not None
+
+    def test_undo_older_edit_blocked_when_newer_exists(self, sample_data):
+        """Undoing an older edit when a newer non-undone edit exists should fail."""
+        from src.utils.data_operations import perform_undo
+
+        # Two edits on the same row+column
+        log = self._make_log([
+            ("PK002", "Gene_names", "TP53", "TP53_v2", False),      # index 0 (older)
+            ("PK002", "Gene_names", "TP53_v2", "TP53_v3", False),   # index 1 (newer)
+        ])
+        updated_df, updated_log, msg, err = perform_undo(sample_data, log, 0)
+        assert err is not None
+        assert "newer edit" in err.lower()
+        assert updated_df is None
+
+    def test_undo_older_edit_allowed_if_newer_is_undone(self, sample_data):
+        """If the newer edit was already undone, the older edit becomes the latest."""
+        from src.utils.data_operations import perform_undo
+
+        log = self._make_log([
+            ("PK002", "Gene_names", "TP53", "TP53_v2", False),      # index 0
+            ("PK002", "Gene_names", "TP53_v2", "TP53_v3", True),    # index 1 (already undone)
+        ])
+        updated_df, updated_log, msg, err = perform_undo(sample_data, log, 0)
+        assert err is None
+        assert updated_df is not None
+
+    def test_undo_allowed_when_newer_edit_is_different_column(self, sample_data):
+        """A newer edit on a different column should NOT block undo."""
+        from src.utils.data_operations import perform_undo
+
+        log = self._make_log([
+            ("PK002", "Gene_names", "TP53", "TP53_v2", False),       # index 0
+            ("PK002", "Comments", "", "some comment", False),         # index 1 (different column)
+        ])
+        updated_df, updated_log, msg, err = perform_undo(sample_data, log, 0)
+        assert err is None
+
+    def test_undo_allowed_when_newer_edit_is_different_row(self, sample_data):
+        """A newer edit on a different row should NOT block undo."""
+        from src.utils.data_operations import perform_undo
+
+        log = self._make_log([
+            ("PK002", "Gene_names", "TP53", "TP53_v2", False),       # index 0
+            ("PK003", "Gene_names", "EGFR", "EGFR_v2", False),       # index 1 (different row)
+        ])
+        updated_df, updated_log, msg, err = perform_undo(sample_data, log, 0)
+        assert err is None
+
+
+class TestSaveModificationNoneCapture:
+    """Tests for A1: save_modification_to_db returning None should be captured."""
+
+    def test_none_return_logged_as_warning(self, sample_data, capsys):
+        """When save_modification_to_db returns None, a warning should be printed."""
+        from src.utils.data_operations import perform_cell_edit
+
+        mock_config = MagicMock()
+        mock_config.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_config.update_data_in_db.return_value = True
+        mock_config.save_modification_to_db.return_value = None  # simulate failure
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        captured = capsys.readouterr()
+        assert "WARNING" in captured.out or "None" in captured.out
+
+    def test_none_return_still_mutates_df(self, sample_data):
+        """Even if audit record fails, the data edit should still apply (data was already written to DB)."""
+        from src.utils.data_operations import perform_cell_edit
+
+        mock_config = MagicMock()
+        mock_config.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_config.update_data_in_db.return_value = True
+        mock_config.save_modification_to_db.return_value = None
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        # Data should still be updated (UPDATE succeeded, only audit INSERT failed)
+        assert updated_df.iloc[0, updated_df.columns.get_loc("Gene_names")] == "BRCA1_v2"
+
+    def test_db_id_absent_when_save_returns_none(self, sample_data):
+        """Log entry should not have db_id when save_modification_to_db returns None."""
+        from src.utils.data_operations import perform_cell_edit
+
+        mock_config = MagicMock()
+        mock_config.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_config.update_data_in_db.return_value = True
+        mock_config.save_modification_to_db.return_value = None
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        assert "db_id" not in updated_log[-1]
+
+
+class TestPhantomLogOnDbFailure:
+    """Tests for Finding #30: no phantom log entry when db_failed=True."""
+
+    def test_no_log_entry_when_update_db_raises(self, sample_data):
+        """When update_data_in_db raises, no log entry should be appended."""
+        from src.utils.data_operations import perform_cell_edit
+
+        mock_config = MagicMock()
+        mock_config.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_config.update_data_in_db.side_effect = Exception("DB connection lost")
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        # No log entry should be appended when DB write failed
+        assert len(updated_log) == 0
+
+    def test_df_not_mutated_when_update_db_raises(self, sample_data):
+        """When update_data_in_db raises, DataFrame should not be mutated."""
+        from src.utils.data_operations import perform_cell_edit
+
+        mock_config = MagicMock()
+        mock_config.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_config.update_data_in_db.side_effect = Exception("DB connection lost")
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        # Value should remain unchanged
+        assert updated_df.iloc[0, updated_df.columns.get_loc("Gene_names")] == "BRCA1"
+
+    def test_log_entry_present_when_db_succeeds(self, sample_data):
+        """Normal case: log entry should be appended when DB succeeds."""
+        from src.utils.data_operations import perform_cell_edit
+
+        mock_config = MagicMock()
+        mock_config.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_config.update_data_in_db.return_value = True
+        mock_config.save_modification_to_db.return_value = 42
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        assert len(updated_log) == 1
+        assert updated_log[0]["db_id"] == 42

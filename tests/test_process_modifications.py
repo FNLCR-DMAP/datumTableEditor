@@ -446,3 +446,47 @@ class TestApplyModificationsExceptionHandling:
             # Original data should remain accessible
             assert result_df.at[0, 'value'] == 'A'
             assert result_df.at[1, 'value'] == 'B'
+
+
+class TestExportAsSqlEdgeCases:
+    """Tests for _export_as_sql edge cases (Findings #32, #33)."""
+
+    def test_falsy_new_value_not_skipped(self):
+        """new_value of 0, empty string, or False should still generate SQL."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from src.processing.process_modifications import ModificationsProcessor
+
+            processor = ModificationsProcessor(data_dir=tmpdir)
+            processor.output_dir = Path(tmpdir)
+
+            mods = [
+                {"type": "field_modification", "details": {"row_index": 1, "column": "score", "new_value": 0}},
+                {"type": "field_modification", "details": {"row_index": 2, "column": "name", "new_value": ""}},
+                {"type": "field_modification", "details": {"row_index": 3, "column": "active", "new_value": False}},
+            ]
+
+            result_path = processor._export_as_sql(mods)
+            content = result_path.read_text()
+
+            # All three should produce UPDATE statements (none should be skipped)
+            assert content.count("UPDATE epitopes SET") == 3
+
+    def test_row_idx_wrapped_in_literal(self):
+        """row_idx should be wrapped in SqlLiteral, not raw interpolation."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from src.processing.process_modifications import ModificationsProcessor
+
+            processor = ModificationsProcessor(data_dir=tmpdir)
+            processor.output_dir = Path(tmpdir)
+
+            mods = [
+                {"type": "field_modification", "details": {"row_index": 42, "column": "col", "new_value": "val"}},
+            ]
+
+            result_path = processor._export_as_sql(mods)
+            content = result_path.read_text()
+
+            # Should contain the row_id as a proper literal (integer, not string)
+            assert "WHERE row_id = 42" in content
