@@ -205,6 +205,20 @@ class DataFetcher:
             self._columns = []
             self._column_types = {}
     
+    @property
+    def _effective_status_column(self) -> Optional[str]:
+        """Return status_column only if it actually exists in the table.
+
+        If the config says ``"Status"`` but the table has ``"status"``
+        (or no such column at all), return None so that
+        ``_build_mod_status_expr`` falls back to the simple
+        ``COALESCE(ms.mod_type, 'unprocessed')`` path.
+        """
+        col = getattr(self.app_config.database, "status_column", None)
+        if col and col in self._columns:
+            return col
+        return None
+    
     def _get_columns_from_schema_datum(self) -> List[str]:
         """Get column names from information_schema via Datum."""
         try:
@@ -547,7 +561,7 @@ class DataFetcher:
             
             query = f"""
             SELECT _mod_status, COUNT(*) as cnt FROM (
-                SELECT {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                SELECT {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
@@ -604,7 +618,7 @@ class DataFetcher:
             query = f"""
             SELECT COUNT(*) as cnt FROM (
                 SELECT d.*, 
-                       {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
                     SELECT mod_type 
@@ -674,7 +688,7 @@ class DataFetcher:
             # Wrap in subquery to allow status filtering
             inner_query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -755,7 +769,7 @@ class DataFetcher:
             
             inner_query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -1190,7 +1204,7 @@ class ConfigInstance:
             
             query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
@@ -1370,7 +1384,7 @@ class ConfigInstance:
             
             query = f"""
             SELECT d.*, 
-                   {_build_mod_status_expr(self.app_config.database.status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
             FROM {data_table_sql} d
             LEFT JOIN LATERAL (
                 SELECT mod_type 
