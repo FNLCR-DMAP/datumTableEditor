@@ -99,11 +99,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     _perm = app_config.permissions
     user_role = _perm.user_roles.get(safe_username, _perm.default_role)
     is_viewer = user_role == "viewer"
-    print(f"[Permissions] User {safe_username} role={user_role} (viewer={is_viewer})")
+    print(f"[Permissions] User={safe_username} | role={user_role} | default_role={_perm.default_role} | user_roles={_perm.user_roles} | is_viewer={is_viewer}")
     
     def _require_editor(action: str = "This action") -> bool:
         """Return True if the user has editor permissions; show notification and return False for viewers."""
         if is_viewer:
+            print(f"[Permissions] BLOCKED: {action} denied for viewer {safe_username}")
             ui.notification_show(f"{action} requires editor permissions.", type="warning", duration=3)
             return False
         return True
