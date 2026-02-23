@@ -235,15 +235,23 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 placeholder=f"Paste values (one per line) or click ⋮",
                 rows=3
             ),
+            # Edit / Confirm toggle button
             ui.tags.button(
-                "⋮",
+                "\u270E",  # pencil icon
+                class_="btn btn-sm btn-outline-secondary filter-edit-btn",
+                onclick=f"toggleFilterEdit('{safe_col_name}', event)",
+                title="Edit filter values",
+                style="position: absolute; right: 30px; top: 50%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px;"
+            ),
+            ui.tags.button(
+                "\u22ee",
                 class_="btn btn-sm btn-outline-secondary filter-values-btn",
                 onclick=f"openFilterValuesModal('{safe_col_name}', event)",
                 title="Select from available values",
                 style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px;"
             ),
-            # Attach blur handler via inline script
-            ui.tags.script(f"attachFilterBlur('{safe_col_name}', 'filter_{col_name}')"),
+            # Initialize textarea as readonly
+            ui.tags.script(f"initFilterReadonly('filter_{col_name}')"),
             style=textarea_style
         ),
         # Hidden data attribute with unique values for the modal

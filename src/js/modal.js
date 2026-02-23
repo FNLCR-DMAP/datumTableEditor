@@ -271,34 +271,55 @@ window.setFilterOperator = function(columnName, operator, event) {
     }
 };
 
-// Apply filter value on blur (user clicked away from textarea)
-window.applyFilterBlur = function(columnName, event) {
-    var textarea = event ? event.target : null;
+// Toggle filter textarea between edit and confirm states
+window.toggleFilterEdit = function(columnName, event) {
+    var btn = event ? event.currentTarget : null;
+    if (!btn) return;
+    var filterGroup = btn.closest('.filter-group');
+    if (!filterGroup) return;
+    var textarea = filterGroup.querySelector('textarea');
     if (!textarea) return;
-    var value = textarea.value || '';
-    if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('apply_filter_value', {
-            column: columnName,
-            value: value,
-            ts: Date.now()
-        }, {priority: 'event'}, textarea);
+
+    if (textarea.readOnly) {
+        // Enter edit mode
+        textarea.readOnly = false;
+        textarea.style.opacity = '1';
+        textarea.style.cursor = 'text';
+        textarea.focus();
+        btn.textContent = '\u2713';  // checkmark
+        btn.title = 'Confirm changes';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-outline-success');
+    } else {
+        // Confirm changes — send value to server
+        textarea.readOnly = true;
+        textarea.style.opacity = '0.85';
+        textarea.style.cursor = 'default';
+        btn.textContent = '\u270E';  // pencil
+        btn.title = 'Edit filter values';
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-outline-secondary');
+        var value = textarea.value || '';
+        if (typeof setShinyInput !== 'undefined') {
+            setShinyInput('apply_filter_value', {
+                column: columnName,
+                value: value,
+                ts: Date.now()
+            }, {priority: 'event'}, textarea);
+        }
     }
 };
 
-// Attach blur handler to filter textareas after they render
-window.attachFilterBlur = function(columnName, containerId) {
-    // Small delay to let Shiny finish rendering the input
+// Initialize filter textareas as readonly after render
+window.initFilterReadonly = function(containerId) {
     setTimeout(function() {
-        // Find the textarea container — handle Shiny namespace prefixes
-        // by matching any element whose ID ends with the containerId
         var container = document.querySelector('[id$="' + containerId + '"]');
         if (!container) return;
         var textarea = container.querySelector('textarea');
-        if (textarea && !textarea._blurAttached) {
-            textarea._blurAttached = true;
-            textarea.addEventListener('blur', function(e) {
-                applyFilterBlur(columnName, e);
-            });
+        if (textarea) {
+            textarea.readOnly = true;
+            textarea.style.opacity = '0.85';
+            textarea.style.cursor = 'default';
         }
     }, 50);
 };
