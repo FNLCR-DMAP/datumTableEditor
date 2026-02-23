@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional, Literal
 
 import requests
@@ -221,15 +222,20 @@ class DatumClient:
         )
 
         url = f"{self.base_url}/proxy_request"
+        t0 = time.perf_counter()
         resp = self._session.post(
             url,
             data=req_envelope.model_dump_json(),
             timeout=self.timeout,
         )
+        elapsed_ms = (time.perf_counter() - t0) * 1000
         resp.raise_for_status()
 
-        # Parse the outer Datum envelope
-        return DatumProxyResponse.model_validate(resp.json())
+        result = DatumProxyResponse.model_validate(resp.json())
+        # Truncate body preview for readability
+        sql_preview = body_obj.get("sql", "")[:80] if isinstance(body_obj, dict) else ""
+        print(f"[Datum] {method} {path} ({service_name}/{endpoint_name}) → {resp.status_code} in {elapsed_ms:.0f}ms | {sql_preview}")
+        return result
 
     # -----------------------
     # PostgreSQL SQL API

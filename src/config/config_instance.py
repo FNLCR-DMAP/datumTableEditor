@@ -117,6 +117,7 @@ class DataFetcher:
     _datum_client: Any = field(default=None, repr=False)
     _total_count: int = field(default=0, repr=False)
     _columns: List[str] = field(default_factory=list, repr=False)
+    _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
     
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -137,8 +138,16 @@ class DataFetcher:
             if conn_string:
                 self._engine = create_engine(conn_string)
     
+    # PostgreSQL types that are natively textual — no CAST needed for
+    # string comparisons (=, IN, ILIKE, ~*).  Keeping them bare allows
+    # PostgreSQL to use B-tree / GIN indexes on those columns.
+    _TEXT_TYPES = frozenset({
+        "text", "character varying", "varchar", "character", "char",
+        "name", "citext", "bpchar",
+    })
+
     def _fetch_metadata(self):
-        """Fetch table row count and column names."""
+        """Fetch table row count, column names, and column types."""
         try:
             data_table = self.app_config.database.data_table
             data_table_sql = SqlTableName(data_table)
@@ -169,6 +178,9 @@ class DataFetcher:
                 # Fallback: try information_schema
                 if not self._columns:
                     self._columns = self._get_columns_from_schema_datum()
+                
+                # Fetch column types from information_schema
+                self._column_types = self._get_column_types_from_schema()
             else:
                 # Direct SQLAlchemy mode
                 from sqlalchemy import text
@@ -180,13 +192,18 @@ class DataFetcher:
                     # Get columns
                     result = conn.execute(text(columns_query))
                     self._columns = list(result.keys())
+                
+                # Fetch column types from information_schema
+                self._column_types = self._get_column_types_from_schema()
             
-            print(f"📊 DataFetcher: Table has {self._total_count} rows, {len(self._columns)} columns")
+            text_cols = [c for c, t in self._column_types.items() if t in self._TEXT_TYPES]
+            print(f"DataFetcher: Table has {self._total_count} rows, {len(self._columns)} columns ({len(text_cols)} text)")
             
         except Exception as e:
             print(f"✗ Error fetching metadata: {e}")
             self._total_count = 0
             self._columns = []
+            self._column_types = {}
     
     def _get_columns_from_schema_datum(self) -> List[str]:
         """Get column names from information_schema via Datum."""
@@ -212,6 +229,63 @@ class DataFetcher:
         except Exception as e:
             print(f"✗ Error getting columns from schema: {e}")
             return []
+
+    def _get_column_types_from_schema(self) -> Dict[str, str]:
+        """Fetch column name → data_type mapping from information_schema.
+
+        Works for both Datum and direct SQLAlchemy modes.
+        Returns a dict like {"Gene_names": "character varying", "Score": "integer", ...}.
+        Falls back to an empty dict on error (all columns will CAST as before).
+        """
+        try:
+            data_table = self.app_config.database.data_table
+            schema = "public"
+            table_name = data_table
+            if "." in data_table:
+                schema, table_name = data_table.split(".", 1)
+
+            query = f"""
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = {SqlLiteral(schema)}
+              AND table_name = {SqlLiteral(table_name)}
+            ORDER BY ordinal_position
+            """
+
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                return {row["column_name"]: row["data_type"] for row in response.data}
+            elif self._engine:
+                from sqlalchemy import text as sa_text
+                with self._engine.connect() as conn:
+                    result = conn.execute(sa_text(query))
+                    return {row[0]: row[1] for row in result.fetchall()}
+        except Exception as e:
+            print(f"⚠ Could not fetch column types (will CAST all): {e}")
+        return {}
+
+    def _is_text_column(self, column: str) -> bool:
+        """Return True if *column* has a natively textual PostgreSQL type.
+
+        When True the column can be compared as-is (no CAST needed),
+        which allows PostgreSQL to use existing B-tree indexes.
+        """
+        return self._column_types.get(column, "").lower() in self._TEXT_TYPES
+
+    def _col_expr(self, col_ident: SqlIdentifier, column: str) -> str:
+        """Return the SQL expression for *column* in a WHERE condition.
+
+        - Text columns:  ``"col_name"``          (index-friendly)
+        - Other columns:  ``CAST("col_name" AS TEXT)``  (safe, universal)
+        """
+        if self._is_text_column(column):
+            return str(col_ident)
+        return f'CAST({col_ident} AS TEXT)'
     
     def get_unique_values(self, column: str, limit: int = 5000) -> List[str]:
         """Fetch distinct values for a column from the database.
@@ -287,65 +361,66 @@ class DataFetcher:
             if isinstance(value, dict) and "op" in value:
                 op = value.get("op", "in")
                 fval = value.get("value")
+                col_e = self._col_expr(col_ident, col)
                 
                 if op == "in":
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
-                        conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
+                        conditions.append(f'{col_e} IN ({placeholders})')
                         for i, v in enumerate(vals):
                             sql_params[f"p{param_idx + i}"] = str(v)
                         param_idx += len(vals)
                     else:
                         placeholders = ", ".join(str(SqlLiteral(str(v))) for v in vals)
-                        conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
+                        conditions.append(f'{col_e} IN ({placeholders})')
                 
                 elif op == "not_in":
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
-                        conditions.append(f'CAST({col_ident} AS TEXT) NOT IN ({placeholders})')
+                        conditions.append(f'{col_e} NOT IN ({placeholders})')
                         for i, v in enumerate(vals):
                             sql_params[f"p{param_idx + i}"] = str(v)
                         param_idx += len(vals)
                     else:
                         placeholders = ", ".join(str(SqlLiteral(str(v))) for v in vals)
-                        conditions.append(f'CAST({col_ident} AS TEXT) NOT IN ({placeholders})')
+                        conditions.append(f'{col_e} NOT IN ({placeholders})')
                 
                 elif op == "contains":
                     if use_params:
-                        conditions.append(f'CAST({col_ident} AS TEXT) ILIKE :p{param_idx}')
+                        conditions.append(f'{col_e} ILIKE :p{param_idx}')
                         sql_params[f"p{param_idx}"] = f"%{fval}%"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST({col_ident} AS TEXT) ILIKE {SqlLiteral(f"%{fval}%")}')
+                        conditions.append(f'{col_e} ILIKE {SqlLiteral(f"%{fval}%")}')
                 
                 elif op == "not_contains":
                     if use_params:
-                        conditions.append(f'CAST({col_ident} AS TEXT) NOT ILIKE :p{param_idx}')
+                        conditions.append(f'{col_e} NOT ILIKE :p{param_idx}')
                         sql_params[f"p{param_idx}"] = f"%{fval}%"
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST({col_ident} AS TEXT) NOT ILIKE {SqlLiteral(f"%{fval}%")}')
+                        conditions.append(f'{col_e} NOT ILIKE {SqlLiteral(f"%{fval}%")}')
                 
                 elif op == "between":
                     if isinstance(fval, list) and len(fval) == 2:
                         if use_params:
-                            conditions.append(f'CAST({col_ident} AS TEXT) BETWEEN :p{param_idx} AND :p{param_idx + 1}')
+                            conditions.append(f'{col_e} BETWEEN :p{param_idx} AND :p{param_idx + 1}')
                             sql_params[f"p{param_idx}"] = str(fval[0])
                             sql_params[f"p{param_idx + 1}"] = str(fval[1])
                             param_idx += 2
                         else:
-                            conditions.append(f'CAST({col_ident} AS TEXT) BETWEEN {SqlLiteral(str(fval[0]))} AND {SqlLiteral(str(fval[1]))}')
+                            conditions.append(f'{col_e} BETWEEN {SqlLiteral(str(fval[0]))} AND {SqlLiteral(str(fval[1]))}')
                 
                 elif op in ("gt", "gte", "lt", "lte"):
                     sql_op = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[op]
                     if use_params:
-                        conditions.append(f'CAST({col_ident} AS TEXT) {sql_op} :p{param_idx}')
+                        conditions.append(f'{col_e} {sql_op} :p{param_idx}')
                         sql_params[f"p{param_idx}"] = str(fval)
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST({col_ident} AS TEXT) {sql_op} {SqlLiteral(str(fval))}')
+                        conditions.append(f'{col_e} {sql_op} {SqlLiteral(str(fval))}')
                 
                 elif op == "last_n_days":
                     n = int(fval) if fval is not None else 7
@@ -358,42 +433,43 @@ class DataFetcher:
                 
                 elif op == "not_empty":
                     if use_params:
-                        conditions.append(f'({col_ident} IS NOT NULL AND CAST({col_ident} AS TEXT) != :p{param_idx})')
+                        conditions.append(f'({col_ident} IS NOT NULL AND {col_e} != :p{param_idx})')
                         sql_params[f"p{param_idx}"] = ""
                         param_idx += 1
                     else:
-                        conditions.append(f'({col_ident} IS NOT NULL AND CAST({col_ident} AS TEXT) != \'\')')
+                        conditions.append(f'({col_ident} IS NOT NULL AND {col_e} != \'\')') 
                 
                 elif op == "regex":
                     if use_params:
-                        conditions.append(f'CAST({col_ident} AS TEXT) ~* :p{param_idx}')
+                        conditions.append(f'{col_e} ~* :p{param_idx}')
                         sql_params[f"p{param_idx}"] = str(fval)
                         param_idx += 1
                     else:
-                        conditions.append(f'CAST({col_ident} AS TEXT) ~* {SqlLiteral(str(fval))}')
+                        conditions.append(f'{col_e} ~* {SqlLiteral(str(fval))}')
                 
                 continue
             
             # ── Simple value filter (original behavior) ──
+            col_e = self._col_expr(col_ident, col)
             if isinstance(value, list):
                 # IN clause for multi-select
                 if use_params:
                     placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(value)))
-                    conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
+                    conditions.append(f'{col_e} IN ({placeholders})')
                     for i, v in enumerate(value):
                         sql_params[f"p{param_idx + i}"] = str(v)
                     param_idx += len(value)
                 else:
                     placeholders = ", ".join(str(SqlLiteral(str(v))) for v in value)
-                    conditions.append(f'CAST({col_ident} AS TEXT) IN ({placeholders})')
+                    conditions.append(f'{col_e} IN ({placeholders})')
             else:
                 # Exact match
                 if use_params:
-                    conditions.append(f'CAST({col_ident} AS TEXT) = :p{param_idx}')
+                    conditions.append(f'{col_e} = :p{param_idx}')
                     sql_params[f"p{param_idx}"] = str(value)
                     param_idx += 1
                 else:
-                    conditions.append(f'CAST({col_ident} AS TEXT) = {SqlLiteral(str(value))}')
+                    conditions.append(f'{col_e} = {SqlLiteral(str(value))}')
         
         # Search term (ILIKE across searchable columns)
         if params.search_term:
@@ -405,7 +481,8 @@ class DataFetcher:
             if use_params:
                 for col in searchable_cols:
                     col_ident = SqlIdentifier(col)
-                    search_conditions.append(f'CAST({col_ident} AS TEXT) ILIKE :search_term')
+                    col_e = self._col_expr(col_ident, col)
+                    search_conditions.append(f'{col_e} ILIKE :search_term')
                 if search_conditions:
                     conditions.append(f"({' OR '.join(search_conditions)})")
                     sql_params["search_term"] = f"%{params.search_term}%"
@@ -413,7 +490,8 @@ class DataFetcher:
                 escaped_term = SqlLiteral(f"%{params.search_term}%")
                 for col in searchable_cols:
                     col_ident = SqlIdentifier(col)
-                    search_conditions.append(f'CAST({col_ident} AS TEXT) ILIKE {escaped_term}')
+                    col_e = self._col_expr(col_ident, col)
+                    search_conditions.append(f'{col_e} ILIKE {escaped_term}')
                 if search_conditions:
                     conditions.append(f"({' OR '.join(search_conditions)})")
         

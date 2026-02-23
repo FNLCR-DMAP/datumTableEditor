@@ -645,6 +645,7 @@ class TestDataFetcherWhereClauseTransitions:
         f.app_config = MagicMock()
         f.app_config.query.searchable_columns = ["Gene_names", "Status"]
         f._columns = ["PatientID_Mutsequence", "PatientID", "Gene_names", "Status"]
+        f._column_types = {}
         f._engine = None
         f._datum_client = None
         f._total_count = 0

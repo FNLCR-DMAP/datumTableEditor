@@ -943,6 +943,7 @@ class TestDataFetcherIntegrationSQL:
         f.app_config.query.searchable_columns = ["Gene_names", "Status", "PatientID"]
         f.app_config.database.status_column = None
         f._columns = ["PatientID_Mutsequence", "PatientID", "Gene_names", "Status", "Comments"]
+        f._column_types = {}
         f._engine = None
         f._datum_client = None
         f._total_count = 100

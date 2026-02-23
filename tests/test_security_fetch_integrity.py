@@ -56,6 +56,7 @@ def _make_fetcher(
     """Build a DataFetcher without __post_init__ touching any real resource."""
     fetcher = object.__new__(DataFetcher)
     fetcher._columns = columns or ["id", "name", "status"]
+    fetcher._column_types = {}
     fetcher._total_count = 100
     fetcher._engine = engine
     fetcher._datum_client = datum_client
