@@ -169,3 +169,115 @@ class TestUpdateFilterValues:
         
         # Should not crash, filters unchanged
         assert result["NonExistent"] == "all"
+
+
+class TestUpdateFilterValuesInteractiveOperator:
+    """Tests for update_filter_values with interactive operator-dict filters."""
+
+    def test_skips_config_operator_dict(self):
+        """Config-defined operator dicts (no 'interactive' key) should be skipped."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        # Should never be called for config op-dicts
+        mock_input.filter_Col = MagicMock(side_effect=AssertionError("should not be called"))
+
+        filters = {"Col": {"op": "not_in", "value": ["A"]}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Col"] == {"op": "not_in", "value": ["A"]}
+        assert updated is False
+
+    def test_reads_interactive_operator_textarea(self):
+        """Interactive op-dict should read textarea and update value list."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="B\nC")
+
+        filters = {"Col": {"op": "not_in", "value": ["A"], "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Col"]["op"] == "not_in"
+        assert result["Col"]["value"] == ["B", "C"]
+        assert result["Col"]["interactive"] is True
+        assert updated is True
+
+    def test_interactive_op_no_change(self):
+        """Should not mark updated when textarea values match."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="A\nB")
+
+        filters = {"Col": {"op": "not_in", "value": ["A", "B"], "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert updated is False
+
+    def test_interactive_op_empty_textarea(self):
+        """Empty textarea should set value to empty list."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="")
+
+        filters = {"Col": {"op": "contains", "value": ["X"], "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Col"]["value"] == []
+        assert result["Col"]["op"] == "contains"
+        assert updated is True
+
+    def test_interactive_op_comma_separated(self):
+        """Comma-separated input should be split into values."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="X, Y, Z")
+
+        filters = {"Col": {"op": "not_in", "value": [], "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Col"]["value"] == ["X", "Y", "Z"]
+        assert updated is True
+
+    def test_interactive_op_preserves_operator(self):
+        """The op key should be preserved when values change."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="new_val")
+
+        filters = {"Col": {"op": "not_contains", "value": ["old"], "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Col"]["op"] == "not_contains"
+        assert updated is True
+
+    def test_mixed_filters(self):
+        """Mixed filter types should each be handled correctly."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Simple = MagicMock(return_value="new_val")
+        mock_input.filter_Interactive = MagicMock(return_value="X\nY")
+
+        filters = {
+            "Simple": "old_val",
+            "ConfigOp": {"op": "in", "value": ["A"]},  # no interactive key
+            "Interactive": {"op": "not_in", "value": ["Z"], "interactive": True},
+        }
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Simple"] == "new_val"
+        assert result["ConfigOp"] == {"op": "in", "value": ["A"]}  # unchanged
+        assert result["Interactive"]["value"] == ["X", "Y"]
+        assert updated is True

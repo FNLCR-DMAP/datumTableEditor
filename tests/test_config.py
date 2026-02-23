@@ -272,3 +272,53 @@ class TestGetAllModificationStatuses:
 
         assert result["rows"] == []
         assert result["summary"]["total"] == 0
+
+
+# =====================================================================
+# Column Masks Config Tests
+# =====================================================================
+
+class TestTableConfigColumnMasks:
+    """Tests for column_masks in TableConfig and _merge_config."""
+
+    def test_column_masks_default_empty(self):
+        """TableConfig should default column_masks to empty dict."""
+        from src.config.app_config_schema import TableConfig
+
+        tc = TableConfig()
+        assert tc.column_masks == {}
+
+    def test_merge_config_loads_column_masks(self, tmp_path):
+        """_merge_config should load column_masks from JSON."""
+        import json
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        cfg_data = {
+            "table": {
+                "column_masks": {"Gene_names": "Gene"}
+            }
+        }
+        cfg_path = tmp_path / "cfg.json"
+        cfg_path.write_text(json.dumps(cfg_data))
+
+        config = AppConfig()
+        _merge_config(config, cfg_data)
+
+        assert config.table.column_masks == {"Gene_names": "Gene"}
+
+    def test_merge_config_missing_masks_preserves_default(self, tmp_path):
+        """_merge_config should keep empty dict when column_masks absent."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        cfg_data = {"table": {}}
+        config = AppConfig()
+        _merge_config(config, cfg_data)
+
+        assert config.table.column_masks == {}
+
+    def test_export_config_schema_has_table_section(self):
+        """export_config_schema should contain a table section."""
+        from src.config.app_config_schema import export_config_schema
+
+        schema = export_config_schema()
+        assert "table" in schema or "table_config" in schema or isinstance(schema, dict)

@@ -534,3 +534,93 @@ class TestBuildDataTable:
 
         # Each row gets a tr with data-row attribute
         assert html.count("data-row=") >= 3
+
+
+# =====================================================================
+# Column Masks in Table Rendering Tests
+# =====================================================================
+
+class TestTableRenderingColumnMasks:
+    """Tests for column_masks support in table rendering utilities."""
+
+    def test_header_cell_uses_masked_name(self):
+        """Header cell should display masked name, keep real data-column."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        result = build_draggable_header_cell("Gene_names", "width: 100px;",
+                                             column_masks={"Gene_names": "Gene"})
+        html = str(result)
+
+        assert "Gene" in html  # Display text is masked
+        assert 'data-column="Gene_names"' in html  # Data attr is real name
+
+    def test_header_cell_no_mask_uses_original(self):
+        """Header cell without mask should display original name."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        result = build_draggable_header_cell("Gene_names", "width: 100px;", column_masks=None)
+        html = str(result)
+
+        assert "Gene_names" in html
+
+    def test_header_cell_missing_key_passes_through(self):
+        """Header cell with mask dict missing the column should show original."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        result = build_draggable_header_cell("Gene_names", "width: 100px;",
+                                             column_masks={"Other": "X"})
+        html = str(result)
+
+        assert "Gene_names" in html
+
+    def test_table_header_applies_masks(self, sample_data):
+        """build_table_header should pass masks to header cells."""
+        from src.utils.table_utils import build_table_header
+
+        result = build_table_header(
+            cols=["Gene_names"],
+            widths={"Gene_names": "100px"},
+            column_masks={"Gene_names": "Gene"}
+        )
+        html = str(result)
+
+        assert "Gene" in html
+        assert 'data-column="Gene_names"' in html
+
+    def test_build_data_table_passes_masks(self, sample_data):
+        """build_data_table should propagate masks to header."""
+        from src.utils.table_utils import build_data_table
+
+        table = build_data_table(
+            paginated_indices=[0],
+            current_df=sample_data,
+            cols=["Gene_names"],
+            widths={},
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["PatientID_Mutsequence"],
+            column_masks={"Gene_names": "Gene"}
+        )
+        html = str(table)
+
+        assert "Gene" in html
+        assert 'data-column="Gene_names"' in html
+
+    def test_build_table_container_passes_masks(self, sample_data):
+        """build_table_container should propagate masks through to table."""
+        from src.utils.table_utils import build_table_container
+
+        container = build_table_container(
+            paginated_indices=[0],
+            current_df=sample_data,
+            cols=["Gene_names"],
+            widths={},
+            filtered_count=5,
+            total_rows=5,
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["PatientID_Mutsequence"],
+            column_masks={"Gene_names": "Gene"}
+        )
+        html = str(container)
+
+        assert "Gene" in html
+        assert 'data-column="Gene_names"' in html

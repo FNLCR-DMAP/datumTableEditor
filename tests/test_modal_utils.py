@@ -273,3 +273,240 @@ class TestBuildOperatorFilterElement:
         html = str(result)
 
         assert "removeFilter" not in html
+
+
+# =====================================================================
+# Column Masks Tests
+# =====================================================================
+
+class TestMaskHelper:
+    """Tests for _mask helper function."""
+
+    def test_returns_display_name(self):
+        """Should return mapped display name when mask exists."""
+        from src.utils.modal_utils import _mask
+
+        assert _mask("Gene_names", {"Gene_names": "Gene"}) == "Gene"
+
+    def test_returns_original_when_no_masks(self):
+        """Should return original name when masks is None."""
+        from src.utils.modal_utils import _mask
+
+        assert _mask("Gene_names", None) == "Gene_names"
+
+    def test_returns_original_when_key_missing(self):
+        """Should return original name when column not in masks."""
+        from src.utils.modal_utils import _mask
+
+        assert _mask("Gene_names", {"Other": "X"}) == "Gene_names"
+
+    def test_empty_dict_returns_original(self):
+        """Should return original name when masks is empty dict."""
+        from src.utils.modal_utils import _mask
+
+        assert _mask("Gene_names", {}) == "Gene_names"
+
+
+class TestColumnMasksInModalUtils:
+    """Tests for column_masks support across modal utility functions."""
+
+    def test_current_column_tag_uses_mask(self):
+        """Current column tag should display masked name, keep real data-column."""
+        from src.utils.modal_utils import build_current_column_tag
+
+        result = build_current_column_tag("Gene_names", 1, column_masks={"Gene_names": "Gene"})
+        html = str(result)
+
+        assert "Gene" in html  # Display uses masked name
+        assert 'data-column="Gene_names"' in html  # Data attr uses real name
+
+    def test_available_column_tag_uses_mask(self):
+        """Available column tag should display masked name, onclick uses real name."""
+        from src.utils.modal_utils import build_available_column_tag
+
+        result = build_available_column_tag("Gene_names", column_masks={"Gene_names": "Gene"})
+        html = str(result)
+
+        assert "+ Gene" in html  # Display uses masked name
+        assert "addColumn" in html and "Gene_names" in html  # JS uses real name
+
+    def test_columns_modal_content_uses_masks(self):
+        """Modal content should display masked names for both sections."""
+        from src.utils.modal_utils import build_columns_modal_content
+
+        masks = {"Gene_names": "Gene", "Status": "State"}
+        result = build_columns_modal_content(["Gene_names"], ["Status"], column_masks=masks)
+        html = str(result)
+
+        assert "Gene" in html
+        assert "State" in html
+
+    def test_copy_column_buttons_use_masks(self):
+        """Copy buttons should display masked name, onclick uses real name."""
+        from src.utils.modal_utils import build_copy_column_buttons
+
+        result = build_copy_column_buttons(["Gene_names"], column_masks={"Gene_names": "Gene"})
+        html = str(result)
+
+        assert "Gene" in html  # Button text is masked
+        assert "copyColumnValues" in html and "Gene_names" in html  # JS uses real name
+
+    def test_filter_column_buttons_use_masks(self):
+        """Filter buttons should display masked name, onclick uses real name."""
+        from src.utils.modal_utils import build_filter_column_buttons
+
+        result = build_filter_column_buttons(["Gene_names"], column_masks={"Gene_names": "Gene"})
+        html = str(result)
+
+        assert "Gene" in html  # Button text is masked
+        assert "addFilter" in html and "Gene_names" in html  # JS uses real name
+
+    def test_operator_filter_element_uses_mask(self):
+        """Operator filter label should display masked name."""
+        from src.utils.modal_utils import build_operator_filter_element
+
+        result = build_operator_filter_element(
+            "Gene_names", {"op": "in", "value": ["TP53"]},
+            column_masks={"Gene_names": "Gene"}
+        )
+        html = str(result)
+
+        assert "Gene" in html  # Label is masked
+
+    def test_dynamic_filter_element_uses_mask(self):
+        """Dynamic filter label should display masked name, input ID uses real name."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "Gene_names", ["all", "TP53"], "all",
+            column_masks={"Gene_names": "Gene"}
+        )
+        html = str(result)
+
+        assert "Gene" in html  # Label is masked
+        assert "filter_Gene_names" in html  # Input ID uses real name
+
+    def test_dynamic_filters_panel_uses_masks(self):
+        """Filters panel should pass masks through to child elements."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"Gene_names": ["TP53", "BRCA1"]})
+        filters = {"Gene_names": "all"}
+        result = build_dynamic_filters_panel(filters, df, column_masks={"Gene_names": "Gene"})
+        html = str(result)
+
+        assert "Gene" in html
+
+
+# =====================================================================
+# Interactive Operator Dropdown Tests
+# =====================================================================
+
+class TestDynamicFilterOperatorDropdown:
+    """Tests for operator <select> dropdown in dynamic filter elements."""
+
+    def test_has_operator_select(self):
+        """Dynamic filter element should include operator dropdown."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "all")
+        html = str(result)
+
+        assert "filter-op-select" in html
+        assert "<select" in html
+
+    def test_contains_all_operator_options(self):
+        """Dropdown should contain all 12 operator options."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all"], "all")
+        html = str(result)
+
+        for op_value in ["in", "not_in", "contains", "not_contains", "gt", "gte",
+                         "lt", "lte", "between", "regex", "not_empty", "last_n_days"]:
+            assert f'value="{op_value}"' in html, f"Missing operator option: {op_value}"
+
+    def test_preselects_operator(self):
+        """Should pre-select the specified operator."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all"], "all", current_op="not_in")
+        html = str(result)
+
+        # The not_in option should have selected attribute
+        assert 'value="not_in" selected' in html or 'value="not_in"  selected' in html
+
+    def test_default_operator_is_in(self):
+        """Default operator should be 'in'."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all"], "all")
+        html = str(result)
+
+        assert 'value="in" selected' in html or 'value="in"  selected' in html
+
+    def test_not_empty_hides_textarea(self):
+        """not_empty operator should hide the textarea."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all"], "all", current_op="not_empty")
+        html = str(result)
+
+        assert "display: none" in html
+
+    def test_in_operator_shows_textarea(self):
+        """'in' operator should show the textarea (textarea is visible)."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all"], "all", current_op="in")
+        html = str(result)
+
+        # Textarea element should be present and not hidden
+        assert "<textarea" in html
+
+    def test_onchange_calls_setFilterOperator(self):
+        """Select onchange should call setFilterOperator with correct column."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("MyCol", ["all"], "all")
+        html = str(result)
+
+        assert "setFilterOperator" in html and "MyCol" in html
+
+    def test_panel_interactive_op_renders_dropdown(self):
+        """Interactive operator dict should render editable element with dropdown."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"Col": ["A", "B"]})
+        filters = {"Col": {"op": "not_in", "value": ["A"], "interactive": True}}
+        result = build_dynamic_filters_panel(filters, df)
+        html = str(result)
+
+        # Should have operator dropdown (not read-only label)
+        assert "filter-op-select" in html
+        assert "filter_Col" in html  # textarea present
+
+    def test_panel_interactive_op_extracts_value(self):
+        """Interactive operator dict should show values in textarea."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"Col": ["A", "B"]})
+        filters = {"Col": {"op": "not_in", "value": ["X", "Y"], "interactive": True}}
+        result = build_dynamic_filters_panel(filters, df)
+        html = str(result)
+
+        assert "X\nY" in html  # Values joined with newlines
+
+    def test_panel_config_op_stays_readonly(self):
+        """Config-defined operator dict (no interactive key) should be read-only."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"Col": ["A", "B"]})
+        filters = {"Col": {"op": "not_in", "value": ["A"]}}
+        result = build_dynamic_filters_panel(filters, df)
+        html = str(result)
+
+        # Should NOT have operator dropdown
+        assert "filter-op-select" not in html
+        # Should have read-only operator label
+        assert "is not" in html
