@@ -313,9 +313,10 @@ window.toggleFilterEdit = function(columnName, event) {
 // Initialize filter textareas as readonly after render
 window.initFilterReadonly = function(containerId) {
     setTimeout(function() {
-        var container = document.querySelector('[id$="' + containerId + '"]');
-        if (!container) return;
-        var textarea = container.querySelector('textarea');
+        var el = document.querySelector('[id$="' + containerId + '"]');
+        if (!el) return;
+        // el may be the textarea itself (Shiny puts the ID on it) or a wrapper
+        var textarea = el.tagName === 'TEXTAREA' ? el : el.querySelector('textarea');
         if (textarea) {
             textarea.readOnly = true;
             textarea.style.opacity = '0.85';
