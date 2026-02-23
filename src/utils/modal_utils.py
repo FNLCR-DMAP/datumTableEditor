@@ -241,7 +241,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 class_="btn btn-sm btn-outline-secondary filter-edit-btn",
                 onclick=f"toggleFilterEdit('{safe_col_name}', event)",
                 title="Edit filter values",
-                style="position: absolute; right: 5px; top: 10%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px; z-index: 2;"
+                style="position: absolute; right: 5px; top: 20%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px; z-index: 2;"
             ),
             ui.tags.button(
                 "\u22ee",
