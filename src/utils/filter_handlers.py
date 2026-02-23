@@ -43,20 +43,14 @@ def update_filter_values(filters: Dict[str, str], input_obj: Any) -> Tuple[Dict[
     new_filters = filters.copy()
     
     for col_name, filter_value in list(filters.items()):
-        # Config-defined operator-dict filters (no "interactive" flag) are rendered
-        # as read-only labels — they have no input_text_area to read.
-        if isinstance(filter_value, dict) and "op" in filter_value and not filter_value.get("interactive"):
-            continue
-        
-        # Interactive operator-dict filters have a textarea — read its value
-        # and update the "value" field while preserving "op" and "interactive".
-        is_interactive_op = isinstance(filter_value, dict) and "op" in filter_value and filter_value.get("interactive")
+        # All operator-dict filters now render with a textarea and dropdown
+        is_op_dict = isinstance(filter_value, dict) and "op" in filter_value
         
         filter_id = f"filter_{col_name}"
         try:
             current_val = getattr(input_obj, filter_id)()
             
-            if is_interactive_op:
+            if is_op_dict:
                 op = filter_value["op"]
                 # Parse textarea content into a value list
                 if current_val and str(current_val).strip():

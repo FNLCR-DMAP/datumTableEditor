@@ -288,37 +288,31 @@ def build_dynamic_filters_panel(
     
     filter_elements = []
     for col_name, filter_value in filters.items():
-        # Operator dict filters
+        # Operator dict filters — both config-defined and interactive
         if _is_operator_filter(filter_value):
-            # Interactive operator filters (user-selected via dropdown) get the full
-            # editable element with operator dropdown pre-selected
-            if filter_value.get("interactive"):
-                op = filter_value.get("op", "in")
-                # Extract display value from the operator dict
-                raw_val = filter_value.get("value")
-                if isinstance(raw_val, list):
-                    display_val = "\n".join(str(v) for v in raw_val)
-                elif raw_val is not None:
-                    display_val = str(raw_val)
-                else:
-                    display_val = ""
-                
-                # Get unique values for the values picker
-                if col_name in df.columns and len(df) > 0:
-                    unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
-                elif get_unique_values_func:
-                    db_values = get_unique_values_func(col_name)
-                    unique_values = ["all"] + db_values
-                else:
-                    unique_values = ["all"]
-                
-                filter_elements.append(build_dynamic_filter_element(
-                    col_name, unique_values, display_val,
-                    fix_filter=fix_filter, column_masks=column_masks, current_op=op
-                ))
+            op = filter_value.get("op", "in")
+            # Extract display value from the operator dict
+            raw_val = filter_value.get("value")
+            if isinstance(raw_val, list):
+                display_val = "\n".join(str(v) for v in raw_val)
+            elif raw_val is not None:
+                display_val = str(raw_val)
             else:
-                # Config-defined operator filters → read-only label
-                filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter, column_masks=column_masks))
+                display_val = ""
+            
+            # Get unique values for the values picker
+            if col_name in df.columns and len(df) > 0:
+                unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
+            elif get_unique_values_func:
+                db_values = get_unique_values_func(col_name)
+                unique_values = ["all"] + db_values
+            else:
+                unique_values = ["all"]
+            
+            filter_elements.append(build_dynamic_filter_element(
+                col_name, unique_values, display_val,
+                fix_filter=fix_filter, column_masks=column_masks, current_op=op
+            ))
             continue
         
         # Skip columns that aren't known at all

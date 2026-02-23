@@ -155,7 +155,7 @@
 
   "permissions": {
     "_comment": "Role-based access: 'editor' (full access) or 'viewer' (read-only, no edits/saves/approvals)",
-    "default_role": "editor",
+    "default_role": "viewer",
     "user_roles": {}
   },
 

@@ -211,7 +211,7 @@ class PermissionsConfig:
     """
     
     # Default role when the user is not listed in user_roles
-    default_role: str = "editor"
+    default_role: str = "viewer"
     
     # Map of username → role  (e.g. {"alice": "editor", "bob": "viewer"})
     user_roles: dict[str, str] = field(default_factory=dict)

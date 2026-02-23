@@ -497,8 +497,8 @@ class TestDynamicFilterOperatorDropdown:
 
         assert "X\nY" in html  # Values joined with newlines
 
-    def test_panel_config_op_stays_readonly(self):
-        """Config-defined operator dict (no interactive key) should be read-only."""
+    def test_panel_config_op_has_dropdown(self):
+        """Config-defined operator dict renders with editable dropdown (same as interactive)."""
         from src.utils.modal_utils import build_dynamic_filters_panel
 
         df = pd.DataFrame({"Col": ["A", "B"]})
@@ -506,7 +506,7 @@ class TestDynamicFilterOperatorDropdown:
         result = build_dynamic_filters_panel(filters, df)
         html = str(result)
 
-        # Should NOT have operator dropdown
-        assert "filter-op-select" not in html
-        # Should have read-only operator label
+        # Should have operator dropdown (same UI as interactive filters)
+        assert "filter-op-select" in html
+        # The "is not" option should be selected
         assert "is not" in html

@@ -331,12 +331,12 @@ class TestTableConfigColumnMasks:
 class TestPermissionsConfig:
     """Tests for PermissionsConfig and role resolution."""
 
-    def test_default_role_is_editor(self):
-        """PermissionsConfig should default to editor role."""
+    def test_default_role_is_viewer(self):
+        """PermissionsConfig should default to viewer role."""
         from src.config.app_config_schema import PermissionsConfig
 
         perm = PermissionsConfig()
-        assert perm.default_role == "editor"
+        assert perm.default_role == "viewer"
         assert perm.user_roles == {}
 
     def test_user_roles_mapping(self):
@@ -352,7 +352,7 @@ class TestPermissionsConfig:
         from src.config.app_config_schema import AppConfig
 
         cfg = AppConfig()
-        assert cfg.permissions.default_role == "editor"
+        assert cfg.permissions.default_role == "viewer"
 
     def test_merge_config_loads_permissions(self):
         """_merge_config should load permissions section from JSON."""
@@ -377,7 +377,7 @@ class TestPermissionsConfig:
         config = AppConfig()
         _merge_config(config, {})
 
-        assert config.permissions.default_role == "editor"
+        assert config.permissions.default_role == "viewer"
         assert config.permissions.user_roles == {}
 
     def test_role_resolution_user_in_map(self):
