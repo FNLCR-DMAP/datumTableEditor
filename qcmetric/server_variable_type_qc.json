@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 78,
-    "fully_annotated_functions": 69,
-    "function_coverage_percent": 88.5,
-    "total_parameters": 229,
-    "annotated_parameters": 220,
-    "parameter_coverage_percent": 96.1,
+    "total_functions": 80,
+    "fully_annotated_functions": 71,
+    "function_coverage_percent": 88.8,
+    "total_parameters": 246,
+    "annotated_parameters": 237,
+    "parameter_coverage_percent": 96.3,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -34,13 +34,13 @@
     },
     "src/utils/table_utils.py": {
       "functions": {
-        "total": 7,
-        "with_return_type": 7,
-        "fully_annotated": 7
+        "total": 8,
+        "with_return_type": 8,
+        "fully_annotated": 8
       },
       "parameters": {
-        "total": 54,
-        "annotated": 54
+        "total": 60,
+        "annotated": 60
       }
     },
     "src/utils/filter_handlers.py": {
@@ -154,20 +154,20 @@
     },
     "src/utils/modal_utils.py": {
       "functions": {
-        "total": 9,
-        "with_return_type": 9,
-        "fully_annotated": 8
+        "total": 10,
+        "with_return_type": 10,
+        "fully_annotated": 9
       },
       "parameters": {
-        "total": 21,
-        "annotated": 20
+        "total": 32,
+        "annotated": 31
       },
       "missing_annotations": [
         {
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 209
+          "line": 258
         }
       ]
     },
@@ -203,7 +203,7 @@
           "type": "parameter",
           "function": "perform_cell_edit",
           "name": "config_instance",
-          "line": 177
+          "line": 200
         }
       ]
     },

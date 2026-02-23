@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 78,
+    "total_functions": 80,
     "total_unused": 1,
-    "unused_percentage": 1.3
+    "unused_percentage": 1.2
   },
   "modules": {
     "clipboard_utils.py": {
@@ -159,8 +159,9 @@
     "modal_utils.py": {
       "description": "Modal and dialog builders for the Epitopes Data Editor.",
       "path": "src/utils/modal_utils.py",
-      "total_functions": 9,
+      "total_functions": 10,
       "functions": [
+        "_mask",
         "build_available_column_tag",
         "build_columns_modal_content",
         "build_copy_column_buttons",
@@ -172,6 +173,7 @@
         "build_preset_menu_items"
       ],
       "used_internally": [
+        "_mask",
         "build_available_column_tag",
         "build_columns_modal_content",
         "build_copy_column_buttons",
@@ -222,8 +224,9 @@
     "table_utils.py": {
       "description": "Table rendering utilities for the Epitopes Data Editor.",
       "path": "src/utils/table_utils.py",
-      "total_functions": 7,
+      "total_functions": 8,
       "functions": [
+        "_mask",
         "build_data_table",
         "build_draggable_header_cell",
         "build_status_badge",
@@ -233,6 +236,7 @@
         "build_table_row"
       ],
       "used_internally": [
+        "_mask",
         "build_data_table",
         "build_draggable_header_cell",
         "build_status_badge",

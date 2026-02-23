@@ -64,6 +64,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     from .config.config_instance import load_config_instance
     config = load_config_instance(config_path)
     all_columns = config.all_columns
+    column_masks = config.app_config.table.column_masks or {}
     
     # Get titles from config
     app_title = config.app_config.app_title or "Data Editor"
@@ -201,7 +202,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             ui.input_select(
                                 "search_column",
                                 label=None,
-                                choices={"all": "All Columns"} | {col: col for col in all_columns},
+                                choices={"all": "All Columns"} | {col: column_masks.get(col, col) for col in all_columns},
                                 selected="all",
                                 width="100%"
                             ),

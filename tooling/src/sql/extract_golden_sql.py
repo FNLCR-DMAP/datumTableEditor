@@ -43,6 +43,7 @@ def _make_fetcher(searchable=None, columns=None):
     f._engine = None
     f._datum_client = None
     f._total_count = 0
+    f._column_types = {}
     return f
 
 

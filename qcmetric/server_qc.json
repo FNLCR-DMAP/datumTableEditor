@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 78,
+    "total_functions": 80,
     "unused_functions": 1,
-    "fully_annotated_functions": 69,
-    "function_coverage_percent": 88.5,
-    "parameter_coverage_percent": 96.1,
+    "fully_annotated_functions": 71,
+    "function_coverage_percent": 88.8,
+    "parameter_coverage_percent": 96.3,
     "mypy_errors": 0
   },
   "files": {},
@@ -147,8 +147,9 @@
       ]
     },
     "src/utils/modal_utils.py": {
-      "total": 9,
+      "total": 10,
       "functions": [
+        "_mask",
         "build_available_column_tag",
         "build_columns_modal_content",
         "build_copy_column_buttons",
@@ -160,6 +161,7 @@
         "build_preset_menu_items"
       ],
       "used": [
+        "_mask",
         "build_available_column_tag",
         "build_columns_modal_content",
         "build_copy_column_buttons",
@@ -204,8 +206,9 @@
       ]
     },
     "src/utils/table_utils.py": {
-      "total": 7,
+      "total": 8,
       "functions": [
+        "_mask",
         "build_data_table",
         "build_draggable_header_cell",
         "build_status_badge",
@@ -215,6 +218,7 @@
         "build_table_row"
       ],
       "used": [
+        "_mask",
         "build_data_table",
         "build_draggable_header_cell",
         "build_status_badge",
@@ -298,7 +302,7 @@
           "type": "parameter",
           "function": "perform_cell_edit",
           "name": "config_instance",
-          "line": 177
+          "line": 200
         }
       ]
     },
@@ -391,20 +395,20 @@
     },
     "src/utils/modal_utils.py": {
       "functions": {
-        "total": 9,
-        "with_return_type": 9,
-        "fully_annotated": 8
+        "total": 10,
+        "with_return_type": 10,
+        "fully_annotated": 9
       },
       "parameters": {
-        "total": 21,
-        "annotated": 20
+        "total": 32,
+        "annotated": 31
       },
       "missing": [
         {
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 209
+          "line": 258
         }
       ]
     },
@@ -432,13 +436,13 @@
     },
     "src/utils/table_utils.py": {
       "functions": {
-        "total": 7,
-        "with_return_type": 7,
-        "fully_annotated": 7
+        "total": 8,
+        "with_return_type": 8,
+        "fully_annotated": 8
       },
       "parameters": {
-        "total": 54,
-        "annotated": 54
+        "total": 60,
+        "annotated": 60
       }
     },
     "src/utils/ui_components.py": {
