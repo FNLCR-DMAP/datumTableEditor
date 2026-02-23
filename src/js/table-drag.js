@@ -191,6 +191,22 @@ window.addColumn = function(col, event) {
     }
 };
 
+// Remove all columns from modal
+window.removeAllColumns = function(event) {
+    if (event) event.stopPropagation();
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('clear_all_columns', {ts: Date.now()}, {priority: 'event'});
+    }
+};
+
+// Add all remaining columns to current columns
+window.addAllColumns = function(event) {
+    if (event) event.stopPropagation();
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('add_all_columns', {ts: Date.now()}, {priority: 'event'});
+    }
+};
+
 // Remove column from modal
 window.removeColumnFromModal = function(col, event) {
     if (event) event.stopPropagation();

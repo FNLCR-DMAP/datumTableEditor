@@ -559,6 +559,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if col:
             active_columns.set(remove_column_from_list(active_columns.get(), col))
     
+    # Handle removing all columns
+    @reactive.Effect
+    @reactive.event(input.clear_all_columns)
+    def _clear_all_columns():
+        active_columns.set([])
+    
+    # Handle adding all remaining columns
+    @reactive.Effect
+    @reactive.event(input.add_all_columns)
+    def _add_all_columns():
+        current = list(active_columns.get())
+        for col in all_columns:
+            if col not in current:
+                current.append(col)
+        active_columns.set(current)
+    
     # Handle sorting a column
     @reactive.Effect
     @reactive.event(input.sort_column)

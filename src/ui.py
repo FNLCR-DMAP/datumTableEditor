@@ -298,7 +298,9 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ui.div(
                         ui.div(
                             ui.h3("Manage Layout"),
-                            ui.tags.button("Update", class_="btn btn-sm btn-primary", onclick="updateCurrentPreset(event)", style="margin-left: auto; margin-right: 10px;"),
+                            ui.tags.button("Remove All", class_="btn btn-sm btn-outline-danger", onclick="removeAllColumns(event)", style="margin-left: auto; margin-right: 6px;"),
+                            ui.tags.button("Add All", class_="btn btn-sm btn-outline-success", onclick="addAllColumns(event)", style="margin-right: 6px;"),
+                            ui.tags.button("Update", class_="btn btn-sm btn-primary", onclick="updateCurrentPreset(event)", style="margin-right: 10px;"),
                             ui.tags.button("×", class_="modal-close", onclick="closeModal()"),
                             class_="modal-header"
                         ),
