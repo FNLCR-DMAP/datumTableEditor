@@ -46,7 +46,7 @@
 .edit-table th.draggable-header {
     cursor: grab;
     padding-right: 35px;
-    min-width: 25px;
+    min-width: 50px;
     width: 100px;
 }
 .edit-table th.draggable-header:active {
