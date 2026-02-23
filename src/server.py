@@ -56,7 +56,6 @@ from .utils import (
     parse_filter_column,
     add_filter,
     remove_filter,
-    update_filter_values,
     # Clipboard utilities
     process_copy_request,
     # Event handlers
@@ -202,7 +201,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Track first sync to avoid resetting page on initial load
     _first_rows_per_page_sync = {"done": False}
-    _first_filter_sync = {"done": False}
     _first_search_filter_sync = {"done": False}
     
     # Initialize default filters from config
@@ -862,17 +860,44 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         
         active_filters.set(filters)
     
-    # Watch for filter dropdown changes - dynamically observe filter inputs
+    # Apply filter value on blur (user clicked away from textarea)
     @reactive.Effect
-    def _watch_filter_changes():
-        new_filters, updated = update_filter_values(active_filters.get(), input)
-        if updated:
-            active_filters.set(new_filters)
-            # Skip page reset on first sync (initial load)
-            if _first_filter_sync["done"]:
+    @reactive.event(input.apply_filter_value)
+    def _apply_filter_value():
+        val = input.apply_filter_value()
+        if not val:
+            return
+        col_name = val.get("column")
+        raw_value = val.get("value", "")
+        if not col_name:
+            return
+        
+        filters = active_filters.get().copy()
+        old = filters.get(col_name)
+        
+        # Parse textarea content into values list
+        if raw_value and str(raw_value).strip():
+            values = [v.strip() for v in str(raw_value).replace(',', '\n').split('\n') if v.strip()]
+        else:
+            values = []
+        
+        if isinstance(old, dict) and "op" in old:
+            # Operator dict filter — preserve op, update value
+            op = old["op"]
+            old_values = old.get("value", [])
+            if not isinstance(old_values, list):
+                old_values = [old_values] if old_values is not None else []
+            if values != old_values:
+                filters[col_name] = {"op": op, "value": values, "interactive": True}
+                active_filters.set(filters)
                 current_page.set(1)
-            else:
-                _first_filter_sync["done"] = True
+        else:
+            # Simple string filter
+            new_val = "\n".join(values) if values else "all"
+            if new_val != old:
+                filters[col_name] = new_val
+                active_filters.set(filters)
+                current_page.set(1)
     
     # Output: Pagination controls
     @render.ui

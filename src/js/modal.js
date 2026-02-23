@@ -271,6 +271,38 @@ window.setFilterOperator = function(columnName, operator, event) {
     }
 };
 
+// Apply filter value on blur (user clicked away from textarea)
+window.applyFilterBlur = function(columnName, event) {
+    var textarea = event ? event.target : null;
+    if (!textarea) return;
+    var value = textarea.value || '';
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('apply_filter_value', {
+            column: columnName,
+            value: value,
+            ts: Date.now()
+        }, {priority: 'event'}, textarea);
+    }
+};
+
+// Attach blur handler to filter textareas after they render
+window.attachFilterBlur = function(columnName, containerId) {
+    // Small delay to let Shiny finish rendering the input
+    setTimeout(function() {
+        // Find the textarea container — handle Shiny namespace prefixes
+        // by matching any element whose ID ends with the containerId
+        var container = document.querySelector('[id$="' + containerId + '"]');
+        if (!container) return;
+        var textarea = container.querySelector('textarea');
+        if (textarea && !textarea._blurAttached) {
+            textarea._blurAttached = true;
+            textarea.addEventListener('blur', function(e) {
+                applyFilterBlur(columnName, e);
+            });
+        }
+    }, 50);
+};
+
 // Filter Values Modal state
 var currentFilterValuesColumn = null;
 var currentFilterValuesContext = null;
@@ -384,18 +416,21 @@ window.applyFilterValues = function() {
     var checkboxes = modal.querySelectorAll('#filter-values-checkboxes input[type="checkbox"]:checked');
     var selectedValues = Array.from(checkboxes).map(function(cb) { return cb.value; });
     
-    // Update the filter textarea (use newline delimiter for easier paste from cells)
+    // Update the filter textarea visually
     var filterContainer = findElementInContext(currentFilterValuesContext, 'filter_' + currentFilterValuesColumn);
     var filterTextarea = filterContainer ? (filterContainer.tagName === 'TEXTAREA' ? filterContainer : filterContainer.querySelector('textarea')) : null;
     if (filterTextarea) {
         filterTextarea.value = selectedValues.join('\n');
-        // Trigger change event for Shiny to pick up the new value
-        filterTextarea.dispatchEvent(new Event('change', { bubbles: true }));
-        filterTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-    } else if (typeof setShinyInput !== 'undefined') {
-        // Fallback: set Shiny input directly
-        setShinyInput('filter_' + currentFilterValuesColumn, selectedValues.join('\n'),
-            {priority: 'event'}, currentFilterValuesContext);
+    }
+    
+    // Send the value to the server explicitly (same path as blur)
+    if (typeof setShinyInput !== 'undefined') {
+        var contextEl = currentFilterValuesContext || document.activeElement;
+        setShinyInput('apply_filter_value', {
+            column: currentFilterValuesColumn,
+            value: selectedValues.join('\n'),
+            ts: Date.now()
+        }, {priority: 'event'}, contextEl);
     }
     
     closeFilterValuesModal();

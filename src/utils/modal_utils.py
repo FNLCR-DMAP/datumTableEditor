@@ -242,6 +242,8 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 title="Select from available values",
                 style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px;"
             ),
+            # Attach blur handler via inline script
+            ui.tags.script(f"attachFilterBlur('{safe_col_name}', 'filter_{col_name}')"),
             style=textarea_style
         ),
         # Hidden data attribute with unique values for the modal
