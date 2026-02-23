@@ -325,6 +325,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.readonly_columns = tb.get("readonly_columns", config.table.readonly_columns)
         config.table.presets_file_path = tb.get("presets_file_path")
         config.table.default_preset = tb.get("default_preset", config.table.default_preset)
+        config.table.column_masks = tb.get("column_masks", config.table.column_masks)
     
     # Database
     if "database" in file_config:
