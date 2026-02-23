@@ -322,3 +322,76 @@ class TestTableConfigColumnMasks:
 
         schema = export_config_schema()
         assert "table" in schema or "table_config" in schema or isinstance(schema, dict)
+
+
+# =====================================================================
+# Permissions Config Tests
+# =====================================================================
+
+class TestPermissionsConfig:
+    """Tests for PermissionsConfig and role resolution."""
+
+    def test_default_role_is_editor(self):
+        """PermissionsConfig should default to editor role."""
+        from src.config.app_config_schema import PermissionsConfig
+
+        perm = PermissionsConfig()
+        assert perm.default_role == "editor"
+        assert perm.user_roles == {}
+
+    def test_user_roles_mapping(self):
+        """PermissionsConfig should store user-role mappings."""
+        from src.config.app_config_schema import PermissionsConfig
+
+        perm = PermissionsConfig(user_roles={"alice": "editor", "bob": "viewer"})
+        assert perm.user_roles["alice"] == "editor"
+        assert perm.user_roles["bob"] == "viewer"
+
+    def test_app_config_has_permissions(self):
+        """AppConfig should include a PermissionsConfig."""
+        from src.config.app_config_schema import AppConfig
+
+        cfg = AppConfig()
+        assert cfg.permissions.default_role == "editor"
+
+    def test_merge_config_loads_permissions(self):
+        """_merge_config should load permissions section from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        cfg_data = {
+            "permissions": {
+                "default_role": "viewer",
+                "user_roles": {"admin_user": "editor"}
+            }
+        }
+        config = AppConfig()
+        _merge_config(config, cfg_data)
+
+        assert config.permissions.default_role == "viewer"
+        assert config.permissions.user_roles == {"admin_user": "editor"}
+
+    def test_merge_config_missing_permissions_keeps_defaults(self):
+        """_merge_config should keep defaults when permissions section absent."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {})
+
+        assert config.permissions.default_role == "editor"
+        assert config.permissions.user_roles == {}
+
+    def test_role_resolution_user_in_map(self):
+        """User in user_roles map should get their assigned role."""
+        from src.config.app_config_schema import PermissionsConfig
+
+        perm = PermissionsConfig(default_role="editor", user_roles={"bob": "viewer"})
+        role = perm.user_roles.get("bob", perm.default_role)
+        assert role == "viewer"
+
+    def test_role_resolution_user_not_in_map(self):
+        """User not in user_roles map should get default_role."""
+        from src.config.app_config_schema import PermissionsConfig
+
+        perm = PermissionsConfig(default_role="viewer", user_roles={"alice": "editor"})
+        role = perm.user_roles.get("unknown", perm.default_role)
+        assert role == "viewer"

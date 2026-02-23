@@ -160,6 +160,9 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             # Hidden element to provide namespace to JavaScript
             ui.output_ui("_namespace_holder"),
             
+            # Viewer mode CSS injection (hides edit controls for viewer role)
+            ui.output_ui("viewer_mode_ui"),
+            
             # Left Panel - Sidebar
             ui.div(
                 ui.tags.button("◀", class_="toggle-btn", onclick="toggleLeftPanel()"),

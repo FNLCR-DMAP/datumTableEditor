@@ -197,6 +197,27 @@ class DatabaseConfig:
 
 
 @dataclass
+class PermissionsConfig:
+    """Configuration for role-based access control.
+    
+    Roles:
+      - 'editor': Full access — can edit cells, save, approve/reject, undo.
+      - 'viewer': Read-only — can view, search, filter, export, but cannot
+        modify the data table or modifications table.
+    
+    The effective role for a session is resolved as:
+      1. If ``user_roles`` maps the session username → a role, use that.
+      2. Otherwise fall back to ``default_role``.
+    """
+    
+    # Default role when the user is not listed in user_roles
+    default_role: str = "editor"
+    
+    # Map of username → role  (e.g. {"alice": "editor", "bob": "viewer"})
+    user_roles: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class AppConfig:
     """Master configuration combining all sections."""
     
@@ -211,6 +232,9 @@ class AppConfig:
     state: StateConfig = field(default_factory=StateConfig)
     table: TableConfig = field(default_factory=TableConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    
+    # Permissions
+    permissions: 'PermissionsConfig' = field(default_factory=lambda: PermissionsConfig())
     
     # Feature flags
     enable_approval_workflow: bool = True  # Show approve/reject buttons and status column
@@ -363,6 +387,12 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_undo = file_config.get("enable_undo", config.enable_undo)
     config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
+    
+    # Permissions
+    if "permissions" in file_config:
+        pm = file_config["permissions"]
+        config.permissions.default_role = pm.get("default_role", config.permissions.default_role)
+        config.permissions.user_roles = pm.get("user_roles", config.permissions.user_roles)
     
     # Status labels
     if "status_labels" in file_config:

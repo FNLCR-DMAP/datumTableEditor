@@ -95,6 +95,19 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     app_config = config.app_config
     column_masks = app_config.table.column_masks or None
     
+    # Resolve permission role for this user
+    _perm = app_config.permissions
+    user_role = _perm.user_roles.get(safe_username, _perm.default_role)
+    is_viewer = user_role == "viewer"
+    print(f"[Permissions] User {safe_username} role={user_role} (viewer={is_viewer})")
+    
+    def _require_editor(action: str = "This action") -> bool:
+        """Return True if the user has editor permissions; show notification and return False for viewers."""
+        if is_viewer:
+            ui.notification_show(f"{action} requires editor permissions.", type="warning", duration=3)
+            return False
+        return True
+    
     # Create local functions that use this config instance
     def load_modifications_log():
         return config.load_modifications_log()
@@ -457,6 +470,28 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         return sui.div(
             style="display:none;",
             **{"data-shiny-ns": ns_prefix}
+        )
+
+    # Output: Viewer mode — inject CSS that hides edit controls for viewers
+    @render.ui
+    def viewer_mode_ui():
+        if not is_viewer:
+            return ui.div()
+        return ui.tags.style(
+            """
+            /* === Viewer mode: hide all edit-related controls === */
+            /* Toolbar buttons: Save, Approve, Reject */
+            #save_btn, #approve_btn, #reject_btn { display: none !important; }
+            /* Cell edit popup */
+            #cell-edit-popup { display: none !important; }
+            /* Disable editable-cell click cursor */
+            .editable-cell { cursor: default !important; pointer-events: auto; }
+            .editable-cell:hover { background-color: inherit !important; }
+            /* Undo buttons in mod log */
+            .undo-btn { display: none !important; }
+            /* Viewer banner */
+            .viewer-banner { display: block !important; }
+            """
         )
 
     # Output: Data summary text
@@ -1038,8 +1073,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             get_row_status_func=_get_row_status,
             edited_cells=edited_cells.get(),
             pk_columns=app_config.table.primary_key,
-            editable_columns=app_config.table.editable_columns,
-            readonly_columns=app_config.table.readonly_columns,
+            editable_columns=[] if is_viewer else app_config.table.editable_columns,
+            readonly_columns=list(all_columns) if is_viewer else app_config.table.readonly_columns,
             show_status_column=app_config.enable_approval_workflow,
             status_labels=app_config.status_labels,
             column_masks=column_masks
@@ -1059,6 +1094,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.undo_modification)
     def _handle_undo():
+        if not _require_editor("Undo"):
+            return
         log_idx = process_undo_action(input.undo_modification())
         if log_idx is None:
             return
@@ -1077,6 +1114,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.cell_edit)
     def _handle_cell_edit():
+        if not _require_editor("Editing"):
+            return
         edit_data = input.cell_edit()
         print(f"DEBUG: cell_edit received: {edit_data}")
         row, col, old_val, new_val = process_cell_edit_action(edit_data)
@@ -1121,6 +1160,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.save_btn)
     def _save_modifications():
+        if not _require_editor("Saving"):
+            return
         message = save_modifications_to_file(
             data.get(), mods_log.get(),
             modifications_log_path, data_dir / "data_state.json"
@@ -1299,6 +1340,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.approve_btn)
     def _approve_data():
+        if not _require_editor("Approval"):
+            return
         # Debug: Check what rows are selected
         current_df = data.get()
         selected_indices = get_selected_row_indices(input, len(current_df))
@@ -1329,6 +1372,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.reject_btn)
     def _reject_data():
+        if not _require_editor("Rejection"):
+            return
         current_df = data.get()
         selected_indices = get_selected_row_indices(input, len(current_df))
         

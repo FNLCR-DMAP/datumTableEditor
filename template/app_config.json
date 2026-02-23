@@ -152,6 +152,13 @@
   "enable_undo": true,
   "enable_copy_column": true,
   "enable_status_filter": true,
+
+  "permissions": {
+    "_comment": "Role-based access: 'editor' (full access) or 'viewer' (read-only, no edits/saves/approvals)",
+    "default_role": "editor",
+    "user_roles": {}
+  },
+
   "status_labels": {
     "unprocessed": "Unreviewed",
     "edited": "Edited",
