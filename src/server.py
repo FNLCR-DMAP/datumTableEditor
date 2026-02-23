@@ -829,15 +829,26 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         filters = active_filters.get().copy()
         old = filters.get(col_name)
         
-        # Extract existing values from the current filter entry
-        if isinstance(old, dict) and "op" in old:
-            existing_values = old.get("value", [])
-            if not isinstance(existing_values, list):
-                existing_values = [existing_values] if existing_values is not None else []
-        elif old and str(old).strip() and old != "all":
-            existing_values = [v.strip() for v in str(old).replace('\n', ',').replace('\r', ',').split(",") if v.strip()]
-        else:
-            existing_values = []
+        # Read live textarea value first — the user may have edited values
+        # before changing the operator (especially for config-defined filters
+        # which are now rendered with editable textareas + dropdowns).
+        filter_id = f"filter_{col_name}"
+        try:
+            textarea_val = getattr(input, filter_id)()
+            if textarea_val and str(textarea_val).strip():
+                existing_values = [v.strip() for v in str(textarea_val).replace(',', '\n').split('\n') if v.strip()]
+            else:
+                existing_values = []
+        except Exception:
+            # Textarea not available — fall back to stored filter values
+            if isinstance(old, dict) and "op" in old:
+                existing_values = old.get("value", [])
+                if not isinstance(existing_values, list):
+                    existing_values = [existing_values] if existing_values is not None else []
+            elif old and str(old).strip() and old != "all":
+                existing_values = [v.strip() for v in str(old).replace('\n', ',').replace('\r', ',').split(",") if v.strip()]
+            else:
+                existing_values = []
         
         if op == "in" and not existing_values:
             # Switch back to simple string filter

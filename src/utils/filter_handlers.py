@@ -43,8 +43,14 @@ def update_filter_values(filters: Dict[str, str], input_obj: Any) -> Tuple[Dict[
     new_filters = filters.copy()
     
     for col_name, filter_value in list(filters.items()):
-        # All operator-dict filters now render with a textarea and dropdown
+        # Operator-dict filters without "interactive" flag are config-defined.
+        # Skip them to avoid creating reactive dependencies on their textareas,
+        # which would cause an infinite re-render loop (textareas get recreated
+        # by dynamic_filters on every data.set(), and reading them here would
+        # create a reactive dependency → effect re-fires → oscillation).
         is_op_dict = isinstance(filter_value, dict) and "op" in filter_value
+        if is_op_dict and not filter_value.get("interactive"):
+            continue
         
         filter_id = f"filter_{col_name}"
         try:

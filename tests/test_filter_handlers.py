@@ -278,7 +278,7 @@ class TestUpdateFilterValuesInteractiveOperator:
         result, updated = update_filter_values(filters, mock_input)
 
         assert result["Simple"] == "new_val"
-        # Config op-dicts are now processed like interactive ones
-        assert result["ConfigOp"]["op"] == "in"
+        # Config op-dicts (no "interactive" key) are skipped to prevent reactive loops
+        assert result["ConfigOp"] == {"op": "in", "value": ["A"]}  # unchanged
         assert result["Interactive"]["value"] == ["X", "Y"]
         assert updated is True
