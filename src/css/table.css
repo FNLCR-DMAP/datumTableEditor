@@ -18,6 +18,7 @@
     font-size: 13px;
     border-collapse: separate;
     border-spacing: 0;
+    table-layout: fixed;
     /* Override Bootstrap CSS variables */
     --bs-table-bg: transparent;
     --bs-table-accent-bg: transparent;
@@ -39,11 +40,13 @@
     border-bottom: 2px solid #343a40;
     border-right: 1px solid #6c757d;
     position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .edit-table th.draggable-header {
     cursor: grab;
     padding-right: 35px;
-    min-width: 10px;
+    min-width: 25px;
     width: 100px;
 }
 .edit-table th.draggable-header:active {
@@ -192,6 +195,10 @@ table.edit-table > tbody > tr:hover > td {
 .edit-table td {
     padding: 6px 8px;
     border: 1px solid #ddd;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 0;
 }
 .row-number {
     font-weight: bold;

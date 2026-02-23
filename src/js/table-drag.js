@@ -80,7 +80,7 @@ window.initColumnResize = function() {
 document.addEventListener('mousemove', function(e) {
     if (resizing) {
         const diff = e.pageX - startX;
-        const newWidth = Math.max(10, startWidth + diff);
+        const newWidth = Math.max(25, startWidth + diff);
         resizing.style.width = newWidth + 'px';
         resizing.style.minWidth = newWidth + 'px';
     }
