@@ -173,8 +173,8 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     )
 
 
-def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False, column_masks: dict | None = None) -> ui.div:
-    """Build a single dynamic filter element with multi-select support."""
+def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False, column_masks: dict | None = None, current_op: str = "in") -> ui.div:
+    """Build a single dynamic filter element with multi-select support and operator dropdown."""
     display = _mask(col_name, column_masks)
     # Format current value for display
     display_value = current_value if current_value and current_value != "all" else ""
@@ -188,11 +188,43 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                        onclick=f"removeFilter('{safe_col_name}', event)",
                        style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 0 4px;") if not fix_filter else ui.span()
     
+    # Operator options available for interactive filters
+    op_options = [
+        ("in", "is"),
+        ("not_in", "is not"),
+        ("contains", "contains"),
+        ("not_contains", "does not contain"),
+        ("gt", ">"),
+        ("gte", "≥"),
+        ("lt", "<"),
+        ("lte", "≤"),
+        ("between", "between"),
+        ("regex", "matches regex"),
+        ("not_empty", "is not empty"),
+        ("last_n_days", "within last N days"),
+    ]
+    
+    option_tags = [
+        ui.tags.option(label, value=val, selected="selected" if val == current_op else None)
+        for val, label in op_options
+    ]
+    
+    op_select = ui.tags.select(
+        *option_tags,
+        class_="form-select form-select-sm filter-op-select",
+        onchange=f"setFilterOperator('{safe_col_name}', this.value, event)",
+        style="font-size: 11px; padding: 2px 6px; height: auto; max-width: 160px; margin-left: 6px;"
+    )
+    
+    # For 'not_empty' operator, hide the textarea (no value needed)
+    textarea_style = "position: relative;" if current_op != "not_empty" else "position: relative; display: none;"
+    
     return ui.div(
         ui.div(
             ui.tags.label(display, style="font-size: 12px; font-weight: 500;"),
+            op_select,
             remove_btn,
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
+            style="display: flex; align-items: center; margin-bottom: 4px; gap: 4px;"
         ),
         ui.div(
             # Use textarea for multi-line paste support
@@ -210,7 +242,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 title="Select from available values",
                 style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px;"
             ),
-            style="position: relative;"
+            style=textarea_style
         ),
         # Hidden data attribute with unique values for the modal
         ui.tags.div(
@@ -256,9 +288,37 @@ def build_dynamic_filters_panel(
     
     filter_elements = []
     for col_name, filter_value in filters.items():
-        # Operator dict → render as read-only label (no DataFrame dependency)
+        # Operator dict filters
         if _is_operator_filter(filter_value):
-            filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter, column_masks=column_masks))
+            # Interactive operator filters (user-selected via dropdown) get the full
+            # editable element with operator dropdown pre-selected
+            if filter_value.get("interactive"):
+                op = filter_value.get("op", "in")
+                # Extract display value from the operator dict
+                raw_val = filter_value.get("value")
+                if isinstance(raw_val, list):
+                    display_val = "\n".join(str(v) for v in raw_val)
+                elif raw_val is not None:
+                    display_val = str(raw_val)
+                else:
+                    display_val = ""
+                
+                # Get unique values for the values picker
+                if col_name in df.columns and len(df) > 0:
+                    unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
+                elif get_unique_values_func:
+                    db_values = get_unique_values_func(col_name)
+                    unique_values = ["all"] + db_values
+                else:
+                    unique_values = ["all"]
+                
+                filter_elements.append(build_dynamic_filter_element(
+                    col_name, unique_values, display_val,
+                    fix_filter=fix_filter, column_masks=column_masks, current_op=op
+                ))
+            else:
+                # Config-defined operator filters → read-only label
+                filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter, column_masks=column_masks))
             continue
         
         # Skip columns that aren't known at all

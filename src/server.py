@@ -776,6 +776,42 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if col_name:
             active_filters.set(remove_filter(active_filters.get(), col_name))
     
+    # Handle changing a filter's operator
+    @reactive.Effect
+    @reactive.event(input.set_filter_operator)
+    def _set_filter_operator():
+        val = input.set_filter_operator()
+        if not val:
+            return
+        col_name = val.get("column")
+        op = val.get("op", "in")
+        if not col_name:
+            return
+        filters = active_filters.get().copy()
+        old = filters.get(col_name)
+        
+        # Extract existing values from the current filter entry
+        if isinstance(old, dict) and "op" in old:
+            existing_values = old.get("value", [])
+            if not isinstance(existing_values, list):
+                existing_values = [existing_values] if existing_values is not None else []
+        elif old and str(old).strip() and old != "all":
+            existing_values = [v.strip() for v in str(old).replace('\n', ',').replace('\r', ',').split(",") if v.strip()]
+        else:
+            existing_values = []
+        
+        if op == "in" and not existing_values:
+            # Switch back to simple string filter
+            filters[col_name] = "all"
+        elif op == "in":
+            # Convert back to simple newline-separated string
+            filters[col_name] = "\n".join(existing_values)
+        else:
+            # Store as interactive operator dict
+            filters[col_name] = {"op": op, "value": existing_values, "interactive": True}
+        
+        active_filters.set(filters)
+    
     # Watch for filter dropdown changes - dynamically observe filter inputs
     @reactive.Effect
     def _watch_filter_changes():

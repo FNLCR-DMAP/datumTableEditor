@@ -260,6 +260,17 @@ window.removeFilter = function(columnName, event) {
     }
 };
 
+window.setFilterOperator = function(columnName, operator, event) {
+    if (typeof setShinyInput !== 'undefined') {
+        var contextEl = event ? event.target : document.activeElement;
+        setShinyInput('set_filter_operator', {
+            column: columnName,
+            op: operator,
+            ts: Date.now()
+        }, {priority: 'event'}, contextEl);
+    }
+};
+
 // Filter Values Modal state
 var currentFilterValuesColumn = null;
 var currentFilterValuesContext = null;

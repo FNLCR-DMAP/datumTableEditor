@@ -43,22 +43,45 @@ def update_filter_values(filters: Dict[str, str], input_obj: Any) -> Tuple[Dict[
     new_filters = filters.copy()
     
     for col_name, filter_value in list(filters.items()):
-        # Operator-dict filters (e.g. {"op": "not_contains", ...}) are rendered
+        # Config-defined operator-dict filters (no "interactive" flag) are rendered
         # as read-only labels — they have no input_text_area to read.
-        if isinstance(filter_value, dict) and "op" in filter_value:
+        if isinstance(filter_value, dict) and "op" in filter_value and not filter_value.get("interactive"):
             continue
+        
+        # Interactive operator-dict filters have a textarea — read its value
+        # and update the "value" field while preserving "op" and "interactive".
+        is_interactive_op = isinstance(filter_value, dict) and "op" in filter_value and filter_value.get("interactive")
+        
         filter_id = f"filter_{col_name}"
         try:
             current_val = getattr(input_obj, filter_id)()
-            prev_val = new_filters.get(col_name)
-            if current_val and prev_val != current_val:
-                # User typed or selected filter values
-                new_filters[col_name] = current_val
-                updated = True
-            elif not current_val and prev_val and prev_val != "all":
-                # User cleared the filter → reset to "all" (no filter)
-                new_filters[col_name] = "all"
-                updated = True
+            
+            if is_interactive_op:
+                op = filter_value["op"]
+                # Parse textarea content into a value list
+                if current_val and str(current_val).strip():
+                    values = [v.strip() for v in str(current_val).replace(',', '\n').split('\n') if v.strip()]
+                else:
+                    values = []
+                
+                old_values = filter_value.get("value", [])
+                if not isinstance(old_values, list):
+                    old_values = [old_values] if old_values is not None else []
+                
+                if values != old_values:
+                    new_filters[col_name] = {"op": op, "value": values, "interactive": True}
+                    updated = True
+            else:
+                # Simple string filter (original behavior)
+                prev_val = new_filters.get(col_name)
+                if current_val and prev_val != current_val:
+                    # User typed or selected filter values
+                    new_filters[col_name] = current_val
+                    updated = True
+                elif not current_val and prev_val and prev_val != "all":
+                    # User cleared the filter → reset to "all" (no filter)
+                    new_filters[col_name] = "all"
+                    updated = True
         except Exception:
             # Only catch Exception; let SilentException/SilentCancelOutputException
             # (BaseException subclasses) propagate so Shiny's reactive graph stays intact
