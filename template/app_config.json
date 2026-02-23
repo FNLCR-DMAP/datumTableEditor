@@ -129,6 +129,18 @@
     "editable_columns": [],
     "readonly_columns": ["PatientID", "Variant_key"],
     
+    "column_masks": {
+      "accession_id_dna_rna_number2": "Accession ID",
+      "clinical_or_research": "Clinical/Research",
+      "full_surgical_pathology_report_diagnosis": "Pathology Diagnosis",
+      "tumor_content_percent_tumor": "Tumor %",
+      "qci_primary_site": "Primary Site",
+      "qci_tissue_diagnosis": "Tissue Diagnosis",
+      "primary_tumor_site_full": "Primary Tumor Site",
+      "site_of_metastasis_full": "Metastasis Site",
+      "histologic_diagnosis_full": "Histologic Diagnosis"
+    },
+
     "presets_enabled": true,
     "presets_file_path": "data/column_presets.json",
     "default_preset": "Default"

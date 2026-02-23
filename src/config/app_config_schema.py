@@ -144,6 +144,9 @@ class TableConfig:
     editable_columns: list[str] = field(default_factory=list)
     readonly_columns: list[str] = field(default_factory=list)
     
+    # Column display name masks (real_name → display_name)
+    column_masks: dict[str, str] = field(default_factory=dict)
+
     # Column presets
     presets_enabled: bool = True
     presets_file_path: Optional[str] = None

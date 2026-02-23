@@ -9,10 +9,16 @@ from typing import Callable, Any
 from .data_utils import get_row_status
 
 
-def build_draggable_header_cell(col: str, width_style: str = "") -> ui.tags.th:
+def _mask(col: str, column_masks: dict | None) -> str:
+    """Return display name for a column, applying mask if available."""
+    return column_masks.get(col, col) if column_masks else col
+
+
+def build_draggable_header_cell(col: str, width_style: str = "", column_masks: dict | None = None) -> ui.tags.th:
     """Build a draggable table header cell with action dropdown."""
+    display = _mask(col, column_masks)
     return ui.tags.th(
-        ui.tags.span(col, class_="header-text"),
+        ui.tags.span(display, class_="header-text"),
         ui.tags.div(
             ui.tags.button(
                 "⋮",
@@ -35,7 +41,7 @@ def build_draggable_header_cell(col: str, width_style: str = "") -> ui.tags.th:
     )
 
 
-def build_table_header(cols: list, widths: dict, default_width: int = 130, show_status_column: bool = True) -> ui.tags.thead:
+def build_table_header(cols: list, widths: dict, default_width: int = 130, show_status_column: bool = True, column_masks: dict | None = None) -> ui.tags.thead:
     """Build the complete table header."""
     # Select-all checkbox for the header using HTML() since input_ is reserved
     select_all_checkbox = ui.HTML(
@@ -55,7 +61,7 @@ def build_table_header(cols: list, widths: dict, default_width: int = 130, show_
     for col in cols:
         col_width = widths.get(col, default_width)
         width_style = f"width: {col_width}px; min-width: {col_width}px;"
-        header_cells.append(build_draggable_header_cell(col, width_style))
+        header_cells.append(build_draggable_header_cell(col, width_style, column_masks=column_masks))
     
     return ui.tags.thead(ui.tags.tr(*header_cells))
 
@@ -166,9 +172,9 @@ def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: li
     return ui.tags.tbody(*table_rows)
 
 
-def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None) -> ui.tags.table:
+def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None) -> ui.tags.table:
     """Build the complete data table."""
-    header = build_table_header(cols, widths, show_status_column=show_status_column)
+    header = build_table_header(cols, widths, show_status_column=show_status_column, column_masks=column_masks)
     body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels)
     return ui.tags.table(header, body, class_="edit-table")
 
@@ -186,7 +192,8 @@ def build_table_container(
     editable_columns: list = None,
     readonly_columns: list = None,
     show_status_column: bool = True,
-    status_labels: dict = None
+    status_labels: dict = None,
+    column_masks: dict | None = None
 ) -> ui.div:
     """Build the complete table container with summary and table."""
     displayed_count = len(paginated_indices)
@@ -196,7 +203,7 @@ def build_table_container(
     else:
         rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
     
-    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels)
+    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks)
     
     return ui.div(
         ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),

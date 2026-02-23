@@ -7,12 +7,18 @@ from shiny import ui
 from .filter_utils import _is_operator_filter, OPERATOR_LABELS
 
 
-def build_current_column_tag(col: str, index: int) -> ui.div:
+def _mask(col: str, column_masks: dict | None) -> str:
+    """Return display name for a column, applying mask if available."""
+    return column_masks.get(col, col) if column_masks else col
+
+
+def build_current_column_tag(col: str, index: int, column_masks: dict | None = None) -> ui.div:
     """Build a draggable current column tag for the column modal."""
+    display = _mask(col, column_masks)
     safe_col = col.replace("\\", "\\\\").replace("'", "\\'")
     return ui.div(
         ui.span("⠃", class_="drag-handle-modal", style="cursor: grab; margin-right: 6px; color: rgba(255,255,255,0.5);"),
-        ui.span(f"{index}. {col}", style="margin-right: 8px;"),
+        ui.span(f"{index}. {display}", style="margin-right: 8px;"),
         ui.tags.button("×", class_="remove-modal-col", onclick=f"removeColumnFromModal('{safe_col}', event)", 
                        style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px;"),
         class_="current-col-tag modal-draggable-col",
@@ -22,21 +28,22 @@ def build_current_column_tag(col: str, index: int) -> ui.div:
     )
 
 
-def build_available_column_tag(col: str) -> ui.div:
+def build_available_column_tag(col: str, column_masks: dict | None = None) -> ui.div:
     """Build an available column tag for the column modal."""
+    display = _mask(col, column_masks)
     safe_col = col.replace("\\", "\\\\").replace("'", "\\'")
     return ui.div(
-        f"+ {col}",
+        f"+ {display}",
         class_="add-col-tag",
         onclick=f"addColumn('{safe_col}', event)",
         style="display: inline-block; padding: 6px 12px; background: #e9ecef; border-radius: 4px; font-size: 12px; cursor: pointer; margin: 3px;"
     )
 
 
-def build_columns_modal_content(current_cols: list, available_cols: list) -> ui.div:
+def build_columns_modal_content(current_cols: list, available_cols: list, column_masks: dict | None = None) -> ui.div:
     """Build the full columns modal content."""
-    current_html = [build_current_column_tag(col, i) for i, col in enumerate(current_cols, 1)]
-    available_html = [build_available_column_tag(col) for col in available_cols]
+    current_html = [build_current_column_tag(col, i, column_masks=column_masks) for i, col in enumerate(current_cols, 1)]
+    available_html = [build_available_column_tag(col, column_masks=column_masks) for col in available_cols]
     
     return ui.div(
         # Current columns section
@@ -86,14 +93,15 @@ def build_preset_menu_items(presets: dict, current_preset: str) -> ui.div:
     return ui.div(*items)
 
 
-def build_copy_column_buttons(columns: list) -> ui.div:
+def build_copy_column_buttons(columns: list, column_masks: dict | None = None) -> ui.div:
     """Build copy column buttons list."""
     buttons = []
     for col in columns:
+        display = _mask(col, column_masks)
         safe_col = col.replace("'", "\\'")
         buttons.append(
             ui.tags.button(
-                col,
+                display,
                 class_="btn copy-col-btn",
                 onclick=f"copyColumnValues('{safe_col}')",
                 style="width: 100%; margin-bottom: 4px; text-align: left; padding: 6px 10px; font-size: 12px; border: 1px solid #333; color: #333; background: white;"
@@ -102,17 +110,18 @@ def build_copy_column_buttons(columns: list) -> ui.div:
     return ui.div(*buttons, style="max-height: 400px; overflow-y: auto;")
 
 
-def build_filter_column_buttons(available_cols: list) -> ui.div:
+def build_filter_column_buttons(available_cols: list, column_masks: dict | None = None) -> ui.div:
     """Build filter column selection buttons."""
     if not available_cols:
         return ui.p("All columns are already being filtered.", style="color: #6c757d;")
     
     column_buttons = []
     for col in available_cols:
+        display = _mask(col, column_masks)
         safe_col = col.replace("\\", "\\\\").replace("'", "\\'")
         column_buttons.append(
             ui.tags.button(
-                col,
+                display,
                 class_="btn btn-outline-secondary btn-block",
                 onclick=f"addFilter('{safe_col}', event)",
                 style="width: 100%; margin-bottom: 8px; text-align: left; padding: 8px 12px; font-size: 12px;"
@@ -122,8 +131,9 @@ def build_filter_column_buttons(available_cols: list) -> ui.div:
     return ui.div(*column_buttons, style="max-height: 400px; overflow-y: auto;")
 
 
-def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: bool = False) -> ui.div:
+def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: bool = False, column_masks: dict | None = None) -> ui.div:
     """Build a read-only display element for an operator filter."""
+    display = _mask(col_name, column_masks)
     op = filter_def.get("op", "in")
     value = filter_def.get("value")
     op_label = OPERATOR_LABELS.get(op, op)
@@ -149,7 +159,7 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     
     return ui.div(
         ui.div(
-            ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
+            ui.tags.label(display, style="font-size: 12px; font-weight: 500;"),
             remove_btn,
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
         ),
@@ -163,8 +173,9 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     )
 
 
-def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False) -> ui.div:
+def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False, column_masks: dict | None = None) -> ui.div:
     """Build a single dynamic filter element with multi-select support."""
+    display = _mask(col_name, column_masks)
     # Format current value for display
     display_value = current_value if current_value and current_value != "all" else ""
     
@@ -179,7 +190,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     
     return ui.div(
         ui.div(
-            ui.tags.label(col_name, style="font-size: 12px; font-weight: 500;"),
+            ui.tags.label(display, style="font-size: 12px; font-weight: 500;"),
             remove_btn,
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
         ),
@@ -217,7 +228,8 @@ def build_dynamic_filters_panel(
     df: pd.DataFrame,
     fix_filter: bool = False,
     all_columns: list = None,
-    get_unique_values_func=None
+    get_unique_values_func=None,
+    column_masks: dict | None = None
 ) -> ui.div:
     """Build the complete dynamic filters panel.
     
@@ -227,6 +239,7 @@ def build_dynamic_filters_panel(
         fix_filter: Whether filters are locked
         all_columns: All known column names (for lazy loading when df has no columns)
         get_unique_values_func: Callback to fetch unique values from DB (lazy mode)
+        column_masks: Optional column display name overrides
     """
     if not filters:
         if fix_filter:
@@ -245,7 +258,7 @@ def build_dynamic_filters_panel(
     for col_name, filter_value in filters.items():
         # Operator dict → render as read-only label (no DataFrame dependency)
         if _is_operator_filter(filter_value):
-            filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter))
+            filter_elements.append(build_operator_filter_element(col_name, filter_value, fix_filter=fix_filter, column_masks=column_masks))
             continue
         
         # Skip columns that aren't known at all
@@ -262,6 +275,6 @@ def build_dynamic_filters_panel(
             unique_values = ["all"]
         
         current_value = filter_value if filter_value else "all"
-        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter))
+        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter, column_masks=column_masks))
     
     return ui.div(*filter_elements)

@@ -93,6 +93,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     display_columns = config.display_columns
     all_columns = config.all_columns
     app_config = config.app_config
+    column_masks = app_config.table.column_masks or None
     
     # Create local functions that use this config instance
     def load_modifications_log():
@@ -532,7 +533,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def available_columns_modal():
         cols = list(active_columns.get()) or list(display_columns)
         available = [c for c in all_columns if c not in cols]
-        return build_columns_modal_content(cols, available)
+        return build_columns_modal_content(cols, available, column_masks=column_masks)
     
     # Handle column order changes from JS
     @reactive.Effect
@@ -675,7 +676,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render list of columns available to copy"""
         preset_cols = list(active_columns.get()) or list(display_columns)
         ordered_cols = get_ordered_columns(preset_cols, list(data.get().columns))
-        return build_copy_column_buttons(ordered_cols)
+        return build_copy_column_buttons(ordered_cols, column_masks=column_masks)
 
     # Handle copy column request from JS
     @reactive.Effect
@@ -707,9 +708,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 active_filters.get(), data.get(),
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
-                get_unique_values_func=config.data_fetcher.get_unique_values
+                get_unique_values_func=config.data_fetcher.get_unique_values,
+                column_masks=column_masks
             )
-        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter)
+        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks)
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui
@@ -735,7 +737,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         else:
             all_cols = list(data.get().columns)
         available_cols = [col for col in all_cols if col not in filters and not col.startswith('_')]
-        return build_filter_column_buttons(available_cols)
+        return build_filter_column_buttons(available_cols, column_masks=column_masks)
     
     # Handle adding a filter
     @reactive.Effect
@@ -984,7 +986,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             editable_columns=app_config.table.editable_columns,
             readonly_columns=app_config.table.readonly_columns,
             show_status_column=app_config.enable_approval_workflow,
-            status_labels=app_config.status_labels
+            status_labels=app_config.status_labels,
+            column_masks=column_masks
         )
     
     # Output: Approval status
