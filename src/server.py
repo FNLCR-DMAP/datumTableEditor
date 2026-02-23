@@ -531,7 +531,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Available columns for modal
     @render.ui
     def available_columns_modal():
-        cols = list(active_columns.get()) or list(display_columns)
+        current = active_columns.get()
+        cols = list(current) if current is not None and len(current) > 0 else list(display_columns)
         available = [c for c in all_columns if c not in cols]
         return build_columns_modal_content(cols, available, column_masks=column_masks)
     
@@ -539,7 +540,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.column_order)
     def _update_column_order():
-        new_order = parse_column_order(input.column_order())
+        val = input.column_order()
+        if isinstance(val, dict):
+            new_order = val.get('order')
+            if new_order is not None:
+                active_columns.set(list(new_order))
+                return
+        new_order = parse_column_order(val)
         if new_order:
             active_columns.set(list(new_order))
     
@@ -563,17 +570,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.clear_all_columns)
     def _clear_all_columns():
-        active_columns.set([])
+        active_columns.set(list(display_columns))
     
     # Handle adding all remaining columns
     @reactive.Effect
     @reactive.event(input.add_all_columns)
     def _add_all_columns():
-        current = list(active_columns.get())
-        for col in all_columns:
-            if col not in current:
-                current.append(col)
-        active_columns.set(current)
+        active_columns.set(list(all_columns))
     
     # Handle sorting a column
     @reactive.Effect

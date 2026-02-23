@@ -191,19 +191,91 @@ window.addColumn = function(col, event) {
     }
 };
 
-// Remove all columns from modal
+// Remove all columns from modal (DOM manipulation + batch server update)
 window.removeAllColumns = function(event) {
     if (event) event.stopPropagation();
+    var container = document.getElementById('modal-columns-container');
+    if (!container) return;
+    
+    // Move all current columns to available section
+    var currentTags = container.querySelectorAll('.modal-draggable-col');
+    var availableSection = container.closest('.modal-body')
+        ?.querySelectorAll('div > div')[1]; // Second section = "Remaining columns"
+    if (!availableSection) {
+        // Fallback: find the div after the current columns container's parent
+        var sections = container.closest('.modal-body')?.children;
+        if (sections && sections.length > 1) {
+            availableSection = sections[1].querySelector('div');
+        }
+    }
+    
+    currentTags.forEach(function(tag) {
+        var col = tag.getAttribute('data-column');
+        if (col && availableSection) {
+            // Create an available tag
+            var addTag = document.createElement('div');
+            addTag.className = 'add-col-tag';
+            addTag.textContent = '+ ' + col;
+            addTag.style.cssText = 'display: inline-block; padding: 6px 12px; background: #e9ecef; border-radius: 4px; font-size: 12px; cursor: pointer; margin: 3px;';
+            var safeCol = col.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            addTag.setAttribute('onclick', "addColumn('" + safeCol + "', event)");
+            availableSection.appendChild(addTag);
+        }
+        tag.remove();
+    });
+    
+    // Send empty column list to server
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('clear_all_columns', {ts: Date.now()}, {priority: 'event'});
+        setShinyInput('column_order', {order: [], ts: Date.now()}, {priority: 'event'});
     }
 };
 
-// Add all remaining columns to current columns
+// Add all remaining columns to current columns (DOM manipulation + batch server update)
 window.addAllColumns = function(event) {
     if (event) event.stopPropagation();
+    var container = document.getElementById('modal-columns-container');
+    if (!container) return;
+    
+    // Find available column tags
+    var modalBody = container.closest('.modal-body');
+    if (!modalBody) return;
+    var availableTags = modalBody.querySelectorAll('.add-col-tag');
+    
+    // Get current column count for numbering
+    var currentCount = container.querySelectorAll('.modal-draggable-col').length;
+    
+    availableTags.forEach(function(tag) {
+        var text = tag.textContent.replace(/^\+\s*/, '').trim();
+        // Find the real column name from onclick attribute
+        var onclickAttr = tag.getAttribute('onclick') || '';
+        var match = onclickAttr.match(/addColumn\('([^']+)'/);
+        var col = match ? match[1].replace(/\\\\/g, '\\').replace(/\\'/g, "'") : text;
+        currentCount++;
+        
+        // Create a current column tag
+        var currentTag = document.createElement('div');
+        currentTag.className = 'current-col-tag modal-draggable-col';
+        currentTag.setAttribute('draggable', 'true');
+        currentTag.setAttribute('data-column', col);
+        currentTag.style.cssText = 'display: inline-flex; align-items: center; padding: 6px 10px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; margin: 3px; cursor: move;';
+        
+        var safeCol = col.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        currentTag.innerHTML = '<span class="drag-handle-modal" style="cursor: grab; margin-right: 6px; color: rgba(255,255,255,0.5);">⠃</span>' +
+            '<span style="margin-right: 8px;">' + currentCount + '. ' + col + '</span>' +
+            '<button class="remove-modal-col" onclick="removeColumnFromModal(\'' + safeCol + '\', event)" style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px;">×</button>';
+        
+        container.appendChild(currentTag);
+        tag.remove();
+    });
+    
+    // Collect all column names and send to server
+    var allCols = [];
+    container.querySelectorAll('.modal-draggable-col').forEach(function(el) {
+        var c = el.getAttribute('data-column');
+        if (c) allCols.push(c);
+    });
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('add_all_columns', {ts: Date.now()}, {priority: 'event'});
+        setShinyInput('column_order', {order: allCols, ts: Date.now()}, {priority: 'event'});
     }
 };
 
