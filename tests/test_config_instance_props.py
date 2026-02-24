@@ -332,3 +332,89 @@ class TestLoadConfigInstance:
 
                 assert isinstance(result, ConfigInstance)
                 mock_init.assert_called_once_with(config_path="test_config.json", username="testuser")
+
+
+# =============================================================================
+# Date column detection tests
+# =============================================================================
+
+class TestIsDateColumn:
+    """Tests for DataFetcher.is_date_column method."""
+
+    def _make_fetcher(self, column_types: dict):
+        from src.config.config_instance import DataFetcher
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher._column_types = column_types
+        return fetcher
+
+    def test_date_type(self):
+        fetcher = self._make_fetcher({"created_at": "date"})
+        assert fetcher.is_date_column("created_at") is True
+
+    def test_timestamp_type(self):
+        fetcher = self._make_fetcher({"ts": "timestamp"})
+        assert fetcher.is_date_column("ts") is True
+
+    def test_timestamptz_type(self):
+        fetcher = self._make_fetcher({"ts": "timestamptz"})
+        assert fetcher.is_date_column("ts") is True
+
+    def test_timestamp_with_time_zone(self):
+        fetcher = self._make_fetcher({"ts": "timestamp with time zone"})
+        assert fetcher.is_date_column("ts") is True
+
+    def test_timestamp_without_time_zone(self):
+        fetcher = self._make_fetcher({"ts": "timestamp without time zone"})
+        assert fetcher.is_date_column("ts") is True
+
+    def test_integer_not_date(self):
+        fetcher = self._make_fetcher({"score": "integer"})
+        assert fetcher.is_date_column("score") is False
+
+    def test_text_not_date(self):
+        fetcher = self._make_fetcher({"name": "character varying"})
+        assert fetcher.is_date_column("name") is False
+
+    def test_missing_column(self):
+        fetcher = self._make_fetcher({})
+        assert fetcher.is_date_column("nonexistent") is False
+
+    def test_case_insensitive(self):
+        fetcher = self._make_fetcher({"ts": "TIMESTAMP"})
+        assert fetcher.is_date_column("ts") is True
+
+
+class TestDateColumnsProperty:
+    """Tests for DataFetcher.date_columns property."""
+
+    def _make_fetcher(self, column_types: dict):
+        from src.config.config_instance import DataFetcher
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher._column_types = column_types
+        return fetcher
+
+    def test_returns_date_columns_only(self):
+        fetcher = self._make_fetcher({
+            "created_at": "date",
+            "name": "character varying",
+            "updated_at": "timestamp",
+            "score": "integer",
+        })
+        assert fetcher.date_columns == {"created_at", "updated_at"}
+
+    def test_empty_when_no_dates(self):
+        fetcher = self._make_fetcher({"name": "text", "score": "integer"})
+        assert fetcher.date_columns == set()
+
+    def test_empty_types(self):
+        fetcher = self._make_fetcher({})
+        assert fetcher.date_columns == set()
+
+    def test_all_date_types(self):
+        fetcher = self._make_fetcher({
+            "a": "date", "b": "timestamp",
+            "c": "timestamp without time zone",
+            "d": "timestamp with time zone",
+            "e": "timestamptz",
+        })
+        assert fetcher.date_columns == {"a", "b", "c", "d", "e"}

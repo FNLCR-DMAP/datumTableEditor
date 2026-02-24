@@ -124,7 +124,7 @@ All configuration can be overridden via environment variables, which is useful f
 | Environment Variable | Config Field | Description |
 |---------------------|--------------|-------------|
 | `APP_DATABASE_ENABLED` | `database.enabled` | Enable database mode (`true`/`false`) |
-| `APP_DATABASE_MODE` | `database.mode` | `direct` (SQLAlchemy) or `datum` (proxy) |
+| `APP_DATABASE_MODE` | `database.mode` | `datum` (Datum proxy; only supported mode) |
 | `APP_DB_CONNECTION_STRING` | `database.connection_string` | PostgreSQL connection URL |
 | `APP_DB_DATA_TABLE` | `database.data_table` | Main data table name |
 | `APP_DB_MODS_TABLE` | `database.mods_table` | Modifications table name |

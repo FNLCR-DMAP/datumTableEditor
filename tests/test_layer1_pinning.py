@@ -162,36 +162,6 @@ class TestConfigMarkModificationUndoneInDb:
             mock.assert_called_once_with(42)
             assert result is True
 
-    def test_direct_mode_executes_update(self, monkeypatch):
-        """In direct mode, should execute SQL UPDATE via SQLAlchemy."""
-        import src.config.config as config_module
-
-        monkeypatch.setattr(config_module.app_config.database, "enabled", True)
-        monkeypatch.setattr(config_module.app_config.database, "mode", "direct")
-        monkeypatch.setattr(config_module.app_config.database, "connection_string", "postgresql://test")
-        monkeypatch.setattr(config_module.app_config.database, "mods_table", "test_mods")
-
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-
-        mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_conn
-
-        with patch('src.config.config.create_engine', return_value=mock_engine, create=True):
-            # Need to patch the import inside the function
-            with patch.dict('sys.modules', {'sqlalchemy': MagicMock()}):
-                with patch('src.config.config.create_engine', return_value=mock_engine, create=True) as mock_ce:
-                    # The function does `from sqlalchemy import create_engine, text`
-                    # We need to patch at the point of use
-                    pass
-
-        # Simpler approach: just verify the function structure
-        # When DB is disabled, it returns False
-        monkeypatch.setattr(config_module.app_config.database, "enabled", False)
-        result = config_module.mark_modification_undone_in_db(1)
-        assert result is False
-
 
 class TestConfigUpdateDataInDb:
     """Pinning tests for config.update_data_in_db."""
@@ -244,37 +214,11 @@ class TestDataFetcherGetUniqueValues:
         mock_response.data = [{"Status": "active"}, {"Status": "inactive"}]
         mock_client.execute_sql.return_value = mock_response
         fetcher._datum_client = mock_client
-        fetcher._engine = None
 
         result = fetcher.get_unique_values("Status")
 
         assert result == ["active", "inactive"]
         mock_client.execute_sql.assert_called_once()
-
-    def test_sqlalchemy_mode_returns_values(self):
-        """In direct mode, should use engine to execute SELECT DISTINCT."""
-        from src.config.config_instance import DataFetcher
-
-        fetcher = DataFetcher.__new__(DataFetcher)
-        fetcher.app_config = MagicMock()
-        fetcher.app_config.database.data_table = "test_data"
-        fetcher.app_config.database.mode = "direct"
-        fetcher._datum_client = None
-
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [("val1",), ("val2",), ("val3",)]
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-
-        mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_conn
-        fetcher._engine = mock_engine
-
-        result = fetcher.get_unique_values("Status")
-
-        assert result == ["val1", "val2", "val3"]
 
     def test_returns_empty_on_error(self):
         """Should return empty list on exception."""
@@ -283,12 +227,7 @@ class TestDataFetcherGetUniqueValues:
         fetcher = DataFetcher.__new__(DataFetcher)
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = "test_data"
-        fetcher.app_config.database.mode = "direct"
         fetcher._datum_client = None
-
-        mock_engine = MagicMock()
-        mock_engine.connect.side_effect = Exception("connection failed")
-        fetcher._engine = mock_engine
 
         result = fetcher.get_unique_values("Status")
 
@@ -306,21 +245,18 @@ class TestDataFetcherGetFilteredCount:
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = "test_data"
         fetcher.app_config.database.mods_table = "test_mods"
-        fetcher.app_config.database.mode = "direct"
+        fetcher.app_config.database.mode = "datum"
+        fetcher.app_config.database.datum_database = "db"
+        fetcher.app_config.database.datum_schema = "public"
+        fetcher.app_config.database.datum_service_name = "svc"
         fetcher.app_config.database.status_column = None
         fetcher.app_config.table.primary_key = ["id"]
-        fetcher._datum_client = None
 
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.fetchone.return_value = (42,)
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-
-        mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_conn
-        fetcher._engine = mock_engine
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.data = [{"cnt": 42}]
+        mock_client.execute_sql.return_value = mock_response
+        fetcher._datum_client = mock_client
 
         fetcher._build_where_clause = MagicMock(return_value=("", {}))
         fetcher._build_status_filter_clause = MagicMock(return_value="")
@@ -340,11 +276,8 @@ class TestDataFetcherGetFilteredCount:
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = "test_data"
         fetcher.app_config.database.mods_table = "test_mods"
-        fetcher.app_config.database.mode = "direct"
         fetcher.app_config.table.primary_key = ["id"]
         fetcher._datum_client = None
-        fetcher._engine = MagicMock()
-        fetcher._engine.connect.side_effect = Exception("fail")
         fetcher._build_where_clause = MagicMock(side_effect=Exception("fail"))
 
         mock_params = MagicMock()
@@ -365,23 +298,19 @@ class TestDataFetcherFetchAllFiltered:
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = "test_data"
         fetcher.app_config.database.mods_table = "test_mods"
-        fetcher.app_config.database.mode = "direct"
+        fetcher.app_config.database.mode = "datum"
+        fetcher.app_config.database.datum_database = "db"
+        fetcher.app_config.database.datum_schema = "public"
+        fetcher.app_config.database.datum_service_name = "svc"
         fetcher.app_config.database.status_column = None
         fetcher.app_config.table.primary_key = ["id"]
-        fetcher._datum_client = None
         fetcher._columns = ["id", "name"]
 
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [(1, "Alice"), (2, "Bob")]
-        mock_result.keys.return_value = ["id", "name"]
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-
-        mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_conn
-        fetcher._engine = mock_engine
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+        mock_client.execute_sql.return_value = mock_response
+        fetcher._datum_client = mock_client
 
         fetcher._build_where_clause = MagicMock(return_value=("", {}))
         fetcher._build_status_filter_clause = MagicMock(return_value="")
@@ -406,10 +335,8 @@ class TestDataFetcherFetchAllFiltered:
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = "test_data"
         fetcher.app_config.database.mods_table = "test_mods"
-        fetcher.app_config.database.mode = "direct"
         fetcher.app_config.table.primary_key = ["id"]
         fetcher._datum_client = None
-        fetcher._engine = MagicMock()
         fetcher._build_where_clause = MagicMock(side_effect=Exception("fail"))
 
         mock_params = MagicMock()

@@ -1035,3 +1035,163 @@ class TestDataFetcherIntegrationSQL:
         assert "'unprocessed'" in clause_sub
         assert "'edited'" in clause_sub
         assert "'approved'" not in clause_sub
+
+
+# =============================================================================
+# 15. Date Picker + Filter Operator Integration
+# =============================================================================
+
+class TestDateFilterIntegration:
+    """End-to-end: date column detection → operator filter → row filtering → UI render."""
+
+    @pytest.fixture
+    def date_df(self):
+        return pd.DataFrame({
+            "Name": ["Alice", "Bob", "Charlie", "Diana"],
+            "created_at": ["2024-01-15", "2024-06-20", "2024-09-01", "2024-12-25"],
+            "Score": [85, 42, 95, 70],
+        })
+
+    @pytest.fixture
+    def status_func(self):
+        return lambda idx: "unprocessed"
+
+    def test_date_between_filters_then_renders_panel(self, date_df, status_func):
+        """Between filter on date column should correctly filter rows AND render date picker UI."""
+        from src.utils.filter_utils import get_filtered_rows
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        filters = {"created_at": {"op": "between", "value": ["2024-01-01", "2024-07-01"], "interactive": True}}
+
+        # 1) Filter rows
+        result = get_filtered_rows(
+            date_df, ["Name", "created_at", "Score"], "",
+            ["unprocessed"], filters, status_func
+        )
+        names = [date_df.loc[i, "Name"] for i in result]
+        assert "Alice" in names      # 2024-01-15 in range
+        assert "Bob" in names        # 2024-06-20 in range
+        assert "Charlie" not in names  # 2024-09-01 outside
+        assert "Diana" not in names   # 2024-12-25 outside
+
+        # 2) Render panel with date_columns
+        html = str(build_dynamic_filters_panel(
+            filters, date_df, date_columns={"created_at"}
+        ))
+        assert 'type="date"' in html
+        assert "From" in html
+        assert "To" in html
+        assert "applyDateFilter" in html
+
+    def test_date_gt_filter_and_render(self, date_df, status_func):
+        """gt operator on date column filters correctly and renders single date input."""
+        from src.utils.filter_utils import get_filtered_rows
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        filters = {"created_at": {"op": "gt", "value": "2024-06-30", "interactive": True}}
+
+        # Filter
+        result = get_filtered_rows(
+            date_df, ["Name", "created_at", "Score"], "",
+            ["unprocessed"], filters, status_func
+        )
+        names = [date_df.loc[i, "Name"] for i in result]
+        assert "Charlie" in names
+        assert "Diana" in names
+        assert "Alice" not in names
+        assert "Bob" not in names
+
+        # Render
+        html = str(build_dynamic_filters_panel(
+            filters, date_df, date_columns={"created_at"}
+        ))
+        assert 'type="date"' in html
+        assert "From" not in html  # single input, not range
+
+    def test_not_empty_on_date_col(self, date_df, status_func):
+        """not_empty on date column filters nulls and renders hidden value area."""
+        from src.utils.filter_utils import get_filtered_rows
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df2 = date_df.copy()
+        df2.loc[1, "created_at"] = None
+
+        filters = {"created_at": {"op": "not_empty", "value": None, "interactive": True}}
+
+        result = get_filtered_rows(
+            df2, ["Name", "created_at"], "",
+            ["unprocessed"], filters, status_func
+        )
+        assert 1 not in result
+        assert 0 in result
+
+        html = str(build_dynamic_filters_panel(
+            filters, df2, date_columns={"created_at"}
+        ))
+        assert "display: none" in html
+
+    def test_operator_change_preserves_filter_state(self, date_df, status_func):
+        """Changing operator via update_filter_values preserves column and value."""
+        from src.utils.filter_handlers import update_filter_values
+        from src.utils.filter_utils import get_filtered_rows
+        from unittest.mock import MagicMock
+
+        # Start with between
+        filters = {"created_at": {"op": "between", "value": ["2024-01-01", "2024-12-31"], "interactive": True}}
+        r1 = get_filtered_rows(
+            date_df, ["Name", "created_at"], "",
+            ["unprocessed"], filters, status_func
+        )
+        assert len(r1) == 4  # All in range
+
+        # Simulate user changing textarea to narrow range
+        mock_input = MagicMock()
+        mock_input.filter_created_at = MagicMock(return_value="2024-01-01\n2024-07-01")
+        new_filters, updated = update_filter_values(filters, mock_input)
+
+        assert updated is True
+        assert new_filters["created_at"]["value"] == ["2024-01-01", "2024-07-01"]
+
+        # Re-filter with updated values
+        r2 = get_filtered_rows(
+            date_df, ["Name", "created_at"], "",
+            ["unprocessed"], new_filters, status_func
+        )
+        assert len(r2) == 2  # Only Alice and Bob
+
+    def test_date_detection_fallback_integration(self):
+        """_looks_like_dates fallback integrates with panel rendering."""
+        from src.utils.modal_utils import _looks_like_dates, build_dynamic_filters_panel
+
+        df = pd.DataFrame({
+            "mystery_col": ["2024-01-01", "2024-06-15", "2024-12-31"],
+        })
+
+        # Values look like dates
+        assert _looks_like_dates(["2024-01-01", "2024-06-15", "2024-12-31"]) is True
+
+        # Panel should detect and render date picker (via fallback)
+        filters = {"mystery_col": {"op": "between", "value": [], "interactive": True}}
+        html = str(build_dynamic_filters_panel(filters, df, date_columns=set()))
+        assert 'type="date"' in html
+
+    def test_config_defined_date_filter_skip_reactive(self):
+        """Config-defined operator dict on date column is skipped by update_filter_values."""
+        from src.utils.filter_handlers import update_filter_values
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from unittest.mock import MagicMock
+
+        df = pd.DataFrame({"created_at": ["2024-01-01"]})
+
+        # Config-defined: no "interactive" key
+        filters = {"created_at": {"op": "gte", "value": "2024-01-01"}}
+
+        mock_input = MagicMock()
+        mock_input.filter_created_at = MagicMock(side_effect=AssertionError("should not be called"))
+
+        result, updated = update_filter_values(filters, mock_input)
+        assert updated is False  # skipped
+
+        # But it still renders correctly
+        html = str(build_dynamic_filters_panel(filters, df, date_columns={"created_at"}))
+        assert 'type="date"' in html

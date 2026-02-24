@@ -108,7 +108,7 @@ class MockTableConfig:
 @dataclass
 class MockDatabaseConfig:
     enabled: bool = True
-    mode: str = "direct"
+    mode: str = "datum"
     connection_string: str = "postgresql://test:test@localhost/testdb"
     data_table: str = "test_data"
     mods_table: str = "test_modifications"

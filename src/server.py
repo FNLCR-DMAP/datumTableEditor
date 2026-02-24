@@ -4,6 +4,7 @@ Updated for split panel layout with column customization
 """
 
 from shiny import render, ui, reactive
+import pandas as pd
 
 from .utils import (
     load_presets,
@@ -754,6 +755,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def dynamic_filters():
         """Render active dynamic filters"""
+        # Detect date columns from schema types (lazy loading) or DataFrame dtypes
+        _date_cols = set()
+        if is_lazy_loading and hasattr(config, 'data_fetcher'):
+            _date_cols = config.data_fetcher.date_columns
+        else:
+            df = data.get()
+            for col in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    _date_cols.add(col)
+        
         if is_lazy_loading:
             # In lazy mode, data.get() may be empty; pass all known columns
             # and a callback to fetch unique values from DB
@@ -762,9 +773,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
                 get_unique_values_func=config.data_fetcher.get_unique_values,
-                column_masks=column_masks
+                column_masks=column_masks,
+                date_columns=_date_cols
             )
-        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks)
+        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui

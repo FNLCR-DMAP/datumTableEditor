@@ -2,9 +2,14 @@
 Modal and dialog builders for the Epitopes Data Editor.
 """
 
+import re
 import pandas as pd
 from shiny import ui
 from .filter_utils import _is_operator_filter, OPERATOR_LABELS
+
+
+# Date pattern: YYYY-MM-DD (with optional time)
+_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}')
 
 
 def _mask(col: str, column_masks: dict | None) -> str:
@@ -173,7 +178,18 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     )
 
 
-def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False, column_masks: dict | None = None, current_op: str = "in") -> ui.div:
+def _looks_like_dates(values: list) -> bool:
+    """Return True if at least half of the non-empty sample values look like dates."""
+    if not values:
+        return False
+    sample = [v for v in values[:20] if v and str(v).strip()]
+    if not sample:
+        return False
+    date_count = sum(1 for v in sample if _DATE_RE.match(str(v).strip()))
+    return date_count >= len(sample) * 0.5
+
+
+def build_dynamic_filter_element(col_name: str, unique_values: list, current_value: str, fix_filter: bool = False, column_masks: dict | None = None, current_op: str = "in", is_date: bool = False) -> ui.div:
     """Build a single dynamic filter element with multi-select support and operator dropdown."""
     display = _mask(col_name, column_masks)
     # Format current value for display
@@ -216,18 +232,70 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         style="font-size: 11px; padding: 2px 6px; height: auto; max-width: 160px; margin-left: 6px;"
     )
     
-    # For 'not_empty' operator, hide the textarea (no value needed)
+    # For 'not_empty' operator, hide the value area (no value needed)
     textarea_style = "position: relative;" if current_op != "not_empty" else "position: relative; display: none;"
     
-    return ui.div(
-        ui.div(
-            ui.tags.label(display, style="font-size: 12px; font-weight: 500;"),
-            op_select,
-            remove_btn,
-            style="display: flex; align-items: center; margin-bottom: 4px; gap: 4px;"
-        ),
-        ui.div(
-            # Use textarea for multi-line paste support
+    # ── Date column: render calendar inputs instead of textarea ──
+    if is_date and current_op != "not_empty":
+        # Parse existing date values
+        date_vals = [v.strip()[:10] for v in display_value.split('\n') if v.strip()] if display_value else []
+        
+        if current_op == "between":
+            # Two date pickers for range
+            date_from = date_vals[0] if len(date_vals) > 0 else ""
+            date_to = date_vals[1] if len(date_vals) > 1 else ""
+            value_area = ui.div(
+                ui.div(
+                    ui.tags.label("From", style="font-size: 11px; color: #6c757d; margin-right: 4px;"),
+                    ui.tags.input(
+                        type="date", value=date_from,
+                        class_="form-control form-control-sm filter-date-input",
+                        style="font-size: 12px;",
+                        **{"data-column": col_name, "data-role": "from"}
+                    ),
+                    style="display: flex; align-items: center; margin-bottom: 4px;"
+                ),
+                ui.div(
+                    ui.tags.label("To", style="font-size: 11px; color: #6c757d; margin-right: 16px;"),
+                    ui.tags.input(
+                        type="date", value=date_to,
+                        class_="form-control form-control-sm filter-date-input",
+                        style="font-size: 12px;",
+                        **{"data-column": col_name, "data-role": "to"}
+                    ),
+                    style="display: flex; align-items: center;"
+                ),
+                ui.tags.button(
+                    "Apply", class_="btn btn-sm btn-primary mt-1",
+                    onclick=f"applyDateFilter('{safe_col_name}', event)",
+                    style="font-size: 11px; padding: 2px 10px;"
+                ),
+                style="padding: 4px 0;"
+            )
+        elif current_op in ("gt", "gte", "lt", "lte", "last_n_days"):
+            # Single date picker
+            date_val = date_vals[0] if date_vals else ""
+            value_area = ui.div(
+                ui.tags.input(
+                    type="date", value=date_val,
+                    class_="form-control form-control-sm filter-date-input",
+                    style="font-size: 12px;",
+                    **{"data-column": col_name, "data-role": "single"}
+                ),
+                ui.tags.button(
+                    "Apply", class_="btn btn-sm btn-primary mt-1",
+                    onclick=f"applyDateFilter('{safe_col_name}', event)",
+                    style="font-size: 11px; padding: 2px 10px;"
+                ),
+                style="padding: 4px 0;"
+            )
+        else:
+            # in / not_in / contains / etc → fall through to textarea
+            is_date = False
+    
+    if not is_date or current_op == "not_empty":
+        # Standard textarea with edit/confirm and ⋮ buttons
+        value_area = ui.div(
             ui.input_text_area(
                 f"filter_{col_name}",
                 label=None,
@@ -235,9 +303,8 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 placeholder=f"Paste values (one per line) or click ⋮",
                 rows=3
             ),
-            # Edit / Confirm toggle button
             ui.tags.button(
-                "\u270E",  # pencil icon
+                "\u270E",
                 class_="btn btn-sm btn-outline-secondary filter-edit-btn",
                 onclick=f"toggleFilterEdit('{safe_col_name}', event)",
                 title="Edit filter values",
@@ -250,10 +317,18 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 title="Select from available values",
                 style="position: absolute; right: 5px; top: 70%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
             ),
-            # Initialize textarea as readonly
             ui.tags.script(f"initFilterReadonly('filter_{col_name}')"),
             style=textarea_style
+        )
+    
+    return ui.div(
+        ui.div(
+            ui.tags.label(display, style="font-size: 12px; font-weight: 500;"),
+            op_select,
+            remove_btn,
+            style="display: flex; align-items: center; margin-bottom: 4px; gap: 4px;"
         ),
+        value_area,
         # Hidden data attribute with unique values for the modal
         ui.tags.div(
             id=f"filter_values_{col_name}",
@@ -271,7 +346,8 @@ def build_dynamic_filters_panel(
     fix_filter: bool = False,
     all_columns: list = None,
     get_unique_values_func=None,
-    column_masks: dict | None = None
+    column_masks: dict | None = None,
+    date_columns: set | None = None
 ) -> ui.div:
     """Build the complete dynamic filters panel.
     
@@ -282,7 +358,10 @@ def build_dynamic_filters_panel(
         all_columns: All known column names (for lazy loading when df has no columns)
         get_unique_values_func: Callback to fetch unique values from DB (lazy mode)
         column_masks: Optional column display name overrides
+        date_columns: Set of column names known to be date/timestamp type
     """
+    if date_columns is None:
+        date_columns = set()
     if not filters:
         if fix_filter:
             return ui.div(
@@ -321,7 +400,8 @@ def build_dynamic_filters_panel(
             
             filter_elements.append(build_dynamic_filter_element(
                 col_name, unique_values, display_val,
-                fix_filter=fix_filter, column_masks=column_masks, current_op=op
+                fix_filter=fix_filter, column_masks=column_masks, current_op=op,
+                is_date=(col_name in date_columns or _looks_like_dates(unique_values[1:]))
             ))
             continue
         
@@ -339,6 +419,7 @@ def build_dynamic_filters_panel(
             unique_values = ["all"]
         
         current_value = filter_value if filter_value else "all"
-        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter, column_masks=column_masks))
+        col_is_date = col_name in date_columns or _looks_like_dates(unique_values[1:])
+        filter_elements.append(build_dynamic_filter_element(col_name, unique_values, current_value, fix_filter=fix_filter, column_masks=column_masks, is_date=col_is_date))
     
     return ui.div(*filter_elements)

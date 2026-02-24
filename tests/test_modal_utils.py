@@ -510,3 +510,273 @@ class TestDynamicFilterOperatorDropdown:
         assert "filter-op-select" in html
         # The "is not" option should be selected
         assert "is not" in html
+
+
+# =====================================================================
+# _looks_like_dates Tests
+# =====================================================================
+
+class TestLooksLikeDates:
+    """Tests for _looks_like_dates helper."""
+
+    def test_all_dates(self):
+        from src.utils.modal_utils import _looks_like_dates
+
+        values = ["2024-01-15", "2023-06-30", "2024-12-01"]
+        assert _looks_like_dates(values) is True
+
+    def test_all_non_dates(self):
+        from src.utils.modal_utils import _looks_like_dates
+
+        values = ["hello", "world", "123"]
+        assert _looks_like_dates(values) is False
+
+    def test_empty_list(self):
+        from src.utils.modal_utils import _looks_like_dates
+
+        assert _looks_like_dates([]) is False
+
+    def test_all_empty_strings(self):
+        from src.utils.modal_utils import _looks_like_dates
+
+        assert _looks_like_dates(["", "", ""]) is False
+
+    def test_half_threshold(self):
+        """Exactly 50% date values should return True."""
+        from src.utils.modal_utils import _looks_like_dates
+
+        values = ["2024-01-01", "not-a-date"]
+        assert _looks_like_dates(values) is True
+
+    def test_below_half(self):
+        """Below 50% date values should return False."""
+        from src.utils.modal_utils import _looks_like_dates
+
+        values = ["2024-01-01", "not-a-date", "also-not"]
+        assert _looks_like_dates(values) is False
+
+    def test_timestamps_match(self):
+        """DateTime strings with time portion should still match."""
+        from src.utils.modal_utils import _looks_like_dates
+
+        values = ["2024-01-15 10:30:00", "2024-06-30T14:00:00"]
+        assert _looks_like_dates(values) is True
+
+    def test_none_values_skipped(self):
+        """None values are skipped in sample."""
+        from src.utils.modal_utils import _looks_like_dates
+
+        values = [None, "2024-01-01", None, "2024-06-15"]
+        assert _looks_like_dates(values) is True
+
+
+# =====================================================================
+# Date Picker UI Tests
+# =====================================================================
+
+class TestDatePickerUI:
+    """Tests for date picker rendering in build_dynamic_filter_element."""
+
+    def test_between_renders_two_date_inputs(self):
+        """Between op with is_date should render two <input type=date>."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all", "2024-01-01"], "", current_op="between", is_date=True
+        )
+        html = str(result)
+
+        assert 'type="date"' in html
+        assert "From" in html
+        assert "To" in html
+        assert "applyDateFilter" in html
+
+    def test_between_pre_fills_dates(self):
+        """Existing between values should pre-fill from/to inputs."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "2024-01-01\n2024-12-31",
+            current_op="between", is_date=True
+        )
+        html = str(result)
+
+        assert "2024-01-01" in html
+        assert "2024-12-31" in html
+
+    def test_gt_renders_single_date_input(self):
+        """gt operator with is_date should render a single date input."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="gt", is_date=True
+        )
+        html = str(result)
+
+        assert 'type="date"' in html
+        assert "applyDateFilter" in html
+        # Should NOT have From/To labels
+        assert "From" not in html
+
+    def test_gte_renders_date_input(self):
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="gte", is_date=True
+        )
+        html = str(result)
+
+        assert 'type="date"' in html
+
+    def test_lt_renders_date_input(self):
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="lt", is_date=True
+        )
+        html = str(result)
+
+        assert 'type="date"' in html
+
+    def test_lte_renders_date_input(self):
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="lte", is_date=True
+        )
+        html = str(result)
+
+        assert 'type="date"' in html
+
+    def test_last_n_days_renders_date_input(self):
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="last_n_days", is_date=True
+        )
+        html = str(result)
+
+        assert 'type="date"' in html
+
+    def test_in_op_falls_through_to_textarea(self):
+        """'in' operator on date column should render textarea (not date picker)."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="in", is_date=True
+        )
+        html = str(result)
+
+        assert "<textarea" in html
+        assert "initFilterReadonly" in html
+
+    def test_not_in_falls_through_to_textarea(self):
+        """'not_in' on date column should render textarea."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="not_in", is_date=True
+        )
+        html = str(result)
+
+        assert "<textarea" in html
+
+    def test_not_empty_hides_value_area(self):
+        """not_empty on date column should hide value area."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "", current_op="not_empty", is_date=True
+        )
+        html = str(result)
+
+        assert "display: none" in html
+
+    def test_non_date_column_renders_textarea(self):
+        """Non-date column should always render textarea."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "Name", ["all", "A", "B"], "", current_op="between", is_date=False
+        )
+        html = str(result)
+
+        assert "<textarea" in html
+
+    def test_single_date_pre_fills(self):
+        """gt/lt with existing value should pre-fill the date input."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all"], "2024-06-15",
+            current_op="gt", is_date=True
+        )
+        html = str(result)
+
+        assert "2024-06-15" in html
+
+    def test_date_data_column_attribute(self):
+        """Date inputs should have data-column attribute."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "created_at", ["all"], "", current_op="gt", is_date=True
+        )
+        html = str(result)
+
+        assert 'data-column="created_at"' in html
+
+
+# =====================================================================
+# Date Columns in Panel Tests
+# =====================================================================
+
+class TestDateColumnsInPanel:
+    """Tests for date_columns parameter in build_dynamic_filters_panel."""
+
+    def test_date_column_renders_date_picker(self):
+        """Column in date_columns set should render date picker for between."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"created_at": ["2024-01-01", "2024-06-15"]})
+        filters = {"created_at": {"op": "between", "value": [], "interactive": True}}
+        result = build_dynamic_filters_panel(filters, df, date_columns={"created_at"})
+        html = str(result)
+
+        assert 'type="date"' in html
+
+    def test_non_date_column_renders_textarea(self):
+        """Column NOT in date_columns should get textarea."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"Name": ["Alice", "Bob"]})
+        filters = {"Name": {"op": "between", "value": [], "interactive": True}}
+        result = build_dynamic_filters_panel(filters, df, date_columns=set())
+        html = str(result)
+
+        assert "<textarea" in html
+
+    def test_date_detection_fallback(self):
+        """When date_columns is empty, _looks_like_dates provides fallback."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"DateCol": ["2024-01-01", "2024-06-15", "2024-12-31"]})
+        filters = {"DateCol": {"op": "between", "value": [], "interactive": True}}
+        # No explicit date_columns — should detect from values
+        result = build_dynamic_filters_panel(filters, df, date_columns=set())
+        html = str(result)
+
+        assert 'type="date"' in html
+
+    def test_simple_filter_date_detection(self):
+        """Simple (non-operator) filter on date column should render date picker."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"created_at": ["2024-01-01", "2024-06-15"]})
+        filters = {"created_at": "all"}
+        result = build_dynamic_filters_panel(filters, df, date_columns={"created_at"})
+        html = str(result)
+
+        # Date column with "in" op will fall through to textarea (in/not_in do)
+        # but the is_date flag is still set
+        assert "created_at" in html

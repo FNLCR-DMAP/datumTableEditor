@@ -146,6 +146,12 @@ class DataFetcher:
         "name", "citext", "bpchar",
     })
 
+    # PostgreSQL types that represent date/time values
+    _DATE_TYPES = frozenset({
+        "date", "timestamp", "timestamp without time zone",
+        "timestamp with time zone", "timestamptz",
+    })
+
     def _fetch_metadata(self):
         """Fetch table row count, column names, and column types."""
         try:
@@ -290,6 +296,15 @@ class DataFetcher:
         which allows PostgreSQL to use existing B-tree indexes.
         """
         return self._column_types.get(column, "").lower() in self._TEXT_TYPES
+
+    def is_date_column(self, column: str) -> bool:
+        """Return True if *column* has a date/timestamp PostgreSQL type."""
+        return self._column_types.get(column, "").lower() in self._DATE_TYPES
+
+    @property
+    def date_columns(self) -> set:
+        """Return the set of column names that have date/timestamp types."""
+        return {c for c, t in self._column_types.items() if t.lower() in self._DATE_TYPES}
 
     def _col_expr(self, col_ident: SqlIdentifier, column: str) -> str:
         """Return the SQL expression for *column* in a WHERE condition.

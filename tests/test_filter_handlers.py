@@ -282,3 +282,78 @@ class TestUpdateFilterValuesInteractiveOperator:
         assert result["ConfigOp"] == {"op": "in", "value": ["A"]}  # unchanged
         assert result["Interactive"]["value"] == ["X", "Y"]
         assert updated is True
+
+
+class TestUpdateFilterValuesEdgeCases:
+    """Edge-case tests for update_filter_values — covering lines 69, 83-84."""
+
+    def test_interactive_op_scalar_old_value_normalized(self):
+        """When old_values is a scalar (not a list), it should be normalized to a list."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="A")  # same as old scalar
+
+        filters = {"Col": {"op": "contains", "value": "A", "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        # old_values was "A" → normalized to ["A"], new is ["A"] → no change
+        assert updated is False
+
+    def test_interactive_op_none_old_value(self):
+        """When old_values is None, should normalize to empty list."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Col = MagicMock(return_value="X")
+
+        filters = {"Col": {"op": "in", "value": None, "interactive": True}}
+        result, updated = update_filter_values(filters, mock_input)
+
+        # old_values was None → normalized to [], new is ["X"] → change
+        assert updated is True
+        assert result["Col"]["value"] == ["X"]
+
+    def test_cleared_simple_filter_resets_to_all(self):
+        """When user clears a simple filter (returns empty), it resets to 'all'."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Status = MagicMock(return_value="")
+
+        filters = {"Status": "approved"}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Status"] == "all"
+        assert updated is True
+
+    def test_cleared_filter_none_resets_to_all(self):
+        """When filter returns None (cleared), should reset to 'all'."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Status = MagicMock(return_value=None)
+
+        filters = {"Status": "approved"}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Status"] == "all"
+        assert updated is True
+
+    def test_already_all_not_updated(self):
+        """Clearing a filter already set to 'all' should not trigger update."""
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        mock_input = MagicMock()
+        mock_input.filter_Status = MagicMock(return_value=None)
+
+        filters = {"Status": "all"}
+        result, updated = update_filter_values(filters, mock_input)
+
+        assert result["Status"] == "all"
+        assert updated is False

@@ -310,6 +310,29 @@ window.toggleFilterEdit = function(columnName, event) {
     }
 };
 
+// Apply date filter — reads date input(s) from the filter group and sends to server
+window.applyDateFilter = function(columnName, event) {
+    var btn = event ? event.currentTarget : null;
+    if (!btn) return;
+    var filterGroup = btn.closest('.filter-group');
+    if (!filterGroup) return;
+    
+    var dateInputs = filterGroup.querySelectorAll('.filter-date-input');
+    var values = [];
+    dateInputs.forEach(function(inp) {
+        if (inp.value) values.push(inp.value);
+    });
+    
+    var value = values.join('\n');
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('apply_filter_value', {
+            column: columnName,
+            value: value,
+            ts: Date.now()
+        }, {priority: 'event'}, btn);
+    }
+};
+
 // Initialize filter textareas as readonly after render
 window.initFilterReadonly = function(containerId) {
     setTimeout(function() {
