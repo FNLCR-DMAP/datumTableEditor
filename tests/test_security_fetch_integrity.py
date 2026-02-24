@@ -594,7 +594,7 @@ class TestGetFilteredCount:
         mock_client = MagicMock()
         mock_client.execute_sql.return_value = MagicMock(data=[{"cnt": 42}])
         fetcher = _make_fetcher(mode="datum", datum_client=mock_client, pk_columns=["id"])
-        params = QueryParams()
+        params = QueryParams(filters={"name": "test"})
         result = fetcher.get_filtered_count(params)
         assert result == 42
 
@@ -602,7 +602,7 @@ class TestGetFilteredCount:
         mock_client = MagicMock()
         mock_client.execute_sql.return_value = MagicMock(data=[])
         fetcher = _make_fetcher(mode="datum", datum_client=mock_client, pk_columns=["id"])
-        result = fetcher.get_filtered_count(QueryParams())
+        result = fetcher.get_filtered_count(QueryParams(filters={"name": "x"}))
         assert result == 0
 
     def test_sqlalchemy_mode_returns_count(self):
@@ -615,15 +615,23 @@ class TestGetFilteredCount:
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
 
         fetcher = _make_fetcher(mode="direct", engine=mock_engine, pk_columns=["id"])
-        result = fetcher.get_filtered_count(QueryParams())
+        result = fetcher.get_filtered_count(QueryParams(filters={"name": "test"}))
         assert result == 17
 
     def test_exception_returns_zero(self):
         mock_client = MagicMock()
         mock_client.execute_sql.side_effect = Exception("boom")
         fetcher = _make_fetcher(mode="datum", datum_client=mock_client, pk_columns=["id"])
-        result = fetcher.get_filtered_count(QueryParams())
+        result = fetcher.get_filtered_count(QueryParams(filters={"name": "x"}))
         assert result == 0
+
+    def test_no_filters_returns_cached_total(self):
+        """No filters + all statuses → fast path returns cached _total_count."""
+        mock_client = MagicMock()
+        fetcher = _make_fetcher(mode="datum", datum_client=mock_client, pk_columns=["id"])
+        result = fetcher.get_filtered_count(QueryParams())
+        assert result == 100  # _total_count from _make_fetcher
+        mock_client.execute_sql.assert_not_called()
 
     def test_status_filter_included(self):
         mock_client = MagicMock()

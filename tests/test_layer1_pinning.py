@@ -286,6 +286,88 @@ class TestDataFetcherGetFilteredCount:
 
         assert result == 0
 
+    def test_fast_path_no_filters_returns_cached_total(self):
+        """No filters + no status filter → return cached _total_count (no SQL)."""
+        from src.config.config_instance import DataFetcher, QueryParams
+
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher.app_config = MagicMock()
+        fetcher.app_config.database.data_table = "test_data"
+        fetcher.app_config.database.mode = "datum"
+        fetcher._datum_client = MagicMock()
+        fetcher._total_count = 500_000
+        fetcher._build_where_clause = MagicMock(return_value=("", {}))
+
+        params = QueryParams()  # defaults: all 4 statuses, no filters, no search
+
+        result = fetcher.get_filtered_count(params)
+
+        assert result == 500_000
+        # Should NOT have called execute_sql at all
+        fetcher._datum_client.execute_sql.assert_not_called()
+
+    def test_fast_path_filters_no_status_skips_lateral_join(self):
+        """Column filters + all statuses → simple COUNT without LATERAL JOIN."""
+        from src.config.config_instance import DataFetcher, QueryParams
+
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher.app_config = MagicMock()
+        fetcher.app_config.database.data_table = "test_data"
+        fetcher.app_config.database.mode = "datum"
+        fetcher.app_config.database.datum_database = "db"
+        fetcher.app_config.database.datum_schema = "public"
+        fetcher.app_config.database.datum_service_name = "svc"
+        fetcher._total_count = 1000
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.data = [{"cnt": 42}]
+        mock_client.execute_sql.return_value = mock_response
+        fetcher._datum_client = mock_client
+        fetcher._build_where_clause = MagicMock(return_value=(" WHERE x = 1", {}))
+
+        params = QueryParams()  # all 4 statuses
+
+        result = fetcher.get_filtered_count(params)
+
+        assert result == 42
+        executed_sql = mock_client.execute_sql.call_args[1]["sql"]
+        # Should NOT contain LATERAL JOIN
+        assert "LATERAL" not in executed_sql
+        assert "COUNT(*)" in executed_sql
+
+    def test_status_filter_uses_lateral_join(self):
+        """Status filter active → must use LATERAL JOIN for _mod_status."""
+        from src.config.config_instance import DataFetcher, QueryParams
+
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher.app_config = MagicMock()
+        fetcher.app_config.database.data_table = "test_data"
+        fetcher.app_config.database.mods_table = "test_mods"
+        fetcher.app_config.database.mode = "datum"
+        fetcher.app_config.database.datum_database = "db"
+        fetcher.app_config.database.datum_schema = "public"
+        fetcher.app_config.database.datum_service_name = "svc"
+        fetcher.app_config.database.status_column = None
+        fetcher.app_config.table.primary_key = ["id"]
+        fetcher._total_count = 1000
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.data = [{"cnt": 10}]
+        mock_client.execute_sql.return_value = mock_response
+        fetcher._datum_client = mock_client
+        fetcher._build_where_clause = MagicMock(return_value=("", {}))
+        fetcher._build_status_filter_clause = MagicMock(return_value=" AND _mod_status IN ('edited')")
+
+        params = QueryParams(status_filters=["edited"])
+
+        result = fetcher.get_filtered_count(params)
+
+        assert result == 10
+        executed_sql = mock_client.execute_sql.call_args[1]["sql"]
+        assert "LATERAL" in executed_sql
+
 
 class TestDataFetcherFetchAllFiltered:
     """Pinning tests for DataFetcher.fetch_all_filtered."""

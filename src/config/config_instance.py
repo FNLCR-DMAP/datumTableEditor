@@ -614,40 +614,63 @@ class DataFetcher:
             print(f"✗ Error getting status counts: {e}")
         return counts
 
+    def _has_status_filter(self, params: QueryParams) -> bool:
+        """Return True if the user has narrowed the status checkboxes."""
+        if not params.status_filters:
+            return False
+        return set(params.status_filters) != {"unprocessed", "edited", "approved", "rejected"}
+
     def get_filtered_count(self, params: QueryParams) -> int:
-        """Get count of rows matching the current filters."""
+        """Get count of rows matching the current filters.
+
+        Optimisation layers (fastest first):
+          1. No filters, no search, no status filter → return cached _total_count
+          2. Column/search filters but no status filter → simple COUNT on data
+             table with WHERE clause (no LATERAL JOIN to mods table)
+          3. Status filter active → full sub-query with LATERAL JOIN
+        """
         try:
             data_table = self.app_config.database.data_table
-            mods_table = self.app_config.database.mods_table
-            pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)
-            mods_table_sql = SqlTableName(mods_table)
-            
-            # Use parameterized queries for SQLAlchemy, interpolated for Datum
+
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
-            
-            # Build query with mod status for status filtering
-            pk_json_build = build_pk_json_expr(pk_columns)
-            
-            query = f"""
-            SELECT COUNT(*) as cnt FROM (
-                SELECT d.*, 
-                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
-                FROM {data_table_sql} d
-                LEFT JOIN LATERAL (
-                    SELECT mod_type 
-                    FROM {mods_table_sql} m
-                    WHERE m.row_pk = {pk_json_build}
-                      AND m.undone = FALSE
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) ms ON TRUE
-                {where_clause}
-            ) subq
-            WHERE 1=1 {self._build_status_filter_clause(params)}
-            """
-            
+
+            needs_status = self._has_status_filter(params)
+            has_filters = bool(where_clause.strip())
+
+            # ── Fast path 1: no filters at all → cached total ────────────
+            if not has_filters and not needs_status:
+                return self._total_count
+
+            # ── Fast path 2: column/search filters only (no status) ──────
+            if not needs_status:
+                query = f"SELECT COUNT(*) as cnt FROM {data_table_sql} d {where_clause}"
+            else:
+                # ── Full path: need LATERAL JOIN for _mod_status ──────────
+                mods_table = self.app_config.database.mods_table
+                pk_columns = self.app_config.table.primary_key
+                mods_table_sql = SqlTableName(mods_table)
+                pk_json_build = build_pk_json_expr(pk_columns)
+
+                query = f"""
+                SELECT COUNT(*) as cnt FROM (
+                    SELECT d.*,
+                           {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                    FROM {data_table_sql} d
+                    LEFT JOIN LATERAL (
+                        SELECT mod_type
+                        FROM {mods_table_sql} m
+                        WHERE m.row_pk = {pk_json_build}
+                          AND m.undone = FALSE
+                        ORDER BY m.created_at DESC
+                        LIMIT 1
+                    ) ms ON TRUE
+                    {where_clause}
+                ) subq
+                WHERE 1=1 {self._build_status_filter_clause(params)}
+                """
+
             if is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
