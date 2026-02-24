@@ -194,10 +194,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Column widths storage
     column_widths = reactive.Value(dict(initial_widths))
     
-    # Pagination state - load from saved UI state
-    initial_page = ui_state.get("current_page", 1)
+    # Pagination state - always start on page 1; restore rows-per-page preference
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
-    current_page = reactive.Value(initial_page)
+    current_page = reactive.Value(1)
     rows_per_page_value = reactive.Value(initial_rows_per_page)
     
     # Track first sync to avoid resetting page on initial load
