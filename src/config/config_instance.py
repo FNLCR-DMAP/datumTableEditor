@@ -213,17 +213,30 @@ class DataFetcher:
     
     @property
     def _effective_status_column(self) -> Optional[str]:
-        """Return status_column only if it actually exists in the table.
+        """Return status_column only if it actually exists in the table
+        *and* the status filter feature is enabled.
 
         If the config says ``"Status"`` but the table has ``"status"``
-        (or no such column at all), return None so that
-        ``_build_mod_status_expr`` falls back to the simple
-        ``COALESCE(ms.mod_type, 'unprocessed')`` path.
+        (or no such column at all), or ``enable_status_filter`` is
+        ``False``, return None so that ``_build_mod_status_expr`` falls
+        back to the simple ``COALESCE(ms.mod_type, 'unprocessed')`` path.
         """
+        if self._skip_mods:
+            return None
         col = getattr(self.app_config.database, "status_column", None)
         if col and col in self._columns:
             return col
         return None
+
+    @property
+    def _skip_mods(self) -> bool:
+        """True when modification tracking is disabled (enable_status_filter=false).
+
+        When True, queries skip the LATERAL JOIN to the modifications
+        table entirely, avoiding both the performance cost and any
+        dependency on the mods table existing.
+        """
+        return not getattr(self.app_config, "enable_status_filter", True)
     
     def _get_columns_from_schema_datum(self) -> List[str]:
         """Get column names from information_schema via Datum."""
@@ -556,6 +569,12 @@ class DataFetcher:
             Dict like {"unprocessed": N, "edited": N, "approved": N, "rejected": N}
         """
         counts = {"unprocessed": 0, "edited": 0, "approved": 0, "rejected": 0}
+
+        # When status tracking is off, everything is "unprocessed"
+        if self._skip_mods:
+            counts["unprocessed"] = self._total_count
+            return counts
+
         try:
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
@@ -616,6 +635,8 @@ class DataFetcher:
 
     def _has_status_filter(self, params: QueryParams) -> bool:
         """Return True if the user has narrowed the status checkboxes."""
+        if self._skip_mods:
+            return False
         if not params.status_filters:
             return False
         return set(params.status_filters) != {"unprocessed", "edited", "approved", "rejected"}
@@ -723,28 +744,38 @@ class DataFetcher:
             pk_json_build = build_pk_json_expr(pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
-            # Wrap in subquery to allow status filtering
-            inner_query = f"""
-            SELECT d.*, 
-                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
-            FROM {data_table_sql} d
-            LEFT JOIN LATERAL (
-                SELECT mod_type 
-                FROM {mods_table_sql} m
-                WHERE m.row_pk = {pk_json_build}
-                  AND m.undone = FALSE
-                ORDER BY m.created_at DESC
-                LIMIT 1
-            ) ms ON TRUE
-            {where_clause}
-            """
-            
-            query = f"""
-            SELECT * FROM ({inner_query}) subq
-            WHERE 1=1 {status_filter}
-            {order_clause}
-            {limit_clause}
-            """
+            if self._skip_mods:
+                # No modification tracking — simple SELECT, no LATERAL JOIN
+                query = f"""
+                SELECT d.*, 'unprocessed' AS _mod_status
+                FROM {data_table_sql} d
+                {where_clause}
+                {order_clause}
+                {limit_clause}
+                """
+            else:
+                # Wrap in subquery to allow status filtering
+                inner_query = f"""
+                SELECT d.*, 
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                FROM {data_table_sql} d
+                LEFT JOIN LATERAL (
+                    SELECT mod_type 
+                    FROM {mods_table_sql} m
+                    WHERE m.row_pk = {pk_json_build}
+                      AND m.undone = FALSE
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                ) ms ON TRUE
+                {where_clause}
+                """
+                
+                query = f"""
+                SELECT * FROM ({inner_query}) subq
+                WHERE 1=1 {status_filter}
+                {order_clause}
+                {limit_clause}
+                """
             
             print(f"[DataFetcher] Fetching page {params.page}, size {params.page_size}, offset {offset}")
             
@@ -805,26 +836,34 @@ class DataFetcher:
             pk_json_build = build_pk_json_expr(pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
-            inner_query = f"""
-            SELECT d.*, 
-                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
-            FROM {data_table_sql} d
-            LEFT JOIN LATERAL (
-                SELECT mod_type 
-                FROM {mods_table_sql} m
-                WHERE m.row_pk = {pk_json_build}
-                  AND m.undone = FALSE
-                ORDER BY m.created_at DESC
-                LIMIT 1
-            ) ms ON TRUE
-            {where_clause}
-            """
-            
-            query = f"""
-            SELECT * FROM ({inner_query}) subq
-            WHERE 1=1 {status_filter}
-            {order_clause}
-            """
+            if self._skip_mods:
+                query = f"""
+                SELECT d.*, 'unprocessed' AS _mod_status
+                FROM {data_table_sql} d
+                {where_clause}
+                {order_clause}
+                """
+            else:
+                inner_query = f"""
+                SELECT d.*, 
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                FROM {data_table_sql} d
+                LEFT JOIN LATERAL (
+                    SELECT mod_type 
+                    FROM {mods_table_sql} m
+                    WHERE m.row_pk = {pk_json_build}
+                      AND m.undone = FALSE
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                ) ms ON TRUE
+                {where_clause}
+                """
+                
+                query = f"""
+                SELECT * FROM ({inner_query}) subq
+                WHERE 1=1 {status_filter}
+                {order_clause}
+                """
             
             print(f"[DataFetcher] Fetching ALL filtered data for export...")
             
@@ -960,15 +999,17 @@ class ConfigInstance:
     
     @property
     def _effective_status_column(self) -> Optional[str]:
-        """Return status_column only if it actually exists in the table.
+        """Return status_column only if it actually exists in the table
+        *and* the status filter feature is enabled.
 
         Mirrors DataFetcher._effective_status_column so that
         _load_from_database / _load_from_datum can reference it on self.
 
-        During initial load, all_columns is empty.  In that case we
-        delegate to the DataFetcher (lazy mode) or trust the config
-        value so the SQL query can proceed.
+        During initial load, all_columns is empty — return None to use
+        safe fallback (trusting the config value risks case mismatches).
         """
+        if self._skip_mods:
+            return None
         col = getattr(self.app_config.database, "status_column", None)
         if not col:
             return None
@@ -978,10 +1019,13 @@ class ConfigInstance:
         # Columns already populated (reload / cache refresh)
         if self.all_columns and col in self.all_columns:
             return col
-        # Initial load — columns unknown yet; trust config value
-        if not self.all_columns:
-            return col
+        # Initial load — columns unknown yet; return None to use safe fallback
         return None
+
+    @property
+    def _skip_mods(self) -> bool:
+        """True when modification tracking is disabled (enable_status_filter=false)."""
+        return not getattr(self.app_config, "enable_status_filter", True)
 
     def __post_init__(self):
         """Load config and data after initialization."""
@@ -1237,7 +1281,8 @@ class ConfigInstance:
             # Ensure data table exists (copy from source_table if needed)
             self._ensure_data_table_exists()
             # Ensure modifications table exists (data query joins against it for _mod_status)
-            self._ensure_mods_table_exists()
+            if not self._skip_mods:
+                self._ensure_mods_table_exists()
             
             from sqlalchemy import text
             
@@ -1265,21 +1310,29 @@ class ConfigInstance:
             max_rows = self.app_config.database.max_rows
             limit_clause = f"LIMIT {max_rows}" if max_rows else ""
             
-            query = f"""
-            SELECT d.*, 
-                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
-            FROM {data_table_sql} d
-            LEFT JOIN LATERAL (
-                SELECT mod_type 
-                FROM {mods_table_sql} m
-                WHERE m.row_pk = {pk_json_build}
-                  AND m.undone = FALSE
-                ORDER BY m.created_at DESC
-                LIMIT 1
-            ) ms ON TRUE
-            ORDER BY d.{SqlIdentifier(pk_columns[0])}
-            {limit_clause}
-            """
+            if self._skip_mods:
+                query = f"""
+                SELECT d.*, 'unprocessed' AS _mod_status
+                FROM {data_table_sql} d
+                ORDER BY d.{SqlIdentifier(pk_columns[0])}
+                {limit_clause}
+                """
+            else:
+                query = f"""
+                SELECT d.*, 
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                FROM {data_table_sql} d
+                LEFT JOIN LATERAL (
+                    SELECT mod_type 
+                    FROM {mods_table_sql} m
+                    WHERE m.row_pk = {pk_json_build}
+                      AND m.undone = FALSE
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                ) ms ON TRUE
+                ORDER BY d.{SqlIdentifier(pk_columns[0])}
+                {limit_clause}
+                """
             
             with engine.connect() as conn:
                 result = conn.execute(text(query))
@@ -1421,7 +1474,8 @@ class ConfigInstance:
             # Ensure data table exists (copy from source_table if needed)
             self._ensure_data_table_exists()
             # Ensure modifications table exists (data query joins against it for _mod_status)
-            self._ensure_mods_table_exists()
+            if not self._skip_mods:
+                self._ensure_mods_table_exists()
             
             from ..adapter.datum import DatumClient
             
@@ -1445,21 +1499,29 @@ class ConfigInstance:
             max_rows = self.app_config.database.max_rows
             limit_clause = f"LIMIT {max_rows}" if max_rows else ""
             
-            query = f"""
-            SELECT d.*, 
-                   {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
-            FROM {data_table_sql} d
-            LEFT JOIN LATERAL (
-                SELECT mod_type 
-                FROM {mods_table_sql} m
-                WHERE m.row_pk = {pk_json_build}
-                  AND m.undone = FALSE
-                ORDER BY m.created_at DESC
-                LIMIT 1
-            ) ms ON TRUE
-            ORDER BY d.{SqlIdentifier(pk_columns[0])}
-            {limit_clause}
-            """
+            if self._skip_mods:
+                query = f"""
+                SELECT d.*, 'unprocessed' AS _mod_status
+                FROM {data_table_sql} d
+                ORDER BY d.{SqlIdentifier(pk_columns[0])}
+                {limit_clause}
+                """
+            else:
+                query = f"""
+                SELECT d.*, 
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                FROM {data_table_sql} d
+                LEFT JOIN LATERAL (
+                    SELECT mod_type 
+                    FROM {mods_table_sql} m
+                    WHERE m.row_pk = {pk_json_build}
+                      AND m.undone = FALSE
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                ) ms ON TRUE
+                ORDER BY d.{SqlIdentifier(pk_columns[0])}
+                {limit_clause}
+                """
             
             response = client.execute_sql(
                 sql=query,
