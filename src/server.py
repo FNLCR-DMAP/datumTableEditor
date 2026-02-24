@@ -567,7 +567,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def available_columns_modal():
         current = active_columns.get()
-        cols = list(current) if current is not None and len(current) > 0 else list(display_columns)
+        cols = list(current) if current is not None else list(display_columns)
         available = [c for c in all_columns if c not in cols]
         return build_columns_modal_content(cols, available, column_masks=column_masks)
     
@@ -605,7 +605,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.clear_all_columns)
     def _clear_all_columns():
-        active_columns.set(list(display_columns))
+        active_columns.set([])
     
     # Handle adding all remaining columns
     @reactive.Effect
