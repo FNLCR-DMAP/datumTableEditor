@@ -814,6 +814,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:
             active_filters.set(add_filter(active_filters.get(), col_name))
+            current_page.set(1)
     
     # Handle removing a filter
     @reactive.Effect
@@ -824,6 +825,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col_name = parse_filter_column(input.remove_filter_column())
         if col_name:
             active_filters.set(remove_filter(active_filters.get(), col_name))
+            current_page.set(1)
     
     # Handle changing a filter's operator
     @reactive.Effect
@@ -871,6 +873,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             filters[col_name] = {"op": op, "value": existing_values, "interactive": True}
         
         active_filters.set(filters)
+        current_page.set(1)
     
     # Apply filter value on blur (user clicked away from textarea)
     @reactive.Effect
