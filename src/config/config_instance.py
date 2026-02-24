@@ -958,6 +958,31 @@ class ConfigInstance:
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
     _data_fetcher: DataFetcher = field(default=None, repr=False)  # Lazy loading fetcher
     
+    @property
+    def _effective_status_column(self) -> Optional[str]:
+        """Return status_column only if it actually exists in the table.
+
+        Mirrors DataFetcher._effective_status_column so that
+        _load_from_database / _load_from_datum can reference it on self.
+
+        During initial load, all_columns is empty.  In that case we
+        delegate to the DataFetcher (lazy mode) or trust the config
+        value so the SQL query can proceed.
+        """
+        col = getattr(self.app_config.database, "status_column", None)
+        if not col:
+            return None
+        # Lazy mode — DataFetcher already knows the schema
+        if self._data_fetcher is not None:
+            return self._data_fetcher._effective_status_column
+        # Columns already populated (reload / cache refresh)
+        if self.all_columns and col in self.all_columns:
+            return col
+        # Initial load — columns unknown yet; trust config value
+        if not self.all_columns:
+            return col
+        return None
+
     def __post_init__(self):
         """Load config and data after initialization."""
         self._load_all()
