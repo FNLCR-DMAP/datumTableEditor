@@ -656,7 +656,8 @@ class TestDatePickerUI:
         )
         html = str(result)
 
-        assert 'type="date"' in html
+        assert 'type="number"' in html
+        assert "days" in html
 
     def test_in_op_falls_through_to_textarea(self):
         """'in' operator on date column should render textarea (not date picker)."""

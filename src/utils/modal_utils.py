@@ -272,7 +272,35 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                 ),
                 style="padding: 4px 0;"
             )
-        elif current_op in ("gt", "gte", "lt", "lte", "last_n_days"):
+        elif current_op == "last_n_days":
+            # Number input for "within last N days"
+            n_val = ""
+            if date_vals:
+                # Value should be a number (days), not a date
+                try:
+                    n_val = str(int(date_vals[0]))
+                except (ValueError, TypeError):
+                    n_val = "7"
+            value_area = ui.div(
+                ui.div(
+                    ui.tags.input(
+                        type="number", value=n_val, min="1", step="1",
+                        placeholder="e.g. 7",
+                        class_="form-control form-control-sm filter-date-input",
+                        style="font-size: 12px; width: 80px; display: inline-block;",
+                        id=f"filter_{col_name}",
+                    ),
+                    ui.tags.span(" days", style="font-size: 12px; color: #6c757d; margin-left: 4px;"),
+                    style="display: flex; align-items: center; margin-bottom: 4px;"
+                ),
+                ui.tags.button(
+                    "Apply", class_="btn btn-sm btn-primary mt-1",
+                    onclick=f"applyDateFilter('{safe_col_name}', event)",
+                    style="font-size: 11px; padding: 2px 10px;"
+                ),
+                style="padding: 4px 0;"
+            )
+        elif current_op in ("gt", "gte", "lt", "lte"):
             # Single date picker
             date_val = date_vals[0] if date_vals else ""
             value_area = ui.div(
