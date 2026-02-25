@@ -11,7 +11,7 @@
     if (event) event.preventDefault();
     var modal = document.getElementById("synthesis-modal");
     if (modal) {
-      modal.classList.add("active");
+      modal.classList.add("show");
       // Show/hide the exit button based on current synthesis state
       _syncSynthesisButtons();
     }
@@ -23,7 +23,7 @@
   window.closeSynthesisModal = function () {
     var modal = document.getElementById("synthesis-modal");
     if (modal) {
-      modal.classList.remove("active");
+      modal.classList.remove("show");
     }
   };
 
@@ -49,7 +49,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       var modal = document.getElementById("synthesis-modal");
-      if (modal && modal.classList.contains("active")) {
+      if (modal && modal.classList.contains("show")) {
         closeSynthesisModal();
       }
     }
