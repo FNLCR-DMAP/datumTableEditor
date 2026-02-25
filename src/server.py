@@ -328,11 +328,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             current_page.set(1)
             # Activate DataFetcher for SQL-level filtering on matview
             config.activate_synthesis_fetcher(config.get_synthesis_table_name())
-            # Populate columns from synthesis result if base table was skipped
-            if not config.all_columns and len(result_df.columns) > 0:
-                config.all_columns = list(result_df.columns)
-                config.display_columns = list(result_df.columns)
-                active_columns.set(list(result_df.columns))
+            # Always sync active_columns from the fetcher (synthesis may have
+            # different columns than the base table, and on first boot
+            # active_columns starts as [] because base table load was skipped).
+            if config.all_columns:
+                active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
             print(f"[Synthesis] Auto-generated{cache_msg} — {len(result_df):,} rows")
             # Bump reload trigger to force table_container re-render
@@ -1789,6 +1789,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             current_page.set(1)
             # Activate DataFetcher for SQL-level filtering on matview
             config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            # Sync active_columns from the fetcher
+            if config.all_columns:
+                active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
             # Bump reload trigger to force table_container re-render
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)
@@ -1823,6 +1826,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             current_page.set(1)
             # Activate DataFetcher for SQL-level filtering on matview
             config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            # Sync active_columns from the fetcher
+            if config.all_columns:
+                active_columns.set(list(config.all_columns))
             # Bump reload trigger to force table_container re-render
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
