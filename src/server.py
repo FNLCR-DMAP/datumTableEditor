@@ -296,6 +296,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     synthesis_cached = reactive.Value(_synthesis_autoloaded)   # True if last result was from cache
     enable_synthesis = app_config.enable_synthesis
 
+    # Monotonic counter bumped after every synthesis completion (auto-gen / run / regen).
+    # table_container reads it to guarantee a re-render even when the lazy-loading
+    # path drops the dependency on the ``data`` reactive value.
+    _table_reload_trigger = reactive.Value(0)
+
     # Activate DataFetcher for synthesis matview when auto-loaded
     if _synthesis_autoloaded:
         config.activate_synthesis_fetcher(config.get_synthesis_table_name())
@@ -330,6 +335,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 active_columns.set(list(result_df.columns))
             cache_msg = " (cached)" if was_cached else ""
             print(f"[Synthesis] Auto-generated{cache_msg} — {len(result_df):,} rows")
+            # Bump reload trigger to force table_container re-render
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
                 f"Synthesis ready{cache_msg} — {len(result_df):,} rows",
                 type="message", duration=4
@@ -1208,6 +1215,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render the editable data table with pagination"""
         _ = mods_log.get()
         _ = approval_status.get()
+        _ = _table_reload_trigger.get()  # force re-render after synthesis completes
         
         if is_lazy_loading():
             # Lazy loading mode: fetch data from database
@@ -1782,6 +1790,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Activate DataFetcher for SQL-level filtering on matview
             config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             cache_msg = " (cached)" if was_cached else ""
+            # Bump reload trigger to force table_container re-render
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
                 f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
                 type="message", duration=4
@@ -1813,6 +1823,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             current_page.set(1)
             # Activate DataFetcher for SQL-level filtering on matview
             config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            # Bump reload trigger to force table_container re-render
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
                 f"Synthesis regenerated — {len(result_df):,} rows",
                 type="message", duration=4
