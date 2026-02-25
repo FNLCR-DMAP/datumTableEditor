@@ -1666,8 +1666,30 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 ui.p("Close this modal to interact with the synthesized table.",
                      style="color: #666; font-size: 13px;")
             )
+            # Toggle footer buttons: hide Run, show Regen + Exit
+            status_children.append(ui.HTML("""<script>
+              (function(){
+                var r=document.getElementById('synthesis_run_btn');
+                var g=document.getElementById('synthesis_regen_btn');
+                var x=document.getElementById('synthesis_exit_btn');
+                if(r) r.style.display='none';
+                if(g) g.style.display='';
+                if(x) x.style.display='';
+              })();
+            </script>"""))
             return ui.div(*status_children, class_="synthesis-status-area")
         # Not active — show cache info and what "Run Transform" will do
+        # Reset footer buttons: show Run, hide Regen + Exit
+        _btn_reset = ui.HTML("""<script>
+          (function(){
+            var r=document.getElementById('synthesis_run_btn');
+            var g=document.getElementById('synthesis_regen_btn');
+            var x=document.getElementById('synthesis_exit_btn');
+            if(r) r.style.display='';
+            if(g) g.style.display='none';
+            if(x) x.style.display='none';
+          })();
+        </script>""")
         if enable_synthesis:
             try:
                 table_exists = config.check_synthesis_table_exists()
@@ -1678,6 +1700,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         age_text = f"{age:.0f} min" if age >= 1 else f"{age * 60:.0f}s"
                         ttl_text = f"TTL: {ttl} min." if ttl > 0 else ""
                         return ui.div(
+                            _btn_reset,
                             ui.p(
                                 ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #28a745;"),
                                 f"Cached result available — {age_text} old. {ttl_text}",
@@ -1691,6 +1714,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         )
                     else:
                         return ui.div(
+                            _btn_reset,
                             ui.p(
                                 ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #17a2b8;"),
                                 "Cached result table exists.",
@@ -1705,13 +1729,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 else:
                     ttl_note = f" Result will be cached for {ttl} min." if ttl > 0 else ""
                     return ui.div(
+                        _btn_reset,
                         ui.p(
                             ui.tags.i(class_="fa fa-info-circle", style="margin-right: 6px; color: #6c757d;"),
                             "No cached result.",
                             style="color: #6c757d; font-size: 13px; font-weight: 500;"
                         ),
                         ui.p(
-                            f'Click "Run Transform" to execute the synthesis query and create the table.{ttl_note}',
+                            f'Click "Run Transform" to execute the synthesis query and create the matview.{ttl_note}',
                             style="color: #666; font-size: 13px;"
                         ),
                         class_="synthesis-status-area"
@@ -1743,6 +1768,35 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             cache_msg = " (cached)" if was_cached else ""
             ui.notification_show(
                 f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
+                type="message", duration=4
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            synthesis_error.set(str(e))
+        finally:
+            synthesis_running.set(False)
+
+    @reactive.Effect
+    @reactive.event(input.synthesis_regen_btn)
+    async def _regen_synthesis():
+        """Force-refresh the materialized view (REFRESH MATERIALIZED VIEW)."""
+        import asyncio
+        if not enable_synthesis:
+            return
+        synthesis_running.set(True)
+        synthesis_error.set("")
+        try:
+            result_df, _ = await asyncio.to_thread(config.run_synthesis, force=True)
+            synthesis_data.set(result_df)
+            synthesis_cached.set(False)
+            synthesis_active.set(True)
+            data.set(result_df)
+            total_rows.set(len(result_df))
+            filtered_row_count.set(len(result_df))
+            current_page.set(1)
+            ui.notification_show(
+                f"Synthesis regenerated — {len(result_df):,} rows",
                 type="message", duration=4
             )
         except Exception as e:

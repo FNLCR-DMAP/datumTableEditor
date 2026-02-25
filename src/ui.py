@@ -529,6 +529,12 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 class_="btn btn-warning"
                             ),
                             ui.input_action_button(
+                                "synthesis_regen_btn",
+                                "Regenerate",
+                                class_="btn btn-outline-warning",
+                                style="display: none; margin-left: 8px;"
+                            ),
+                            ui.input_action_button(
                                 "synthesis_exit_btn",
                                 "Exit Synthesis Mode",
                                 class_="btn btn-outline-secondary",
