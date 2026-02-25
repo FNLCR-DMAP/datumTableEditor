@@ -291,8 +291,15 @@ class DataFetcher:
         When True, queries skip the LATERAL JOIN to the modifications
         table entirely, avoiding both the performance cost and any
         dependency on the mods table existing.
+
+        Triggered by any of:
+        - table override active (synthesis matview)
+        - enable_status_filter = false
+        - enable_approval_workflow = false
         """
         if self._table_override:
+            return True
+        if not getattr(self.app_config, "enable_approval_workflow", True):
             return True
         return not getattr(self.app_config, "enable_status_filter", True)
     
@@ -955,7 +962,7 @@ class DataFetcher:
     
     def _apply_field_modifications(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply field modifications to the fetched data."""
-        if df.empty:
+        if df.empty or self._skip_mods:
             return df
         
         try:
@@ -1088,7 +1095,13 @@ class ConfigInstance:
 
     @property
     def _skip_mods(self) -> bool:
-        """True when modification tracking is disabled (enable_status_filter=false)."""
+        """True when modification tracking is disabled.
+
+        Returns True when either enable_status_filter or
+        enable_approval_workflow is False.
+        """
+        if not getattr(self.app_config, "enable_approval_workflow", True):
+            return True
         return not getattr(self.app_config, "enable_status_filter", True)
 
     def __post_init__(self):
@@ -1496,6 +1509,10 @@ class ConfigInstance:
                 self.edited_cells = {}
                 return df
             
+            if self._skip_mods:
+                self.edited_cells = {}
+                return df
+            
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = SqlTableName(mods_table)
@@ -1664,8 +1681,9 @@ class ConfigInstance:
             
             df = pd.DataFrame(response.data)
             
-            # Clean up any corrupted modifications before applying
-            self._cleanup_corrupted_modifications_datum()
+            if not self._skip_mods:
+                # Clean up any corrupted modifications before applying
+                self._cleanup_corrupted_modifications_datum()
             
             # Apply field modifications to the data (also optimized)
             df = self._apply_field_modifications_datum(df, client)
@@ -1684,6 +1702,10 @@ class ConfigInstance:
         """
         try:
             if df.empty:
+                self.edited_cells = {}
+                return df
+            
+            if self._skip_mods:
                 self.edited_cells = {}
                 return df
             
@@ -1805,6 +1827,10 @@ class ConfigInstance:
         Args:
             force_refresh: If True, bypass cache and reload from DB
         """
+        # When approval workflow is disabled, skip all mods DB queries
+        if self._skip_mods:
+            return []
+        
         import time
         
         # Use cached data if available and not expired (cache for 5 seconds)
