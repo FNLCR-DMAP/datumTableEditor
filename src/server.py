@@ -1609,20 +1609,23 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Build a live countdown span driven by JS
             countdown_el = ui.span()
             try:
+                import time as _srv_time
                 cache_epoch = config._synthesis_age_cache_time
-                if cache_epoch > 0 and ttl > 0:
+                # Fallback: if cache field wasn't populated, try to derive it
+                if cache_epoch <= 0:
+                    age_min = config._get_synthesis_age_minutes()
+                    if age_min is not None:
+                        cache_epoch = _srv_time.time() - age_min * 60
+                    else:
+                        # Last resort: assume created just now
+                        cache_epoch = _srv_time.time()
+                if cache_epoch > 0:
                     countdown_el = ui.span(
                         id="synthesis-countdown",
-                        **{"data-created": str(cache_epoch), "data-ttl": str(ttl)}
+                        **{"data-created": f"{cache_epoch:.3f}", "data-ttl": str(ttl)}
                     )
-                elif cache_epoch > 0:
-                    # No TTL — just show age
-                    countdown_el = ui.span(
-                        id="synthesis-countdown",
-                        **{"data-created": str(cache_epoch), "data-ttl": "0"}
-                    )
-            except Exception:
-                pass
+            except Exception as _ce:
+                print(f"[Synthesis] Countdown element error: {_ce}")
             status_children = [
                 ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}.",
                      style="color: #28a745; font-weight: 500;"),
