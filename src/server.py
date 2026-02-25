@@ -132,9 +132,32 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Check if lazy loading is enabled
     is_lazy_loading = config.is_lazy_loading
     
+    # ----- Auto-synthesis: try cached synthesis table on startup -----
+    _synthesis_autoloaded = False
+    _synthesis_needs_generate = False
+    if app_config.enable_synthesis and app_config.synthesis.query:
+        try:
+            age = config._get_synthesis_age_minutes()
+            ttl = app_config.synthesis.ttl_minutes
+            if age is not None and (ttl > 0 and age < ttl):
+                # Fresh cache exists — load it directly, skip main table
+                result_table = config.get_synthesis_table_name()
+                initial_df = config._read_synthesis_table(result_table)
+                total_row_count = len(initial_df)
+                _synthesis_autoloaded = True
+                print(f"[Synthesis] Auto-loaded cached table ({age:.0f} min old, TTL {ttl} min) — {total_row_count} rows")
+            else:
+                reason = f"expired ({age:.0f} min old)" if age is not None else "missing"
+                print(f"[Synthesis] Cache {reason} — will auto-generate after startup")
+                _synthesis_needs_generate = True
+        except Exception as e:
+            print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")
+
     # Load fresh data from source (database) on each session
     # This ensures browser refresh gets the latest data
-    if is_lazy_loading:
+    if _synthesis_autoloaded:
+        pass  # Already loaded the synthesis table above
+    elif is_lazy_loading:
         # In lazy loading mode, start with empty dataframe - data fetched on demand
         initial_df = config.df  # Empty dataframe with correct columns
         total_row_count = config.total_row_count
@@ -236,12 +259,50 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     search_state = reactive.Value({"term": "", "column": "all"})
     
     # ----- Synthesis state -----
-    synthesis_active = reactive.Value(False)        # True when viewing synthesized data
+    synthesis_active = reactive.Value(_synthesis_autoloaded)   # True if auto-loaded from cache
     synthesis_running = reactive.Value(False)        # True while transform is executing
-    synthesis_data = reactive.Value(pd.DataFrame())  # The synthesized DataFrame
+    synthesis_data = reactive.Value(initial_df if _synthesis_autoloaded else pd.DataFrame())
     synthesis_error = reactive.Value("")             # Error message if transform failed
-    synthesis_cached = reactive.Value(False)          # True if last result was from cache
+    synthesis_cached = reactive.Value(_synthesis_autoloaded)   # True if last result was from cache
     enable_synthesis = app_config.enable_synthesis
+
+    # Auto-generate synthesis if cache was expired/missing on startup
+    _synthesis_auto_triggered = {"done": False}
+
+    @reactive.Effect
+    async def _auto_generate_synthesis():
+        """Trigger synthesis generation automatically when cache is stale."""
+        import asyncio
+        if _synthesis_auto_triggered["done"] or not _synthesis_needs_generate:
+            return
+        _synthesis_auto_triggered["done"] = True
+        synthesis_running.set(True)
+        synthesis_error.set("")
+        try:
+            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            synthesis_data.set(result_df)
+            synthesis_cached.set(was_cached)
+            synthesis_active.set(True)
+            data.set(result_df)
+            total_rows.set(len(result_df))
+            filtered_row_count.set(len(result_df))
+            current_page.set(1)
+            cache_msg = " (cached)" if was_cached else ""
+            print(f"[Synthesis] Auto-generated{cache_msg} — {len(result_df):,} rows")
+            ui.notification_show(
+                f"Synthesis ready{cache_msg} — {len(result_df):,} rows",
+                type="message", duration=4
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            synthesis_error.set(str(e))
+            ui.notification_show(
+                f"Synthesis auto-generation failed: {e}",
+                type="error", duration=6
+            )
+        finally:
+            synthesis_running.set(False)
     
     # Helper function to get PKs for selected row indices
     def _get_selected_pks(row_indices, current_df):
