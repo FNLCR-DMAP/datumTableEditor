@@ -1679,7 +1679,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             except Exception as _ce:
                 print(f"[Synthesis] Countdown error: {_ce}")
             status_children = [
-                ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}.",
+                ui.p("Transform complete", ui.tags.br(),
+                     f"{len(synth_df):,} rows returned{cache_note}.",
                      style="color: #28a745; font-weight: 500;"),
             ]
             if countdown_html:
