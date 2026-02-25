@@ -246,6 +246,7 @@ class DatumClient:
         database: Optional[str] = None,
         schema: Optional[str] = None,
         service_name: str = "postgres_sql",
+        allow_destructive: bool = False,
     ) -> PostgresSqlResponse:
         """
         Execute arbitrary SQL against the PostgreSQL service via Datum proxy.
@@ -255,12 +256,15 @@ class DatumClient:
             database: Optional database name (default: service default)
             schema: Optional schema name for search_path
             service_name: Datum service name (default: postgres_sql)
+            allow_destructive: If True, skip the SQL safety gate (e.g. for
+                synthesis DROP + CREATE TABLE AS).  Use with care.
             
         Returns:
             PostgresSqlResponse with columns, data, and row_count
         """
         # Safety gate: reject destructive SQL before it leaves the process
-        validate_sql_safety(sql)
+        if not allow_destructive:
+            validate_sql_safety(sql)
         
         request = PostgresSqlRequest(sql=sql, database=database, schema_=schema)
         body_dict = request.model_dump(by_alias=True, exclude_none=True)

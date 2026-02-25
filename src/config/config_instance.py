@@ -2005,7 +2005,8 @@ class ConfigInstance:
                 pass
 
         client.execute_sql(sql=f"DROP TABLE IF EXISTS {result_table_sql}",
-                           database=db, schema=schema, service_name=svc)
+                           database=db, schema=schema, service_name=svc,
+                           allow_destructive=True)
         client.execute_sql(sql=f"CREATE TABLE {result_table_sql} AS ({synthesis_query})",
                            database=db, schema=schema, service_name=svc)
 

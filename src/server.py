@@ -157,6 +157,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # This ensures browser refresh gets the latest data
     if _synthesis_autoloaded:
         pass  # Already loaded the synthesis table above
+    elif _synthesis_needs_generate:
+        # Synthesis enabled but cache missing/expired — start with empty frame;
+        # the reactive effect will auto-generate and swap in the result.
+        initial_df = pd.DataFrame()
+        total_row_count = 0
+        print("[Synthesis] Skipping main table load — will auto-generate")
     elif is_lazy_loading:
         # In lazy loading mode, start with empty dataframe - data fetched on demand
         initial_df = config.df  # Empty dataframe with correct columns
