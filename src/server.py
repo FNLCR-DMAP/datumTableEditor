@@ -142,33 +142,37 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     if app_config.enable_synthesis and app_config.synthesis.query:
         try:
             if config.check_synthesis_table_exists():
-                # Table exists — load it directly, skip main table
+                # Table exists — check TTL before serving stale data
                 result_table = config.get_synthesis_table_name()
                 # Mark schema as verified (table exists → schema exists)
                 if '.' in result_table:
                     config._schemas_verified.add(result_table.split('.', 1)[0])
-                initial_df = config._read_synthesis_table(result_table)
-                total_row_count = len(initial_df)
-                _synthesis_autoloaded = True
-                # Populate columns from synthesis result (base table was skipped)
-                if not all_columns and len(initial_df.columns) > 0:
-                    all_columns = list(initial_df.columns)
-                    display_columns = list(initial_df.columns)
-                    config.all_columns = all_columns
-                    config.display_columns = display_columns
                 age = config._get_synthesis_age_minutes()
-                # If no comment exists (pre-existing table), stamp it now
+                # Stamp comment if missing (pre-existing matview)
                 if age is None:
                     import time as _time
-                    result_table_sql = config.get_synthesis_table_name()
                     from .config.config_instance import SqlTableName
-                    config._stamp_synthesis_comment(SqlTableName(result_table_sql), _time.time())
+                    config._stamp_synthesis_comment(SqlTableName(result_table), _time.time())
                     age = 0.0
-                    print(f"[Synthesis] Auto-loaded cached table (stamped missing comment) — {total_row_count} rows")
+                ttl = app_config.synthesis.ttl_minutes
+                if ttl > 0 and age > ttl:
+                    # Expired — trigger refresh via run_synthesis() (which does REFRESH MATERIALIZED VIEW)
+                    print(f"[Synthesis] Matview expired ({age:.0f} min > {ttl} min TTL) — will refresh after startup")
+                    _synthesis_needs_generate = True
                 else:
-                    print(f"[Synthesis] Auto-loaded cached table ({age:.0f} min old) — {total_row_count} rows")
+                    # Within TTL — serve cached matview
+                    initial_df = config._read_synthesis_table(result_table)
+                    total_row_count = len(initial_df)
+                    _synthesis_autoloaded = True
+                    # Populate columns from synthesis result (base table was skipped)
+                    if not all_columns and len(initial_df.columns) > 0:
+                        all_columns = list(initial_df.columns)
+                        display_columns = list(initial_df.columns)
+                        config.all_columns = all_columns
+                        config.display_columns = display_columns
+                    print(f"[Synthesis] Auto-loaded cached matview ({age:.0f} min old, TTL {ttl} min) — {total_row_count} rows")
             else:
-                print(f"[Synthesis] Table missing — will auto-generate after startup")
+                print(f"[Synthesis] Matview missing — will auto-generate after startup")
                 _synthesis_needs_generate = True
         except Exception as e:
             print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")

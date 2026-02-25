@@ -172,7 +172,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             
             # Left Panel - Sidebar
             ui.div(
-                ui.tags.button("◀", class_="toggle-btn", onclick="toggleLeftPanel()"),
+                ui.tags.button("◀", class_="toggle-btn", onclick="toggleLeftPanel(event)"),
                 ui.div(
                     # Table Name Section
                     ui.div(
