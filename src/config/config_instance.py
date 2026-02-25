@@ -1059,6 +1059,18 @@ class ConfigInstance:
         self.data_dir = project_root / "data"
         # Note: Directory created lazily when needed for exports
         
+        # When synthesis is enabled with a query, skip loading the base table
+        # entirely.  The server layer will load the synthesis result table or
+        # trigger generation instead.
+        if (getattr(self.app_config, 'enable_synthesis', False)
+                and getattr(self.app_config.synthesis, 'query', '')):
+            self.df = pd.DataFrame()
+            self.all_columns = []
+            self.display_columns = []
+            self.modifications_log_path = self.data_dir / "modifications_log.json"
+            print(f"[Synthesis] Skipping base table load — synthesis mode active")
+            return
+
         # Check if lazy loading is enabled
         if self.app_config.database.lazy_loading:
             # Lazy loading mode: only get metadata, fetch data on demand
@@ -1910,8 +1922,14 @@ class ConfigInstance:
         # If the table already exists, just read it
         if self.check_synthesis_table_exists():
             age = self._get_synthesis_age_minutes()
-            age_str = f"{age:.0f} min old" if age is not None else "age unknown"
-            print(f"[Synthesis] Cache hit — table exists ({age_str})")
+            # If no comment exists (pre-existing table), stamp it now
+            if age is None:
+                result_table_sql = SqlTableName(result_table)
+                self._stamp_synthesis_comment(result_table_sql, _time.time())
+                age = 0.0
+                print(f"[Synthesis] Cache hit — table exists (stamped missing comment)")
+            else:
+                print(f"[Synthesis] Cache hit — table exists ({age:.0f} min old)")
             return self._read_synthesis_table(result_table), True
 
         # Table doesn't exist — create it
@@ -3317,3 +3335,22 @@ def load_config_instance(config_path: str = "app_config.json", username: str = "
         ConfigInstance with loaded config and data
     """
     return ConfigInstance(config_path=config_path, username=username)
+
+
+def load_config_only(config_path: str = "app_config.json") -> 'AppConfig':
+    """Load only the AppConfig (no DB queries, no data, no engine).
+
+    This is used by the UI layer which only needs feature flags, titles,
+    column lists etc. — never actual row data.  Avoids the heavy
+    ``_load_all()`` path that fires DB queries for every tab at import time.
+
+    Returns:
+        AppConfig dataclass instance
+    """
+    from .app_config_schema import load_config
+
+    config_file = Path(config_path)
+    if not config_file.is_absolute():
+        config_file = Path.cwd() / config_file
+
+    return load_config(str(config_file).strip())

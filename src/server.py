@@ -143,9 +143,23 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 initial_df = config._read_synthesis_table(result_table)
                 total_row_count = len(initial_df)
                 _synthesis_autoloaded = True
+                # Populate columns from synthesis result (base table was skipped)
+                if not all_columns and len(initial_df.columns) > 0:
+                    all_columns = list(initial_df.columns)
+                    display_columns = list(initial_df.columns)
+                    config.all_columns = all_columns
+                    config.display_columns = display_columns
                 age = config._get_synthesis_age_minutes()
-                age_str = f"{age:.0f} min old" if age is not None else "age unknown"
-                print(f"[Synthesis] Auto-loaded cached table ({age_str}) — {total_row_count} rows")
+                # If no comment exists (pre-existing table), stamp it now
+                if age is None:
+                    import time as _time
+                    result_table_sql = config.get_synthesis_table_name()
+                    from .config.config_instance import SqlTableName
+                    config._stamp_synthesis_comment(SqlTableName(result_table_sql), _time.time())
+                    age = 0.0
+                    print(f"[Synthesis] Auto-loaded cached table (stamped missing comment) — {total_row_count} rows")
+                else:
+                    print(f"[Synthesis] Auto-loaded cached table ({age:.0f} min old) — {total_row_count} rows")
             else:
                 print(f"[Synthesis] Table missing — will auto-generate after startup")
                 _synthesis_needs_generate = True
@@ -292,6 +306,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
+            # Populate columns from synthesis result if base table was skipped
+            if not config.all_columns and len(result_df.columns) > 0:
+                config.all_columns = list(result_df.columns)
+                config.display_columns = list(result_df.columns)
+                active_columns.set(list(result_df.columns))
             cache_msg = " (cached)" if was_cached else ""
             print(f"[Synthesis] Auto-generated{cache_msg} — {len(result_df):,} rows")
             ui.notification_show(
@@ -1601,24 +1620,51 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                      style="color: #666; font-size: 13px;"),
                 class_="synthesis-status-area"
             )
-        # Not active — check if a cached table exists and show info
+        # Not active — show cache info and what "Run Transform" will do
         if enable_synthesis:
             try:
-                age = config._get_synthesis_age_minutes()
+                table_exists = config.check_synthesis_table_exists()
                 ttl = app_config.synthesis.ttl_minutes
-                if age is not None:
-                    fresh = ttl > 0 and age < ttl
-                    status_color = "#28a745" if fresh else "#dc3545"
-                    status_word = "fresh" if fresh else "expired"
+                if table_exists:
+                    age = config._get_synthesis_age_minutes()
+                    if age is not None:
+                        age_text = f"{age:.0f} min" if age >= 1 else f"{age * 60:.0f}s"
+                        ttl_text = f"TTL: {ttl} min." if ttl > 0 else ""
+                        return ui.div(
+                            ui.p(
+                                ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #28a745;"),
+                                f"Cached result available — {age_text} old. {ttl_text}",
+                                style="color: #28a745; font-size: 13px; font-weight: 500;"
+                            ),
+                            ui.p(
+                                'Click "Run Transform" to load the cached table instantly.',
+                                style="color: #666; font-size: 13px;"
+                            ),
+                            class_="synthesis-status-area"
+                        )
+                    else:
+                        return ui.div(
+                            ui.p(
+                                ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #17a2b8;"),
+                                "Cached result table exists.",
+                                style="color: #17a2b8; font-size: 13px; font-weight: 500;"
+                            ),
+                            ui.p(
+                                'Click "Run Transform" to load it.',
+                                style="color: #666; font-size: 13px;"
+                            ),
+                            class_="synthesis-status-area"
+                        )
+                else:
+                    ttl_note = f" Result will be cached for {ttl} min." if ttl > 0 else ""
                     return ui.div(
                         ui.p(
-                            f"Cached result exists ({age:.0f} min old, {status_word}). ",
-                            f"TTL: {ttl} min." if ttl > 0 else "TTL: always regenerate.",
-                            style=f"color: {status_color}; font-size: 13px;"
+                            ui.tags.i(class_="fa fa-info-circle", style="margin-right: 6px; color: #6c757d;"),
+                            "No cached result.",
+                            style="color: #6c757d; font-size: 13px; font-weight: 500;"
                         ),
                         ui.p(
-                            'Click "Run Transform" to '
-                            + ("use the cached result." if fresh else "regenerate."),
+                            f'Click "Run Transform" to execute the synthesis query and create the table.{ttl_note}',
                             style="color: #666; font-size: 13px;"
                         ),
                         class_="synthesis-status-area"

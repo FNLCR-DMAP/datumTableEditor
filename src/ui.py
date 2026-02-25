@@ -62,26 +62,29 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     Args:
         config_path: Path to the config JSON file
     """
-    # Load config for this instance
-    from .config.config_instance import load_config_instance
-    config = load_config_instance(config_path)
-    all_columns = config.all_columns
-    column_masks = config.app_config.table.column_masks or {}
+    # Load config only (no DB queries) — the UI just needs feature flags and titles
+    from .config.config_instance import load_config_only
+    app_config = load_config_only(config_path)
+
+    # Use default_columns from config for the initial search dropdown.
+    # The server will have the real column list from the actual data.
+    all_columns = app_config.table.default_columns or []
+    column_masks = app_config.table.column_masks or {}
     
     # Get titles from config
-    app_title = config.app_config.app_title or "Data Editor"
-    table_title = config.app_config.table.title or app_title
+    app_title = app_config.app_title or "Data Editor"
+    table_title = app_config.table.title or app_title
     
     # Feature flags
-    enable_approval_workflow = config.app_config.enable_approval_workflow
-    enable_save_button = config.app_config.enable_save_button
-    enable_export = config.app_config.enable_export
-    enable_status_filter = config.app_config.enable_status_filter
-    enable_synthesis = config.app_config.enable_synthesis
-    synthesis_label = config.app_config.synthesis.label or "Synthesis"
+    enable_approval_workflow = app_config.enable_approval_workflow
+    enable_save_button = app_config.enable_save_button
+    enable_export = app_config.enable_export
+    enable_status_filter = app_config.enable_status_filter
+    enable_synthesis = app_config.enable_synthesis
+    synthesis_label = app_config.synthesis.label or "Synthesis"
     
     # Status labels from config
-    status_labels = config.app_config.status_labels
+    status_labels = app_config.status_labels
     status_choices = {k: v for k, v in status_labels.items()}
     status_all_keys = list(status_labels.keys())
     
