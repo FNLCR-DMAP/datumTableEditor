@@ -151,6 +151,18 @@
   "enable_copy_column": true,
   "enable_status_filter": true,
   "_enable_status_filter_comment": "Show status distribution and filter in sidebar",
+  "enable_synthesis": false,
+  "_enable_synthesis_comment": "Enable the Synthesis feature — a long-running SQL transform whose result is materialised into a temporary PostgreSQL table with configurable TTL",
+  "synthesis": {
+    "query": "",
+    "_query_comment": "The SQL SELECT query to execute. Result is materialised via CREATE TABLE AS. Not user-editable at runtime.",
+    "result_table_prefix": "_synthesis_result",
+    "_result_table_prefix_comment": "Name for the materialised result table (shared across users)",
+    "ttl_minutes": 10,
+    "_ttl_minutes_comment": "Cache lifetime in minutes. If a cached table exists within TTL, it is served instantly. 0 = always regenerate.",
+    "label": "Synthesis",
+    "_label_comment": "Human-readable label shown on the button and modal title"
+  },
   "status_labels": {
     "unprocessed": "Unreviewed",
     "edited": "Edited",

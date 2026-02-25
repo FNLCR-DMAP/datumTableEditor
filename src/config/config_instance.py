@@ -1812,6 +1812,256 @@ class ConfigInstance:
             print(f"⚠ Could not create mods table via Datum: {e}")
             return False
 
+    # ------------------------------------------------------------------
+    # Synthesis (long-running transform with TTL cache)
+    # ------------------------------------------------------------------
+
+    def get_synthesis_table_name(self) -> str:
+        """Return the fully-qualified name for the synthesis result table.
+
+        The table is shared across all users (no per-user suffix).
+        """
+        prefix = self.app_config.synthesis.result_table_prefix or "_synthesis_result"
+        # If the data_table has a schema prefix, reuse it
+        data_table = self.app_config.database.data_table
+        if "." in data_table:
+            schema = data_table.split(".", 1)[0]
+            return f"{schema}.{prefix}"
+        return prefix
+
+    def _get_synthesis_age_minutes(self) -> Optional[float]:
+        """Return age of the cached synthesis table in minutes, or None if missing.
+
+        The creation timestamp is stored as a ``COMMENT ON TABLE``.
+        """
+        import time as _time
+        result_table = self.get_synthesis_table_name()
+        result_table_sql = SqlTableName(result_table)
+        is_datum = self.app_config.database.mode == "datum"
+
+        # Parse schema/table for obj_description lookup
+        if "." in result_table:
+            schema_part, table_part = result_table.split(".", 1)
+        else:
+            schema_part, table_part = "public", result_table
+
+        comment_query = (
+            f"SELECT obj_description(c.oid) "
+            f"FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            f"WHERE n.nspname = {SqlLiteral(schema_part)} "
+            f"AND c.relname = {SqlLiteral(table_part)}"
+        )
+
+        try:
+            if is_datum:
+                from ..adapter.datum import DatumClient
+                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+                client = DatumClient(base_url=base_url, token=token)
+                response = client.execute_sql(
+                    sql=comment_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                rows = response.data
+                if not rows:
+                    return None
+                comment = rows[0].get("obj_description")
+            else:
+                from sqlalchemy import text
+                engine = self._get_engine()
+                with engine.connect() as conn:
+                    result = conn.execute(text(comment_query))
+                    row = result.fetchone()
+                    comment = row[0] if row else None
+
+            if not comment or not comment.startswith("synthesis_created_at:"):
+                return None
+            created_epoch = float(comment.split(":", 1)[1])
+            return (_time.time() - created_epoch) / 60.0
+        except Exception:
+            return None
+
+    def run_synthesis(self, force: bool = False) -> pd.DataFrame:
+        """Return the synthesis result, regenerating only if needed.
+
+        Cache logic:
+          1. Check if the synthesis table exists and read its age.
+          2. If within TTL (and not *force*) → read cached table instantly.
+          3. Otherwise → DROP + CREATE TABLE AS + stamp COMMENT → read.
+
+        The method is intentionally **synchronous** — the server layer
+        runs it inside ``asyncio.to_thread`` so the UI stays responsive.
+
+        Returns ``(df, was_cached)`` as a tuple so the UI can distinguish.
+        """
+        import time as _time
+
+        synthesis_query = self.app_config.synthesis.query
+        if not synthesis_query:
+            raise ValueError("No synthesis query configured")
+
+        ttl = self.app_config.synthesis.ttl_minutes
+        age = self._get_synthesis_age_minutes()
+
+        # Determine whether we can reuse the cached table
+        use_cache = (
+            not force
+            and age is not None
+            and (ttl > 0 and age < ttl)
+        )
+
+        result_table = self.get_synthesis_table_name()
+
+        if use_cache:
+            print(f"[Synthesis] Cache hit — table is {age:.1f} min old (TTL {ttl} min)")
+            return self._read_synthesis_table(result_table), True
+
+        # Need to (re)generate
+        result_table_sql = SqlTableName(result_table)
+        schema_sql = None
+        if "." in result_table:
+            schema = result_table.split(".", 1)[0]
+            schema_sql = str(SqlIdentifier(schema))
+
+        is_datum = self.app_config.database.mode == "datum"
+        start = _time.time()
+        reason = "expired" if age is not None else "missing"
+        print(f"[Synthesis] Cache {reason} — regenerating → {result_table_sql} ...")
+
+        if is_datum:
+            self._run_synthesis_datum(result_table_sql, schema_sql, synthesis_query)
+        else:
+            self._run_synthesis_direct(result_table_sql, schema_sql, synthesis_query)
+
+        # Stamp creation time as a table comment
+        self._stamp_synthesis_comment(result_table_sql, _time.time())
+
+        elapsed = _time.time() - start
+        print(f"[Synthesis] Transform completed in {elapsed:.1f}s")
+
+        return self._read_synthesis_table(result_table), False
+
+    def _stamp_synthesis_comment(self, result_table_sql, epoch: float):
+        """Store creation timestamp as COMMENT ON TABLE for TTL checking."""
+        comment = f"synthesis_created_at:{epoch}"
+        stmt = f"COMMENT ON TABLE {result_table_sql} IS {SqlLiteral(comment)}"
+        try:
+            if self.app_config.database.mode == "datum":
+                from ..adapter.datum import DatumClient
+                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+                client = DatumClient(base_url=base_url, token=token)
+                client.execute_sql(
+                    sql=stmt,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+            else:
+                from sqlalchemy import text
+                engine = self._get_engine()
+                with engine.connect() as conn:
+                    conn.execute(text(stmt))
+                    conn.commit()
+        except Exception as e:
+            print(f"[Synthesis] Warning: could not stamp comment: {e}")
+
+    def _run_synthesis_direct(self, result_table_sql, schema_sql, synthesis_query):
+        """Materialise the synthesis query via direct SQLAlchemy."""
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        if engine is None:
+            raise RuntimeError("No database engine available")
+
+        with engine.connect() as conn:
+            if schema_sql:
+                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}"))
+            conn.execute(text(f"DROP TABLE IF EXISTS {result_table_sql}"))
+            conn.execute(text(f"CREATE TABLE {result_table_sql} AS ({synthesis_query})"))
+            conn.commit()
+
+    def _run_synthesis_datum(self, result_table_sql, schema_sql, synthesis_query):
+        """Materialise the synthesis query via Datum proxy."""
+        from ..adapter.datum import DatumClient
+
+        base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+        token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+        if not base_url or not token:
+            raise RuntimeError("Datum credentials not configured")
+
+        client = DatumClient(base_url=base_url, token=token)
+        db = self.app_config.database.datum_database
+        schema = self.app_config.database.datum_schema
+        svc = self.app_config.database.datum_service_name
+
+        if schema_sql:
+            try:
+                client.execute_sql(sql=f"CREATE SCHEMA IF NOT EXISTS {schema_sql}",
+                                   database=db, schema=schema, service_name=svc)
+            except Exception:
+                pass
+
+        client.execute_sql(sql=f"DROP TABLE IF EXISTS {result_table_sql}",
+                           database=db, schema=schema, service_name=svc)
+        client.execute_sql(sql=f"CREATE TABLE {result_table_sql} AS ({synthesis_query})",
+                           database=db, schema=schema, service_name=svc)
+
+    def _read_synthesis_table(self, result_table: str) -> pd.DataFrame:
+        """Read the full synthesis result table into a DataFrame."""
+        result_table_sql = SqlTableName(result_table)
+        query = f"SELECT * FROM {result_table_sql}"
+
+        is_datum = self.app_config.database.mode == "datum"
+        if is_datum:
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            client = DatumClient(base_url=base_url, token=token)
+            response = client.execute_sql(
+                sql=query,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return pd.DataFrame(response.data)
+        else:
+            from sqlalchemy import text
+            engine = self._get_engine()
+            with engine.connect() as conn:
+                result = conn.execute(text(query))
+                rows = result.fetchall()
+                columns = list(result.keys())
+            return pd.DataFrame(rows, columns=columns)
+
+    def check_synthesis_table_exists(self) -> bool:
+        """Return True if the synthesis result table exists (regardless of TTL)."""
+        result_table = self.get_synthesis_table_name()
+        result_table_sql = SqlTableName(result_table)
+        try:
+            if self.app_config.database.mode == "datum":
+                from ..adapter.datum import DatumClient
+                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+                client = DatumClient(base_url=base_url, token=token)
+                client.execute_sql(
+                    sql=f"SELECT 1 FROM {result_table_sql} LIMIT 1",
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                return True
+            else:
+                from sqlalchemy import text
+                engine = self._get_engine()
+                with engine.connect() as conn:
+                    conn.execute(text(f"SELECT 1 FROM {result_table_sql} LIMIT 1"))
+                return True
+        except Exception:
+            return False
+
     def _load_modifications_from_datum(self) -> List[Dict]:
         """Load modifications via Datum proxy."""
         try:

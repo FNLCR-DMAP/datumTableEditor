@@ -235,6 +235,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Search state - updated only when search button is clicked
     search_state = reactive.Value({"term": "", "column": "all"})
     
+    # ----- Synthesis state -----
+    synthesis_active = reactive.Value(False)        # True when viewing synthesized data
+    synthesis_running = reactive.Value(False)        # True while transform is executing
+    synthesis_data = reactive.Value(pd.DataFrame())  # The synthesized DataFrame
+    synthesis_error = reactive.Value("")             # Error message if transform failed
+    synthesis_cached = reactive.Value(False)          # True if last result was from cache
+    enable_synthesis = app_config.enable_synthesis
+    
     # Helper function to get PKs for selected row indices
     def _get_selected_pks(row_indices, current_df):
         """Convert row indices (DataFrame labels) to list of PK dicts"""
@@ -1456,3 +1464,151 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _clear_approval():
         approval_status.set(None)
         approval_timestamp.set(None)
+
+    # ------------------------------------------------------------------
+    # Synthesis handlers
+    # ------------------------------------------------------------------
+
+    @render.ui
+    def synthesis_query_preview():
+        """Render the synthesis SQL query as a read-only code block."""
+        if not enable_synthesis:
+            return ui.div()
+        query_text = app_config.synthesis.query or "(no query configured)"
+        return ui.tags.pre(
+            ui.tags.code(query_text),
+            class_="synthesis-query-code"
+        )
+
+    @render.ui
+    def synthesis_mode_banner():
+        """Show a banner when the user is viewing synthesized data."""
+        if not synthesis_active.get():
+            return ui.div()
+        label = app_config.synthesis.label or "Synthesis"
+        return ui.div(
+            ui.tags.i(class_="fa fa-flask", style="margin-right: 6px;"),
+            f"You are viewing the {label} result table. ",
+            "Filters and search operate on the synthesized data. ",
+            "Click \"Exit Synthesis Mode\" to return to the original table.",
+            class_="synthesis-mode-banner"
+        )
+
+    @render.ui
+    def synthesis_status():
+        """Show progress / error / success status inside the modal."""
+        if synthesis_running.get():
+            return ui.div(
+                ui.div(class_="synthesis-spinner"),
+                ui.p("Synthesizing report, please wait…",
+                     style="margin-top: 10px; font-weight: 500;"),
+                ui.p("This may take 3–5 minutes.",
+                     style="color: #666; font-size: 13px;"),
+                class_="synthesis-status-area"
+            )
+        err = synthesis_error.get()
+        if err:
+            return ui.div(
+                ui.p("Transform failed:", style="color: #dc3545; font-weight: 600;"),
+                ui.tags.pre(err, style="color: #dc3545; font-size: 12px; white-space: pre-wrap;"),
+                class_="synthesis-status-area"
+            )
+        if synthesis_active.get():
+            synth_df = synthesis_data.get()
+            was_cached = synthesis_cached.get()
+            cache_note = " (served from cache)" if was_cached else " (freshly generated)"
+            # Show table age if available
+            age_info = ""
+            try:
+                age = config._get_synthesis_age_minutes()
+                if age is not None:
+                    if age < 1:
+                        age_info = f" — generated {age * 60:.0f}s ago"
+                    else:
+                        age_info = f" — generated {age:.0f} min ago"
+            except Exception:
+                pass
+            return ui.div(
+                ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}{age_info}.",
+                     style="color: #28a745; font-weight: 500;"),
+                ui.p("Close this modal to interact with the synthesized table.",
+                     style="color: #666; font-size: 13px;"),
+                class_="synthesis-status-area"
+            )
+        # Not active — check if a cached table exists and show info
+        if enable_synthesis:
+            try:
+                age = config._get_synthesis_age_minutes()
+                ttl = app_config.synthesis.ttl_minutes
+                if age is not None:
+                    fresh = ttl > 0 and age < ttl
+                    status_color = "#28a745" if fresh else "#dc3545"
+                    status_word = "fresh" if fresh else "expired"
+                    return ui.div(
+                        ui.p(
+                            f"Cached result exists ({age:.0f} min old, {status_word}). ",
+                            f"TTL: {ttl} min." if ttl > 0 else "TTL: always regenerate.",
+                            style=f"color: {status_color}; font-size: 13px;"
+                        ),
+                        ui.p(
+                            'Click "Run Transform" to '
+                            + ("use the cached result." if fresh else "regenerate."),
+                            style="color: #666; font-size: 13px;"
+                        ),
+                        class_="synthesis-status-area"
+                    )
+            except Exception:
+                pass
+        return ui.div()
+
+    @reactive.Effect
+    @reactive.event(input.synthesis_run_btn)
+    async def _run_synthesis():
+        """Execute the synthesis transform (async to keep UI responsive)."""
+        import asyncio
+        if not enable_synthesis:
+            return
+        synthesis_running.set(True)
+        synthesis_error.set("")
+        try:
+            # run_synthesis returns (df, was_cached)
+            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            synthesis_data.set(result_df)
+            synthesis_cached.set(was_cached)
+            synthesis_active.set(True)
+            # Switch the main table to show synthesis data
+            data.set(result_df)
+            total_rows.set(len(result_df))
+            filtered_row_count.set(len(result_df))
+            current_page.set(1)
+            cache_msg = " (cached)" if was_cached else ""
+            ui.notification_show(
+                f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
+                type="message", duration=4
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            synthesis_error.set(str(e))
+        finally:
+            synthesis_running.set(False)
+
+    @reactive.Effect
+    @reactive.event(input.synthesis_exit_btn)
+    def _exit_synthesis():
+        """Exit synthesis mode and restore the original data table."""
+        synthesis_active.set(False)
+        synthesis_data.set(pd.DataFrame())
+        synthesis_error.set("")
+        # Reload original data
+        if is_lazy_loading:
+            data.set(config.df)
+            total_rows.set(config.total_row_count)
+            filtered_row_count.set(config.total_row_count)
+        else:
+            fresh = load_data_from_source() if app_config.database.enabled else df_original.copy()
+            data.set(fresh)
+            total_rows.set(len(fresh))
+            filtered_row_count.set(len(fresh))
+        current_page.set(1)
+        ui.notification_show("Returned to original table", type="message", duration=3)

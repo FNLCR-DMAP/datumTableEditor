@@ -18,6 +18,7 @@ def _load_css_files() -> str:
         "table.css",
         "pagination.css",
         "log.css",
+        "synthesis.css",
     ]
     
     combined_css = []
@@ -41,6 +42,7 @@ def _load_js_files() -> str:
         "histogram.js",
         "cell-edit.js",
         "row-selection.js",
+        "synthesis.js",
     ]
     
     combined_js = []
@@ -75,6 +77,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     enable_save_button = config.app_config.enable_save_button
     enable_export = config.app_config.enable_export
     enable_status_filter = config.app_config.enable_status_filter
+    enable_synthesis = config.app_config.enable_synthesis
+    synthesis_label = config.app_config.synthesis.label or "Synthesis"
     
     # Status labels from config
     status_labels = config.app_config.status_labels
@@ -248,6 +252,11 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
                         ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows()"),
+                        ui.tags.button(
+                            synthesis_label,
+                            class_="btn btn-sm btn-outline-warning synthesis-btn",
+                            onclick="openSynthesisModal(event)"
+                        ) if enable_synthesis else None,
                         class_="toolbar-left"
                     ),
                     # Right side - Preset dropdown + Add Column button
@@ -482,6 +491,55 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     class_="modal-overlay",
                     id="log-modal"
                 ),
+                
+                # Synthesis Modal (conditionally rendered)
+                ui.div(
+                    ui.div(
+                        ui.div(
+                            ui.h3(synthesis_label if enable_synthesis else "Synthesis"),
+                            ui.tags.button("×", class_="modal-close", onclick="closeSynthesisModal()"),
+                            class_="modal-header"
+                        ),
+                        ui.div(
+                            # Synthesis mode banner (shown when viewing synthesized data)
+                            ui.output_ui("synthesis_mode_banner"),
+                            # Query preview
+                            ui.div(
+                                ui.h5("Transform Query", style="margin-bottom: 8px;"),
+                                ui.output_ui("synthesis_query_preview"),
+                                class_="synthesis-query-section"
+                            ),
+                            # Status/progress area
+                            ui.output_ui("synthesis_status"),
+                            class_="modal-body"
+                        ),
+                        ui.div(
+                            ui.tags.button(
+                                "Cancel",
+                                class_="btn btn-secondary",
+                                onclick="closeSynthesisModal()",
+                                style="margin-right: 10px;"
+                            ),
+                            ui.input_action_button(
+                                "synthesis_run_btn",
+                                "Run Transform",
+                                class_="btn btn-warning"
+                            ),
+                            ui.input_action_button(
+                                "synthesis_exit_btn",
+                                "Exit Synthesis Mode",
+                                class_="btn btn-outline-secondary",
+                                style="display: none;"
+                            ),
+                            style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;",
+                            id="synthesis-modal-footer"
+                        ),
+                        class_="modal-content",
+                        style="max-width: 700px;"
+                    ),
+                    class_="modal-overlay",
+                    id="synthesis-modal"
+                ) if enable_synthesis else None,
                 
                 class_="right-panel"
             ),
