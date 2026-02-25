@@ -1606,37 +1606,62 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             was_cached = synthesis_cached.get()
             cache_note = " (served from cache)" if was_cached else " (freshly generated)"
             ttl = app_config.synthesis.ttl_minutes
-            # Build a live countdown span driven by JS
-            countdown_el = ui.span()
+            # Build a live countdown driven by inline JS (guaranteed to run on Shiny render)
+            countdown_html = ""
             try:
                 import time as _srv_time
                 cache_epoch = config._synthesis_age_cache_time
-                # Fallback: if cache field wasn't populated, try to derive it
                 if cache_epoch <= 0:
                     age_min = config._get_synthesis_age_minutes()
                     if age_min is not None:
                         cache_epoch = _srv_time.time() - age_min * 60
                     else:
-                        # Last resort: assume created just now
                         cache_epoch = _srv_time.time()
-                if cache_epoch > 0:
-                    countdown_el = ui.span(
-                        id="synthesis-countdown",
-                        **{"data-created": f"{cache_epoch:.3f}", "data-ttl": str(ttl)}
-                    )
+                countdown_html = f"""
+                <p style="color: #555; font-size: 13px; margin-top: 4px;">
+                  <i class="fa fa-clock-o" style="margin-right: 5px;"></i>
+                  <span id="synthesis-countdown"></span>
+                </p>
+                <script>
+                (function() {{
+                  var created = {cache_epoch:.3f};
+                  var ttl = {ttl};
+                  var el = document.getElementById('synthesis-countdown');
+                  if (!el) return;
+                  function fmt(sec) {{
+                    sec = Math.max(0, Math.round(sec));
+                    if (sec < 60) return sec + 's';
+                    var m = Math.floor(sec / 60), s = sec % 60;
+                    return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+                  }}
+                  function tick() {{
+                    var age = Date.now() / 1000 - created;
+                    var parts = ['Cache age: ' + fmt(age)];
+                    if (ttl > 0) {{
+                      var rem = ttl * 60 - age;
+                      parts.push(rem > 0 ? 'expires in ' + fmt(rem) : 'expired');
+                    }}
+                    el.textContent = parts.join(' \\u00b7 ');
+                  }}
+                  tick();
+                  var iv = setInterval(tick, 1000);
+                  var obs = new MutationObserver(function() {{
+                    if (!document.getElementById('synthesis-countdown')) {{
+                      clearInterval(iv); obs.disconnect();
+                    }}
+                  }});
+                  obs.observe(el.parentNode.parentNode, {{ childList: true, subtree: true }});
+                }})();
+                </script>
+                """
             except Exception as _ce:
-                print(f"[Synthesis] Countdown element error: {_ce}")
+                print(f"[Synthesis] Countdown error: {_ce}")
             status_children = [
                 ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}.",
                      style="color: #28a745; font-weight: 500;"),
             ]
-            status_children.append(
-                ui.p(
-                    ui.tags.i(class_="fa fa-clock-o", style="margin-right: 5px;"),
-                    countdown_el,
-                    style="color: #555; font-size: 13px; margin-top: 4px;"
-                )
-            )
+            if countdown_html:
+                status_children.append(ui.HTML(countdown_html))
             status_children.append(
                 ui.p("Close this modal to interact with the synthesized table.",
                      style="color: #666; font-size: 13px;")
