@@ -182,7 +182,7 @@ class DataFetcher:
     def _fetch_metadata(self):
         """Fetch table row count, column names, and column types."""
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
             
             count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
@@ -299,7 +299,7 @@ class DataFetcher:
     def _get_columns_from_schema_datum(self) -> List[str]:
         """Get column names from information_schema via Datum."""
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             schema = "public"
             table_name = data_table
             if "." in data_table:
@@ -329,7 +329,7 @@ class DataFetcher:
         Falls back to an empty dict on error (all columns will CAST as before).
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             schema = "public"
             table_name = data_table
             if "." in data_table:
@@ -1162,6 +1162,51 @@ class ConfigInstance:
     def is_lazy_loading(self) -> bool:
         """Check if lazy loading is enabled."""
         return self._data_fetcher is not None
+
+    def activate_synthesis_fetcher(self, matview_table: str):
+        """Create (or reconfigure) a DataFetcher pointing at *matview_table*.
+
+        Called when entering synthesis mode so that SQL-level filtering,
+        sorting and pagination target the materialized view instead of
+        the original data table.
+
+        If a DataFetcher already exists it simply gets a table override.
+        If not (synthesis skipped lazy-loading init), one is created now
+        with the matview as the initial table.
+        """
+        if self._data_fetcher is None:
+            # Bootstrap a new DataFetcher.  Set _table_override *before*
+            # _fetch_metadata so introspection (count, columns, types) reads
+            # from the matview, not the (possibly non-existent) base table.
+            fetcher = DataFetcher.__new__(DataFetcher)
+            fetcher.app_config = self.app_config
+            fetcher._engine = None
+            fetcher._datum_client = None
+            fetcher._total_count = 0
+            fetcher._columns = []
+            fetcher._column_types = {}
+            fetcher._table_override = matview_table
+            fetcher._init_connection()
+            fetcher._fetch_metadata()          # introspects matview
+            self._data_fetcher = fetcher
+            # Populate columns if not already set (synthesis skipped base table)
+            if not self.all_columns and fetcher._columns:
+                self.all_columns = fetcher._columns.copy()
+                self.display_columns = fetcher._columns.copy()
+            # Row count already correct — override was in place during init
+            print(f"[DataFetcher] Created for synthesis → {matview_table} ({fetcher._total_count} rows)")
+        else:
+            self._data_fetcher.set_table_override(matview_table)
+
+    def deactivate_synthesis_fetcher(self):
+        """Restore the DataFetcher to the original data table (or remove it)."""
+        if self._data_fetcher is not None:
+            if self.app_config.database.lazy_loading:
+                # Original config uses lazy loading — just clear the override
+                self._data_fetcher.clear_table_override()
+            else:
+                # Original config doesn't use lazy loading — remove fetcher
+                self._data_fetcher = None
     
     @property
     def total_row_count(self) -> int:

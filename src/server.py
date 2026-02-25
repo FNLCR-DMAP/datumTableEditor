@@ -129,8 +129,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
     
-    # Check if lazy loading is enabled
-    is_lazy_loading = config.is_lazy_loading
+    # Check if lazy loading is enabled (at startup — may change when synthesis activates)
+    _initial_lazy_loading = config.is_lazy_loading
+
+    def is_lazy_loading():
+        """Dynamic check: True when config has an active DataFetcher."""
+        return config.is_lazy_loading
     
     # ----- Auto-synthesis: try cached synthesis table on startup -----
     _synthesis_autoloaded = False
@@ -179,7 +183,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         initial_df = pd.DataFrame()
         total_row_count = 0
         print("[Synthesis] Skipping main table load — will auto-generate")
-    elif is_lazy_loading:
+    elif _initial_lazy_loading:
         # In lazy loading mode, start with empty dataframe - data fetched on demand
         initial_df = config.df  # Empty dataframe with correct columns
         total_row_count = config.total_row_count
@@ -190,7 +194,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         total_row_count = len(initial_df)
     
     # Apply initial sorting if saved (only in non-lazy mode)
-    if not is_lazy_loading and ui_state.get("sort_column"):
+    if not _initial_lazy_loading and ui_state.get("sort_column"):
         initial_df = sort_dataframe(
             initial_df, 
             ui_state["sort_column"], 
@@ -288,9 +292,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     synthesis_cached = reactive.Value(_synthesis_autoloaded)   # True if last result was from cache
     enable_synthesis = app_config.enable_synthesis
 
-    # Point DataFetcher at the matview when synthesis was auto-loaded
-    if _synthesis_autoloaded and is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
-        config.data_fetcher.set_table_override(config.get_synthesis_table_name())
+    # Activate DataFetcher for synthesis matview when auto-loaded
+    if _synthesis_autoloaded:
+        config.activate_synthesis_fetcher(config.get_synthesis_table_name())
 
     # Auto-generate synthesis if cache was expired/missing on startup
     _synthesis_auto_triggered = {"done": False}
@@ -313,9 +317,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
-            # Point DataFetcher at the matview for SQL-level filtering
-            if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
-                config.data_fetcher.set_table_override(config.get_synthesis_table_name())
+            # Activate DataFetcher for SQL-level filtering on matview
+            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             # Populate columns from synthesis result if base table was skipped
             if not config.all_columns and len(result_df.columns) > 0:
                 config.all_columns = list(result_df.columns)
@@ -398,7 +401,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _get_status_counts():
         """Wrapper for get_status_counts that uses reactive values.
         In lazy loading mode, queries DB for overall counts instead of page-only."""
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Use DB query for full dataset status distribution
             params = _build_query_params()
             # Build params without status filters to get counts for all statuses
@@ -525,7 +528,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         In lazy loading mode: queries database
         In traditional mode: slices in-memory data
         """
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Build query params and fetch from DB
             params = _build_query_params()
             fetched_df = config.data_fetcher.fetch_page(params)
@@ -546,7 +549,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     def _fetch_all_filtered_data():
         """Fetch all data matching current filters (for export)."""
-        if is_lazy_loading:
+        if is_lazy_loading():
             params = _build_query_params(for_export=True)
             return config.data_fetcher.fetch_all_filtered(params)
         else:
@@ -599,7 +602,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Data summary text
     @render.text
     def data_summary():
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Use the full dataset count and all known columns
             total = total_rows.get()
             num_cols = len(config.all_columns)
@@ -859,7 +862,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render active dynamic filters"""
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
         _date_cols = set()
-        if is_lazy_loading and hasattr(config, 'data_fetcher'):
+        if is_lazy_loading() and hasattr(config, 'data_fetcher'):
             _date_cols = config.data_fetcher.date_columns
         else:
             df = data.get()
@@ -867,7 +870,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 if pd.api.types.is_datetime64_any_dtype(df[col]):
                     _date_cols.add(col)
         
-        if is_lazy_loading:
+        if is_lazy_loading():
             # In lazy mode, data.get() may be empty; pass all known columns
             # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
@@ -899,7 +902,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render list of columns that can be added as filters"""
         filters = active_filters.get()
         # In lazy mode, data.get() may have no columns; use config.all_columns
-        if is_lazy_loading:
+        if is_lazy_loading():
             all_cols = config.all_columns
         else:
             all_cols = list(data.get().columns)
@@ -1020,7 +1023,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def pagination_controls():
         """Render pagination controls with rows per page selector"""
-        if is_lazy_loading:
+        if is_lazy_loading():
             # In lazy loading mode, use the filtered count from the fetcher
             total_filtered = filtered_row_count.get()
         else:
@@ -1088,7 +1091,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.next_page_btn)
     def _next_page():
         # Get filtered count based on mode
-        if is_lazy_loading:
+        if is_lazy_loading():
             total_filtered = filtered_row_count.get()
         else:
             filtered_indices = _get_filtered_rows()
@@ -1116,7 +1119,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.last_page_btn)
     def _last_page():
         # Get filtered count based on mode
-        if is_lazy_loading:
+        if is_lazy_loading():
             total_filtered = filtered_row_count.get()
         else:
             filtered_indices = _get_filtered_rows()
@@ -1141,7 +1144,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.page_jump_btn)
     def _page_jump():
         # Get filtered count based on mode
-        if is_lazy_loading:
+        if is_lazy_loading():
             total_filtered = filtered_row_count.get()
         else:
             filtered_indices = _get_filtered_rows()
@@ -1202,7 +1205,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         _ = mods_log.get()
         _ = approval_status.get()
         
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Lazy loading mode: fetch data from database
             current_df, filt_count, tot_count = _fetch_page_data()
             # In lazy mode, all returned rows are the "paginated" data
@@ -1363,7 +1366,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 result_df = current_df.iloc[selected_indices]
             else:
                 # Export all filtered/sorted rows
-                if is_lazy_loading:
+                if is_lazy_loading():
                     result_df = _fetch_all_filtered_data()
                 else:
                     current_df = data.get()
@@ -1478,7 +1481,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.reload_btn)
     def _reload_data():
-        if is_lazy_loading:
+        if is_lazy_loading():
             # In lazy loading mode, only refresh row count (schema doesn't change mid-session)
             config._data_fetcher._refresh_count()
             total_rows.set(config.data_fetcher.total_count)
@@ -1772,9 +1775,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
-            # Point DataFetcher at the matview for SQL-level filtering
-            if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
-                config.data_fetcher.set_table_override(config.get_synthesis_table_name())
+            # Activate DataFetcher for SQL-level filtering on matview
+            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             cache_msg = " (cached)" if was_cached else ""
             ui.notification_show(
                 f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
@@ -1805,9 +1807,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
-            # Point DataFetcher at the matview for SQL-level filtering
-            if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
-                config.data_fetcher.set_table_override(config.get_synthesis_table_name())
+            # Activate DataFetcher for SQL-level filtering on matview
+            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             ui.notification_show(
                 f"Synthesis regenerated — {len(result_df):,} rows",
                 type="message", duration=4
@@ -1826,11 +1827,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         synthesis_active.set(False)
         synthesis_data.set(pd.DataFrame())
         synthesis_error.set("")
-        # Restore DataFetcher to original table
-        if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
-            config.data_fetcher.clear_table_override()
+        # Deactivate synthesis DataFetcher (restores original table or removes fetcher)
+        config.deactivate_synthesis_fetcher()
         # Reload original data
-        if is_lazy_loading:
+        if _initial_lazy_loading:
             data.set(config.df)
             total_rows.set(config.total_row_count)
             filtered_row_count.set(config.total_row_count)
