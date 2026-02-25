@@ -111,6 +111,11 @@ class DataFetcher:
     - Row count on init (for pagination UI)
     - Page data on demand (with filters/sort/pagination)
     - All filtered data for export
+
+    When ``set_table_override(table)`` is called (e.g. for synthesis mode),
+    all runtime queries target the override table instead of
+    ``app_config.database.data_table``.  Metadata introspection methods
+    always use the original table.
     """
     app_config: AppConfig
     _engine: Any = field(default=None, repr=False)
@@ -118,6 +123,7 @@ class DataFetcher:
     _total_count: int = field(default=0, repr=False)
     _columns: List[str] = field(default_factory=list, repr=False)
     _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
+    _table_override: Optional[str] = field(default=None, repr=False)
     
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -137,7 +143,28 @@ class DataFetcher:
             conn_string = self.app_config.database.connection_string
             if conn_string:
                 self._engine = create_engine(conn_string)
-    
+
+    @property
+    def _effective_table(self) -> str:
+        """Return override table if set, else the configured data_table."""
+        return self._table_override or self.app_config.database.data_table
+
+    def set_table_override(self, table_name: str):
+        """Point all runtime queries at *table_name* (e.g. a matview).
+
+        Refreshes the row count automatically.  Modification tracking
+        is suppressed while the override is active.
+        """
+        self._table_override = table_name
+        self._refresh_count()
+        print(f"[DataFetcher] Table override → {table_name} ({self._total_count} rows)")
+
+    def clear_table_override(self):
+        """Restore queries to the original data table."""
+        self._table_override = None
+        self._refresh_count()
+        print(f"[DataFetcher] Table override cleared → {self.app_config.database.data_table} ({self._total_count} rows)")
+
     # PostgreSQL types that are natively textual — no CAST needed for
     # string comparisons (=, IN, ILIKE, ~*).  Keeping them bare allows
     # PostgreSQL to use B-tree / GIN indexes on those columns.
@@ -218,7 +245,7 @@ class DataFetcher:
         row count might have.
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
             count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
 
@@ -259,12 +286,14 @@ class DataFetcher:
 
     @property
     def _skip_mods(self) -> bool:
-        """True when modification tracking is disabled (enable_status_filter=false).
+        """True when modification tracking is disabled or table override is active.
 
         When True, queries skip the LATERAL JOIN to the modifications
         table entirely, avoiding both the performance cost and any
         dependency on the mods table existing.
         """
+        if self._table_override:
+            return True
         return not getattr(self.app_config, "enable_status_filter", True)
     
     def _get_columns_from_schema_datum(self) -> List[str]:
@@ -364,7 +393,7 @@ class DataFetcher:
         Used by the filter UI to populate dropdown options in lazy loading mode.
         """
         try:
-            data_table_sql = SqlTableName(self.app_config.database.data_table)
+            data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
             query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
             
@@ -605,7 +634,7 @@ class DataFetcher:
             return counts
 
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)
@@ -680,7 +709,7 @@ class DataFetcher:
           3. Status filter active → full sub-query with LATERAL JOIN
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
 
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
@@ -747,7 +776,7 @@ class DataFetcher:
         This is the main method called when displaying data.
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)
@@ -843,7 +872,7 @@ class DataFetcher:
         Used for export functionality.
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)

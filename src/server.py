@@ -288,6 +288,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     synthesis_cached = reactive.Value(_synthesis_autoloaded)   # True if last result was from cache
     enable_synthesis = app_config.enable_synthesis
 
+    # Point DataFetcher at the matview when synthesis was auto-loaded
+    if _synthesis_autoloaded and is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
+        config.data_fetcher.set_table_override(config.get_synthesis_table_name())
+
     # Auto-generate synthesis if cache was expired/missing on startup
     _synthesis_auto_triggered = {"done": False}
 
@@ -309,6 +313,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
+            # Point DataFetcher at the matview for SQL-level filtering
+            if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
+                config.data_fetcher.set_table_override(config.get_synthesis_table_name())
             # Populate columns from synthesis result if base table was skipped
             if not config.all_columns and len(result_df.columns) > 0:
                 config.all_columns = list(result_df.columns)
@@ -1765,6 +1772,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
+            # Point DataFetcher at the matview for SQL-level filtering
+            if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
+                config.data_fetcher.set_table_override(config.get_synthesis_table_name())
             cache_msg = " (cached)" if was_cached else ""
             ui.notification_show(
                 f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
@@ -1795,6 +1805,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
+            # Point DataFetcher at the matview for SQL-level filtering
+            if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
+                config.data_fetcher.set_table_override(config.get_synthesis_table_name())
             ui.notification_show(
                 f"Synthesis regenerated — {len(result_df):,} rows",
                 type="message", duration=4
@@ -1813,6 +1826,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         synthesis_active.set(False)
         synthesis_data.set(pd.DataFrame())
         synthesis_error.set("")
+        # Restore DataFetcher to original table
+        if is_lazy_loading and hasattr(config, 'data_fetcher') and config.data_fetcher:
+            config.data_fetcher.clear_table_override()
         # Reload original data
         if is_lazy_loading:
             data.set(config.df)
