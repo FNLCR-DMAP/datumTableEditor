@@ -137,18 +137,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     _synthesis_needs_generate = False
     if app_config.enable_synthesis and app_config.synthesis.query:
         try:
-            age = config._get_synthesis_age_minutes()
-            ttl = app_config.synthesis.ttl_minutes
-            if age is not None and (ttl > 0 and age < ttl):
-                # Fresh cache exists — load it directly, skip main table
+            if config.check_synthesis_table_exists():
+                # Table exists — load it directly, skip main table
                 result_table = config.get_synthesis_table_name()
                 initial_df = config._read_synthesis_table(result_table)
                 total_row_count = len(initial_df)
                 _synthesis_autoloaded = True
-                print(f"[Synthesis] Auto-loaded cached table ({age:.0f} min old, TTL {ttl} min) — {total_row_count} rows")
+                age = config._get_synthesis_age_minutes()
+                age_str = f"{age:.0f} min old" if age is not None else "age unknown"
+                print(f"[Synthesis] Auto-loaded cached table ({age_str}) — {total_row_count} rows")
             else:
-                reason = f"expired ({age:.0f} min old)" if age is not None else "missing"
-                print(f"[Synthesis] Cache {reason} — will auto-generate after startup")
+                print(f"[Synthesis] Table missing — will auto-generate after startup")
                 _synthesis_needs_generate = True
         except Exception as e:
             print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")

@@ -1884,12 +1884,15 @@ class ConfigInstance:
             return None
 
     def run_synthesis(self, force: bool = False) -> pd.DataFrame:
-        """Return the synthesis result, regenerating only if needed.
+        """Return the synthesis result, creating the table only if it doesn't exist.
 
         Cache logic:
-          1. Check if the synthesis table exists and read its age.
-          2. If within TTL (and not *force*) → read cached table instantly.
-          3. Otherwise → DROP + CREATE TABLE AS + stamp COMMENT → read.
+          1. Check if the synthesis result table already exists.
+          2. If it exists → read it directly (cache hit).
+          3. If missing → CREATE TABLE AS + stamp COMMENT → read.
+
+        The table is never dropped. Once created it persists until
+        manually removed by a DBA or scheduled job.
 
         The method is intentionally **synchronous** — the server layer
         runs it inside ``asyncio.to_thread`` so the UI stays responsive.
@@ -1902,23 +1905,16 @@ class ConfigInstance:
         if not synthesis_query:
             raise ValueError("No synthesis query configured")
 
-        ttl = self.app_config.synthesis.ttl_minutes
-        age = self._get_synthesis_age_minutes()
-
-        # Determine whether we can reuse the cached table
-        use_cache = (
-            not force
-            and age is not None
-            and (ttl > 0 and age < ttl)
-        )
-
         result_table = self.get_synthesis_table_name()
 
-        if use_cache:
-            print(f"[Synthesis] Cache hit — table is {age:.1f} min old (TTL {ttl} min)")
+        # If the table already exists, just read it
+        if self.check_synthesis_table_exists():
+            age = self._get_synthesis_age_minutes()
+            age_str = f"{age:.0f} min old" if age is not None else "age unknown"
+            print(f"[Synthesis] Cache hit — table exists ({age_str})")
             return self._read_synthesis_table(result_table), True
 
-        # Need to (re)generate
+        # Table doesn't exist — create it
         result_table_sql = SqlTableName(result_table)
         schema_sql = None
         if "." in result_table:
@@ -1927,8 +1923,7 @@ class ConfigInstance:
 
         is_datum = self.app_config.database.mode == "datum"
         start = _time.time()
-        reason = "expired" if age is not None else "missing"
-        print(f"[Synthesis] Cache {reason} — regenerating → {result_table_sql} ...")
+        print(f"[Synthesis] Table missing — creating → {result_table_sql} ...")
 
         if is_datum:
             self._run_synthesis_datum(result_table_sql, schema_sql, synthesis_query)
@@ -1979,7 +1974,6 @@ class ConfigInstance:
         with engine.connect() as conn:
             if schema_sql:
                 conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}"))
-            conn.execute(text(f"DROP TABLE IF EXISTS {result_table_sql}"))
             conn.execute(text(f"CREATE TABLE {result_table_sql} AS ({synthesis_query})"))
             conn.commit()
 
@@ -2004,9 +1998,6 @@ class ConfigInstance:
             except Exception:
                 pass
 
-        client.execute_sql(sql=f"DROP TABLE IF EXISTS {result_table_sql}",
-                           database=db, schema=schema, service_name=svc,
-                           allow_destructive=True)
         client.execute_sql(sql=f"CREATE TABLE {result_table_sql} AS ({synthesis_query})",
                            database=db, schema=schema, service_name=svc)
 
