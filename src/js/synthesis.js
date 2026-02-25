@@ -54,4 +54,71 @@
       }
     }
   });
+
+  // ── Live countdown timer ──────────────────────────────────────────
+  // Looks for a <span id="synthesis-countdown"> with data-created (epoch)
+  // and data-ttl (minutes).  Updates every second with age + remaining.
+  var _countdownInterval = null;
+
+  function _formatDuration(totalSeconds) {
+    totalSeconds = Math.max(0, Math.round(totalSeconds));
+    if (totalSeconds < 60) return totalSeconds + "s";
+    var m = Math.floor(totalSeconds / 60);
+    var s = totalSeconds % 60;
+    return m + "m " + (s < 10 ? "0" : "") + s + "s";
+  }
+
+  function _tickCountdown() {
+    var el = document.getElementById("synthesis-countdown");
+    if (!el) {
+      _stopCountdown();
+      return;
+    }
+    var created = parseFloat(el.getAttribute("data-created"));
+    var ttl = parseFloat(el.getAttribute("data-ttl"));
+    if (isNaN(created)) { el.textContent = ""; return; }
+
+    var nowEpoch = Date.now() / 1000;
+    var ageSec = nowEpoch - created;
+    var parts = ["Cache age: " + _formatDuration(ageSec)];
+
+    if (ttl > 0) {
+      var remainSec = ttl * 60 - ageSec;
+      if (remainSec > 0) {
+        parts.push("expires in " + _formatDuration(remainSec));
+      } else {
+        parts.push("expired");
+      }
+    }
+    el.textContent = parts.join(" · ");
+  }
+
+  function _startCountdown() {
+    _stopCountdown();
+    _tickCountdown();
+    _countdownInterval = setInterval(_tickCountdown, 1000);
+  }
+
+  function _stopCountdown() {
+    if (_countdownInterval) {
+      clearInterval(_countdownInterval);
+      _countdownInterval = null;
+    }
+  }
+
+  // Watch for the countdown element appearing in the DOM
+  var _observer = new MutationObserver(function () {
+    var el = document.getElementById("synthesis-countdown");
+    if (el && !_countdownInterval) {
+      _startCountdown();
+    } else if (!el && _countdownInterval) {
+      _stopCountdown();
+    }
+  });
+  _observer.observe(document.body, { childList: true, subtree: true });
+
+  // Initial check in case element already exists
+  if (document.getElementById("synthesis-countdown")) {
+    _startCountdown();
+  }
 })();

@@ -1606,38 +1606,34 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             was_cached = synthesis_cached.get()
             cache_note = " (served from cache)" if was_cached else " (freshly generated)"
             ttl = app_config.synthesis.ttl_minutes
-            # Build age + TTL detail line
-            detail_parts = []
+            # Build a live countdown span driven by JS
+            countdown_el = ui.span()
             try:
-                age = config._get_synthesis_age_minutes()
-                if age is not None:
-                    if age < 1:
-                        detail_parts.append(f"Cache age: {age * 60:.0f}s")
-                    else:
-                        detail_parts.append(f"Cache age: {age:.0f} min")
-                    if ttl > 0:
-                        remaining = max(0, ttl - age)
-                        if remaining > 0:
-                            detail_parts.append(f"expires in {remaining:.0f} min")
-                        else:
-                            detail_parts.append("expired")
+                cache_epoch = config._synthesis_age_cache_time
+                if cache_epoch > 0 and ttl > 0:
+                    countdown_el = ui.span(
+                        id="synthesis-countdown",
+                        **{"data-created": str(cache_epoch), "data-ttl": str(ttl)}
+                    )
+                elif cache_epoch > 0:
+                    # No TTL — just show age
+                    countdown_el = ui.span(
+                        id="synthesis-countdown",
+                        **{"data-created": str(cache_epoch), "data-ttl": "0"}
+                    )
             except Exception:
                 pass
-            if ttl > 0 and not detail_parts:
-                detail_parts.append(f"TTL: {ttl} min")
-            detail_line = " · ".join(detail_parts) if detail_parts else ""
             status_children = [
                 ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}.",
                      style="color: #28a745; font-weight: 500;"),
             ]
-            if detail_line:
-                status_children.append(
-                    ui.p(
-                        ui.tags.i(class_="fa fa-clock-o", style="margin-right: 5px;"),
-                        detail_line,
-                        style="color: #555; font-size: 13px; margin-top: 4px;"
-                    )
+            status_children.append(
+                ui.p(
+                    ui.tags.i(class_="fa fa-clock-o", style="margin-right: 5px;"),
+                    countdown_el,
+                    style="color: #555; font-size: 13px; margin-top: 4px;"
                 )
+            )
             status_children.append(
                 ui.p("Close this modal to interact with the synthesized table.",
                      style="color: #666; font-size: 13px;")
