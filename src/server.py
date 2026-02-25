@@ -1602,24 +1602,44 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             synth_df = synthesis_data.get()
             was_cached = synthesis_cached.get()
             cache_note = " (served from cache)" if was_cached else " (freshly generated)"
-            # Show table age if available
-            age_info = ""
+            ttl = app_config.synthesis.ttl_minutes
+            # Build age + TTL detail line
+            detail_parts = []
             try:
                 age = config._get_synthesis_age_minutes()
                 if age is not None:
                     if age < 1:
-                        age_info = f" — generated {age * 60:.0f}s ago"
+                        detail_parts.append(f"Cache age: {age * 60:.0f}s")
                     else:
-                        age_info = f" — generated {age:.0f} min ago"
+                        detail_parts.append(f"Cache age: {age:.0f} min")
+                    if ttl > 0:
+                        remaining = max(0, ttl - age)
+                        if remaining > 0:
+                            detail_parts.append(f"expires in {remaining:.0f} min")
+                        else:
+                            detail_parts.append("expired")
             except Exception:
                 pass
-            return ui.div(
-                ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}{age_info}.",
+            if ttl > 0 and not detail_parts:
+                detail_parts.append(f"TTL: {ttl} min")
+            detail_line = " · ".join(detail_parts) if detail_parts else ""
+            status_children = [
+                ui.p(f"Transform complete — {len(synth_df):,} rows returned{cache_note}.",
                      style="color: #28a745; font-weight: 500;"),
+            ]
+            if detail_line:
+                status_children.append(
+                    ui.p(
+                        ui.tags.i(class_="fa fa-clock-o", style="margin-right: 5px;"),
+                        detail_line,
+                        style="color: #555; font-size: 13px; margin-top: 4px;"
+                    )
+                )
+            status_children.append(
                 ui.p("Close this modal to interact with the synthesized table.",
-                     style="color: #666; font-size: 13px;"),
-                class_="synthesis-status-area"
+                     style="color: #666; font-size: 13px;")
             )
+            return ui.div(*status_children, class_="synthesis-status-area")
         # Not active — show cache info and what "Run Transform" will do
         if enable_synthesis:
             try:
