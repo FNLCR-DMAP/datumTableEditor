@@ -140,6 +140,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if config.check_synthesis_table_exists():
                 # Table exists — load it directly, skip main table
                 result_table = config.get_synthesis_table_name()
+                # Mark schema as verified (table exists → schema exists)
+                if '.' in result_table:
+                    config._schemas_verified.add(result_table.split('.', 1)[0])
                 initial_df = config._read_synthesis_table(result_table)
                 total_row_count = len(initial_df)
                 _synthesis_autoloaded = True
@@ -1469,8 +1472,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.reload_btn)
     def _reload_data():
         if is_lazy_loading:
-            # In lazy loading mode, refresh the fetcher metadata and re-fetch current page
-            config._data_fetcher._fetch_metadata()
+            # In lazy loading mode, only refresh row count (schema doesn't change mid-session)
+            config._data_fetcher._refresh_count()
             total_rows.set(config.data_fetcher.total_count)
             # Data will be re-fetched on next table render
         else:

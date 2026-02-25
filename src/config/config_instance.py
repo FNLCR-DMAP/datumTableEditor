@@ -210,7 +210,36 @@ class DataFetcher:
             self._total_count = 0
             self._columns = []
             self._column_types = {}
-    
+
+    def _refresh_count(self):
+        """Refresh only the row count — skip column/type introspection.
+
+        Used on manual reload where the schema hasn't changed but the
+        row count might have.
+        """
+        try:
+            data_table = self.app_config.database.data_table
+            data_table_sql = SqlTableName(data_table)
+            count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
+
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=count_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                self._total_count = response.data[0]["cnt"] if response.data else 0
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(count_query))
+                    row = result.fetchone()
+                    self._total_count = row[0] if row else 0
+            print(f"DataFetcher: Refreshed count → {self._total_count} rows")
+        except Exception as e:
+            print(f"✗ Error refreshing count: {e}")
+
     @property
     def _effective_status_column(self) -> Optional[str]:
         """Return status_column only if it actually exists in the table
@@ -990,12 +1019,18 @@ class ConfigInstance:
     modifications_log_path: Path = field(default=None)
     _state_table_checked: bool = field(default=False, repr=False)
     _mods_table_checked: bool = field(default=False, repr=False)
+    _preset_table_checked: bool = field(default=False, repr=False)
     _engine: Any = field(default=None, repr=False)
     _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
     _data_fetcher: DataFetcher = field(default=None, repr=False)  # Lazy loading fetcher
+    _schemas_verified: set = field(default_factory=set, repr=False)  # Schemas already confirmed to exist
+    _data_table_checked: bool = field(default=False, repr=False)  # Data table existence verified
+    _synthesis_exists_cache: Optional[bool] = field(default=None, repr=False)  # Cached synthesis table existence
+    _synthesis_age_cache: Optional[float] = field(default=None, repr=False)  # Cached synthesis age (minutes)
+    _synthesis_age_cache_time: float = field(default=0, repr=False)  # When cache was populated
     
     @property
     def _effective_status_column(self) -> Optional[str]:
@@ -1151,7 +1186,10 @@ class ConfigInstance:
         Ensure the data_table exists. If not and source_table is configured,
         create data_table as a copy of source_table.
         Returns True if data_table exists (or was created), False otherwise.
+        Only runs the probe query once per session.
         """
+        if self._data_table_checked:
+            return True
         if self.app_config.database.mode == "datum":
             return self._ensure_data_table_exists_datum()
         
@@ -1190,6 +1228,7 @@ class ConfigInstance:
                 table_exists = result.scalar()
             
             if table_exists:
+                self._data_table_checked = True
                 return True
             
             # Table doesn't exist - check if we have a source table to copy from
@@ -1201,17 +1240,20 @@ class ConfigInstance:
             print(f"📋 Creating {data_table_sql} as copy of {source_table_sql}...")
             
             with engine.connect() as conn:
-                # Create schema if needed
+                # Create schema if needed (once per schema per process)
                 if '.' in data_table:
                     schema = data_table.split('.', 1)[0]
-                    schema_sql = SqlIdentifier(schema)
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                    if schema not in self._schemas_verified:
+                        schema_sql = SqlIdentifier(schema)
+                        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                        self._schemas_verified.add(schema)
                 
                 # Create data_table as a copy of source_table (structure + data)
                 conn.execute(text(f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}'))
                 conn.commit()
             
             print(f"✓ Created {data_table_sql} from {source_table_sql}")
+            self._data_table_checked = True
             return True
             
         except Exception as e:
@@ -1244,6 +1286,7 @@ class ConfigInstance:
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
                 )
+                self._data_table_checked = True
                 return True  # Table exists
             except Exception:
                 pass  # Table doesn't exist, continue
@@ -1256,19 +1299,21 @@ class ConfigInstance:
             source_table_sql = SqlTableName(source_table)
             print(f"📋 Creating {data_table_sql} as copy of {source_table_sql} via Datum...")
             
-            # Create schema if needed
+            # Create schema if needed (once per schema per process)
             if '.' in data_table:
                 schema = data_table.split('.', 1)[0]
-                schema_sql = SqlIdentifier(schema)
-                try:
-                    client.execute_sql(
-                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
-                except Exception:
-                    pass  # Schema may already exist
+                if schema not in self._schemas_verified:
+                    schema_sql = SqlIdentifier(schema)
+                    try:
+                        client.execute_sql(
+                            sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
+                            database=self.app_config.database.datum_database,
+                            schema=self.app_config.database.datum_schema,
+                            service_name=self.app_config.database.datum_service_name,
+                        )
+                    except Exception:
+                        pass  # Schema may already exist
+                    self._schemas_verified.add(schema)
             
             # Create data_table as a copy of source_table
             client.execute_sql(
@@ -1279,6 +1324,7 @@ class ConfigInstance:
             )
             
             print(f"✓ Created {data_table_sql} from {source_table_sql} via Datum")
+            self._data_table_checked = True
             return True
             
         except Exception as e:
@@ -1730,6 +1776,7 @@ class ConfigInstance:
                 schema_sql = str(SqlIdentifier(schema))
                 table_sql = SqlTableName(mods_table)
             else:
+                schema = None
                 schema_sql = None
                 table_sql = SqlTableName(mods_table)
             
@@ -1738,9 +1785,10 @@ class ConfigInstance:
                 return False
             
             with engine.connect() as conn:
-                # Create schema if needed
-                if schema_sql:
+                # Create schema if needed (once per schema per process)
+                if schema_sql and schema not in self._schemas_verified:
                     conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                    self._schemas_verified.add(schema)
                 
                 # Create table if not exists
                 conn.execute(text(f'''
@@ -1781,12 +1829,13 @@ class ConfigInstance:
             
             # Parse schema for CREATE SCHEMA
             schema_sql = None
+            schema_name = None
             if '.' in mods_table:
-                schema = mods_table.split('.', 1)[0]
-                schema_sql = str(SqlIdentifier(schema))
+                schema_name = mods_table.split('.', 1)[0]
+                schema_sql = str(SqlIdentifier(schema_name))
             
-            # Create schema if needed
-            if schema_sql:
+            # Create schema if needed (once per schema per process)
+            if schema_sql and schema_name not in self._schemas_verified:
                 try:
                     client.execute_sql(
                         sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
@@ -1796,6 +1845,7 @@ class ConfigInstance:
                     )
                 except Exception:
                     pass  # Schema may already exist
+                self._schemas_verified.add(schema_name)
             
             # Create table if not exists - DDL auto-commits
             client.execute_sql(
@@ -1845,8 +1895,14 @@ class ConfigInstance:
         """Return age of the cached synthesis table in minutes, or None if missing.
 
         The creation timestamp is stored as a ``COMMENT ON TABLE``.
+        Uses a cached epoch to avoid repeating the DB query on every call.
         """
         import time as _time
+
+        # If we have a cached creation epoch, compute age from it directly
+        if self._synthesis_age_cache_time > 0:
+            return (_time.time() - self._synthesis_age_cache_time) / 60.0
+
         result_table = self.get_synthesis_table_name()
         result_table_sql = SqlTableName(result_table)
         is_datum = self.app_config.database.mode == "datum"
@@ -1891,6 +1947,8 @@ class ConfigInstance:
             if not comment or not comment.startswith("synthesis_created_at:"):
                 return None
             created_epoch = float(comment.split(":", 1)[1])
+            # Cache the creation epoch so future calls skip the DB query
+            self._synthesis_age_cache_time = created_epoch
             return (_time.time() - created_epoch) / 60.0
         except Exception:
             return None
@@ -1950,6 +2008,9 @@ class ConfigInstance:
 
         # Stamp creation time as a table comment
         self._stamp_synthesis_comment(result_table_sql, _time.time())
+        # Invalidate caches so fresh values are read
+        self._synthesis_exists_cache = True
+        self._synthesis_age_cache_time = _time.time()
 
         elapsed = _time.time() - start
         print(f"[Synthesis] Transform completed in {elapsed:.1f}s")
@@ -1958,6 +2019,8 @@ class ConfigInstance:
 
     def _stamp_synthesis_comment(self, result_table_sql, epoch: float):
         """Store creation timestamp as COMMENT ON TABLE for TTL checking."""
+        # Update in-memory cache immediately
+        self._synthesis_age_cache_time = epoch
         comment = f"synthesis_created_at:{epoch}"
         stmt = f"COMMENT ON TABLE {result_table_sql} IS {SqlLiteral(comment)}"
         try:
@@ -1991,7 +2054,11 @@ class ConfigInstance:
 
         with engine.connect() as conn:
             if schema_sql:
-                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}"))
+                # Extract raw schema name for the verified cache
+                schema_name = str(result_table_sql).split('"')[1] if '.' in str(result_table_sql) else None
+                if schema_name and schema_name not in self._schemas_verified:
+                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}"))
+                    self._schemas_verified.add(schema_name)
             conn.execute(text(f"CREATE TABLE {result_table_sql} AS ({synthesis_query})"))
             conn.commit()
 
@@ -2010,11 +2077,15 @@ class ConfigInstance:
         svc = self.app_config.database.datum_service_name
 
         if schema_sql:
-            try:
-                client.execute_sql(sql=f"CREATE SCHEMA IF NOT EXISTS {schema_sql}",
-                                   database=db, schema=schema, service_name=svc)
-            except Exception:
-                pass
+            # Only issue CREATE SCHEMA once per schema per process
+            schema_name = result_table_sql._raw.split('.', 1)[0] if '.' in str(result_table_sql) else None
+            if schema_name and schema_name not in self._schemas_verified:
+                try:
+                    client.execute_sql(sql=f"CREATE SCHEMA IF NOT EXISTS {schema_sql}",
+                                       database=db, schema=schema, service_name=svc)
+                except Exception:
+                    pass
+                self._schemas_verified.add(schema_name)
 
         client.execute_sql(sql=f"CREATE TABLE {result_table_sql} AS ({synthesis_query})",
                            database=db, schema=schema, service_name=svc)
@@ -2047,7 +2118,13 @@ class ConfigInstance:
             return pd.DataFrame(rows, columns=columns)
 
     def check_synthesis_table_exists(self) -> bool:
-        """Return True if the synthesis result table exists (regardless of TTL)."""
+        """Return True if the synthesis result table exists (regardless of TTL).
+
+        Result is cached after the first successful check.  Invalidated
+        when ``run_synthesis()`` creates the table.
+        """
+        if self._synthesis_exists_cache is not None:
+            return self._synthesis_exists_cache
         result_table = self.get_synthesis_table_name()
         result_table_sql = SqlTableName(result_table)
         try:
@@ -2068,8 +2145,10 @@ class ConfigInstance:
                 engine = self._get_engine()
                 with engine.connect() as conn:
                     conn.execute(text(f"SELECT 1 FROM {result_table_sql} LIMIT 1"))
+                self._synthesis_exists_cache = True
                 return True
         except Exception:
+            self._synthesis_exists_cache = False
             return False
 
     def _load_modifications_from_datum(self) -> List[Dict]:
@@ -2363,41 +2442,14 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
-            print(f"[Datum DEBUG] Response data: {response.data}")
-            
             if response.data:
                 mod_id = response.data[0].get("id")
-                print(f"[Datum DEBUG] ✓ Saved modification with id={mod_id}")
-                
-                # Verify the row actually exists by querying it back
-                mod_id_lit = SqlLiteral(int(mod_id))
-                verify_sql = f"SELECT id, row_pk, column_name, mod_type FROM {mods_table_sql} WHERE id = {mod_id_lit}"
-                try:
-                    verify_response = client.execute_sql(
-                        sql=verify_sql,
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
-                    print(f"[Datum DEBUG] Verification query result: {verify_response.data}")
-                    
-                    # Also count total modifications
-                    count_sql = f"SELECT COUNT(*) as total FROM {mods_table_sql}"
-                    count_response = client.execute_sql(
-                        sql=count_sql,
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
-                    print(f"[Datum DEBUG] Total modifications in table: {count_response.data}")
-                except Exception as ve:
-                    print(f"[Datum DEBUG] Verification query failed: {ve}")
                 
                 # Invalidate cache after successful insert
                 self.invalidate_mods_cache()
                 
                 return mod_id
-            print(f"[Datum DEBUG] ⚠ No id returned from INSERT")
+            print(f"[Datum] ⚠ No id returned from INSERT")
             return None
         except Exception as e:
             print(f"✗ Error saving modification to Datum: {e}")
@@ -2634,6 +2686,7 @@ class ConfigInstance:
                 schema_sql = str(SqlIdentifier(schema))
                 table_sql = SqlTableName(state_table)
             else:
+                schema = None
                 schema_sql = None
                 table_sql = SqlTableName(state_table)
             
@@ -2642,9 +2695,10 @@ class ConfigInstance:
                 return False
             
             with engine.connect() as conn:
-                # Create schema if needed
-                if schema_sql:
+                # Create schema if needed (once per schema per process)
+                if schema_sql and schema not in self._schemas_verified:
                     conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                    self._schemas_verified.add(schema)
                 
                 # Create table if not exists
                 conn.execute(text(f'''
@@ -2686,12 +2740,13 @@ class ConfigInstance:
             
             # Parse schema for CREATE SCHEMA
             schema_sql = None
+            schema_name = None
             if '.' in state_table:
-                schema = state_table.split('.', 1)[0]
-                schema_sql = str(SqlIdentifier(schema))
+                schema_name = state_table.split('.', 1)[0]
+                schema_sql = str(SqlIdentifier(schema_name))
             
-            # Create schema if needed
-            if schema_sql:
+            # Create schema if needed (once per schema per process)
+            if schema_sql and schema_name not in self._schemas_verified:
                 try:
                     client.execute_sql(
                         sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
@@ -2701,6 +2756,7 @@ class ConfigInstance:
                     )
                 except Exception:
                     pass  # Schema may already exist
+                self._schemas_verified.add(schema_name)
             
             # Create table if not exists - DDL auto-commits
             client.execute_sql(
@@ -2999,7 +3055,11 @@ class ConfigInstance:
         return f"{base_name}_{safe_username}_column_presets"
     
     def _ensure_preset_table_exists(self) -> bool:
-        """Create the preset table if it doesn't exist."""
+        """Create the preset table if it doesn't exist. Only runs once per instance."""
+        # Skip if already checked this session
+        if self._preset_table_checked:
+            return True
+        
         if self.app_config.database.mode == "datum":
             return self._ensure_preset_table_exists_datum()
         
@@ -3025,6 +3085,7 @@ class ConfigInstance:
                     )
                 '''))
                 conn.commit()
+            self._preset_table_checked = True
             return True
         except Exception as e:
             print(f"⚠ Could not create preset table: {e}")
@@ -3060,6 +3121,7 @@ class ConfigInstance:
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            self._preset_table_checked = True
             return True
         except Exception as e:
             print(f"⚠ Could not create preset table via Datum: {e}")
