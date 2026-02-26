@@ -1,8 +1,17 @@
 // Header drag and drop for column reordering
 let draggedHeader = null;
 
-window.initHeaderDrag = function() {
-    document.querySelectorAll('.draggable-header').forEach(header => {
+// Shared utility: find the closest widget container for scoping DOM queries to the correct tab
+function _findWidgetContainer(el) {
+    if (!el) return document;
+    if (el.target) el = el.target;  // Handle event objects
+    var container = el.closest('.tab-pane, [role="tabpanel"], .main-container');
+    return container || document;
+}
+
+window.initHeaderDrag = function(contextEl) {
+    var widgetContainer = _findWidgetContainer(contextEl);
+    widgetContainer.querySelectorAll('.draggable-header').forEach(header => {
         header.addEventListener('dragstart', function(e) {
             draggedHeader = this;
             this.style.opacity = '0.5';
@@ -11,7 +20,7 @@ window.initHeaderDrag = function() {
         
         header.addEventListener('dragend', function(e) {
             this.style.opacity = '1';
-            document.querySelectorAll('.draggable-header').forEach(h => h.classList.remove('drag-over'));
+            _findWidgetContainer(this).querySelectorAll('.draggable-header').forEach(h => h.classList.remove('drag-over'));
             if (draggedHeader) {
                 updateHeaderOrder();
             }
@@ -49,7 +58,8 @@ window.initHeaderDrag = function() {
 };
 
 function updateHeaderOrder() {
-    const headers = document.querySelectorAll('.draggable-header');
+    var container = _findWidgetContainer(draggedHeader);
+    const headers = container.querySelectorAll('.draggable-header');
     const columns = [...headers].map(h => h.dataset.column);
     if (typeof setShinyInput !== 'undefined') {
         // Use first header as context for namespace detection
@@ -62,8 +72,9 @@ let resizing = null;
 let startX = 0;
 let startWidth = 0;
 
-window.initColumnResize = function() {
-    document.querySelectorAll('.resize-handle').forEach(handle => {
+window.initColumnResize = function(contextEl) {
+    var widgetContainer = _findWidgetContainer(contextEl);
+    widgetContainer.querySelectorAll('.resize-handle').forEach(handle => {
         handle.addEventListener('mousedown', function(e) {
             e.stopPropagation();
             e.preventDefault();
@@ -97,7 +108,8 @@ document.addEventListener('mouseup', function(e) {
 });
 
 function saveColumnWidths() {
-    const headers = document.querySelectorAll('.draggable-header');
+    var container = _findWidgetContainer(resizing);
+    const headers = container.querySelectorAll('.draggable-header');
     const widths = {};
     headers.forEach(h => {
         const col = h.dataset.column;
@@ -194,7 +206,9 @@ window.addColumn = function(col, event) {
 // Remove all columns from modal (DOM manipulation + batch server update)
 window.removeAllColumns = function(event) {
     if (event) event.stopPropagation();
-    var container = document.getElementById('modal-columns-container');
+    var contextEl = event ? event.target : (typeof currentModalContext !== 'undefined' ? currentModalContext : document.activeElement);
+    var modal = findModalInContext(contextEl, 'add-column-modal');
+    var container = modal ? modal.querySelector('#modal-columns-container') : document.getElementById('modal-columns-container');
     if (!container) return;
     
     // Move all current columns to available section
@@ -233,7 +247,9 @@ window.removeAllColumns = function(event) {
 // Add all remaining columns to current columns (DOM manipulation + batch server update)
 window.addAllColumns = function(event) {
     if (event) event.stopPropagation();
-    var container = document.getElementById('modal-columns-container');
+    var contextEl = event ? event.target : (typeof currentModalContext !== 'undefined' ? currentModalContext : document.activeElement);
+    var modal = findModalInContext(contextEl, 'add-column-modal');
+    var container = modal ? modal.querySelector('#modal-columns-container') : document.getElementById('modal-columns-container');
     if (!container) return;
     
     // Find available column tags
@@ -292,9 +308,10 @@ window.removeColumnFromModal = function(col, event) {
 $(document).on('shiny:value', function(event) {
     // Check if the event name ends with table_container (namespaced)
     if (event.name && event.name.endsWith('table_container')) {
+        var target = event.target;
         setTimeout(function() {
-            initHeaderDrag();
-            initColumnResize();
+            initHeaderDrag(target);
+            initColumnResize(target);
         }, 100);
     }
 });

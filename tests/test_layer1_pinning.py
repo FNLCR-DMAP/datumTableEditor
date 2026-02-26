@@ -506,3 +506,48 @@ class TestProcessModificationsMain:
                 main()
 
                 MockProc.assert_called_once_with("/custom/path")
+
+
+# =============================================================================
+# CSS and JS Asset Pinning
+# =============================================================================
+
+class TestCSSTableThOverflow:
+    """Pin that .edit-table th uses overflow:visible (not hidden/clip)."""
+
+    def test_th_overflow_visible(self):
+        from pathlib import Path
+        import re
+        css = (Path(__file__).resolve().parent.parent / "src" / "css" / "table.css").read_text()
+        m = re.search(r'\.edit-table\s+th\s*\{([^}]+)\}', css)
+        assert m, ".edit-table th rule not found"
+        assert "overflow: visible" in m.group(1)
+
+    def test_th_no_overflow_hidden(self):
+        from pathlib import Path
+        import re
+        css = (Path(__file__).resolve().parent.parent / "src" / "css" / "table.css").read_text()
+        m = re.search(r'\.edit-table\s+th\s*\{([^}]+)\}', css)
+        assert m
+        assert "overflow: hidden" not in m.group(1)
+
+
+class TestJSWidgetContainerDefinition:
+    """Pin that _findWidgetContainer is defined in table-drag.js."""
+
+    def test_defined(self):
+        from pathlib import Path
+        js = (Path(__file__).resolve().parent.parent / "src" / "js" / "table-drag.js").read_text()
+        assert "function _findWidgetContainer(el)" in js
+
+    def test_fallback_returns_document(self):
+        """When no container found, _findWidgetContainer should return document."""
+        from pathlib import Path
+        js = (Path(__file__).resolve().parent.parent / "src" / "js" / "table-drag.js").read_text()
+        assert "return container || document" in js
+
+    def test_handles_event_objects(self):
+        """_findWidgetContainer should unwrap event.target if el is an event."""
+        from pathlib import Path
+        js = (Path(__file__).resolve().parent.parent / "src" / "js" / "table-drag.js").read_text()
+        assert "el.target" in js
