@@ -421,6 +421,39 @@ class DataFetcher:
             print(f"[DataFetcher] Error getting unique values for {column}: {e}")
         return []
 
+    def get_value_counts(self, column: str, limit: int = 50) -> List[Tuple[str, int]]:
+        """Fetch value counts for a column ordered by frequency (descending).
+
+        Returns list of (value, count) tuples.  NULL values are returned as
+        the string ``"No value"``.
+        """
+        try:
+            data_table_sql = SqlTableName(self._effective_table)
+            col_ident = SqlIdentifier(column)
+            query = (
+                f"SELECT COALESCE(CAST({col_ident} AS TEXT), 'No value') AS val, "
+                f"COUNT(*) AS cnt "
+                f"FROM {data_table_sql} "
+                f"GROUP BY val ORDER BY cnt DESC LIMIT {int(limit)}"
+            )
+
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                return [(str(row["val"]), int(row["cnt"])) for row in response.data]
+            elif self._engine:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(query))
+                    return [(str(row[0]), int(row[1])) for row in result.fetchall()]
+        except Exception as e:
+            print(f"[DataFetcher] Error getting value counts for {column}: {e}")
+        return []
+
     @property
     def total_count(self) -> int:
         """Total row count in the table (unfiltered)."""

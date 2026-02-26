@@ -5,8 +5,8 @@ The gate lives in src/adapter/datum.py and blocks destructive SQL operations
 (DROP, TRUNCATE, ALTER TABLE ... DROP, etc.) at the adapter boundary before
 anything reaches the Datum proxy.
 
-Legitimate operations (SELECT, INSERT, UPDATE, DELETE FROM ... WHERE, CREATE
-TABLE IF NOT EXISTS, BEGIN/COMMIT) must pass through untouched.
+Legitimate operations (SELECT, INSERT, UPDATE, CREATE TABLE IF NOT EXISTS,
+BEGIN/COMMIT) must pass through untouched.  DELETE FROM is always blocked.
 """
 
 import pytest
@@ -46,10 +46,11 @@ class TestSafetyGateAllowed:
             'UPDATE "schema"."data" SET "col" = \'val\' WHERE "id" = 1'
         )
 
-    def test_delete_from_with_where(self):
-        validate_sql_safety(
-            "DELETE FROM schema.mods WHERE row_pk = '{}'::jsonb AND id = 5"
-        )
+    def test_delete_from_with_where_is_blocked(self):
+        with pytest.raises(DestructiveSqlError, match="DELETE FROM"):
+            validate_sql_safety(
+                "DELETE FROM schema.mods WHERE row_pk = '{}'::jsonb AND id = 5"
+            )
 
     def test_create_table_if_not_exists(self):
         validate_sql_safety(
@@ -74,10 +75,11 @@ class TestSafetyGateAllowed:
             "BEGIN; INSERT INTO t (a) VALUES ('b'); COMMIT;"
         )
 
-    def test_begin_delete_commit(self):
-        validate_sql_safety(
-            "BEGIN; DELETE FROM t WHERE id = 1; COMMIT;"
-        )
+    def test_begin_delete_commit_is_blocked(self):
+        with pytest.raises(DestructiveSqlError, match="DELETE FROM"):
+            validate_sql_safety(
+                "BEGIN; DELETE FROM t WHERE id = 1; COMMIT;"
+            )
 
     def test_empty_sql_passes(self):
         validate_sql_safety("")
@@ -296,18 +298,14 @@ class TestDatumClientGateIntegration:
         assert mock_proxy.called
 
     @patch("src.adapter.datum.DatumClient._call_proxy")
-    def test_safe_delete_reaches_proxy(self, mock_proxy, client):
-        """DELETE FROM with WHERE is legitimate and must pass."""
-        mock_resp = MagicMock()
-        mock_resp.status = 200
-        mock_resp.body = '{"description":"ok","query":"DELETE","row_count":0,"columns":[],"data":[]}'
-        mock_proxy.return_value = mock_resp
-
-        result = client.execute_sql(
-            sql="BEGIN; DELETE FROM t WHERE id = 1; COMMIT;",
-            database="db",
-        )
-        assert mock_proxy.called
+    def test_delete_blocked_at_proxy(self, mock_proxy, client):
+        """DELETE FROM is blocked by the safety gate before reaching proxy."""
+        with pytest.raises(DestructiveSqlError, match="DELETE FROM"):
+            client.execute_sql(
+                sql="BEGIN; DELETE FROM t WHERE id = 1; COMMIT;",
+                database="db",
+            )
+        assert not mock_proxy.called
 
     def test_drop_inside_transaction_blocked(self, client):
         with pytest.raises(DestructiveSqlError):

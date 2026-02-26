@@ -81,6 +81,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     enable_export = app_config.enable_export
     enable_status_filter = app_config.enable_status_filter
     enable_synthesis = app_config.enable_synthesis
+    enable_search = app_config.query.enable_search
     synthesis_label = app_config.synthesis.label or "Synthesis"
     
     # Status labels from config
@@ -224,7 +225,10 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             class_="filter-group"
                         ),
                         class_="filter-section"
-                    ),
+                    ) if enable_search else ui.div(),
+                    
+                    # Facet Filter Panels (checkbox + value counts)
+                    ui.output_ui("facet_panels_ui"),
                     
                     # Column Filters (Dynamic)
                     ui.div(

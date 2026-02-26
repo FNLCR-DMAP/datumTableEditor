@@ -28,7 +28,6 @@ _ALLOWED_STATEMENT_PREFIXES = re.compile(
     r"|SELECT"
     r"|INSERT\s+INTO"
     r"|UPDATE"
-    r"|DELETE\s+FROM"
     r"|CREATE\s+(?:TABLE|SCHEMA|INDEX|MATERIALIZED\s+VIEW)\s+IF\s+NOT\s+EXISTS"
     r"|CREATE\s+(?:TABLE|SCHEMA|INDEX|MATERIALIZED\s+VIEW)"
     r"|REFRESH\s+MATERIALIZED\s+VIEW"
@@ -46,6 +45,7 @@ _BLOCKED_PATTERNS = re.compile(
     r"|TRUNCATE"
     r"|ALTER\s+TABLE\s+\S+\s+DROP"
     r"|ALTER\s+TABLE\s+\S+\s+RENAME"
+    r"|DELETE\s+FROM"
     r")\b",
     re.IGNORECASE,
 )

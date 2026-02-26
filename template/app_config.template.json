@@ -72,8 +72,12 @@
     },
     "status_filter_enabled": true,
     "status_column": "Status",
+    "enable_search": true,
     "search_case_sensitive": false,
-    "search_regex_enabled": false
+    "search_regex_enabled": false,
+    "_facet_comment": "Faceted sidebar filters: columns shown as checkbox+count panels (like the status histogram but for any column)",
+    "facet_columns": [],
+    "facet_max_values": 5
   },
   
   "state": {

@@ -181,6 +181,115 @@ def build_empty_log_message() -> ui.div:
     )
 
 
+# ── Facet Filter Panels ──────────────────────────────────────────────────
+
+def build_facet_bar(col_name: str, value: str, count: int, max_count: int, is_checked: bool) -> ui.div:
+    """Build a single facet value row: checkbox + label + count + bar."""
+    pct = (count / max_count * 100) if max_count > 0 else 0
+    return ui.div(
+        ui.tags.label(
+            ui.tags.input(
+                type="checkbox",
+                checked="checked" if is_checked else None,
+                value=value,
+                class_="facet-checkbox",
+                **{"data-column": col_name}
+            ),
+            ui.span(
+                value if len(value) <= 25 else value[:22] + "…",
+                class_="facet-label",
+                title=value
+            ),
+            class_="facet-checkbox-label"
+        ),
+        ui.span(f"{count:,}", class_="facet-count"),
+        ui.div(
+            ui.div(style=f"width: {pct}%;", class_="facet-fill"),
+            class_="facet-track"
+        ),
+        class_="facet-bar"
+    )
+
+
+def build_facet_panel(
+    col_name: str,
+    value_counts: list,
+    selected_values: list | None,
+    max_visible: int = 5,
+    column_masks: dict | None = None,
+) -> ui.div:
+    """Build a complete facet panel for one column.
+
+    Args:
+        col_name: Column name.
+        value_counts: List of (value, count) tuples, sorted by count desc.
+        selected_values: Currently checked values (None = all checked).
+        max_visible: How many rows to show before "Show more" toggle.
+        column_masks: Optional display-name overrides.
+    """
+    display_name = (column_masks or {}).get(col_name, col_name).upper()
+    max_count = value_counts[0][1] if value_counts else 1
+
+    # Generate bars
+    bars = []
+    for val, cnt in value_counts:
+        is_checked = selected_values is None or val in selected_values
+        bars.append(build_facet_bar(col_name, val, cnt, max_count, is_checked))
+
+    # Split into visible + overflow
+    visible = bars[:max_visible]
+    overflow = bars[max_visible:]
+
+    children = [ui.h4(display_name, class_="facet-title")]
+    children.extend(visible)
+
+    if overflow:
+        # Overflow bucket in a collapsible wrapper
+        collapse_id = f"facet-more-{col_name.replace(' ', '_')}"
+        children.append(
+            ui.div(*overflow, class_="facet-overflow", id=collapse_id, style="display: none;")
+        )
+        children.append(
+            ui.tags.button(
+                "Show more",
+                class_="facet-toggle-btn",
+                onclick=(
+                    f"(function(btn){{"
+                    f"  var el=document.getElementById('{collapse_id}');"
+                    f"  if(el.style.display==='none'){{el.style.display='';btn.textContent='Show less';}}"
+                    f"  else{{el.style.display='none';btn.textContent='Show more';}}"
+                    f"}})(this)"
+                )
+            )
+        )
+
+    return ui.div(*children, class_="facet-section", **{"data-facet-column": col_name})
+
+
+def build_facet_panels(
+    facet_columns: list,
+    value_counts_map: dict,
+    selected_map: dict | None = None,
+    max_visible: int = 5,
+    column_masks: dict | None = None,
+) -> ui.div:
+    """Build all facet panels for the sidebar.
+
+    Args:
+        facet_columns: Ordered list of column names to show.
+        value_counts_map: ``{col: [(value, count), ...]}``
+        selected_map: ``{col: [selected_values]}`` or None (all selected).
+        max_visible: Rows before "Show more".
+        column_masks: Display-name overrides.
+    """
+    panels = []
+    for col in facet_columns:
+        vc = value_counts_map.get(col, [])
+        selected = (selected_map or {}).get(col)
+        panels.append(build_facet_panel(col, vc, selected, max_visible, column_masks))
+    return ui.div(*panels, class_="facet-panels") if panels else ui.div()
+
+
 def build_approval_status_banner(status: str, timestamp: str) -> ui.div:
     """Build the approval/rejection status banner UI."""
     if status is None:

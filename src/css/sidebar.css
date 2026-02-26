@@ -161,3 +161,92 @@
 .filter-value-item:hover {
     background-color: #f8f9fa;
 }
+
+/* ── Facet Filter Panels ────────────────────────────────────────────── */
+.facet-panels {
+    margin-bottom: 20px;
+}
+.facet-section {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #dee2e6;
+}
+.facet-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 8px 0;
+}
+.facet-bar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    gap: 6px;
+}
+.facet-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+}
+.facet-checkbox-label input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.facet-label {
+    font-size: 13px;
+    color: #343a40;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: normal;
+}
+/* Italicise "No value" placeholder */
+.facet-label[title="No value"] {
+    font-style: italic;
+    color: #6c757d;
+}
+.facet-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    min-width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+}
+.facet-track {
+    width: 60px;
+    height: 14px;
+    background: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.facet-fill {
+    height: 100%;
+    background: #4a7dbd;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+.facet-overflow {
+    /* toggled via JS */
+}
+.facet-toggle-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-top: 2px;
+}
+.facet-toggle-btn:hover {
+    color: #495057;
+    text-decoration: underline;
+}

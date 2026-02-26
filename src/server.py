@@ -20,6 +20,7 @@ from .utils import (
     build_status_histogram_bar,
     build_approval_status_banner,
     build_modifications_log,
+    build_facet_panels,
     # Table utilities
     build_table_container,
     # Modal utilities
@@ -867,6 +868,67 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             ui.insert_ui(ui.tags.script(js_code), selector="body", where="beforeEnd")
             ui.notification_show(f"Copied {count} values from '{col_name}' to clipboard!", type="message", duration=2)
     
+    # ── Facet filter panels ─────────────────────────────────────────────
+    _facet_columns = list(app_config.query.facet_columns)
+    _facet_max = int(app_config.query.facet_max_values)
+
+    @render.ui
+    def facet_panels_ui():
+        """Render sidebar facet panels (checkbox + value‑count bars)."""
+        if not _facet_columns:
+            return ui.div()
+
+        # Depend on active_filters so the UI refreshes when selections change
+        filters = active_filters.get()
+
+        # Build value counts map — lazy loading uses DB, traditional uses in‑memory
+        vc_map = {}
+        selected_map = {}
+        for col in _facet_columns:
+            if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
+                vc_map[col] = config.data_fetcher.get_value_counts(col, limit=_facet_max * 10)
+            else:
+                df = data.get()
+                if col in df.columns:
+                    counts = df[col].fillna("No value").astype(str).value_counts()
+                    vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
+                else:
+                    vc_map[col] = []
+
+            # Derive selected from active_filters
+            fv = filters.get(col)
+            if fv and isinstance(fv, str) and fv.strip() and fv != "all":
+                selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
+            elif isinstance(fv, dict) and fv.get("op") == "in":
+                selected_map[col] = [str(v) for v in fv.get("value", [])]
+            # else: None → all checked
+
+        return build_facet_panels(
+            _facet_columns, vc_map,
+            selected_map=selected_map if selected_map else None,
+            max_visible=_facet_max,
+            column_masks=column_masks,
+        )
+
+    @reactive.Effect
+    @reactive.event(input.facet_filter_change)
+    def _handle_facet_filter():
+        """Apply facet checkbox selection to active_filters."""
+        val = input.facet_filter_change()
+        if not val:
+            return
+        col = val.get("column")
+        fv = val.get("value")  # newline‑delimited string or None
+        if not col:
+            return
+        filters = active_filters.get().copy()
+        if fv is None:
+            filters.pop(col, None)
+        else:
+            filters[col] = fv
+        active_filters.set(filters)
+        current_page.set(1)
+
     # Output: Dynamic filters UI
     @render.ui
     def dynamic_filters():

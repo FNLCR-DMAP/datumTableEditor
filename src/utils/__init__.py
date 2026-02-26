@@ -21,6 +21,7 @@ from .ui_components import (
     build_empty_log_message,
     build_approval_status_banner,
     build_modifications_log,
+    build_facet_panels,
 )
 from .table_utils import (
     build_table_container,
@@ -104,6 +105,7 @@ __all__ = [
     "build_empty_log_message",
     "build_approval_status_banner",
     "build_modifications_log",
+    "build_facet_panels",
     # Table utilities
     "build_table_container",
     "build_table_header",

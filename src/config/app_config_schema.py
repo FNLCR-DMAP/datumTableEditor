@@ -88,12 +88,17 @@ class QueryConfig:
     default_filters: dict[str, Any] = field(default_factory=dict)
     
     # Search settings
+    enable_search: bool = True
     search_case_sensitive: bool = False
     search_regex_enabled: bool = False
     
     # Status filter options
     status_filter_enabled: bool = True
     status_column: str = "Status"
+    
+    # Faceted filter columns (sidebar panels with value counts + checkboxes)
+    facet_columns: list[str] = field(default_factory=list)
+    facet_max_values: int = 5  # Default number of values to show before "Show more"
 
 
 @dataclass
@@ -357,9 +362,12 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     if "query" in file_config:
         qs = file_config["query"]
         config.query.searchable_columns = qs.get("searchable_columns", config.query.searchable_columns)
+        config.query.enable_search = qs.get("enable_search", config.query.enable_search)
         config.query.filter_columns = qs.get("filter_columns", config.query.filter_columns)
         config.query.default_filters = qs.get("default_filters", config.query.default_filters)
         config.query.status_column = qs.get("status_column", config.query.status_column)
+        config.query.facet_columns = qs.get("facet_columns", config.query.facet_columns)
+        config.query.facet_max_values = qs.get("facet_max_values", config.query.facet_max_values)
     
     # State
     if "state" in file_config:
@@ -524,9 +532,12 @@ def export_config_schema() -> dict:
         },
         "query": {
             "searchable_columns": "array of column names",
+            "enable_search": "boolean, default true — set false to hide the search bar",
             "filter_columns": "object {column: filter_type}",
             "default_filters": "object {column: value}",
             "status_column": "string",
+            "facet_columns": "array of column names for faceted (checkbox+count) sidebar filters",
+            "facet_max_values": "integer, default 5, number of values shown before Show more",
         },
         "state": {
             "persist_state": "boolean",
