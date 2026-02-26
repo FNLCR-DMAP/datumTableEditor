@@ -326,6 +326,788 @@ CREATE INDEX idx_ui_state_user_session ON <schema>.ui_state.<username> (user_id,
 
 ## Development
 
+### UI Operations — ASCII Flowcharts
+
+Every user-facing interaction mapped from trigger → server → data flow.
+
+---
+
+#### 1. Search
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  User types query  ──►  Picks column (or "All")         │
+│  Clicks [Search]                                        │
+└──────────────┬──────────────────────────────────────────┘
+               │
+               ▼
+  ┌──────────────────────────┐
+  │  _handle_search()        │
+  │  read input.search_input │
+  │  read input.search_column│
+  └────────────┬─────────────┘
+               │
+       ┌───────┴───────┐
+       │               │
+       ▼               ▼
+  ┌──────────┐  ┌─────────────┐
+  │ search   │  │ current_page│
+  │ _state   │  │  .set(1)    │
+  │ .set()   │  └─────────────┘
+  └────┬─────┘
+       │
+       ▼
+  ┌───────────────────────────────────────────────────┐
+  │  Lazy mode?                                       │
+  │  YES ─► _build_query_params() ─► SQL WHERE ILIKE  │
+  │  NO  ─► _get_filtered_rows() ─► pandas str.contains│
+  └───────────────────────┬───────────────────────────┘
+                          │
+                          ▼
+                ┌──────────────────┐
+                │  table_container  │
+                │  re-renders       │
+                └──────────────────┘
+```
+
+---
+
+#### 2. Status Filter (Histogram)
+
+```
+┌──────────────────────────────────────────┐
+│  User clicks status bar in histogram     │
+│  (e.g. uncheck "Unreviewed")             │
+└──────────────────┬───────────────────────┘
+                   │
+                   ▼
+      ┌────────────────────────────┐
+      │  JS: initHistogramCheckboxes│
+      │  syncs .status-checkbox     │
+      │  ──► input.status_filter_   │
+      │       multi (hidden select) │
+      └────────────┬───────────────┘
+                   │
+                   ▼
+      ┌────────────────────────────┐
+      │  _reset_page_on_filter...  │
+      │  current_page.set(1)       │
+      └────────────┬───────────────┘
+                   │
+           ┌───────┴───────┐
+           │               │
+           ▼               ▼
+  ┌──────────────┐  ┌──────────────────┐
+  │ Lazy: SQL    │  │ In-memory:       │
+  │ WHERE status │  │ _get_filtered_   │
+  │ IN (...)     │  │ rows() filters   │
+  └──────┬───────┘  │ by _get_row_     │
+         │          │ status()         │
+         │          └────────┬─────────┘
+         └────────┬──────────┘
+                  ▼
+        ┌──────────────────┐
+        │  table_container  │
+        │  + stats_histogram│
+        │  re-render        │
+        └──────────────────┘
+```
+
+---
+
+#### 3. Facet Filters
+
+```
+┌────────────────────────────────────────────────┐
+│  User checks/unchecks value in facet panel     │
+│  e.g. ☑ "RNA_Access" under NGS_TEST            │
+└────────────────────┬───────────────────────────┘
+                     │
+                     ▼
+      ┌──────────────────────────────────┐
+      │  JS: initFacetCheckboxes()       │
+      │  collect checked values per col  │
+      │  ──► setShinyInput(              │
+      │       "facet_filter_change",     │
+      │       {col: [values]} )          │
+      └──────────────┬───────────────────┘
+                     │
+                     ▼
+      ┌──────────────────────────────────┐
+      │  _handle_facet_filter()          │
+      │  merge into active_filters       │
+      │  (null = clear that column)      │
+      │  current_page.set(1)             │
+      └──────────────┬───────────────────┘
+                     │
+             ┌───────┴───────┐
+             │               │
+             ▼               ▼
+      ┌────────────┐  ┌───────────────┐
+      │ table re-  │  │ facet_panels  │
+      │ renders    │  │ _ui re-renders│
+      │ with new   │  │ with updated  │
+      │ filters    │  │ checkmarks    │
+      └────────────┘  └───────────────┘
+```
+
+---
+
+#### 4. Dynamic Column Filters
+
+```
+ ┌──────────────┐    ┌──────────────────────────────────────┐
+ │ Click [+]    │    │  Existing filter actions:             │
+ │ Add Filter   │    │  ✕ remove │ ✎ edit │ op dropdown     │
+ └──────┬───────┘    └────┬──────────┬──────────┬───────────┘
+        │                 │          │          │
+        ▼                 ▼          ▼          ▼
+ ┌─────────────┐   ┌──────────┐ ┌────────┐ ┌─────────────────┐
+ │ JS: open    │   │_remove_  │ │_apply_ │ │_set_filter_     │
+ │ AddFilter   │   │filter()  │ │filter_ │ │operator()       │
+ │ Modal       │   │          │ │value() │ │{col, op}        │
+ └──────┬──────┘   └────┬─────┘ └───┬────┘ └────────┬────────┘
+        │               │           │               │
+        ▼               │           │               │
+ ┌─────────────────┐    │           │               │
+ │ Pick column     │    │           │               │
+ │ ──► JS addFilter│    │           │               │
+ │ ──► _add_filter │    │           │               │
+ └────────┬────────┘    │           │               │
+          │             │           │               │
+          ▼             ▼           ▼               ▼
+     ┌──────────────────────────────────────────────────┐
+     │              active_filters.set(...)              │
+     │              current_page.set(1)                  │
+     └──────────────────────┬───────────────────────────┘
+                            │
+                    ┌───────┴───────┐
+                    │               │
+                    ▼               ▼
+           ┌──────────────┐  ┌─────────────────┐
+           │ table re-    │  │ dynamic_filters  │
+           │ renders      │  │ panel re-renders │
+           └──────────────┘  └─────────────────┘
+```
+
+---
+
+#### 5. Sort
+
+```
+┌─────────────────────────────────────────────┐
+│  Click column header ⋮ ──► Sort Asc / Desc  │
+└──────────────────────┬──────────────────────┘
+                       │
+                       ▼
+          ┌───────────────────────────┐
+          │  JS sends input.sort_     │
+          │  column = {col, direction}│
+          └─────────────┬─────────────┘
+                        │
+                        ▼
+          ┌───────────────────────────┐
+          │  _sort_column()           │
+          │                           │
+          │  Lazy?                    │
+          │  YES ─► current_sort.set()│
+          │         (SQL ORDER BY)    │
+          │  NO  ─► sort_dataframe()  │
+          │         on data reactive  │
+          └─────────────┬─────────────┘
+                        │
+                ┌───────┴───────┐
+                │               │
+                ▼               ▼
+       ┌──────────────┐  ┌────────────────┐
+       │ current_page  │  │ save_ui_state  │
+       │ .set(1)       │  │ (persist sort) │
+       └──────┬────────┘  └────────────────┘
+              │
+              ▼
+     ┌──────────────────┐
+     │  table_container  │
+     │  re-renders       │
+     └──────────────────┘
+```
+
+---
+
+#### 6. Pagination
+
+```
+┌──────────────────────────────────────────────────────────┐
+│         ⏮ First  ◀ Prev  [3/12]  Next ▶  Last ⏭        │
+│                    Go to: [__] [Go]                       │
+│                    Rows/page: [25 ▾]                      │
+└───┬──────────┬──────────┬──────────┬──────────┬──────────┘
+    │          │          │          │          │
+    ▼          ▼          ▼          ▼          ▼
+ set(1)    set(p-1)   set(p+1)   set(max)  set(input)
+    │          │          │          │          │
+    └──────────┴──────────┴──────────┴──────────┘
+                          │
+                          ▼
+             ┌──────────────────────┐
+             │  current_page.set(N) │
+             │  save_ui_state()     │
+             └──────────┬───────────┘
+                        │
+                ┌───────┴───────┐
+                │               │
+                ▼               ▼
+       ┌──────────────┐  ┌──────────────────┐
+       │ Lazy: SQL    │  │ In-memory:       │
+       │ LIMIT/OFFSET │  │ DataFrame slice  │
+       │ new page     │  │ [start:end]      │
+       └──────┬───────┘  └────────┬─────────┘
+              └────────┬──────────┘
+                       ▼
+             ┌──────────────────┐
+             │  table_container  │
+             │  + pagination_    │
+             │  controls render  │
+             └──────────────────┘
+```
+
+---
+
+#### 7. Cell Edit
+
+```
+┌───────────────────────────┐
+│  Click editable cell      │
+│  (double-click/single)    │
+└─────────────┬─────────────┘
+              │
+              ▼
+  ┌────────────────────────────────┐
+  │  JS: openCellPopup()          │
+  │  Shows popup with:            │
+  │  Current value │ Original val │
+  │  [Save] [Copy] [Cancel]       │
+  └──┬──────────┬──────────┬──────┘
+     │          │          │
+     ▼          ▼          ▼
+ ┌────────┐ ┌────────┐ ┌────────────┐
+ │ Save   │ │ Copy to│ │ Cancel:    │
+ │ sends  │ │ clip-  │ │ close popup│
+ │ cell_  │ │ board  │ │ (no server │
+ │ edit   │ │ (JS)   │ │  call)     │
+ └───┬────┘ └────────┘ └────────────┘
+     │
+     ▼
+  ┌──────────────────────────────┐
+  │  _handle_cell_edit()         │
+  │  perform_cell_edit()         │
+  │  {row, col, old, new}       │
+  └──────────────┬───────────────┘
+                 │
+      ┌──────────┼──────────┐
+      │          │          │
+      ▼          ▼          ▼
+ ┌─────────┐ ┌────────┐ ┌──────────┐
+ │ data    │ │mods_log│ │ edited_  │
+ │ .set()  │ │.set()  │ │ cells    │
+ │ update  │ │append  │ │ track    │
+ │ cell    │ │entry   │ │ {r,c}    │
+ └─────────┘ └────────┘ └──────────┘
+                 │
+                 ▼
+      ┌───────────────────────────┐
+      │ auto-save to DB / file    │
+      │ table re-renders with     │
+      │ highlighted edited cell   │
+      └───────────────────────────┘
+```
+
+---
+
+#### 8. Row Selection + Approve/Reject
+
+```
+┌──────────────────────────────────────────────────┐
+│  ☐ Select rows (click/shift-click/select-all)    │
+└──────────────────────┬───────────────────────────┘
+                       │
+              ┌────────┴────────┐
+              │                 │
+              ▼                 ▼
+     ┌──────────────┐  ┌───────────────┐
+     │  [Approve]   │  │  [Reject]     │
+     └──────┬───────┘  └───────┬───────┘
+            │                  │
+            ▼                  ▼
+  ┌──────────────────────────────────────┐
+  │  _approve_data() / _reject_data()   │
+  │  1. get_selected_row_indices()      │
+  │  2. _get_selected_pks(indices, df)  │
+  │  3. create_approval/rejection_entry │
+  └──────────────────┬───────────────────┘
+                     │
+          ┌──────────┼──────────┐
+          │          │          │
+          ▼          ▼          ▼
+    ┌──────────┐ ┌────────┐ ┌────────────────┐
+    │ mods_log │ │ save   │ │ _save_status_  │
+    │ .set()   │ │ log to │ │ to_db() per PK │
+    │ append   │ │ file   │ │ INSERT INTO    │
+    │ entries  │ │        │ │ mods table     │
+    └──────────┘ └────────┘ └────────────────┘
+                     │
+                     ▼
+           ┌──────────────────┐
+           │ table re-renders │
+           │ with status color│
+           │ histogram updates│
+           └──────────────────┘
+```
+
+---
+
+#### 9. Export
+
+```
+┌─────────────────────────────────────┐
+│  Click [Export Selected] or         │
+│        [Export All]                  │
+└──────────────────┬──────────────────┘
+                   │
+                   ▼
+      ┌────────────────────────────┐
+      │  JS: openExportConfirmModal│
+      │  PHI/PII warning dialog    │
+      │  [I Understand] [Cancel]   │
+      └─────────┬──────────────────┘
+                │
+                ▼
+      ┌────────────────────────────────┐
+      │  _prepare_export()             │
+      │  export_state = "preparing"    │
+      │                                │
+      │  type == "selected"?           │
+      │  YES ─► get selected row PKs   │
+      │         filter df to those PKs │
+      │  NO  ─► use full filtered/     │
+      │         sorted df              │
+      └────────────────┬───────────────┘
+                       │
+                       ▼
+      ┌────────────────────────────────┐
+      │  df.to_csv() ──► export_csv   │
+      │  export_state = "ready"        │
+      └────────────────┬───────────────┘
+                       │
+                       ▼
+      ┌────────────────────────────────┐
+      │  export_download_ui renders    │
+      │  [Download CSV] button         │
+      │  ──► browser downloads file    │
+      │  export_state = "idle"         │
+      └────────────────────────────────┘
+```
+
+---
+
+#### 10. Column Management (Manage Layout)
+
+```
+┌──────────────────────────┐
+│  Click [Manage Layout]   │
+└────────────┬─────────────┘
+             │
+             ▼
+  ┌─────────────────────────────────────────────┐
+  │  Add Column Modal                           │
+  │  ┌─────────────────────────────────────┐    │
+  │  │  Active: [col1] [col2] [col3] [×]   │    │
+  │  │  (drag to reorder)                  │    │
+  │  ├─────────────────────────────────────┤    │
+  │  │  Available: [col4] [col5] [col6]    │    │
+  │  │  (click to add)                     │    │
+  │  ├─────────────────────────────────────┤    │
+  │  │  [Add All] [Remove All] [Update]    │    │
+  │  └─────────────────────────────────────┘    │
+  └──────────┬──────────────────────────────────┘
+             │
+     ┌───────┼───────┬───────┬───────┐
+     │       │       │       │       │
+     ▼       ▼       ▼       ▼       ▼
+  drag    click    click    click   click
+  reorder  add     remove   add    remove
+  cols     col     col ×    all    all
+     │       │       │       │       │
+     └───────┴───────┴───────┴───────┘
+                     │
+                     ▼
+         ┌───────────────────────┐
+         │  active_columns.set() │
+         │  + column_order input │
+         └───────────┬───────────┘
+                     │
+             ┌───────┴───────┐
+             │               │
+             ▼               ▼
+    ┌──────────────┐  ┌────────────────┐
+    │ table re-    │  │ modal content  │
+    │ renders with │  │ re-renders     │
+    │ new columns  │  │ available list │
+    └──────────────┘  └────────────────┘
+```
+
+---
+
+#### 11. Column Resize & Drag (Table Headers)
+
+```
+┌───────────────────────────────────────────────────┐
+│  Table Header Row                                 │
+│  ┌──────┬──────┬──────┬──────┐                    │
+│  │ ColA ↔ ColB ↔ ColC ↔ ColD │  ← drag to reorder│
+│  │   ║     ║     ║     ║     │  ← drag ║ to resize│
+│  └──────┴──────┴──────┴──────┘                    │
+└───────────┬──────────────┬────────────────────────┘
+            │              │
+            ▼              ▼
+    ┌──────────────┐  ┌───────────────────┐
+    │  Drag header │  │  Drag resize      │
+    │  to reorder  │  │  handle ║         │
+    └──────┬───────┘  └───────┬───────────┘
+           │                  │
+           ▼                  ▼
+  ┌──────────────────┐  ┌──────────────────┐
+  │ JS: updateHeader │  │ JS: saveColumn   │
+  │ Order() sends    │  │ Widths() sends   │
+  │ input.column_    │  │ input.column_    │
+  │ order = [...]    │  │ widths = {...}   │
+  └────────┬─────────┘  └────────┬─────────┘
+           │                     │
+           ▼                     ▼
+  ┌──────────────────┐  ┌──────────────────┐
+  │ active_columns   │  │ column_widths    │
+  │ .set(new order)  │  │ .set(new widths) │
+  └──────────────────┘  └──────────────────┘
+           │                     │
+           └──────────┬──────────┘
+                      ▼
+             ┌──────────────────┐
+             │ table re-renders │
+             │ save_ui_state()  │
+             └──────────────────┘
+```
+
+---
+
+#### 12. Presets
+
+```
+┌───────────────────────────────────────┐
+│  Click [Preset ▾] dropdown           │
+└──────────────────┬────────────────────┘
+                   │
+                   ▼
+  ┌───────────────────────────────────────────┐
+  │  ● Default                                │
+  │  ○ My Variant View              [×]       │
+  │  ○ Clinical Review              [×]       │
+  │  ─────────────────────────────────         │
+  │  Save as: [________] [Save]               │
+  │  [Save Layout] [Reset to Default] [⟳]     │
+  └──┬──────┬─────────┬──────────┬────────────┘
+     │      │         │          │
+     ▼      ▼         ▼          ▼
+  load   save new  save layout  delete
+  preset  preset   to current   preset
+     │      │         │          │
+     ▼      ▼         ▼          ▼
+  ┌────────────────────────────────────────┐
+  │  column_presets reactive updated       │
+  │  active_columns.set(preset cols)       │
+  │  column_widths.set(preset widths)      │
+  │  active_preset.set(name)               │
+  └────────────────┬───────────────────────┘
+                   │
+           ┌───────┴───────┐
+           │               │
+           ▼               ▼
+  ┌──────────────┐  ┌────────────────┐
+  │ table re-    │  │ _save_presets  │
+  │ renders with │  │ to file / DB   │
+  │ new layout   │  │                │
+  └──────────────┘  └────────────────┘
+```
+
+---
+
+#### 13. Undo
+
+```
+┌────────────────────────────────────────┐
+│  Modifications Log Modal               │
+│  ┌──────────────────────────────────┐  │
+│  │ #1  ColA: "old" → "new"  [Undo] │  │
+│  │ #2  ColB: "x"   → "y"   [Undo] │  │
+│  │ #3  Approved row PK={..} [Undo] │  │
+│  └──────────────────────────────────┘  │
+└───────────────────┬────────────────────┘
+                    │
+                    ▼
+       ┌─────────────────────────┐
+       │  _handle_undo()         │
+       │  process_undo_action()  │
+       │  perform_undo()         │
+       └─────────────┬───────────┘
+                     │
+          ┌──────────┼──────────┐
+          │          │          │
+          ▼          ▼          ▼
+    ┌──────────┐ ┌────────┐ ┌──────────┐
+    │ data     │ │mods_log│ │ auto-save│
+    │ .set()   │ │.set()  │ │ log +    │
+    │ revert   │ │remove  │ │ data     │
+    │ cell     │ │entry   │ │ state    │
+    └──────────┘ └────────┘ └──────────┘
+                     │
+                     ▼
+           ┌──────────────────┐
+           │ table re-renders │
+           │ cell un-highlighted│
+           └──────────────────┘
+```
+
+---
+
+#### 14. Save
+
+```
+┌──────────────────┐
+│  Click [Save]    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────────────────────────────┐
+│  _save_modifications()                   │
+│  save_modifications_to_file(data, log)   │
+└────────────────────┬─────────────────────┘
+                     │
+          ┌──────────┼──────────┐
+          │          │          │
+          ▼          ▼          ▼
+   ┌───────────┐ ┌────────┐ ┌───────────┐
+   │ Write     │ │ Write  │ │ DB mode:  │
+   │ mods log  │ │ data   │ │ already   │
+   │ JSON file │ │ state  │ │ persisted │
+   │           │ │ JSON   │ │ per-edit  │
+   └───────────┘ └────────┘ └───────────┘
+         │
+         ▼
+┌──────────────────────┐
+│  notification_show() │
+│  "Saved successfully"│
+└──────────────────────┘
+```
+
+---
+
+#### 15. Synthesis (Materialized View Transform)
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                     Synthesis Modal                            │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  SQL Query (read-only preview)                           │  │
+│  │  SELECT ... FROM ... WHERE ... GROUP BY ...              │  │
+│  ├──────────────────────────────────────────────────────────┤  │
+│  │  Status: ✓ Ready — 1,234 rows  (cached 3m ago, TTL 10m) │  │
+│  │  [Run Transform]  [Regenerate]  [Exit Synthesis]         │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────┬──────────────┬──────────────────┬─────────────────────┘
+         │              │                  │
+         ▼              ▼                  ▼
+   ┌──────────┐   ┌───────────┐    ┌──────────────┐
+   │ Run      │   │ Regenerate│    │ Exit         │
+   │ (use     │   │ (force    │    │ (deactivate  │
+   │ cache if │   │ refresh   │    │ synthesis    │
+   │ valid)   │   │ matview)  │    │ fetcher)     │
+   └────┬─────┘   └─────┬─────┘   └──────┬───────┘
+        │                │                │
+        ▼                ▼                │
+   ┌─────────────────────────────┐        │
+   │  config.run_synthesis()     │        │
+   │  CREATE MATERIALIZED VIEW   │        │
+   │       AS (user query)       │        │
+   │  or REFRESH MATERIALIZED    │        │
+   │       VIEW (force=True)     │        │
+   └──────────────┬──────────────┘        │
+                  │                       │
+                  ▼                       │
+   ┌──────────────────────────────┐       │
+   │  activate_synthesis_fetcher  │       │
+   │  DataFetcher._table_override │       │
+   │  = matview table name        │       │
+   │  active_columns synced       │       │
+   └──────────────┬───────────────┘       │
+                  │                       │
+                  ▼                       ▼
+   ┌──────────────────────────────────────────┐
+   │  data.set(result_df)                     │
+   │  _table_reload_trigger + 1               │
+   │  table re-renders with synthesis data    │
+   │  all filters/sort/pagination work on     │
+   │  the materialized view via SQL           │
+   └──────────────────────────────────────────┘
+```
+
+---
+
+#### 16. Data Reload
+
+```
+┌──────────────────┐
+│  Click [Reload]  │
+└────────┬─────────┘
+         │
+         ▼
+  ┌──────────────────────────────┐
+  │  _reload_data()              │
+  │                              │
+  │  Lazy mode?                  │
+  │  YES ─► refresh total_rows   │
+  │         from DB COUNT(*)     │
+  │  NO  ─► load_data_from_      │
+  │         source() full reload │
+  └──────────────┬───────────────┘
+                 │
+                 ▼
+  ┌──────────────────────────────┐
+  │  mods_log reloaded from DB   │
+  │  current_page.set(1)         │
+  │  table_container re-renders  │
+  └──────────────────────────────┘
+```
+
+---
+
+#### 17. Sidebar Toggle
+
+```
+  ┌──────────────────────────────────────────────┐
+  │  ◀ Sidebar  │          Table Content          │
+  │  ┌────────┐ │                                 │
+  │  │Filters │ │                                 │
+  │  │Search  │ │                                 │
+  │  │Facets  │ │                                 │
+  │  └────────┘ │                                 │
+  └──────┬──────┴─────────────────────────────────┘
+         │  Click ◀
+         ▼
+  ┌──────────────────────────────────────────────┐
+  │ ▶ │              Table Content                │
+  │   │          (full width now)                  │
+  └───┴───────────────────────────────────────────┘
+         │  Click ▶
+         ▼
+  (toggles back to expanded sidebar)
+
+  JS: toggleLeftPanel()
+  Scoped to containing widget via closest()
+```
+
+---
+
+#### 18. Copy Column Values
+
+```
+┌──────────────────┐
+│  Click [Copy]    │
+│  in toolbar      │
+└────────┬─────────┘
+         │
+         ▼
+  ┌────────────────────────────┐
+  │  Copy Column Modal         │
+  │  ┌──────────────────────┐  │
+  │  │  [Column A]          │  │
+  │  │  [Column B]          │  │
+  │  │  [Column C]          │  │
+  │  └──────────────────────┘  │
+  └──────────┬─────────────────┘
+             │ click column name
+             ▼
+  ┌────────────────────────────────┐
+  │  _handle_copy_request()        │
+  │  process_copy_request()        │
+  │  extract values for selected   │
+  │  rows (or all on page)         │
+  └────────────────┬───────────────┘
+                   │
+                   ▼
+  ┌────────────────────────────────┐
+  │  JS: navigator.clipboard      │
+  │  .writeText(values)            │
+  │  notification: "Copied!"       │
+  └────────────────────────────────┘
+```
+
+---
+
+#### 19. Full Render Pipeline
+
+```
+          ┌─────────────────────────────────┐
+          │  Any reactive trigger fires:    │
+          │  • search_state                 │
+          │  • active_filters               │
+          │  • status_filter_multi          │
+          │  • current_sort                 │
+          │  • current_page                 │
+          │  • rows_per_page_value          │
+          │  • mods_log                     │
+          │  • data                         │
+          │  • active_columns               │
+          │  • _table_reload_trigger        │
+          └───────────────┬─────────────────┘
+                          │
+                          ▼
+               ┌─────────────────────┐
+               │  is_lazy_loading()? │
+               └──┬──────────────┬───┘
+                  │              │
+              YES ▼          NO  ▼
+   ┌──────────────────┐  ┌──────────────────────┐
+   │ _build_query_    │  │ _get_filtered_rows() │
+   │ params()         │  │ pandas filtering     │
+   │ ──► DataFetcher  │  │ + sort + slice       │
+   │ .fetch_page()    │  │                      │
+   │ SQL query with:  │  │                      │
+   │  WHERE + ORDER   │  │                      │
+   │  + LIMIT/OFFSET  │  │                      │
+   └────────┬─────────┘  └──────────┬───────────┘
+            │                       │
+            └───────────┬───────────┘
+                        │
+                        ▼
+            ┌──────────────────────────┐
+            │  build_table_container() │
+            │  HTML table with:        │
+            │  • header (⋮ menus)      │
+            │  • rows (editable cells) │
+            │  • selection checkboxes  │
+            │  • status highlighting   │
+            │  • edit highlighting     │
+            └──────────────┬───────────┘
+                           │
+                           ▼
+            ┌──────────────────────────┐
+            │  JS post-render inits:   │
+            │  • initRowSelection()    │
+            │  • initHeaderDrag()      │
+            │  • initColumnResize()    │
+            │  • initHistogramCBs()    │
+            │  • initFacetCBs()        │
+            └──────────────────────────┘
+```
+
 ### Running Tests
 
 ```bash
