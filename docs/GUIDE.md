@@ -1,320 +1,323 @@
-# PyShiny Epitopes Data Editor - Complete Guide
+# dmapTableEditor — User Guide
 
 ## Overview
 
-This project provides a full-featured web application for editing epitope data with complete modification tracking. Built with PyShiny, it allows users to:
+dmapTableEditor is a reusable PyShiny table-editor widget backed by PostgreSQL. It can run standalone or be embedded as a module in multi-tab Shiny applications. Key capabilities:
 
-1. **View data** from CSV files in an interactive table
-2. **Edit fields** directly in the UI
-3. **Track changes** with automatic JSON logging
-4. **Export results** in multiple formats (CSV, JSON, SQL)
-5. **Apply transformations** using the modification log
+- **Inline cell editing** with full modification audit trail
+- **Database-backed persistence** via SQLAlchemy (direct) or Datum proxy
+- **Rich filtering** — 12 filter operators including date ranges, regex, and set membership
+- **Column presets** — save/restore custom column views per user
+- **Approval workflow** — approve, reject, and undo row-level actions
+- **Synthesis transforms** — run cached SQL materializations on demand
+- **Role-based permissions** — editor vs. viewer access
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Install
+
 ```bash
-cd /Users/her2/Desktop/presentation/igv_demo
-pip install -r requirements.txt
+pip install dmapTableEditor
+# or from source
+pip install -e ".[dev]"
 ```
 
-### 2. Run the App
+### 2. Configure
+
 ```bash
-# Option A: Using the provided script
-bash run_app.sh
-
-# Option B: Direct command
-python -m shiny run src/app.py
+cp template/app_config.template.json app_config.json
+# Edit app_config.json with your database settings
 ```
 
-### 3. Access the Application
-Open your browser and navigate to: `http://localhost:8000`
+### 3. Run
 
-## Application Features
-
-### Data Editing
-- **Inline Editing**: Click any cell to edit its value
-- **Live Updates**: Changes are tracked in real-time
-- **Row Selection**: Use checkboxes to select rows (for future batch operations)
-- **Visual Feedback**: Editable cells have focus indicators
-
-### Modification Tracking
-All changes are automatically logged to `data/modifications_log.json` with:
-- **Timestamp**: ISO 8601 format for precise audit trails
-- **Row Index**: Which row was modified (0-indexed)
-- **Column Name**: Which field was changed
-- **Old & New Values**: Before/after values for comparison
-
-### Data Management
-- **Save Modifications**: Persist changes to JSON files
-- **Export as CSV**: Save modified data for external use
-- **Reload Data**: Restore original data and clear all modifications
-- **Clear Log**: Remove modification history
-
-## File Structure
-
-```
-igv_demo/
-├── src/
-│   ├── app.py                 # Main PyShiny application
-│   └── tab_config.json        # Table configuration
-├── data/
-│   ├── dummy_data_50rows.csv  # Sample data
-│   ├── schema_data.json       # Data schema
-│   ├── modifications_log.json # Modification history (auto-updated)
-│   ├── data_state.json        # Current data snapshot (auto-generated)
-│   ├── data_modified.csv      # Exported CSV (auto-generated)
-│   └── processed/             # Output directory for transformations
-├── process_modifications.py   # Utility to apply modifications
-├── run_app.sh                 # Quick start script
-├── requirements.txt           # Python dependencies
-└── README.md                  # Documentation
+```bash
+shiny run app.py
 ```
 
-## Usage Workflow
+Open `http://localhost:8000` in your browser.
 
-### Scenario 1: Simple Data Editing
+---
 
-1. Start the app: `bash run_app.sh`
-2. Browse the table and locate data to edit
-3. Click any cell to edit
-4. View changes in the "Modifications Log" below
-5. Click "💾 Save Modifications" to persist changes
-6. Click "📥 Export to CSV" to get the modified data
+## Configuration
 
-### Scenario 2: Batch Processing
+All behaviour is controlled by `app_config.json`. See **template/app_config.template.json** for a fully annotated example and **docs/REFERENCE.md** for the complete schema reference.
 
-1. Edit multiple cells and save
-2. Run the processor script:
-   ```bash
-   python process_modifications.py data
-   ```
-3. Check `data/processed/` directory for:
-   - `data_transformed.csv` - Modified data
-   - `modifications_audit.csv` - Change audit trail
-   - `modifications.sql` - SQL update statements
-   - `summary.json` - Change statistics
-
-### Scenario 3: Pipeline Integration
-
-Integrate modifications into your data pipeline:
-
-```python
-from process_modifications import ModificationsProcessor
-
-processor = ModificationsProcessor("data")
-results = processor.process_and_save()
-
-# Access results
-print(f"Applied {results['modifications_count']} modifications")
-for file_type, path in results['output_files'].items():
-    print(f"{file_type}: {path}")
-```
-
-## JSON Modification Log Format
-
-Each entry in `modifications_log.json` has this structure:
+### Minimal Config (Database Mode)
 
 ```json
 {
-  "timestamp": "2024-01-21T10:30:45.123456",
-  "type": "field_modification",
-  "details": {
-    "row_index": 0,
-    "column": "Comments",
-    "old_value": "Original value",
-    "new_value": "Modified value"
+  "app_title": "My Editor",
+  "database": {
+    "enabled": true,
+    "mode": "direct",
+    "connection_string": "postgresql://user:pass@localhost/mydb",
+    "data_table": "my_data",
+    "mods_table": "my_schema.modifications",
+    "state_table": "my_schema.ui_state"
+  },
+  "table": {
+    "primary_key": ["id"],
+    "default_columns": ["id", "name", "status", "date"]
   }
 }
 ```
 
-### How to Use the Log
+### Configuration Priority
 
-**Load and apply modifications:**
-```python
-import json
-import pandas as pd
+1. **Environment variables** (`APP_DATABASE_ENABLED`, `DATUM_BASE_URL`, etc.)
+2. **Config file** (`app_config.json`)
+3. **Built-in defaults**
 
-df = pd.read_csv("data/dummy_data_50rows.csv")
+---
 
-with open("data/modifications_log.json") as f:
-    mods = json.load(f)
+## Features
 
-for mod in mods:
-    details = mod['details']
-    df.at[details['row_index'], details['column']] = details['new_value']
+### Inline Cell Editing
+
+Click any cell in an editable column to open the edit popup. Changes are tracked in the modifications table with full before/after values.
+
+- **Editable columns**: Controlled by `table.editable_columns` (empty = all editable)
+- **Readonly columns**: Explicitly locked via `table.readonly_columns`
+- **Auto-save**: When `persistence.auto_save` is `true`, edits persist immediately
+
+### Column Management
+
+- **Drag to reorder** — drag column headers to rearrange
+- **Resize** — drag header borders to adjust width
+- **Sort** — click the column header dropdown to sort ascending/descending
+- **Remove/Add** — use the header dropdown or the column management modal
+- **Presets** — save named column configurations and switch between them
+
+### Search & Filter
+
+#### Text Search
+
+The search bar filters rows across all `query.searchable_columns` (or all text columns if empty). Case-sensitivity and regex support are controlled by `query.search_case_sensitive` and `query.search_regex_enabled`.
+
+#### Column Filters
+
+Dynamic column filters can be added from the sidebar. Each filter supports plain value matching or operator-based filtering.
+
+#### Default Filters
+
+Pre-configured filters applied on startup via `query.default_filters`:
+
+```json
+{
+  "query": {
+    "default_filters": {
+      "status": {"op": "in", "value": ["Completed", "Others"]},
+      "sequencing_date": {"op": "last_n_days", "value": 7},
+      "clinical_or_research": "Clinical"
+    }
+  }
+}
 ```
 
-**Generate SQL statements:**
-```python
-with open("data/modifications_log.json") as f:
-    mods = json.load(f)
+#### Filter Operators
 
-for mod in mods:
-    d = mod['details']
-    print(f"UPDATE table SET {d['column']} = '{d['new_value']}' WHERE id = {d['row_index']};")
+| Operator | Value | Description |
+|----------|-------|-------------|
+| `in` | `["a","b"]` | Match any value in list |
+| `not_in` | `["a","b"]` | Exclude values in list |
+| `contains` | `"text"` | Case-insensitive substring match |
+| `not_contains` | `"text"` | Exclude matching substrings |
+| `between` | `[min, max]` | Inclusive range |
+| `gt`, `gte`, `lt`, `lte` | number | Numeric comparison |
+| `last_n_days` | integer | Date within last N days from today |
+| `not_empty` | *(none)* | Non-null, non-blank |
+| `regex` | `"pattern"` | PostgreSQL case-insensitive regex |
+
+#### Fixed Filters
+
+Set `"fix_filter": true` at the top level to lock filters to only those defined in `default_filters`. Users will not be able to add or remove filters.
+
+### Status Workflow
+
+When `enable_approval_workflow` is `true`:
+
+- **Status badges** appear on each row (colour-coded)
+- **Approve/Reject buttons** update selected rows
+- **Undo** reverts the last modification
+- **Status filter** in the sidebar shows distribution
+
+Custom status display labels via `status_labels`:
+
+```json
+{
+  "status_labels": {
+    "unprocessed": "Unreviewed",
+    "edited": "Edited",
+    "approved": "Accepted",
+    "rejected": "Rejected"
+  }
+}
 ```
 
-## Configuring Display Columns
+### Row Selection
 
-Edit `src/app.py` to control which columns appear in the editor:
+- Click a row's checkbox to select it
+- **Shift+Click** to range-select multiple rows
+- **Select All** toggles all rows on the current page
+- **Clear Selection** deselects all
 
-```python
-display_columns = [
-    "PatientID",        # Add these columns
-    "Variant_key",
-    "Gene_names",
-    "Comments",         # Remove ones you don't need
-    # ... etc
-]
+### Pagination
+
+- Page size controlled by `table.rows_per_page_options`
+- `"all"` option loads every row (use with caution on large datasets)
+- Hard cap at `database.max_rows_per_page` (default 100)
+
+### Export
+
+Click **Export** to download the current filtered/sorted view as CSV.
+
+### Synthesis (SQL Transform)
+
+When `enable_synthesis` is `true`, a Synthesis button appears in the toolbar. Clicking it runs the SQL query defined in `synthesis.query`, materialises the result into a PostgreSQL table, and displays it.
+
+Results are cached for `synthesis.ttl_minutes`. Subsequent clicks within the TTL serve the cached table instantly.
+
+```json
+{
+  "enable_synthesis": true,
+  "synthesis": {
+    "query": "SELECT * FROM my_view WHERE score > 0.5",
+    "result_table_prefix": "_synthesis_result",
+    "ttl_minutes": 10,
+    "label": "Run Analysis"
+  }
+}
 ```
 
-Available columns from the CSV:
-- PatientID
-- Variant_key
-- Wt_nmer
-- Mut_nmer
-- Status
-- Comments
-- aa_changes
-- cDNA_changes
-- WtNMerReviewed
-- MutNMerReviewed
-- Max_Read2Count
-- (and many more - see data/schema_data.json)
+### Permissions
 
-## Statistics Dashboard
+Role-based access control via the `permissions` section:
 
-The app displays real-time statistics:
-- **Total Rows**: Number of data records
-- **Modifications**: Count of changes made
-- **Editable Columns**: Number of fields available for editing
+```json
+{
+  "permissions": {
+    "default_role": "viewer",
+    "user_roles": {
+      "alice": "editor",
+      "bob": "viewer"
+    }
+  }
+}
+```
 
-## Output Files Explained
+| Role | Can Edit | Can Save | Can Approve | Can Export | Can View |
+|------|----------|----------|-------------|-----------|----------|
+| `editor` | Yes | Yes | Yes | Yes | Yes |
+| `viewer` | No | No | No | Yes | Yes |
 
-### modifications_log.json
-- **Purpose**: Complete audit trail of all changes
-- **Use Case**: Compliance, tracking changes, applying transformations
-- **Format**: JSON array of modification objects
-- **When Created**: Auto-updated when you click "Save Modifications"
+---
 
-### data_state.json
-- **Purpose**: Snapshot of current data state
-- **Use Case**: Checkpointing, comparison with original
-- **Format**: JSON array of records
-- **When Created**: Auto-generated when saving
+## Database Modes
 
-### data_modified.csv
-- **Purpose**: Export for use in other tools
-- **Use Case**: Sharing data, importing to Excel, etc.
-- **Format**: CSV with same schema as input
-- **When Created**: Auto-generated when clicking "Export to CSV"
+### Direct Mode (SQLAlchemy)
 
-### processed/modifications_audit.csv
-- **Purpose**: Human-readable change audit trail
-- **Columns**: timestamp, row_index, column, old_value, new_value
-- **Generated**: By process_modifications.py
+```json
+{
+  "database": {
+    "mode": "direct",
+    "connection_string": "postgresql://user:pass@host/db"
+  }
+}
+```
 
-### processed/modifications.sql
-- **Purpose**: SQL UPDATE statements for database integration
-- **Use Case**: Apply changes to database backend
-- **Format**: Standard SQL
-- **Generated**: By process_modifications.py
+Uses SQLAlchemy connection pools. Configure `pool_size`, `max_overflow`, and `pool_timeout` for tuning.
+
+### Datum Proxy Mode
+
+```json
+{
+  "database": {
+    "mode": "datum",
+    "datum_base_url": "https://datum-proxy.example.com",
+    "datum_token": "your-token",
+    "datum_database": "mydb",
+    "datum_schema": "public",
+    "datum_service_name": "postgres_sql"
+  }
+}
+```
+
+Used for environments without direct database access (e.g., RStudio Connect behind a proxy).
+
+### Lazy Loading
+
+For large tables, enable DB-level pagination:
+
+```json
+{
+  "database": {
+    "lazy_loading": true,
+    "page_buffer_size": 300
+  }
+}
+```
+
+Only the current page is fetched from the database. Filters and sorting happen at the SQL level.
+
+---
+
+## Multi-Tab / Widget Usage
+
+dmapTableEditor is designed as a reusable Shiny module. Each instance operates independently in its own tab with isolated state.
+
+```python
+from shiny import App, ui
+from dmapTableEditor import table_editor_ui, table_editor_server
+
+app_ui = ui.page_navbar(
+    ui.nav_panel("Tab 1", table_editor_ui("editor1")),
+    ui.nav_panel("Tab 2", table_editor_ui("editor2")),
+)
+
+def server(input, output, session):
+    table_editor_server("editor1", config=config1)
+    table_editor_server("editor2", config=config2)
+
+app = App(app_ui, server)
+```
+
+All JavaScript (drag-and-drop, row selection, cell editing, histograms, synthesis modal) is context-scoped to the active tab to prevent cross-tab interference.
+
+---
 
 ## Troubleshooting
 
-### Issue: "Address already in use"
-The port 8000 is already in use.
-**Solution**: Shiny will auto-increment to the next available port (8001, 8002, etc.)
+| Issue | Solution |
+|-------|----------|
+| Port in use | App auto-increments to next available port |
+| Module not found | `pip install -e ".[dev]"` |
+| No columns shown | Set `table.default_columns` or leave empty for all |
+| Changes not persisting | Check `persistence.auto_save` or click Save |
+| Filter not matching | Column names are case-sensitive — must match database |
+| `last_n_days` error | Use integer value (e.g. `7`), not string |
+| Lazy loading slow | Increase `database.page_buffer_size` |
+| Status labels don't show | Ensure `status_labels` keys are `unprocessed/edited/approved/rejected` |
+| Multi-tab renders wrong tab | Ensure widget IDs are unique per tab |
 
-### Issue: "Module not found: shiny"
-Dependencies not installed.
-**Solution**: Run `pip install -r requirements.txt`
+## Performance
 
-### Issue: Table doesn't show all columns
-Columns were removed in `display_columns` list or don't exist in CSV.
-**Solution**: Check column names in `dummy_data_50rows.csv` and update `src/app.py`
+| Scenario | Recommendation |
+|----------|---------------|
+| < 10,000 rows | Default mode (load all into memory) |
+| 10,000–100,000 rows | Enable `lazy_loading` with `page_buffer_size: 500` |
+| > 100,000 rows | Enable `lazy_loading`, set `max_rows`, use column presets |
+| Many concurrent users | Increase `pool_size` and `max_overflow` |
 
-### Issue: Changes not persisting
-You didn't click "Save Modifications".
-**Solution**: Click the save button to write changes to JSON files
+---
 
-## Advanced Features
+## Further Reading
 
-### Custom Validation
-Extend the app to validate changes:
+- **REFERENCE.md** — Complete config key reference with all defaults
+- **ARCHITECTURE.md** — System architecture and data flow diagrams
+- **TESTING_REALITY.md** — Test posture, security guardrails, adversarial audit
+- **template/app_config.template.json** — Fully annotated config template
 
-```python
-def validate_cell_change(column, new_value):
-    if column == "Status" and new_value not in ["Active", "Inactive", "Pending"]:
-        raise ValueError(f"Invalid status: {new_value}")
-    return True
-```
+---
 
-### Selective Exports
-Export only modified rows:
-
-```python
-mods = json.load(open("data/modifications_log.json"))
-modified_rows = {m['details']['row_index'] for m in mods}
-df = pd.read_csv("data/dummy_data_50rows.csv")
-df.iloc[list(modified_rows)].to_csv("modified_rows_only.csv", index=False)
-```
-
-### Change Diffing
-Generate before/after comparisons:
-
-```python
-original = pd.read_csv("data/dummy_data_50rows.csv")
-modified = pd.read_json("data/data_state.json")
-diff = original.compare(modified)
-```
-
-## Architecture
-
-**Frontend**: PyShiny + Bootstrap CSS
-**Backend**: Python with Pandas
-**Storage**: JSON files (modifications) + CSV (data)
-**Reactivity**: Shiny reactive values and effects
-
-## Integration with tab_config.json
-
-The `src/tab_config.json` file defines the table structure using a schema similar to Palantir Foundry's object configuration. The app currently displays a subset of the available columns. To add more:
-
-1. Find the column name in `data/dummy_data_50rows.csv`
-2. Add it to `display_columns` in `src/app.py`
-3. Restart the app
-
-The config file supports:
-- **Properties**: Direct field mappings
-- **Derived properties**: Computed columns
-- **Linked objects**: References to related data
-- **Formatting**: Custom display rules
-
-## Performance Notes
-
-- **Recommended for**: Datasets up to 10,000 rows
-- **Large datasets**: Consider pagination or filtering
-- **Memory**: Each cell edit creates a temporary copy of the dataframe
-
-## Security Considerations
-
-- No authentication (add if needed)
-- All changes logged to JSON files (no encryption by default)
-- SQL exports are unencoded (sanitize before use with real databases)
-
-## Next Steps
-
-1. Start editing data: `bash run_app.sh`
-2. Make some changes and save
-3. View `data/modifications_log.json` to see the format
-4. Run `python process_modifications.py data` to generate transforms
-5. Check `data/processed/` for exported files
-
-## Support
-
-For issues or questions:
-1. Check the Troubleshooting section
-2. Review the app console for error messages
-3. Verify all dependencies are installed
-4. Check file permissions in the `data/` directory
+**Last Updated:** February 2026

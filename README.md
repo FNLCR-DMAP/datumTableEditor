@@ -85,35 +85,120 @@ shiny run app.py
 
 ## Configuration Reference
 
+See **template/app_config.template.json** for a fully annotated example and **docs/REFERENCE.md** for every key with defaults.
+
 ### Database Settings
 
-| Setting | Type | Description |
-|---------|------|-------------|
-| `enabled` | bool | Enable database mode |
-| `connection_string` | str | PostgreSQL connection URL |
-| `data_table` | str | Main data table name |
-| `mods_table` | str | Modifications tracking table |
-| `state_table` | str | UI state persistence table |
-| `auto_detect_pk` | bool | Auto-detect primary key from schema |
-| `max_rows_per_page` | int | Maximum rows per page (default: 100) |
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable PostgreSQL mode |
+| `mode` | string | `"direct"` | `direct` (SQLAlchemy) or `datum` (proxy) |
+| `connection_string` | string | — | PostgreSQL connection URL (direct mode) |
+| `source_table` | string | `""` | Source table to copy from (optional) |
+| `data_table` | string | `"epitopes_data"` | Working data table |
+| `mods_table` | string | `"epitopes_modifications"` | Modifications tracking table |
+| `state_table` | string | `"epitopes_ui_state"` | UI state persistence table |
+| `status_column` | string | `"Status"` | Column holding row status |
+| `auto_detect_pk` | bool | `true` | Auto-detect primary key from DB schema |
+| `lazy_loading` | bool | `false` | DB-level pagination (fetch only current page) |
+| `page_buffer_size` | int | `300` | Rows per query when lazy loading |
+| `max_rows` | int\|null | `null` | Max rows to load (`null` = all) |
+| `max_rows_per_page` | int | `100` | Hard upper limit per page |
 
 ### Table Settings
 
-| Setting | Type | Description |
-|---------|------|-------------|
-| `primary_key` | list | Primary key column(s) |
-| `editable_columns` | list | Columns users can edit |
-| `display_columns` | list | Columns to display |
-| `status_column` | str | Column for status workflow |
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `primary_key` | list | `["id"]` | Primary key column(s) |
+| `default_columns` | list | `[]` | Columns visible by default (empty = all) |
+| `editable_columns` | list | `[]` | Columns users can edit (empty = all) |
+| `readonly_columns` | list | `[]` | Columns that cannot be edited |
+| `column_masks` | object | `{}` | Display-name overrides: `{"real_name": "Display Name"}` |
+| `default_sort_column` | string | `null` | Initial sort column |
+| `default_sort_ascending` | bool | `true` | Initial sort direction |
+| `presets_enabled` | bool | `true` | Enable column presets |
 
 ### Query Settings
 
-| Setting | Type | Description |
-|---------|------|-------------|
-| `searchable_columns` | list | Columns for text search |
-| `filter_columns` | dict | Column filter types (select/text/range) |
-| `default_sort_column` | str | Initial sort column |
-| `default_sort_ascending` | bool | Initial sort direction |
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `searchable_columns` | list | `[]` | Columns for text search (empty = all) |
+| `filter_columns` | object | `{}` | Column filter types: `"select"`, `"text"`, `"numeric"`, `"date"` |
+| `default_filters` | object | `{}` | Filters applied on load (see Filter Operators below) |
+| `status_filter_enabled` | bool | `true` | Show status filter in sidebar |
+| `search_case_sensitive` | bool | `false` | Case-sensitive search |
+| `search_regex_enabled` | bool | `false` | Allow regex in search input |
+
+### Feature Flags
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `enable_approval_workflow` | bool | `true` | Show approve/reject buttons and status column |
+| `enable_save_button` | bool | `true` | Show the save button |
+| `enable_export` | bool | `true` | Show the export button |
+| `enable_undo` | bool | `true` | Show the undo button |
+| `enable_copy_column` | bool | `true` | Allow copying column values |
+| `enable_status_filter` | bool | `true` | Show status distribution in sidebar |
+| `enable_synthesis` | bool | `false` | Enable the synthesis transform feature |
+| `fix_filter` | bool | `false` | Lock filters to only `default_filters` |
+
+### Synthesis
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `query` | string | `""` | SQL SELECT to materialize |
+| `result_table_prefix` | string | `"_synthesis_result"` | Table name for cached result |
+| `ttl_minutes` | int | `10` | Cache lifetime (0 = always regenerate) |
+| `label` | string | `"Synthesis"` | Button and modal title label |
+
+### Status Labels
+
+```json
+{
+  "status_labels": {
+    "unprocessed": "Unreviewed",
+    "edited": "Edited",
+    "approved": "Accepted",
+    "rejected": "Rejected"
+  }
+}
+```
+
+Internal keys (`unprocessed`, `edited`, `approved`, `rejected`) must not change. Values are displayed in the UI and also recognized in the database `status_column`.
+
+### Permissions
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `default_role` | string | `"viewer"` | Role for users not in `user_roles` |
+| `user_roles` | object | `{}` | Map of `username → role` (`"editor"` or `"viewer"`) |
+
+### Filter Operators
+
+The `default_filters` object supports plain values (`"Clinical"`) or operator objects:
+
+| Operator | Value Type | Description |
+|----------|-----------|-------------|
+| `in` | array | Match any value in list |
+| `not_in` | array | Exclude values in list |
+| `contains` | string | Case-insensitive substring |
+| `not_contains` | string | Exclude substring matches |
+| `between` | `[min, max]` | Inclusive range |
+| `gt`, `gte`, `lt`, `lte` | number/string | Comparison |
+| `last_n_days` | integer | Date column within last N days |
+| `not_empty` | *(none)* | Non-null, non-blank |
+| `regex` | string | PostgreSQL regex (`~*`) |
+
+Example:
+```json
+{
+  "default_filters": {
+    "sequencing_date": {"op": "last_n_days", "value": 7},
+    "status": {"op": "in", "value": ["Completed", "Others"]},
+    "clinical_or_research": "Clinical"
+  }
+}
+```
 
 ## Environment Variables
 
@@ -253,16 +338,17 @@ pytest tests/ --cov=src --cov-report=term-missing
 
 ### Current Test Coverage
 
-- **497 tests passing**
-- **62% overall coverage**
-- Database modules: 90-100% coverage
-- Utility modules: 93-100% coverage
+- **1237+ tests passing** (~1.5s runtime)
+- **96.5% public function coverage** (222/230 functions)
+- Database modules: 90–100% coverage
+- Utility modules: 93–100% coverage
+- Security: 5-layer SQL injection defense, golden-SQL regression tests
 
 ## Requirements
 
-- Python 3.9+
-- shiny >= 0.6.0
-- pandas >= 1.5.0
+- Python 3.10+
+- shiny >= 1.0.0
+- pandas >= 2.0.0
 - sqlalchemy >= 2.0.0
 - psycopg2-binary >= 2.9.0
 
