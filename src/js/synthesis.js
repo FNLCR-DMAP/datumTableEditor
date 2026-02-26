@@ -1,15 +1,21 @@
 // === synthesis.js ===
 // Modal open/close and UI state management for the Synthesis feature.
+// Uses context-aware modal lookup (findModalInContext from modal.js)
+// so each tab/widget targets its own synthesis modal.
 
 (function () {
   "use strict";
+
+  // Track the context element that opened the modal (same pattern as modal.js)
+  var _synthesisModalContext = null;
 
   /**
    * Open the synthesis modal overlay.
    */
   window.openSynthesisModal = function (event) {
     if (event) event.preventDefault();
-    var modal = document.getElementById("synthesis-modal");
+    _synthesisModalContext = event ? event.target : document.activeElement;
+    var modal = findModalInContext(_synthesisModalContext, "synthesis-modal");
     if (modal) {
       modal.classList.add("show");
       // Show/hide the exit button based on current synthesis state
@@ -21,10 +27,11 @@
    * Close the synthesis modal overlay.
    */
   window.closeSynthesisModal = function () {
-    var modal = document.getElementById("synthesis-modal");
+    var modal = findModalInContext(_synthesisModalContext, "synthesis-modal");
     if (modal) {
       modal.classList.remove("show");
     }
+    _synthesisModalContext = null;
   };
 
   /**
@@ -48,7 +55,7 @@
   // Close modal on Escape key
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
-      var modal = document.getElementById("synthesis-modal");
+      var modal = findModalInContext(_synthesisModalContext, "synthesis-modal");
       if (modal && modal.classList.contains("show")) {
         closeSynthesisModal();
       }
@@ -68,8 +75,29 @@
     return m + "m " + (s < 10 ? "0" : "") + s + "s";
   }
 
+  /**
+   * Find the synthesis-countdown element in the correct tab context.
+   * Falls back to any visible one, then document.getElementById.
+   */
+  function _findCountdownEl() {
+    // Try the context that opened the modal first
+    var el = null;
+    if (_synthesisModalContext) {
+      var container = _synthesisModalContext.closest('.tab-pane, [role="tabpanel"], .main-container');
+      if (container) {
+        el = container.querySelector('#synthesis-countdown');
+        if (el) return el;
+      }
+    }
+    // Fallback: active tab
+    el = document.querySelector('.tab-pane.active #synthesis-countdown');
+    if (el) return el;
+    // Last resort
+    return document.getElementById("synthesis-countdown");
+  }
+
   function _tickCountdown() {
-    var el = document.getElementById("synthesis-countdown");
+    var el = _findCountdownEl();
     if (!el) {
       _stopCountdown();
       return;
@@ -108,7 +136,7 @@
 
   // Watch for the countdown element appearing in the DOM
   var _observer = new MutationObserver(function () {
-    var el = document.getElementById("synthesis-countdown");
+    var el = _findCountdownEl();
     if (el && !_countdownInterval) {
       _startCountdown();
     } else if (!el && _countdownInterval) {
@@ -118,7 +146,7 @@
   _observer.observe(document.body, { childList: true, subtree: true });
 
   // Initial check in case element already exists
-  if (document.getElementById("synthesis-countdown")) {
+  if (_findCountdownEl()) {
     _startCountdown();
   }
 })();
