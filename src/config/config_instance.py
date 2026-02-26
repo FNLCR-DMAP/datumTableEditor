@@ -532,8 +532,8 @@ class DataFetcher:
                 elif op == "last_n_days":
                     n = int(fval) if fval is not None else 7
                     if use_params:
-                        conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - INTERVAL :p{param_idx})')
-                        sql_params[f"p{param_idx}"] = f"{n} days"
+                        conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - :p{param_idx} * INTERVAL \'1 day\')')
+                        sql_params[f"p{param_idx}"] = n
                         param_idx += 1
                     else:
                         conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - INTERVAL \'{n} days\')')

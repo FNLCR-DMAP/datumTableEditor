@@ -265,6 +265,23 @@ class TestBuildWhereClauseInjection:
         assert "DROP TABLE" not in clause
         assert sql_params["p0"] == "'; DROP TABLE users; --"
 
+    def test_last_n_days_parameterized_uses_integer_multiply(self, fetcher):
+        """last_n_days must use :p * INTERVAL '1 day', not INTERVAL :p."""
+        params = QueryParams(filters={"created_at": {"op": "last_n_days", "value": 7}})
+        clause, sql_params = fetcher._build_where_clause(params, use_params=True)
+        # Must NOT use the broken INTERVAL :p form
+        assert "INTERVAL :p" not in clause
+        # Must use integer * INTERVAL '1 day' form
+        assert "INTERVAL '1 day'" in clause
+        assert ":p0" in clause
+        assert sql_params["p0"] == 7
+
+    def test_last_n_days_non_parameterized_uses_literal(self, fetcher):
+        """last_n_days non-parameterized path should use INTERVAL 'N days'."""
+        params = QueryParams(filters={"created_at": {"op": "last_n_days", "value": 7}})
+        clause, _ = fetcher._build_where_clause(params, use_params=False)
+        assert "INTERVAL '7 days'" in clause
+
 
 class TestBuildStatusFilterClause:
     """_build_status_filter_clause — status values are not escaped."""
