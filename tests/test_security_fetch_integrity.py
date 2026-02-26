@@ -282,6 +282,13 @@ class TestBuildWhereClauseInjection:
         clause, _ = fetcher._build_where_clause(params, use_params=False)
         assert "INTERVAL '7 days'" in clause
 
+    def test_last_n_days_list_value_unwrapped(self, fetcher):
+        """last_n_days must handle value passed as a list (e.g. [7])."""
+        params = QueryParams(filters={"created_at": {"op": "last_n_days", "value": [7]}})
+        clause, sql_params = fetcher._build_where_clause(params, use_params=True)
+        assert "INTERVAL '1 day'" in clause
+        assert sql_params["p0"] == 7
+
 
 class TestBuildStatusFilterClause:
     """_build_status_filter_clause — status values are not escaped."""

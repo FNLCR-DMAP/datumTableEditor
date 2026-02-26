@@ -530,7 +530,8 @@ class DataFetcher:
                         conditions.append(f'{col_e} {sql_op} {SqlLiteral(str(fval))}')
                 
                 elif op == "last_n_days":
-                    n = int(fval) if fval is not None else 7
+                    raw = fval[0] if isinstance(fval, list) else fval
+                    n = int(raw) if raw is not None else 7
                     if use_params:
                         conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - :p{param_idx} * INTERVAL \'1 day\')')
                         sql_params[f"p{param_idx}"] = n
