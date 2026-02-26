@@ -93,7 +93,8 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     
     elif op == "last_n_days":
         try:
-            n = int(fval)
+            raw = fval[0] if isinstance(fval, list) else fval
+            n = int(raw)
             cutoff = datetime.now() - timedelta(days=n)
             parsed = pd.to_datetime(row_str, errors="coerce")
             if pd.isna(parsed):

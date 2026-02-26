@@ -197,6 +197,35 @@ class DatabaseConfig:
 
 
 @dataclass
+class SynthesisConfig:
+    """Configuration for the Synthesis (transform) feature.
+
+    When enabled, a "Synthesis" button appears in the toolbar.  Clicking it
+    opens a modal showing the configured SQL transform.
+
+    Cache-on-demand with TTL:
+      - First request (or expired): runs the transform, materialises into a
+        PostgreSQL table, stores creation timestamp via COMMENT ON TABLE.
+      - Subsequent requests within TTL: reads the cached table instantly.
+      - After TTL expires: next request regenerates the table.
+    """
+
+    # The SQL query to run (read-only, not user-editable)
+    query: str = ""
+
+    # Name prefix for the materialised result table.
+    # Final name: {schema}.{result_table_prefix} (shared across users)
+    result_table_prefix: str = "_synthesis_result"
+
+    # Time-to-live in minutes.  If the cached table is older than this,
+    # the next request will regenerate it.  0 = always regenerate.
+    ttl_minutes: int = 10
+
+    # Human-readable label shown on the synthesis button / modal title
+    label: str = "Synthesis"
+
+
+@dataclass
 class PermissionsConfig:
     """Configuration for role-based access control.
     
@@ -236,6 +265,9 @@ class AppConfig:
     # Permissions
     permissions: 'PermissionsConfig' = field(default_factory=lambda: PermissionsConfig())
     
+    # Synthesis (long-running transform)
+    synthesis: 'SynthesisConfig' = field(default_factory=lambda: SynthesisConfig())
+    
     # Feature flags
     enable_approval_workflow: bool = True  # Show approve/reject buttons and status column
     enable_save_button: bool = True  # Show save button
@@ -243,6 +275,7 @@ class AppConfig:
     enable_undo: bool = True
     enable_copy_column: bool = True
     enable_status_filter: bool = True  # Show status filter in sidebar
+    enable_synthesis: bool = False  # Show synthesis transform button
     fix_filter: bool = False  # Lock filters to only the default_filters from config
     
     # Configurable status labels: internal_key -> display_label
@@ -386,7 +419,16 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_export = file_config.get("enable_export", config.enable_export)
     config.enable_undo = file_config.get("enable_undo", config.enable_undo)
     config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
+    config.enable_synthesis = file_config.get("enable_synthesis", config.enable_synthesis)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
+    
+    # Synthesis
+    if "synthesis" in file_config:
+        syn = file_config["synthesis"]
+        config.synthesis.query = syn.get("query", config.synthesis.query)
+        config.synthesis.result_table_prefix = syn.get("result_table_prefix", config.synthesis.result_table_prefix)
+        config.synthesis.ttl_minutes = syn.get("ttl_minutes", config.synthesis.ttl_minutes)
+        config.synthesis.label = syn.get("label", config.synthesis.label)
     
     # Permissions
     if "permissions" in file_config:
@@ -520,4 +562,11 @@ def export_config_schema() -> dict:
         "enable_approval_workflow": "boolean",
         "enable_export": "boolean",
         "enable_undo": "boolean",
+        "enable_synthesis": "boolean (enable synthesis transform feature)",
+        "synthesis": {
+            "query": "string (SQL query for synthesis transform)",
+            "result_table_prefix": "string (prefix for result table name)",
+            "ttl_minutes": "number (time-to-live in minutes, 0=keep until next run)",
+            "label": "string (button/modal label)",
+        },
     }

@@ -111,6 +111,11 @@ class DataFetcher:
     - Row count on init (for pagination UI)
     - Page data on demand (with filters/sort/pagination)
     - All filtered data for export
+
+    When ``set_table_override(table)`` is called (e.g. for synthesis mode),
+    all runtime queries target the override table instead of
+    ``app_config.database.data_table``.  Metadata introspection methods
+    always use the original table.
     """
     app_config: AppConfig
     _engine: Any = field(default=None, repr=False)
@@ -118,6 +123,7 @@ class DataFetcher:
     _total_count: int = field(default=0, repr=False)
     _columns: List[str] = field(default_factory=list, repr=False)
     _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
+    _table_override: Optional[str] = field(default=None, repr=False)
     
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -137,7 +143,28 @@ class DataFetcher:
             conn_string = self.app_config.database.connection_string
             if conn_string:
                 self._engine = create_engine(conn_string)
-    
+
+    @property
+    def _effective_table(self) -> str:
+        """Return override table if set, else the configured data_table."""
+        return self._table_override or self.app_config.database.data_table
+
+    def set_table_override(self, table_name: str):
+        """Point all runtime queries at *table_name* (e.g. a matview).
+
+        Refreshes the row count automatically.  Modification tracking
+        is suppressed while the override is active.
+        """
+        self._table_override = table_name
+        self._refresh_count()
+        print(f"[DataFetcher] Table override → {table_name} ({self._total_count} rows)")
+
+    def clear_table_override(self):
+        """Restore queries to the original data table."""
+        self._table_override = None
+        self._refresh_count()
+        print(f"[DataFetcher] Table override cleared → {self.app_config.database.data_table} ({self._total_count} rows)")
+
     # PostgreSQL types that are natively textual — no CAST needed for
     # string comparisons (=, IN, ILIKE, ~*).  Keeping them bare allows
     # PostgreSQL to use B-tree / GIN indexes on those columns.
@@ -155,7 +182,7 @@ class DataFetcher:
     def _fetch_metadata(self):
         """Fetch table row count, column names, and column types."""
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
             
             count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
@@ -210,7 +237,36 @@ class DataFetcher:
             self._total_count = 0
             self._columns = []
             self._column_types = {}
-    
+
+    def _refresh_count(self):
+        """Refresh only the row count — skip column/type introspection.
+
+        Used on manual reload where the schema hasn't changed but the
+        row count might have.
+        """
+        try:
+            data_table = self._effective_table
+            data_table_sql = SqlTableName(data_table)
+            count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
+
+            if self.app_config.database.mode == "datum" and self._datum_client:
+                response = self._datum_client.execute_sql(
+                    sql=count_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                self._total_count = response.data[0]["cnt"] if response.data else 0
+            else:
+                from sqlalchemy import text
+                with self._engine.connect() as conn:
+                    result = conn.execute(text(count_query))
+                    row = result.fetchone()
+                    self._total_count = row[0] if row else 0
+            print(f"DataFetcher: Refreshed count → {self._total_count} rows")
+        except Exception as e:
+            print(f"✗ Error refreshing count: {e}")
+
     @property
     def _effective_status_column(self) -> Optional[str]:
         """Return status_column only if it actually exists in the table
@@ -230,18 +286,27 @@ class DataFetcher:
 
     @property
     def _skip_mods(self) -> bool:
-        """True when modification tracking is disabled (enable_status_filter=false).
+        """True when modification tracking is disabled or table override is active.
 
         When True, queries skip the LATERAL JOIN to the modifications
         table entirely, avoiding both the performance cost and any
         dependency on the mods table existing.
+
+        Triggered by any of:
+        - table override active (synthesis matview)
+        - enable_status_filter = false
+        - enable_approval_workflow = false
         """
+        if self._table_override:
+            return True
+        if not getattr(self.app_config, "enable_approval_workflow", True):
+            return True
         return not getattr(self.app_config, "enable_status_filter", True)
     
     def _get_columns_from_schema_datum(self) -> List[str]:
         """Get column names from information_schema via Datum."""
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             schema = "public"
             table_name = data_table
             if "." in data_table:
@@ -271,7 +336,7 @@ class DataFetcher:
         Falls back to an empty dict on error (all columns will CAST as before).
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             schema = "public"
             table_name = data_table
             if "." in data_table:
@@ -335,7 +400,7 @@ class DataFetcher:
         Used by the filter UI to populate dropdown options in lazy loading mode.
         """
         try:
-            data_table_sql = SqlTableName(self.app_config.database.data_table)
+            data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
             query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
             
@@ -465,10 +530,11 @@ class DataFetcher:
                         conditions.append(f'{col_e} {sql_op} {SqlLiteral(str(fval))}')
                 
                 elif op == "last_n_days":
-                    n = int(fval) if fval is not None else 7
+                    raw = fval[0] if isinstance(fval, list) else fval
+                    n = int(raw) if raw is not None else 7
                     if use_params:
-                        conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - INTERVAL :p{param_idx})')
-                        sql_params[f"p{param_idx}"] = f"{n} days"
+                        conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - :p{param_idx} * INTERVAL \'1 day\')')
+                        sql_params[f"p{param_idx}"] = n
                         param_idx += 1
                     else:
                         conditions.append(f'CAST({col_ident} AS DATE) >= (CURRENT_DATE - INTERVAL \'{n} days\')')
@@ -576,7 +642,7 @@ class DataFetcher:
             return counts
 
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)
@@ -651,7 +717,7 @@ class DataFetcher:
           3. Status filter active → full sub-query with LATERAL JOIN
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
 
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
@@ -718,7 +784,7 @@ class DataFetcher:
         This is the main method called when displaying data.
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)
@@ -814,7 +880,7 @@ class DataFetcher:
         Used for export functionality.
         """
         try:
-            data_table = self.app_config.database.data_table
+            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
             data_table_sql = SqlTableName(data_table)
@@ -897,7 +963,7 @@ class DataFetcher:
     
     def _apply_field_modifications(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply field modifications to the fetched data."""
-        if df.empty:
+        if df.empty or self._skip_mods:
             return df
         
         try:
@@ -990,12 +1056,18 @@ class ConfigInstance:
     modifications_log_path: Path = field(default=None)
     _state_table_checked: bool = field(default=False, repr=False)
     _mods_table_checked: bool = field(default=False, repr=False)
+    _preset_table_checked: bool = field(default=False, repr=False)
     _engine: Any = field(default=None, repr=False)
     _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
     _data_fetcher: DataFetcher = field(default=None, repr=False)  # Lazy loading fetcher
+    _schemas_verified: set = field(default_factory=set, repr=False)  # Schemas already confirmed to exist
+    _data_table_checked: bool = field(default=False, repr=False)  # Data table existence verified
+    _synthesis_exists_cache: Optional[bool] = field(default=None, repr=False)  # Cached synthesis table existence
+    _synthesis_age_cache: Optional[float] = field(default=None, repr=False)  # Cached synthesis age (minutes)
+    _synthesis_age_cache_time: float = field(default=0, repr=False)  # When cache was populated
     
     @property
     def _effective_status_column(self) -> Optional[str]:
@@ -1024,7 +1096,13 @@ class ConfigInstance:
 
     @property
     def _skip_mods(self) -> bool:
-        """True when modification tracking is disabled (enable_status_filter=false)."""
+        """True when modification tracking is disabled.
+
+        Returns True when either enable_status_filter or
+        enable_approval_workflow is False.
+        """
+        if not getattr(self.app_config, "enable_approval_workflow", True):
+            return True
         return not getattr(self.app_config, "enable_status_filter", True)
 
     def __post_init__(self):
@@ -1059,6 +1137,18 @@ class ConfigInstance:
         self.data_dir = project_root / "data"
         # Note: Directory created lazily when needed for exports
         
+        # When synthesis is enabled with a query, skip loading the base table
+        # entirely.  The server layer will load the synthesis result table or
+        # trigger generation instead.
+        if (getattr(self.app_config, 'enable_synthesis', False)
+                and getattr(self.app_config.synthesis, 'query', '')):
+            self.df = pd.DataFrame()
+            self.all_columns = []
+            self.display_columns = []
+            self.modifications_log_path = self.data_dir / "modifications_log.json"
+            print(f"[Synthesis] Skipping base table load — synthesis mode active")
+            return
+
         # Check if lazy loading is enabled
         if self.app_config.database.lazy_loading:
             # Lazy loading mode: only get metadata, fetch data on demand
@@ -1086,6 +1176,51 @@ class ConfigInstance:
     def is_lazy_loading(self) -> bool:
         """Check if lazy loading is enabled."""
         return self._data_fetcher is not None
+
+    def activate_synthesis_fetcher(self, matview_table: str):
+        """Create (or reconfigure) a DataFetcher pointing at *matview_table*.
+
+        Called when entering synthesis mode so that SQL-level filtering,
+        sorting and pagination target the materialized view instead of
+        the original data table.
+
+        If a DataFetcher already exists it simply gets a table override.
+        If not (synthesis skipped lazy-loading init), one is created now
+        with the matview as the initial table.
+        """
+        if self._data_fetcher is None:
+            # Bootstrap a new DataFetcher.  Set _table_override *before*
+            # _fetch_metadata so introspection (count, columns, types) reads
+            # from the matview, not the (possibly non-existent) base table.
+            fetcher = DataFetcher.__new__(DataFetcher)
+            fetcher.app_config = self.app_config
+            fetcher._engine = None
+            fetcher._datum_client = None
+            fetcher._total_count = 0
+            fetcher._columns = []
+            fetcher._column_types = {}
+            fetcher._table_override = matview_table
+            fetcher._init_connection()
+            fetcher._fetch_metadata()          # introspects matview
+            self._data_fetcher = fetcher
+            # Populate columns if not already set (synthesis skipped base table)
+            if not self.all_columns and fetcher._columns:
+                self.all_columns = fetcher._columns.copy()
+                self.display_columns = fetcher._columns.copy()
+            # Row count already correct — override was in place during init
+            print(f"[DataFetcher] Created for synthesis → {matview_table} ({fetcher._total_count} rows)")
+        else:
+            self._data_fetcher.set_table_override(matview_table)
+
+    def deactivate_synthesis_fetcher(self):
+        """Restore the DataFetcher to the original data table (or remove it)."""
+        if self._data_fetcher is not None:
+            if self.app_config.database.lazy_loading:
+                # Original config uses lazy loading — just clear the override
+                self._data_fetcher.clear_table_override()
+            else:
+                # Original config doesn't use lazy loading — remove fetcher
+                self._data_fetcher = None
     
     @property
     def total_row_count(self) -> int:
@@ -1139,7 +1274,10 @@ class ConfigInstance:
         Ensure the data_table exists. If not and source_table is configured,
         create data_table as a copy of source_table.
         Returns True if data_table exists (or was created), False otherwise.
+        Only runs the probe query once per session.
         """
+        if self._data_table_checked:
+            return True
         if self.app_config.database.mode == "datum":
             return self._ensure_data_table_exists_datum()
         
@@ -1178,6 +1316,7 @@ class ConfigInstance:
                 table_exists = result.scalar()
             
             if table_exists:
+                self._data_table_checked = True
                 return True
             
             # Table doesn't exist - check if we have a source table to copy from
@@ -1189,17 +1328,20 @@ class ConfigInstance:
             print(f"📋 Creating {data_table_sql} as copy of {source_table_sql}...")
             
             with engine.connect() as conn:
-                # Create schema if needed
+                # Create schema if needed (once per schema per process)
                 if '.' in data_table:
                     schema = data_table.split('.', 1)[0]
-                    schema_sql = SqlIdentifier(schema)
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                    if schema not in self._schemas_verified:
+                        schema_sql = SqlIdentifier(schema)
+                        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                        self._schemas_verified.add(schema)
                 
                 # Create data_table as a copy of source_table (structure + data)
                 conn.execute(text(f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}'))
                 conn.commit()
             
             print(f"✓ Created {data_table_sql} from {source_table_sql}")
+            self._data_table_checked = True
             return True
             
         except Exception as e:
@@ -1232,6 +1374,7 @@ class ConfigInstance:
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
                 )
+                self._data_table_checked = True
                 return True  # Table exists
             except Exception:
                 pass  # Table doesn't exist, continue
@@ -1244,19 +1387,21 @@ class ConfigInstance:
             source_table_sql = SqlTableName(source_table)
             print(f"📋 Creating {data_table_sql} as copy of {source_table_sql} via Datum...")
             
-            # Create schema if needed
+            # Create schema if needed (once per schema per process)
             if '.' in data_table:
                 schema = data_table.split('.', 1)[0]
-                schema_sql = SqlIdentifier(schema)
-                try:
-                    client.execute_sql(
-                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
-                except Exception:
-                    pass  # Schema may already exist
+                if schema not in self._schemas_verified:
+                    schema_sql = SqlIdentifier(schema)
+                    try:
+                        client.execute_sql(
+                            sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
+                            database=self.app_config.database.datum_database,
+                            schema=self.app_config.database.datum_schema,
+                            service_name=self.app_config.database.datum_service_name,
+                        )
+                    except Exception:
+                        pass  # Schema may already exist
+                    self._schemas_verified.add(schema)
             
             # Create data_table as a copy of source_table
             client.execute_sql(
@@ -1267,6 +1412,7 @@ class ConfigInstance:
             )
             
             print(f"✓ Created {data_table_sql} from {source_table_sql} via Datum")
+            self._data_table_checked = True
             return True
             
         except Exception as e:
@@ -1361,6 +1507,10 @@ class ConfigInstance:
             from sqlalchemy import text
             
             if df.empty:
+                self.edited_cells = {}
+                return df
+            
+            if self._skip_mods:
                 self.edited_cells = {}
                 return df
             
@@ -1532,8 +1682,9 @@ class ConfigInstance:
             
             df = pd.DataFrame(response.data)
             
-            # Clean up any corrupted modifications before applying
-            self._cleanup_corrupted_modifications_datum()
+            if not self._skip_mods:
+                # Clean up any corrupted modifications before applying
+                self._cleanup_corrupted_modifications_datum()
             
             # Apply field modifications to the data (also optimized)
             df = self._apply_field_modifications_datum(df, client)
@@ -1552,6 +1703,10 @@ class ConfigInstance:
         """
         try:
             if df.empty:
+                self.edited_cells = {}
+                return df
+            
+            if self._skip_mods:
                 self.edited_cells = {}
                 return df
             
@@ -1673,6 +1828,10 @@ class ConfigInstance:
         Args:
             force_refresh: If True, bypass cache and reload from DB
         """
+        # When approval workflow is disabled, skip all mods DB queries
+        if self._skip_mods:
+            return []
+        
         import time
         
         # Use cached data if available and not expired (cache for 5 seconds)
@@ -1718,6 +1877,7 @@ class ConfigInstance:
                 schema_sql = str(SqlIdentifier(schema))
                 table_sql = SqlTableName(mods_table)
             else:
+                schema = None
                 schema_sql = None
                 table_sql = SqlTableName(mods_table)
             
@@ -1726,9 +1886,10 @@ class ConfigInstance:
                 return False
             
             with engine.connect() as conn:
-                # Create schema if needed
-                if schema_sql:
+                # Create schema if needed (once per schema per process)
+                if schema_sql and schema not in self._schemas_verified:
                     conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                    self._schemas_verified.add(schema)
                 
                 # Create table if not exists
                 conn.execute(text(f'''
@@ -1769,12 +1930,13 @@ class ConfigInstance:
             
             # Parse schema for CREATE SCHEMA
             schema_sql = None
+            schema_name = None
             if '.' in mods_table:
-                schema = mods_table.split('.', 1)[0]
-                schema_sql = str(SqlIdentifier(schema))
+                schema_name = mods_table.split('.', 1)[0]
+                schema_sql = str(SqlIdentifier(schema_name))
             
-            # Create schema if needed
-            if schema_sql:
+            # Create schema if needed (once per schema per process)
+            if schema_sql and schema_name not in self._schemas_verified:
                 try:
                     client.execute_sql(
                         sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
@@ -1784,6 +1946,7 @@ class ConfigInstance:
                     )
                 except Exception:
                     pass  # Schema may already exist
+                self._schemas_verified.add(schema_name)
             
             # Create table if not exists - DDL auto-commits
             client.execute_sql(
@@ -1810,6 +1973,312 @@ class ConfigInstance:
             return True
         except Exception as e:
             print(f"⚠ Could not create mods table via Datum: {e}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Synthesis (long-running transform with TTL cache)
+    # ------------------------------------------------------------------
+
+    def get_synthesis_table_name(self) -> str:
+        """Return the fully-qualified name for the synthesis result table.
+
+        The table is shared across all users (no per-user suffix).
+        """
+        prefix = self.app_config.synthesis.result_table_prefix or "_synthesis_result"
+        # If the data_table has a schema prefix, reuse it
+        data_table = self.app_config.database.data_table
+        if "." in data_table:
+            schema = data_table.split(".", 1)[0]
+            return f"{schema}.{prefix}"
+        return prefix
+
+    def _get_synthesis_age_minutes(self) -> Optional[float]:
+        """Return age of the cached synthesis table in minutes, or None if missing.
+
+        The creation timestamp is stored as a ``COMMENT ON TABLE``.
+        Uses a cached epoch to avoid repeating the DB query on every call.
+        """
+        import time as _time
+
+        # If we have a cached creation epoch, compute age from it directly
+        if self._synthesis_age_cache_time > 0:
+            return (_time.time() - self._synthesis_age_cache_time) / 60.0
+
+        result_table = self.get_synthesis_table_name()
+        result_table_sql = SqlTableName(result_table)
+        is_datum = self.app_config.database.mode == "datum"
+
+        # Parse schema/table for obj_description lookup
+        if "." in result_table:
+            schema_part, table_part = result_table.split(".", 1)
+        else:
+            schema_part, table_part = "public", result_table
+
+        comment_query = (
+            f"SELECT obj_description(c.oid) "
+            f"FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            f"WHERE n.nspname = {SqlLiteral(schema_part)} "
+            f"AND c.relname = {SqlLiteral(table_part)}"
+        )
+
+        try:
+            if is_datum:
+                from ..adapter.datum import DatumClient
+                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+                client = DatumClient(base_url=base_url, token=token)
+                response = client.execute_sql(
+                    sql=comment_query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                rows = response.data
+                if not rows:
+                    return None
+                comment = rows[0].get("obj_description")
+            else:
+                from sqlalchemy import text
+                engine = self._get_engine()
+                with engine.connect() as conn:
+                    result = conn.execute(text(comment_query))
+                    row = result.fetchone()
+                    comment = row[0] if row else None
+
+            if not comment or not comment.startswith("synthesis_created_at:"):
+                return None
+            created_epoch = float(comment.split(":", 1)[1])
+            # Cache the creation epoch so future calls skip the DB query
+            self._synthesis_age_cache_time = created_epoch
+            return (_time.time() - created_epoch) / 60.0
+        except Exception:
+            return None
+
+    def run_synthesis(self, force: bool = False) -> pd.DataFrame:
+        """Return the synthesis result, creating the materialized view if needed.
+
+        Cache logic:
+          1. Check if the materialized view already exists.
+          2. If exists and ``force=False`` → check TTL.
+             a. If within TTL → read (cache hit).
+             b. If expired → REFRESH MATERIALIZED VIEW + re-stamp.
+          3. If exists and ``force=True`` → REFRESH unconditionally.
+          4. If missing → CREATE MATERIALIZED VIEW AS + stamp COMMENT.
+
+        Returns ``(df, was_cached)`` tuple.
+        """
+        import time as _time
+
+        synthesis_query = self.app_config.synthesis.query
+        if not synthesis_query:
+            raise ValueError("No synthesis query configured")
+
+        result_table = self.get_synthesis_table_name()
+        result_table_sql = SqlTableName(result_table)
+        ttl = self.app_config.synthesis.ttl_minutes
+        is_datum = self.app_config.database.mode == "datum"
+
+        if self.check_synthesis_table_exists():
+            age = self._get_synthesis_age_minutes()
+            # Stamp comment if missing (pre-existing table)
+            if age is None:
+                self._stamp_synthesis_comment(result_table_sql, _time.time())
+                age = 0.0
+
+            needs_refresh = force or (ttl > 0 and age > ttl)
+
+            if not needs_refresh:
+                print(f"[Synthesis] Cache hit — matview exists ({age:.0f} min old)")
+                return self._read_synthesis_table(result_table), True
+
+            # Refresh the materialized view
+            reason = "forced" if force else f"expired ({age:.0f} min > {ttl} min TTL)"
+            start = _time.time()
+            print(f"[Synthesis] Refreshing matview ({reason}) → {result_table_sql} ...")
+            self._refresh_synthesis(result_table_sql, is_datum)
+            self._stamp_synthesis_comment(result_table_sql, _time.time())
+            self._synthesis_exists_cache = True
+            self._synthesis_age_cache_time = _time.time()
+            elapsed = _time.time() - start
+            print(f"[Synthesis] Refresh completed in {elapsed:.1f}s")
+            return self._read_synthesis_table(result_table), False
+
+        # Materialized view doesn't exist — create it
+        schema_sql = None
+        if "." in result_table:
+            schema = result_table.split(".", 1)[0]
+            schema_sql = str(SqlIdentifier(schema))
+
+        start = _time.time()
+        print(f"[Synthesis] Matview missing — creating → {result_table_sql} ...")
+
+        if is_datum:
+            self._run_synthesis_datum(result_table_sql, schema_sql, synthesis_query)
+        else:
+            self._run_synthesis_direct(result_table_sql, schema_sql, synthesis_query)
+
+        self._stamp_synthesis_comment(result_table_sql, _time.time())
+        self._synthesis_exists_cache = True
+        self._synthesis_age_cache_time = _time.time()
+
+        elapsed = _time.time() - start
+        print(f"[Synthesis] Transform completed in {elapsed:.1f}s")
+
+        return self._read_synthesis_table(result_table), False
+
+    def _stamp_synthesis_comment(self, result_table_sql, epoch: float):
+        """Store creation timestamp as COMMENT ON MATERIALIZED VIEW for TTL checking."""
+        # Update in-memory cache immediately
+        self._synthesis_age_cache_time = epoch
+        comment = f"synthesis_created_at:{epoch}"
+        stmt = f"COMMENT ON MATERIALIZED VIEW {result_table_sql} IS {SqlLiteral(comment)}"
+        try:
+            if self.app_config.database.mode == "datum":
+                from ..adapter.datum import DatumClient
+                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+                client = DatumClient(base_url=base_url, token=token)
+                client.execute_sql(
+                    sql=stmt,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+            else:
+                from sqlalchemy import text
+                engine = self._get_engine()
+                with engine.connect() as conn:
+                    conn.execute(text(stmt))
+                    conn.commit()
+        except Exception as e:
+            print(f"[Synthesis] Warning: could not stamp comment: {e}")
+
+    def _run_synthesis_direct(self, result_table_sql, schema_sql, synthesis_query):
+        """Create the synthesis materialized view via direct SQLAlchemy."""
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        if engine is None:
+            raise RuntimeError("No database engine available")
+
+        with engine.connect() as conn:
+            if schema_sql:
+                # Extract raw schema name for the verified cache
+                schema_name = str(result_table_sql).split('"')[1] if '.' in str(result_table_sql) else None
+                if schema_name and schema_name not in self._schemas_verified:
+                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}"))
+                    self._schemas_verified.add(schema_name)
+            conn.execute(text(f"CREATE MATERIALIZED VIEW {result_table_sql} AS ({synthesis_query})"))
+            conn.commit()
+
+    def _run_synthesis_datum(self, result_table_sql, schema_sql, synthesis_query):
+        """Create the synthesis materialized view via Datum proxy."""
+        from ..adapter.datum import DatumClient
+
+        base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+        token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+        if not base_url or not token:
+            raise RuntimeError("Datum credentials not configured")
+
+        client = DatumClient(base_url=base_url, token=token)
+        db = self.app_config.database.datum_database
+        schema = self.app_config.database.datum_schema
+        svc = self.app_config.database.datum_service_name
+
+        if schema_sql:
+            # Only issue CREATE SCHEMA once per schema per process
+            schema_name = result_table_sql._raw.split('.', 1)[0] if '.' in str(result_table_sql) else None
+            if schema_name and schema_name not in self._schemas_verified:
+                try:
+                    client.execute_sql(sql=f"CREATE SCHEMA IF NOT EXISTS {schema_sql}",
+                                       database=db, schema=schema, service_name=svc)
+                except Exception:
+                    pass
+                self._schemas_verified.add(schema_name)
+
+        client.execute_sql(sql=f"CREATE MATERIALIZED VIEW {result_table_sql} AS ({synthesis_query})",
+                           database=db, schema=schema, service_name=svc)
+
+    def _refresh_synthesis(self, result_table_sql, is_datum: bool):
+        """REFRESH MATERIALIZED VIEW — atomic in-place data replacement."""
+        stmt = f"REFRESH MATERIALIZED VIEW {result_table_sql}"
+        if is_datum:
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            client = DatumClient(base_url=base_url, token=token)
+            client.execute_sql(
+                sql=stmt,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+        else:
+            from sqlalchemy import text
+            engine = self._get_engine()
+            with engine.connect() as conn:
+                conn.execute(text(stmt))
+                conn.commit()
+
+    def _read_synthesis_table(self, result_table: str) -> pd.DataFrame:
+        """Read the full synthesis result table into a DataFrame."""
+        result_table_sql = SqlTableName(result_table)
+        query = f"SELECT * FROM {result_table_sql}"
+
+        is_datum = self.app_config.database.mode == "datum"
+        if is_datum:
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            client = DatumClient(base_url=base_url, token=token)
+            response = client.execute_sql(
+                sql=query,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            return pd.DataFrame(response.data)
+        else:
+            from sqlalchemy import text
+            engine = self._get_engine()
+            with engine.connect() as conn:
+                result = conn.execute(text(query))
+                rows = result.fetchall()
+                columns = list(result.keys())
+            return pd.DataFrame(rows, columns=columns)
+
+    def check_synthesis_table_exists(self) -> bool:
+        """Return True if the synthesis result table exists (regardless of TTL).
+
+        Result is cached after the first successful check.  Invalidated
+        when ``run_synthesis()`` creates the table.
+        """
+        if self._synthesis_exists_cache is not None:
+            return self._synthesis_exists_cache
+        result_table = self.get_synthesis_table_name()
+        result_table_sql = SqlTableName(result_table)
+        try:
+            if self.app_config.database.mode == "datum":
+                from ..adapter.datum import DatumClient
+                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+                client = DatumClient(base_url=base_url, token=token)
+                client.execute_sql(
+                    sql=f"SELECT 1 FROM {result_table_sql} LIMIT 1",
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+                return True
+            else:
+                from sqlalchemy import text
+                engine = self._get_engine()
+                with engine.connect() as conn:
+                    conn.execute(text(f"SELECT 1 FROM {result_table_sql} LIMIT 1"))
+                self._synthesis_exists_cache = True
+                return True
+        except Exception:
+            self._synthesis_exists_cache = False
             return False
 
     def _load_modifications_from_datum(self) -> List[Dict]:
@@ -2103,41 +2572,14 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
-            print(f"[Datum DEBUG] Response data: {response.data}")
-            
             if response.data:
                 mod_id = response.data[0].get("id")
-                print(f"[Datum DEBUG] ✓ Saved modification with id={mod_id}")
-                
-                # Verify the row actually exists by querying it back
-                mod_id_lit = SqlLiteral(int(mod_id))
-                verify_sql = f"SELECT id, row_pk, column_name, mod_type FROM {mods_table_sql} WHERE id = {mod_id_lit}"
-                try:
-                    verify_response = client.execute_sql(
-                        sql=verify_sql,
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
-                    print(f"[Datum DEBUG] Verification query result: {verify_response.data}")
-                    
-                    # Also count total modifications
-                    count_sql = f"SELECT COUNT(*) as total FROM {mods_table_sql}"
-                    count_response = client.execute_sql(
-                        sql=count_sql,
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
-                    print(f"[Datum DEBUG] Total modifications in table: {count_response.data}")
-                except Exception as ve:
-                    print(f"[Datum DEBUG] Verification query failed: {ve}")
                 
                 # Invalidate cache after successful insert
                 self.invalidate_mods_cache()
                 
                 return mod_id
-            print(f"[Datum DEBUG] ⚠ No id returned from INSERT")
+            print(f"[Datum] ⚠ No id returned from INSERT")
             return None
         except Exception as e:
             print(f"✗ Error saving modification to Datum: {e}")
@@ -2374,6 +2816,7 @@ class ConfigInstance:
                 schema_sql = str(SqlIdentifier(schema))
                 table_sql = SqlTableName(state_table)
             else:
+                schema = None
                 schema_sql = None
                 table_sql = SqlTableName(state_table)
             
@@ -2382,9 +2825,10 @@ class ConfigInstance:
                 return False
             
             with engine.connect() as conn:
-                # Create schema if needed
-                if schema_sql:
+                # Create schema if needed (once per schema per process)
+                if schema_sql and schema not in self._schemas_verified:
                     conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}'))
+                    self._schemas_verified.add(schema)
                 
                 # Create table if not exists
                 conn.execute(text(f'''
@@ -2426,12 +2870,13 @@ class ConfigInstance:
             
             # Parse schema for CREATE SCHEMA
             schema_sql = None
+            schema_name = None
             if '.' in state_table:
-                schema = state_table.split('.', 1)[0]
-                schema_sql = str(SqlIdentifier(schema))
+                schema_name = state_table.split('.', 1)[0]
+                schema_sql = str(SqlIdentifier(schema_name))
             
-            # Create schema if needed
-            if schema_sql:
+            # Create schema if needed (once per schema per process)
+            if schema_sql and schema_name not in self._schemas_verified:
                 try:
                     client.execute_sql(
                         sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
@@ -2441,6 +2886,7 @@ class ConfigInstance:
                     )
                 except Exception:
                     pass  # Schema may already exist
+                self._schemas_verified.add(schema_name)
             
             # Create table if not exists - DDL auto-commits
             client.execute_sql(
@@ -2739,7 +3185,11 @@ class ConfigInstance:
         return f"{base_name}_{safe_username}_column_presets"
     
     def _ensure_preset_table_exists(self) -> bool:
-        """Create the preset table if it doesn't exist."""
+        """Create the preset table if it doesn't exist. Only runs once per instance."""
+        # Skip if already checked this session
+        if self._preset_table_checked:
+            return True
+        
         if self.app_config.database.mode == "datum":
             return self._ensure_preset_table_exists_datum()
         
@@ -2765,6 +3215,7 @@ class ConfigInstance:
                     )
                 '''))
                 conn.commit()
+            self._preset_table_checked = True
             return True
         except Exception as e:
             print(f"⚠ Could not create preset table: {e}")
@@ -2800,6 +3251,7 @@ class ConfigInstance:
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,
             )
+            self._preset_table_checked = True
             return True
         except Exception as e:
             print(f"⚠ Could not create preset table via Datum: {e}")
@@ -3075,3 +3527,22 @@ def load_config_instance(config_path: str = "app_config.json", username: str = "
         ConfigInstance with loaded config and data
     """
     return ConfigInstance(config_path=config_path, username=username)
+
+
+def load_config_only(config_path: str = "app_config.json") -> 'AppConfig':
+    """Load only the AppConfig (no DB queries, no data, no engine).
+
+    This is used by the UI layer which only needs feature flags, titles,
+    column lists etc. — never actual row data.  Avoids the heavy
+    ``_load_all()`` path that fires DB queries for every tab at import time.
+
+    Returns:
+        AppConfig dataclass instance
+    """
+    from .app_config_schema import load_config
+
+    config_file = Path(config_path)
+    if not config_file.is_absolute():
+        config_file = Path.cwd() / config_file
+
+    return load_config(str(config_file).strip())

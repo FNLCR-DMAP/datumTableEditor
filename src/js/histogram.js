@@ -1,11 +1,13 @@
 // Sync histogram checkboxes with Shiny checkbox group
-function initHistogramCheckboxes() {
-    const histogramCheckboxes = document.querySelectorAll('.status-checkbox');
+function initHistogramCheckboxes(contextEl) {
+    var container = _findWidgetContainer(contextEl);
+    const histogramCheckboxes = container.querySelectorAll('.status-checkbox');
     histogramCheckboxes.forEach(function(checkbox) {
         checkbox.addEventListener('change', function() {
-            // Get all checked statuses
+            // Get all checked statuses within this widget
+            var widgetContainer = _findWidgetContainer(checkbox);
             const checked = [];
-            document.querySelectorAll('.status-checkbox:checked').forEach(function(cb) {
+            widgetContainer.querySelectorAll('.status-checkbox:checked').forEach(function(cb) {
                 checked.push(cb.value);
             });
             // Update the hidden Shiny checkbox group (pass checkbox as context)
@@ -19,6 +21,7 @@ function initHistogramCheckboxes() {
 // Initialize histogram checkbox sync after Shiny renders
 $(document).on('shiny:value', function(event) {
     if (event.name && event.name.endsWith('stats_histogram')) {
-        setTimeout(initHistogramCheckboxes, 50);
+        var target = event.target;
+        setTimeout(function() { initHistogramCheckboxes(target); }, 50);
     }
 });

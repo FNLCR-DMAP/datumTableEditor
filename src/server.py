@@ -129,12 +129,65 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Load UI state (sort, filters, page) from database
     ui_state = load_ui_state()
     
-    # Check if lazy loading is enabled
-    is_lazy_loading = config.is_lazy_loading
+    # Check if lazy loading is enabled (at startup — may change when synthesis activates)
+    _initial_lazy_loading = config.is_lazy_loading
+
+    def is_lazy_loading():
+        """Dynamic check: True when config has an active DataFetcher."""
+        return config.is_lazy_loading
     
+    # ----- Auto-synthesis: try cached synthesis table on startup -----
+    _synthesis_autoloaded = False
+    _synthesis_needs_generate = False
+    if app_config.enable_synthesis and app_config.synthesis.query:
+        try:
+            if config.check_synthesis_table_exists():
+                # Table exists — check TTL before serving stale data
+                result_table = config.get_synthesis_table_name()
+                # Mark schema as verified (table exists → schema exists)
+                if '.' in result_table:
+                    config._schemas_verified.add(result_table.split('.', 1)[0])
+                age = config._get_synthesis_age_minutes()
+                # Stamp comment if missing (pre-existing matview)
+                if age is None:
+                    import time as _time
+                    from .config.config_instance import SqlTableName
+                    config._stamp_synthesis_comment(SqlTableName(result_table), _time.time())
+                    age = 0.0
+                ttl = app_config.synthesis.ttl_minutes
+                if ttl > 0 and age > ttl:
+                    # Expired — trigger refresh via run_synthesis() (which does REFRESH MATERIALIZED VIEW)
+                    print(f"[Synthesis] Matview expired ({age:.0f} min > {ttl} min TTL) — will refresh after startup")
+                    _synthesis_needs_generate = True
+                else:
+                    # Within TTL — serve cached matview
+                    initial_df = config._read_synthesis_table(result_table)
+                    total_row_count = len(initial_df)
+                    _synthesis_autoloaded = True
+                    # Populate columns from synthesis result (base table was skipped)
+                    if not all_columns and len(initial_df.columns) > 0:
+                        all_columns = list(initial_df.columns)
+                        display_columns = list(initial_df.columns)
+                        config.all_columns = all_columns
+                        config.display_columns = display_columns
+                    print(f"[Synthesis] Auto-loaded cached matview ({age:.0f} min old, TTL {ttl} min) — {total_row_count} rows")
+            else:
+                print(f"[Synthesis] Matview missing — will auto-generate after startup")
+                _synthesis_needs_generate = True
+        except Exception as e:
+            print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")
+
     # Load fresh data from source (database) on each session
     # This ensures browser refresh gets the latest data
-    if is_lazy_loading:
+    if _synthesis_autoloaded:
+        pass  # Already loaded the synthesis table above
+    elif _synthesis_needs_generate:
+        # Synthesis enabled but cache missing/expired — start with empty frame;
+        # the reactive effect will auto-generate and swap in the result.
+        initial_df = pd.DataFrame()
+        total_row_count = 0
+        print("[Synthesis] Skipping main table load — will auto-generate")
+    elif _initial_lazy_loading:
         # In lazy loading mode, start with empty dataframe - data fetched on demand
         initial_df = config.df  # Empty dataframe with correct columns
         total_row_count = config.total_row_count
@@ -145,7 +198,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         total_row_count = len(initial_df)
     
     # Apply initial sorting if saved (only in non-lazy mode)
-    if not is_lazy_loading and ui_state.get("sort_column"):
+    if not _initial_lazy_loading and ui_state.get("sort_column"):
         initial_df = sort_dataframe(
             initial_df, 
             ui_state["sort_column"], 
@@ -235,6 +288,70 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Search state - updated only when search button is clicked
     search_state = reactive.Value({"term": "", "column": "all"})
     
+    # ----- Synthesis state -----
+    synthesis_active = reactive.Value(_synthesis_autoloaded)   # True if auto-loaded from cache
+    synthesis_running = reactive.Value(False)        # True while transform is executing
+    synthesis_data = reactive.Value(initial_df if _synthesis_autoloaded else pd.DataFrame())
+    synthesis_error = reactive.Value("")             # Error message if transform failed
+    synthesis_cached = reactive.Value(_synthesis_autoloaded)   # True if last result was from cache
+    enable_synthesis = app_config.enable_synthesis
+
+    # Monotonic counter bumped after every synthesis completion (auto-gen / run / regen).
+    # table_container reads it to guarantee a re-render even when the lazy-loading
+    # path drops the dependency on the ``data`` reactive value.
+    _table_reload_trigger = reactive.Value(0)
+
+    # Activate DataFetcher for synthesis matview when auto-loaded
+    if _synthesis_autoloaded:
+        config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+
+    # Auto-generate synthesis if cache was expired/missing on startup
+    _synthesis_auto_triggered = {"done": False}
+
+    @reactive.Effect
+    async def _auto_generate_synthesis():
+        """Trigger synthesis generation automatically when cache is stale."""
+        import asyncio
+        if _synthesis_auto_triggered["done"] or not _synthesis_needs_generate:
+            return
+        _synthesis_auto_triggered["done"] = True
+        synthesis_running.set(True)
+        synthesis_error.set("")
+        try:
+            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            synthesis_data.set(result_df)
+            synthesis_cached.set(was_cached)
+            synthesis_active.set(True)
+            data.set(result_df)
+            total_rows.set(len(result_df))
+            filtered_row_count.set(len(result_df))
+            current_page.set(1)
+            # Activate DataFetcher for SQL-level filtering on matview
+            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            # Always sync active_columns from the fetcher (synthesis may have
+            # different columns than the base table, and on first boot
+            # active_columns starts as [] because base table load was skipped).
+            if config.all_columns:
+                active_columns.set(list(config.all_columns))
+            cache_msg = " (cached)" if was_cached else ""
+            print(f"[Synthesis] Auto-generated{cache_msg} — {len(result_df):,} rows")
+            # Bump reload trigger to force table_container re-render
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+            ui.notification_show(
+                f"Synthesis ready{cache_msg} — {len(result_df):,} rows",
+                type="message", duration=4
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            synthesis_error.set(str(e))
+            ui.notification_show(
+                f"Synthesis auto-generation failed: {e}",
+                type="error", duration=6
+            )
+        finally:
+            synthesis_running.set(False)
+    
     # Helper function to get PKs for selected row indices
     def _get_selected_pks(row_indices, current_df):
         """Convert row indices (DataFrame labels) to list of PK dicts"""
@@ -295,7 +412,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _get_status_counts():
         """Wrapper for get_status_counts that uses reactive values.
         In lazy loading mode, queries DB for overall counts instead of page-only."""
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Use DB query for full dataset status distribution
             params = _build_query_params()
             # Build params without status filters to get counts for all statuses
@@ -422,7 +539,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         In lazy loading mode: queries database
         In traditional mode: slices in-memory data
         """
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Build query params and fetch from DB
             params = _build_query_params()
             fetched_df = config.data_fetcher.fetch_page(params)
@@ -443,7 +560,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     def _fetch_all_filtered_data():
         """Fetch all data matching current filters (for export)."""
-        if is_lazy_loading:
+        if is_lazy_loading():
             params = _build_query_params(for_export=True)
             return config.data_fetcher.fetch_all_filtered(params)
         else:
@@ -496,7 +613,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Data summary text
     @render.text
     def data_summary():
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Use the full dataset count and all known columns
             total = total_rows.get()
             num_cols = len(config.all_columns)
@@ -756,7 +873,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render active dynamic filters"""
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
         _date_cols = set()
-        if is_lazy_loading and hasattr(config, 'data_fetcher'):
+        if is_lazy_loading() and hasattr(config, 'data_fetcher'):
             _date_cols = config.data_fetcher.date_columns
         else:
             df = data.get()
@@ -764,7 +881,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 if pd.api.types.is_datetime64_any_dtype(df[col]):
                     _date_cols.add(col)
         
-        if is_lazy_loading:
+        if is_lazy_loading():
             # In lazy mode, data.get() may be empty; pass all known columns
             # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
@@ -796,7 +913,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render list of columns that can be added as filters"""
         filters = active_filters.get()
         # In lazy mode, data.get() may have no columns; use config.all_columns
-        if is_lazy_loading:
+        if is_lazy_loading():
             all_cols = config.all_columns
         else:
             all_cols = list(data.get().columns)
@@ -917,7 +1034,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def pagination_controls():
         """Render pagination controls with rows per page selector"""
-        if is_lazy_loading:
+        if is_lazy_loading():
             # In lazy loading mode, use the filtered count from the fetcher
             total_filtered = filtered_row_count.get()
         else:
@@ -985,7 +1102,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.next_page_btn)
     def _next_page():
         # Get filtered count based on mode
-        if is_lazy_loading:
+        if is_lazy_loading():
             total_filtered = filtered_row_count.get()
         else:
             filtered_indices = _get_filtered_rows()
@@ -1013,7 +1130,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.last_page_btn)
     def _last_page():
         # Get filtered count based on mode
-        if is_lazy_loading:
+        if is_lazy_loading():
             total_filtered = filtered_row_count.get()
         else:
             filtered_indices = _get_filtered_rows()
@@ -1038,7 +1155,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.page_jump_btn)
     def _page_jump():
         # Get filtered count based on mode
-        if is_lazy_loading:
+        if is_lazy_loading():
             total_filtered = filtered_row_count.get()
         else:
             filtered_indices = _get_filtered_rows()
@@ -1098,8 +1215,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render the editable data table with pagination"""
         _ = mods_log.get()
         _ = approval_status.get()
+        _ = _table_reload_trigger.get()  # force re-render after synthesis completes
         
-        if is_lazy_loading:
+        if is_lazy_loading():
             # Lazy loading mode: fetch data from database
             current_df, filt_count, tot_count = _fetch_page_data()
             # In lazy mode, all returned rows are the "paginated" data
@@ -1260,7 +1378,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 result_df = current_df.iloc[selected_indices]
             else:
                 # Export all filtered/sorted rows
-                if is_lazy_loading:
+                if is_lazy_loading():
                     result_df = _fetch_all_filtered_data()
                 else:
                     current_df = data.get()
@@ -1375,9 +1493,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.reload_btn)
     def _reload_data():
-        if is_lazy_loading:
-            # In lazy loading mode, refresh the fetcher metadata and re-fetch current page
-            config._data_fetcher._fetch_metadata()
+        if is_lazy_loading():
+            # In lazy loading mode, only refresh row count (schema doesn't change mid-session)
+            config._data_fetcher._refresh_count()
             total_rows.set(config.data_fetcher.total_count)
             # Data will be re-fetched on next table render
         else:
@@ -1456,3 +1574,293 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _clear_approval():
         approval_status.set(None)
         approval_timestamp.set(None)
+
+    # ------------------------------------------------------------------
+    # Synthesis handlers
+    # ------------------------------------------------------------------
+
+    @render.ui
+    def synthesis_query_preview():
+        """Render the synthesis SQL query as a read-only code block."""
+        if not enable_synthesis:
+            return ui.div()
+        query_text = app_config.synthesis.query or "(no query configured)"
+        return ui.tags.pre(
+            ui.tags.code(query_text),
+            class_="synthesis-query-code"
+        )
+
+    @render.ui
+    def synthesis_mode_banner():
+        """Show a banner when the user is viewing synthesized data."""
+        if not synthesis_active.get():
+            return ui.div()
+        label = app_config.synthesis.label or "Synthesis"
+        return ui.div(
+            ui.tags.i(class_="fa fa-flask", style="margin-right: 6px;"),
+            f"You are viewing the {label} result table. ",
+            "Filters and search operate on the synthesized data. ",
+            "Click \"Exit Synthesis Mode\" to return to the original table.",
+            class_="synthesis-mode-banner"
+        )
+
+    @render.ui
+    def synthesis_status():
+        """Show progress / error / success status inside the modal."""
+        if synthesis_running.get():
+            return ui.div(
+                ui.div(class_="synthesis-spinner"),
+                ui.p("Synthesizing report, please wait…",
+                     style="margin-top: 10px; font-weight: 500;"),
+                ui.p("This may take 3–5 minutes.",
+                     style="color: #666; font-size: 13px;"),
+                class_="synthesis-status-area"
+            )
+        err = synthesis_error.get()
+        if err:
+            return ui.div(
+                ui.p("Transform failed:", style="color: #dc3545; font-weight: 600;"),
+                ui.tags.pre(err, style="color: #dc3545; font-size: 12px; white-space: pre-wrap;"),
+                class_="synthesis-status-area"
+            )
+        if synthesis_active.get():
+            synth_df = synthesis_data.get()
+            was_cached = synthesis_cached.get()
+            cache_note = " (served from cache)" if was_cached else " (freshly generated)"
+            ttl = app_config.synthesis.ttl_minutes
+            # Build a live countdown driven by inline JS (guaranteed to run on Shiny render)
+            countdown_html = ""
+            try:
+                import time as _srv_time
+                cache_epoch = config._synthesis_age_cache_time
+                if cache_epoch <= 0:
+                    age_min = config._get_synthesis_age_minutes()
+                    if age_min is not None:
+                        cache_epoch = _srv_time.time() - age_min * 60
+                    else:
+                        cache_epoch = _srv_time.time()
+                countdown_html = f"""
+                <p style="color: #555; font-size: 13px; margin-top: 4px;">
+                  <i class="fa fa-clock-o" style="margin-right: 5px;"></i>
+                  <span id="synthesis-countdown"></span>
+                </p>
+                <script>
+                (function() {{
+                  var created = {cache_epoch:.3f};
+                  var ttl = {ttl};
+                  var el = document.getElementById('synthesis-countdown');
+                  if (!el) return;
+                  function fmt(sec) {{
+                    sec = Math.max(0, Math.round(sec));
+                    if (sec < 60) return sec + 's';
+                    var m = Math.floor(sec / 60), s = sec % 60;
+                    return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+                  }}
+                  function tick() {{
+                    var age = Date.now() / 1000 - created;
+                    var parts = ['Cache age: ' + fmt(age)];
+                    if (ttl > 0) {{
+                      var rem = ttl * 60 - age;
+                      parts.push(rem > 0 ? 'expires in ' + fmt(rem) : 'expired');
+                    }}
+                    el.textContent = parts.join(' \\u00b7 ');
+                  }}
+                  tick();
+                  var iv = setInterval(tick, 1000);
+                  var obs = new MutationObserver(function() {{
+                    if (!document.getElementById('synthesis-countdown')) {{
+                      clearInterval(iv); obs.disconnect();
+                    }}
+                  }});
+                  obs.observe(el.parentNode.parentNode, {{ childList: true, subtree: true }});
+                }})();
+                </script>
+                """
+            except Exception as _ce:
+                print(f"[Synthesis] Countdown error: {_ce}")
+            status_children = [
+                ui.p("Transform complete", ui.tags.br(),
+                     f"{len(synth_df):,} rows returned{cache_note}.",
+                     style="color: #28a745; font-weight: 500;"),
+            ]
+            if countdown_html:
+                status_children.append(ui.HTML(countdown_html))
+            status_children.append(
+                ui.p("Close this modal to interact with the synthesized table.",
+                     style="color: #666; font-size: 13px;")
+            )
+            # Toggle footer buttons: hide Run, show Regen + Exit
+            status_children.append(ui.HTML("""<script>
+              (function(){
+                var r=document.getElementById('synthesis_run_btn');
+                var g=document.getElementById('synthesis_regen_btn');
+                var x=document.getElementById('synthesis_exit_btn');
+                if(r) r.style.display='none';
+                if(g) g.style.display='';
+                if(x) x.style.display='';
+              })();
+            </script>"""))
+            return ui.div(*status_children, class_="synthesis-status-area")
+        # Not active — show cache info and what "Run Transform" will do
+        # Reset footer buttons: show Run, hide Regen + Exit
+        _btn_reset = ui.HTML("""<script>
+          (function(){
+            var r=document.getElementById('synthesis_run_btn');
+            var g=document.getElementById('synthesis_regen_btn');
+            var x=document.getElementById('synthesis_exit_btn');
+            if(r) r.style.display='';
+            if(g) g.style.display='none';
+            if(x) x.style.display='none';
+          })();
+        </script>""")
+        if enable_synthesis:
+            try:
+                table_exists = config.check_synthesis_table_exists()
+                ttl = app_config.synthesis.ttl_minutes
+                if table_exists:
+                    age = config._get_synthesis_age_minutes()
+                    if age is not None:
+                        age_text = f"{age:.0f} min" if age >= 1 else f"{age * 60:.0f}s"
+                        ttl_text = f"TTL: {ttl} min." if ttl > 0 else ""
+                        return ui.div(
+                            _btn_reset,
+                            ui.p(
+                                ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #28a745;"),
+                                f"Cached result available — {age_text} old. {ttl_text}",
+                                style="color: #28a745; font-size: 13px; font-weight: 500;"
+                            ),
+                            ui.p(
+                                'Click "Run Transform" to load the cached table instantly.',
+                                style="color: #666; font-size: 13px;"
+                            ),
+                            class_="synthesis-status-area"
+                        )
+                    else:
+                        return ui.div(
+                            _btn_reset,
+                            ui.p(
+                                ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #17a2b8;"),
+                                "Cached result table exists.",
+                                style="color: #17a2b8; font-size: 13px; font-weight: 500;"
+                            ),
+                            ui.p(
+                                'Click "Run Transform" to load it.',
+                                style="color: #666; font-size: 13px;"
+                            ),
+                            class_="synthesis-status-area"
+                        )
+                else:
+                    ttl_note = f" Result will be cached for {ttl} min." if ttl > 0 else ""
+                    return ui.div(
+                        _btn_reset,
+                        ui.p(
+                            ui.tags.i(class_="fa fa-info-circle", style="margin-right: 6px; color: #6c757d;"),
+                            "No cached result.",
+                            style="color: #6c757d; font-size: 13px; font-weight: 500;"
+                        ),
+                        ui.p(
+                            f'Click "Run Transform" to execute the synthesis query and create the matview.{ttl_note}',
+                            style="color: #666; font-size: 13px;"
+                        ),
+                        class_="synthesis-status-area"
+                    )
+            except Exception:
+                pass
+        return ui.div()
+
+    @reactive.Effect
+    @reactive.event(input.synthesis_run_btn)
+    async def _run_synthesis():
+        """Execute the synthesis transform (async to keep UI responsive)."""
+        import asyncio
+        if not enable_synthesis:
+            return
+        synthesis_running.set(True)
+        synthesis_error.set("")
+        try:
+            # run_synthesis returns (df, was_cached)
+            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            synthesis_data.set(result_df)
+            synthesis_cached.set(was_cached)
+            synthesis_active.set(True)
+            # Switch the main table to show synthesis data
+            data.set(result_df)
+            total_rows.set(len(result_df))
+            filtered_row_count.set(len(result_df))
+            current_page.set(1)
+            # Activate DataFetcher for SQL-level filtering on matview
+            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            # Sync active_columns from the fetcher
+            if config.all_columns:
+                active_columns.set(list(config.all_columns))
+            cache_msg = " (cached)" if was_cached else ""
+            # Bump reload trigger to force table_container re-render
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+            ui.notification_show(
+                f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
+                type="message", duration=4
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            synthesis_error.set(str(e))
+        finally:
+            synthesis_running.set(False)
+
+    @reactive.Effect
+    @reactive.event(input.synthesis_regen_btn)
+    async def _regen_synthesis():
+        """Force-refresh the materialized view (REFRESH MATERIALIZED VIEW)."""
+        import asyncio
+        if not enable_synthesis:
+            return
+        synthesis_running.set(True)
+        synthesis_error.set("")
+        try:
+            result_df, _ = await asyncio.to_thread(config.run_synthesis, force=True)
+            synthesis_data.set(result_df)
+            synthesis_cached.set(False)
+            synthesis_active.set(True)
+            data.set(result_df)
+            total_rows.set(len(result_df))
+            filtered_row_count.set(len(result_df))
+            current_page.set(1)
+            # Activate DataFetcher for SQL-level filtering on matview
+            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            # Sync active_columns from the fetcher
+            if config.all_columns:
+                active_columns.set(list(config.all_columns))
+            # Bump reload trigger to force table_container re-render
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+            ui.notification_show(
+                f"Synthesis regenerated — {len(result_df):,} rows",
+                type="message", duration=4
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            synthesis_error.set(str(e))
+        finally:
+            synthesis_running.set(False)
+
+    @reactive.Effect
+    @reactive.event(input.synthesis_exit_btn)
+    def _exit_synthesis():
+        """Exit synthesis mode and restore the original data table."""
+        synthesis_active.set(False)
+        synthesis_data.set(pd.DataFrame())
+        synthesis_error.set("")
+        # Deactivate synthesis DataFetcher (restores original table or removes fetcher)
+        config.deactivate_synthesis_fetcher()
+        # Reload original data
+        if _initial_lazy_loading:
+            data.set(config.df)
+            total_rows.set(config.total_row_count)
+            filtered_row_count.set(config.total_row_count)
+        else:
+            fresh = load_data_from_source() if app_config.database.enabled else df_original.copy()
+            data.set(fresh)
+            total_rows.set(len(fresh))
+            filtered_row_count.set(len(fresh))
+        current_page.set(1)
+        ui.notification_show("Returned to original table", type="message", duration=3)

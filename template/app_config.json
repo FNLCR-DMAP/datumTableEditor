@@ -152,6 +152,15 @@
   "enable_undo": true,
   "enable_copy_column": true,
   "enable_status_filter": true,
+  "enable_synthesis": false,
+
+  "synthesis": {
+    "_comment": "Long-running SQL transform. Result cached in a temporary table with TTL.",
+    "query": "",
+    "result_table_prefix": "_synthesis_result",
+    "ttl_minutes": 10,
+    "label": "Synthesis"
+  },
 
   "permissions": {
     "_comment": "Role-based access: 'editor' (full access) or 'viewer' (read-only, no edits/saves/approvals)",

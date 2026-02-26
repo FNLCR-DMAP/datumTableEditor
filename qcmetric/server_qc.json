@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 80,
+    "total_functions": 81,
     "unused_functions": 1,
-    "fully_annotated_functions": 71,
-    "function_coverage_percent": 88.8,
-    "parameter_coverage_percent": 96.3,
+    "fully_annotated_functions": 72,
+    "function_coverage_percent": 88.9,
+    "parameter_coverage_percent": 96.4,
     "mypy_errors": 0
   },
   "files": {},
@@ -147,8 +147,9 @@
       ]
     },
     "src/utils/modal_utils.py": {
-      "total": 10,
+      "total": 11,
       "functions": [
+        "_looks_like_dates",
         "_mask",
         "build_available_column_tag",
         "build_columns_modal_content",
@@ -161,6 +162,7 @@
         "build_preset_menu_items"
       ],
       "used": [
+        "_looks_like_dates",
         "_mask",
         "build_available_column_tag",
         "build_columns_modal_content",
@@ -395,20 +397,20 @@
     },
     "src/utils/modal_utils.py": {
       "functions": {
-        "total": 10,
-        "with_return_type": 10,
-        "fully_annotated": 9
+        "total": 11,
+        "with_return_type": 11,
+        "fully_annotated": 10
       },
       "parameters": {
-        "total": 32,
-        "annotated": 31
+        "total": 35,
+        "annotated": 34
       },
       "missing": [
         {
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 258
+          "line": 371
         }
       ]
     },

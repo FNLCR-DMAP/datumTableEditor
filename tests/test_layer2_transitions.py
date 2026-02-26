@@ -766,3 +766,64 @@ class TestDataFetcherWhereClauseTransitions:
         assert 'IS NOT NULL' in where
         assert '!= :p0' in where
         assert params["p0"] == ""
+
+
+# =============================================================================
+# 15. JS Context-Scoping Transitions
+# =============================================================================
+
+class TestJSContextScopingTransitions:
+    """Layer 2: Verify that JS initialization functions receive context from
+    shiny:value event handlers, enabling multi-tab isolation.
+
+    These tests read the JS source and verify the wiring patterns that ensure
+    initHeaderDrag/initColumnResize/initRowSelection get context from the
+    shiny:value event target (not bare document queries).
+    """
+
+    @pytest.fixture
+    def js_dir(self):
+        from pathlib import Path
+        return Path(__file__).resolve().parent.parent / "src" / "js"
+
+    def test_table_drag_passes_event_target(self, js_dir):
+        """shiny:value handler for table_container must capture event.target
+        and pass it to initHeaderDrag/initColumnResize."""
+        js = (js_dir / "table-drag.js").read_text()
+
+        # Must capture event.target before setTimeout
+        assert "var target = event.target" in js
+        # Must pass target to init functions
+        assert "initHeaderDrag(target)" in js
+        assert "initColumnResize(target)" in js
+
+    def test_row_selection_passes_event_target(self, js_dir):
+        """shiny:value handler must pass event.target to initRowSelection."""
+        js = (js_dir / "row-selection.js").read_text()
+
+        assert "var target = event.target" in js
+        assert "initRowSelection(target)" in js
+
+    def test_histogram_passes_event_target(self, js_dir):
+        """shiny:value handler must pass event.target to initHistogramCheckboxes."""
+        js = (js_dir / "histogram.js").read_text()
+
+        assert "var target = event.target" in js
+        assert "initHistogramCheckboxes(target)" in js
+
+    def test_synthesis_uses_context_modal_lookup(self, js_dir):
+        """synthesis.js must use findModalInContext, not bare getElementById."""
+        js = (js_dir / "synthesis.js").read_text()
+
+        assert "findModalInContext" in js
+        # Should NOT have bare getElementById for synthesis-modal
+        # (The regex-counted paren inside strings is expected)
+        assert 'document.getElementById("synthesis-modal")' not in js
+
+    def test_find_widget_container_scopes_to_tab(self, js_dir):
+        """_findWidgetContainer must scope to .tab-pane or .main-container."""
+        js = (js_dir / "table-drag.js").read_text()
+
+        assert ".tab-pane" in js
+        assert ".main-container" in js
+        assert 'el.closest(' in js

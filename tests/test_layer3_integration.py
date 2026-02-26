@@ -1195,3 +1195,80 @@ class TestDateFilterIntegration:
         # But it still renders correctly
         html = str(build_dynamic_filters_panel(filters, df, date_columns={"created_at"}))
         assert 'type="date"' in html
+
+
+# =============================================================================
+# 17. Multi-tab Widget Context Integration
+# =============================================================================
+
+class TestMultiTabContextIntegration:
+    """Integration: UI components + JS + CSS must support multi-tab widget
+    context — actions scope to the correct tab instead of always hitting the
+    first DOM element."""
+
+    def test_clear_selection_passes_event(self):
+        """The Clear Selection button must call deselectAllRows(event) so
+        the JS can scope to the correct widget/tab container."""
+        from pathlib import Path
+
+        ui_source = (Path(__file__).resolve().parent.parent / "src" / "ui.py").read_text()
+
+        # Must pass event so deselectAllRows can scope to the correct tab
+        assert 'deselectAllRows(event)' in ui_source
+        # Must NOT have the bare no-arg call
+        assert 'deselectAllRows()' not in ui_source
+
+    def test_header_dropdown_has_sort_and_remove_actions(self):
+        """Each draggable header cell includes sort + remove action buttons."""
+        from src.utils.table_utils import build_draggable_header_cell
+
+        th = build_draggable_header_cell("Gene_names")
+        html = str(th)
+
+        # Sort buttons carry data-column for context-aware JS
+        assert 'data-column="Gene_names"' in html
+        assert "sort-asc-btn" in html
+        assert "sort-desc-btn" in html
+        assert "remove-col-btn" in html
+        # The dropdown container is positioned absolutely within the header
+        assert "header-dropdown" in html
+        assert "header-action-container" in html
+
+    def test_js_files_contain_widget_container_scoping(self):
+        """Core JS files must define/use _findWidgetContainer for tab scoping."""
+        from pathlib import Path
+
+        js_dir = Path(__file__).resolve().parent.parent / "src" / "js"
+
+        # table-drag.js must define the shared utility
+        table_drag = (js_dir / "table-drag.js").read_text()
+        assert "function _findWidgetContainer" in table_drag
+        assert "initHeaderDrag" in table_drag
+        assert "initColumnResize" in table_drag
+
+        # row-selection.js must use _findWidgetContainer
+        row_sel = (js_dir / "row-selection.js").read_text()
+        assert "_findWidgetContainer" in row_sel
+        assert "initRowSelection" in row_sel
+
+        # histogram.js must use _findWidgetContainer
+        hist = (js_dir / "histogram.js").read_text()
+        assert "_findWidgetContainer" in hist
+
+        # synthesis.js must use findModalInContext
+        synth = (js_dir / "synthesis.js").read_text()
+        assert "findModalInContext" in synth
+
+    def test_css_th_allows_dropdown_overflow(self):
+        """Table th must have overflow:visible so header dropdown is not clipped."""
+        from pathlib import Path
+
+        css_path = Path(__file__).resolve().parent.parent / "src" / "css" / "table.css"
+        css = css_path.read_text()
+
+        # Find the .edit-table th rule — it should have overflow: visible
+        import re
+        th_block = re.search(r'\.edit-table\s+th\s*\{([^}]+)\}', css)
+        assert th_block is not None, "Could not find .edit-table th rule in table.css"
+        th_styles = th_block.group(1)
+        assert "overflow: visible" in th_styles or "overflow:visible" in th_styles

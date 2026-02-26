@@ -18,6 +18,7 @@ def _load_css_files() -> str:
         "table.css",
         "pagination.css",
         "log.css",
+        "synthesis.css",
     ]
     
     combined_css = []
@@ -41,6 +42,7 @@ def _load_js_files() -> str:
         "histogram.js",
         "cell-edit.js",
         "row-selection.js",
+        "synthesis.js",
     ]
     
     combined_js = []
@@ -60,24 +62,29 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     Args:
         config_path: Path to the config JSON file
     """
-    # Load config for this instance
-    from .config.config_instance import load_config_instance
-    config = load_config_instance(config_path)
-    all_columns = config.all_columns
-    column_masks = config.app_config.table.column_masks or {}
+    # Load config only (no DB queries) — the UI just needs feature flags and titles
+    from .config.config_instance import load_config_only
+    app_config = load_config_only(config_path)
+
+    # Use default_columns from config for the initial search dropdown.
+    # The server will have the real column list from the actual data.
+    all_columns = app_config.table.default_columns or []
+    column_masks = app_config.table.column_masks or {}
     
     # Get titles from config
-    app_title = config.app_config.app_title or "Data Editor"
-    table_title = config.app_config.table.title or app_title
+    app_title = app_config.app_title or "Data Editor"
+    table_title = app_config.table.title or app_title
     
     # Feature flags
-    enable_approval_workflow = config.app_config.enable_approval_workflow
-    enable_save_button = config.app_config.enable_save_button
-    enable_export = config.app_config.enable_export
-    enable_status_filter = config.app_config.enable_status_filter
+    enable_approval_workflow = app_config.enable_approval_workflow
+    enable_save_button = app_config.enable_save_button
+    enable_export = app_config.enable_export
+    enable_status_filter = app_config.enable_status_filter
+    enable_synthesis = app_config.enable_synthesis
+    synthesis_label = app_config.synthesis.label or "Synthesis"
     
     # Status labels from config
-    status_labels = config.app_config.status_labels
+    status_labels = app_config.status_labels
     status_choices = {k: v for k, v in status_labels.items()}
     status_all_keys = list(status_labels.keys())
     
@@ -165,7 +172,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             
             # Left Panel - Sidebar
             ui.div(
-                ui.tags.button("◀", class_="toggle-btn", onclick="toggleLeftPanel()"),
+                ui.tags.button("◀", class_="toggle-btn", onclick="toggleLeftPanel(event)"),
                 ui.div(
                     # Table Name Section
                     ui.div(
@@ -247,7 +254,12 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success") if enable_approval_workflow else None,
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
-                        ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows()"),
+                        ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows(event)"),
+                        ui.tags.button(
+                            synthesis_label,
+                            class_="btn btn-sm btn-outline-warning synthesis-btn",
+                            onclick="openSynthesisModal(event)"
+                        ) if enable_synthesis else None,
                         class_="toolbar-left"
                     ),
                     # Right side - Preset dropdown + Add Column button
@@ -482,6 +494,61 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     class_="modal-overlay",
                     id="log-modal"
                 ),
+                
+                # Synthesis Modal (conditionally rendered)
+                ui.div(
+                    ui.div(
+                        ui.div(
+                            ui.h3(synthesis_label if enable_synthesis else "Synthesis"),
+                            ui.tags.button("×", class_="modal-close", onclick="closeSynthesisModal()"),
+                            class_="modal-header"
+                        ),
+                        ui.div(
+                            # Synthesis mode banner (shown when viewing synthesized data)
+                            ui.output_ui("synthesis_mode_banner"),
+                            # Query preview
+                            ui.div(
+                                ui.h5("Transform Query", style="margin-bottom: 8px;"),
+                                ui.output_ui("synthesis_query_preview"),
+                                class_="synthesis-query-section"
+                            ),
+                            # Status/progress area
+                            ui.output_ui("synthesis_status"),
+                            class_="modal-body"
+                        ),
+                        ui.div(
+                            ui.tags.button(
+                                "Cancel",
+                                class_="btn btn-secondary",
+                                onclick="closeSynthesisModal()",
+                                style="margin-right: 10px;"
+                            ),
+                            ui.input_action_button(
+                                "synthesis_run_btn",
+                                "Run Transform",
+                                class_="btn btn-warning"
+                            ),
+                            ui.input_action_button(
+                                "synthesis_regen_btn",
+                                "Regenerate",
+                                class_="btn btn-outline-warning",
+                                style="display: none; margin-left: 8px;"
+                            ),
+                            ui.input_action_button(
+                                "synthesis_exit_btn",
+                                "Exit Synthesis Mode",
+                                class_="btn btn-outline-secondary",
+                                style="display: none;"
+                            ),
+                            style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;",
+                            id="synthesis-modal-footer"
+                        ),
+                        class_="modal-content",
+                        style="max-width: 700px;"
+                    ),
+                    class_="modal-overlay",
+                    id="synthesis-modal"
+                ) if enable_synthesis else None,
                 
                 class_="right-panel"
             ),
