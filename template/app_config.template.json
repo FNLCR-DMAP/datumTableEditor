@@ -179,6 +179,8 @@
     "rejected": "rejected"
   },
   "_status_values_comment": "What value to write to the database status column when Approve/Reject buttons are clicked. Change to match your column's convention, e.g. {\"approved\": \"Accepted\", \"rejected\": \"Declined\"}.",
+  "approval_assignment": {},
+  "_approval_assignment_comment": "Column-to-column copy on approval. For each {source: target} pair, the source column value is written to the target column when a row is approved. Example: {\"Draft_Value\": \"Final_Value\", \"Notes\": \"Approved_Notes\"}.",
   "fix_filter": false,
   "_fix_filter_comment": "When true, locks filters to only the default_filters defined above. Users cannot add or remove filters."
 }

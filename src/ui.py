@@ -218,9 +218,10 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 selected="all",
                                 width="100%"
                             ),
+                            ui.input_text("search_input", label=None, placeholder="Search...", width="100%"),
                             ui.div(
-                                ui.input_text("search_input", label=None, placeholder="Search..."),
-                                ui.input_action_button("search_btn", "Search", class_="btn btn-primary btn-sm", style="margin-left: 5px;"),
+                                ui.input_action_button("search_btn", "Search", class_="btn btn-primary btn-sm"),
+                                ui.input_action_button("clear_search_btn", "Clear", class_="btn btn-outline-secondary btn-sm", style="margin-left: 5px;"),
                                 style="display: flex; align-items: center; margin-top: 5px;"
                             ),
                             class_="filter-group"

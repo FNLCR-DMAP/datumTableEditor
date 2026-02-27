@@ -380,15 +380,25 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         return pks
     
     # Helper function to save approval/rejection status to database
-    def _save_status_to_db(selected_pks, mod_type: str):
+    def _save_status_to_db(selected_pks, mod_type: str, row_data_map: dict = None):
         """Save approval/rejection entries to database with PKs using config instance.
         
         Uses app_config.status_values to determine what value is written to the
         status column.  mod_type is the internal log type ("approval"/"rejection").
+        
+        When mod_type is "approval" and approval_assignment is configured,
+        also copies source column values to target columns for each row.
+        
+        Args:
+            selected_pks: List of PK dicts for the selected rows.
+            mod_type: "approval" or "rejection".
+            row_data_map: Optional dict mapping PK tuple -> row Series for
+                          column value lookups (needed for approval_assignment).
         """
         # Resolve the value to write from status_values config
         internal_key = "approved" if mod_type == "approval" else "rejected"
         status_value = app_config.status_values.get(internal_key, internal_key)
+        assignment = app_config.approval_assignment if mod_type == "approval" else {}
         for row_pk in selected_pks:
             try:
                 result = config.save_modification_to_db(
@@ -401,6 +411,26 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 print(f"DEBUG: Saved {mod_type} ({status_value}) for PK {row_pk}, result: {result}")
             except Exception as e:
                 print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
+            
+            # Approval assignment: copy source col → target col
+            if assignment and row_data_map:
+                pk_key = tuple(sorted(row_pk.items()))
+                row = row_data_map.get(pk_key)
+                if row is None:
+                    continue
+                for src_col, tgt_col in assignment.items():
+                    try:
+                        src_val = row[src_col] if src_col in row.index else None
+                        config.save_modification_to_db(
+                            row_pk=row_pk,
+                            column=tgt_col,
+                            old_value=None,
+                            new_value=str(src_val) if src_val is not None else None,
+                            mod_type="field_modification"
+                        )
+                        print(f"DEBUG: Assignment {src_col} → {tgt_col} = {src_val} for PK {row_pk}")
+                    except Exception as e:
+                        print(f"Warning: Assignment {src_col} → {tgt_col} failed for PK {row_pk}: {e}")
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
@@ -1279,6 +1309,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         search_state.set({"term": search_term, "column": search_column})
         current_page.set(1)
     
+    # Handle clear search button click
+    @reactive.Effect
+    @reactive.event(input.clear_search_btn)
+    def _handle_clear_search():
+        ui.update_text("search_input", value="")
+        ui.update_select("search_column", selected="all")
+        search_state.set({"term": "", "column": "all"})
+        current_page.set(1)
+    
     # Reset to page 1 when status filters change
     @reactive.Effect
     @reactive.event(input.status_filter_multi)
@@ -1621,7 +1660,19 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         
         # Save to database if enabled
         if app_config.database.enabled:
-            _save_status_to_db(selected_pks, "approval")
+            # Build row data map for approval_assignment column copies
+            row_data_map = {}
+            if app_config.approval_assignment:
+                pk_cols = app_config.table.primary_key
+                for idx in selected_indices:
+                    try:
+                        row = current_df.loc[idx]
+                        pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
+                        pk_key = tuple(sorted(pk.items()))
+                        row_data_map[pk_key] = row
+                    except Exception:
+                        pass
+            _save_status_to_db(selected_pks, "approval", row_data_map)
         
         mods_log.set(log)
         ui.notification_show(f"{len(selected_pks)} row(s) APPROVED!", type="message", duration=2)

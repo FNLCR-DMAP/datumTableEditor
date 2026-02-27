@@ -59,12 +59,14 @@ class EventEmitter:
         **payload
             Arbitrary key/value pairs attached to the event.
         """
-        self._events.set({
+        msg = {
             "action": action,
             "source": self._widget_id,
             "timestamp": time.time(),
             **payload,
-        })
+        }
+        print(f"[commute] emit → {msg}")
+        self._events.set(msg)
 
     def clear(self) -> None:
         """Reset the event value to ``None``."""

@@ -450,3 +450,50 @@ class TestStatusValuesConfig:
         })
         assert config.status_labels["approved"] == "Thumbs Up"
         assert config.status_values["approved"] == "PASS"
+
+
+class TestApprovalAssignmentConfig:
+    """Tests for the approval_assignment configuration field."""
+
+    def test_default_is_empty(self):
+        """approval_assignment defaults to empty dict."""
+        from src.config.app_config_schema import AppConfig
+
+        cfg = AppConfig()
+        assert cfg.approval_assignment == {}
+
+    def test_merge_config_loads_assignment(self):
+        """_merge_config should load approval_assignment from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "approval_assignment": {"Draft_Value": "Final_Value", "Notes": "Approved_Notes"}
+        })
+        assert config.approval_assignment == {"Draft_Value": "Final_Value", "Notes": "Approved_Notes"}
+
+    def test_merge_config_replaces_not_merges(self):
+        """approval_assignment replaces entirely (not dict.update)."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"approval_assignment": {"a": "b"}})
+        _merge_config(config, {"approval_assignment": {"x": "y"}})
+        assert config.approval_assignment == {"x": "y"}
+
+    def test_merge_config_missing_keeps_empty(self):
+        """Missing approval_assignment keeps the default empty dict."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {})
+        assert config.approval_assignment == {}
+
+    def test_empty_dict_disables_assignment(self):
+        """An explicitly empty dict means no column copies."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"approval_assignment": {}})
+        assert config.approval_assignment == {}
+        assert not config.approval_assignment  # falsy

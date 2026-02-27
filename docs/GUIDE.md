@@ -41,7 +41,7 @@ Open `http://localhost:8000` in your browser.
 
 ## Configuration
 
-All behaviour is controlled by `app_config.json`. See **template/app_config.template.json** for a fully annotated example and **docs/REFERENCE.md** for the complete schema reference.
+All behaviour is controlled by `app_config.json`. See **template/app_config.template.json** for a fully annotated example and **docs/CONFIG_REFERENCE.md** for the complete schema reference with every option documented.
 
 ### Minimal Config (Database Mode)
 

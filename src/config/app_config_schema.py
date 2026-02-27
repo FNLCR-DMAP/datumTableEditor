@@ -301,6 +301,11 @@ class AppConfig:
         "approved": "approved",
         "rejected": "rejected"
     })
+    
+    # Column-to-column copy on approval.  When a row is approved, for each
+    # {source: target} pair the value in source is written to target in DB.
+    # Example: {"Draft_Value": "Final_Value", "Notes": "Approved_Notes"}
+    approval_assignment: dict = field(default_factory=dict)
 
 
 # =============================================================================
@@ -461,6 +466,10 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     # Status values (what gets written to DB)
     if "status_values" in file_config:
         config.status_values.update(file_config["status_values"])
+    
+    # Approval assignment (column-to-column copy on approve)
+    if "approval_assignment" in file_config:
+        config.approval_assignment = file_config["approval_assignment"]
     
     return config
 
