@@ -46,7 +46,7 @@ Repository = "https://github.com/yourusername/dmapTableEditor"
 
 # Explicit package mapping: import as dmapTableEditor, code lives in src/
 [tool.setuptools]
-packages = ["dmapTableEditor", "dmapTableEditor.adapter", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
+packages = ["dmapTableEditor", "dmapTableEditor.adapter", "dmapTableEditor.commute", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
 
 [tool.setuptools.package-dir]
 dmapTableEditor = "src"
