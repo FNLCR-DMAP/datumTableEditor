@@ -233,10 +233,33 @@ class TestQueryBuilder:
         assert params["limit"] == 10
     
     def test_limit_capped_at_max(self, builder):
-        """Test that limit is capped at MAX_ROWS_PER_PAGE."""
+        """Test that limit is capped at MAX_ROWS_PER_PAGE (default 100)."""
         sql, params = builder.build_select_query(page=1, limit=500)
         
-        assert params["limit"] == 100  # MAX_ROWS_PER_PAGE
+        assert params["limit"] == 100  # default MAX_ROWS_PER_PAGE
+
+    def test_limit_capped_at_custom_max(self):
+        """Test that limit honours a custom max_rows_per_page."""
+        from src.db.query_builder import QueryBuilder
+        custom_builder = QueryBuilder("t", max_rows_per_page=500)
+        sql, params = custom_builder.build_select_query(page=1, limit=1000)
+        assert params["limit"] == 500
+
+        # Within the custom cap
+        _, p2 = custom_builder.build_select_query(page=1, limit=300)
+        assert p2["limit"] == 300
+
+    def test_custom_max_does_not_mutate_class_default(self):
+        """Instance-level max_rows_per_page must not leak to the class."""
+        from src.db.query_builder import QueryBuilder
+        custom = QueryBuilder("t", max_rows_per_page=500)
+        default = QueryBuilder("t")
+        # Custom instance has 500
+        assert custom.MAX_ROWS_PER_PAGE == 500
+        # Default instance still has the class-level 100
+        assert default.MAX_ROWS_PER_PAGE == 100
+        # Class attribute itself is untouched
+        assert QueryBuilder.MAX_ROWS_PER_PAGE == 100
     
     def test_count_query(self, builder):
         """Test count query generation."""

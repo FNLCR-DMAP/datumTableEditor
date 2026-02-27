@@ -102,17 +102,20 @@ class QueryContext:
 class QueryBuilder:
     """Builds parameterized SQL queries."""
     
-    MAX_ROWS_PER_PAGE = 100
+    MAX_ROWS_PER_PAGE = 100  # class-level default (overridable per instance)
     
     def __init__(
         self,
         data_table: str,
         mods_table: Optional[str] = None,
         primary_key: Optional[list[str]] = None,
-        status_column: Optional[str] = None
+        status_column: Optional[str] = None,
+        max_rows_per_page: Optional[int] = None,
     ):
         self.data_table = data_table
         self.mods_table = mods_table
+        if max_rows_per_page is not None:
+            self.MAX_ROWS_PER_PAGE = max_rows_per_page
         self.primary_key = primary_key or ["id"]
         self.status_column = status_column
     

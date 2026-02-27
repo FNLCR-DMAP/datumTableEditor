@@ -400,6 +400,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.default_sort_column = tb.get("default_sort_column")
         config.table.default_sort_ascending = tb.get("default_sort_ascending", config.table.default_sort_ascending)
         config.table.default_rows_per_page = tb.get("default_rows_per_page", config.table.default_rows_per_page)
+        config.table.rows_per_page_options = tb.get("rows_per_page_options", config.table.rows_per_page_options)
         config.table.editable_columns = tb.get("editable_columns", config.table.editable_columns)
         config.table.readonly_columns = tb.get("readonly_columns", config.table.readonly_columns)
         config.table.presets_file_path = tb.get("presets_file_path")
@@ -590,7 +591,7 @@ def export_config_schema() -> dict:
             "pool_size": "number (connection pool size)",
             "max_overflow": "number (max pool overflow connections)",
             "pool_timeout": "number (seconds to wait for connection)",
-            "max_rows_per_page": "number (max rows per page, hard limit 100)",
+            "max_rows_per_page": "number (max rows per page, default 100)",
             "default_rows_per_page": "number (default rows per page)",
         },
         "enable_approval_workflow": "boolean",

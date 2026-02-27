@@ -497,3 +497,76 @@ class TestApprovalAssignmentConfig:
         _merge_config(config, {"approval_assignment": {}})
         assert config.approval_assignment == {}
         assert not config.approval_assignment  # falsy
+
+
+class TestPaginationConfig:
+    """Tests for pagination-related config fields being honoured."""
+
+    def test_table_default_rows_per_page_options(self):
+        """TableConfig defaults include 'all'."""
+        from src.config.app_config_schema import TableConfig
+
+        tc = TableConfig()
+        assert tc.rows_per_page_options == [10, 25, 50, 100, "all"]
+        assert tc.default_rows_per_page == 25
+
+    def test_merge_loads_rows_per_page_options(self):
+        """_merge_config should load rows_per_page_options from table section."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "table": {"rows_per_page_options": [25, 50, 100, 500]}
+        })
+        assert config.table.rows_per_page_options == [25, 50, 100, 500]
+
+    def test_merge_loads_rows_per_page_options_with_all(self):
+        """Options list may include the string 'all'."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "table": {"rows_per_page_options": [50, 100, 500, "all"]}
+        })
+        assert "all" in config.table.rows_per_page_options
+        assert 500 in config.table.rows_per_page_options
+
+    def test_merge_missing_keeps_default(self):
+        """Missing rows_per_page_options keeps the dataclass default."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"table": {"title": "X"}})
+        assert config.table.rows_per_page_options == [10, 25, 50, 100, "all"]
+
+    def test_database_max_rows_per_page_loaded(self):
+        """database.max_rows_per_page is loaded from config."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"database": {"max_rows_per_page": 500}})
+        assert config.database.max_rows_per_page == 500
+
+    def test_database_default_rows_per_page_loaded(self):
+        """database.default_rows_per_page is loaded from config."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"database": {"default_rows_per_page": 100}})
+        assert config.database.default_rows_per_page == 100
+
+    def test_database_page_buffer_size_loaded(self):
+        """database.page_buffer_size is loaded from config."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"database": {"page_buffer_size": 1000}})
+        assert config.database.page_buffer_size == 1000
+
+    def test_table_default_rows_per_page_loaded(self):
+        """table.default_rows_per_page is loaded from config."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"table": {"default_rows_per_page": 500}})
+        assert config.table.default_rows_per_page == 500

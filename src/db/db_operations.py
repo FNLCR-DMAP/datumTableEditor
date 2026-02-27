@@ -144,7 +144,8 @@ class DatabaseOperations:
             data_table=self.config.data_table,
             mods_table=self.config.mods_table,
             primary_key=self._table_schema.primary_key,
-            status_column=self.config.status_column
+            status_column=self.config.status_column,
+            max_rows_per_page=self.config.max_rows_per_page,
         )
         
         # Initialize session book manager

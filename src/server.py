@@ -1162,12 +1162,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total_filtered = len(filtered_indices)
         
         rows_per_page_val = rows_per_page_value.get()
+        rpp_options = app_config.table.rows_per_page_options
         
         if rows_per_page_val == "all":
-            return build_pagination_controls_all(total_filtered, rows_per_page_val)
+            return build_pagination_controls_all(total_filtered, rows_per_page_val, rpp_options)
         
         page, total_pages, start_row, end_row = calculate_pagination(total_filtered, rows_per_page_val, current_page.get())
-        return build_pagination_controls_paged(page, total_pages, start_row, end_row, total_filtered, rows_per_page_val)
+        return build_pagination_controls_paged(page, total_pages, start_row, end_row, total_filtered, rows_per_page_val, rpp_options)
     
     # Sync rows_per_page input with reactive value
     @reactive.Effect

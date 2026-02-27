@@ -5,19 +5,29 @@ Pagination UI builders for the Epitopes Data Editor.
 from shiny import ui
 
 
-def build_rows_per_page_selector(selected_value: str) -> ui.div:
-    """Build the rows per page selector control."""
+def build_rows_per_page_selector(
+    selected_value: str,
+    options: list[int | str] | None = None,
+) -> ui.div:
+    """Build the rows per page selector control.
+
+    Parameters
+    ----------
+    selected_value : str
+        Currently-selected value.
+    options : list, optional
+        Available page-size options (ints or ``"all"``).
+        Falls back to ``[10, 25, 50, 100]`` when *None*.
+    """
+    if options is None:
+        options = [10, 25, 50, 100]
+    choices = {str(o): str(o) for o in options}
     return ui.div(
         ui.tags.label("Rows: ", style="font-size: 11px; margin-right: 4px;"),
         ui.input_select(
             "rows_per_page",
             label=None,
-            choices={
-                "10": "10",
-                "25": "25",
-                "50": "50",
-                "100": "100"
-            },
+            choices=choices,
             selected=selected_value,
             width="70px"
         ),
@@ -25,10 +35,14 @@ def build_rows_per_page_selector(selected_value: str) -> ui.div:
     )
 
 
-def build_pagination_controls_all(total_rows: int, rows_per_page_val: str) -> ui.div:
+def build_pagination_controls_all(
+    total_rows: int,
+    rows_per_page_val: str,
+    rows_per_page_options: list[int | str] | None = None,
+) -> ui.div:
     """Build pagination controls when showing all rows."""
     return ui.div(
-        build_rows_per_page_selector(rows_per_page_val),
+        build_rows_per_page_selector(rows_per_page_val, rows_per_page_options),
         ui.span(f"Showing all {total_rows} rows", class_="pagination-info"),
         class_="pagination-bar"
     )
@@ -40,11 +54,12 @@ def build_pagination_controls_paged(
     start_row: int,
     end_row: int,
     total_rows: int,
-    rows_per_page_val: str
+    rows_per_page_val: str,
+    rows_per_page_options: list[int | str] | None = None,
 ) -> ui.div:
     """Build pagination controls with page navigation."""
     return ui.div(
-        build_rows_per_page_selector(rows_per_page_val),
+        build_rows_per_page_selector(rows_per_page_val, rows_per_page_options),
         ui.span(f"Showing {start_row}-{end_row} of {total_rows} rows", class_="pagination-info"),
         ui.div(
             ui.input_action_button("first_page_btn", "« First", class_="btn btn-sm btn-outline-secondary", disabled=(page <= 1)),
