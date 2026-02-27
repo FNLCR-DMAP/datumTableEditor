@@ -46,7 +46,8 @@ def _escape_literal(value) -> str:
     return str(SqlLiteral(value))
 
 
-def _build_mod_status_expr(status_column: str = None, status_labels: dict = None) -> str:
+def _build_mod_status_expr(status_column: str = None, status_labels: dict = None,
+                           status_values: dict = None) -> str:
     """
     Build the SQL expression for _mod_status.
     
@@ -57,7 +58,27 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
         status_column: Name of the status column in the data table
         status_labels: Dict mapping internal keys to display labels, e.g.
                        {"approved": "Accepted", "rejected": "Rejected", ...}
+        status_values: Dict mapping internal keys to DB-written values, e.g.
+                       {"approved": "Accepted", "rejected": "Declined"}
     """
+    # Build the ms.new_value normalizer — maps custom DB values back to internal keys
+    # This handles both legacy mod_type values ("approval"/"rejection") and
+    # custom status_values written by the approve/reject buttons.
+    mod_when_clauses = [
+        "WHEN ms.mod_type = 'approval' THEN 'approved'",
+        "WHEN ms.mod_type = 'rejection' THEN 'rejected'",
+    ]
+    if status_values:
+        for internal_key, db_val in status_values.items():
+            safe_val = db_val.lower()
+            safe_key = internal_key.lower()
+            if safe_val not in (safe_key, "approval", "rejection"):
+                mod_when_clauses.append(
+                    f"WHEN LOWER(CAST(ms.new_value AS TEXT)) = {SqlLiteral(safe_val)} THEN {SqlLiteral(safe_key)}"
+                )
+    mod_when_clauses.append("ELSE ms.mod_type")
+    mod_normalize = f"CASE {' '.join(mod_when_clauses)} END"
+    
     if status_column:
         col = f'd.{SqlIdentifier(status_column)}'
         # Build CASE WHEN branches for each status, matching both internal key and label
@@ -66,10 +87,13 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
             for internal_key, label in status_labels.items():
                 if internal_key == "unprocessed":
                     continue  # unprocessed is the default/fallback
-                # Match either the internal key or the configured label
+                # Match the internal key, configured label, AND custom status_value
                 safe_key = internal_key.lower()
                 safe_label = label.lower()
-                values = sorted(set([safe_key, safe_label]))
+                match_vals = {safe_key, safe_label}
+                if status_values and internal_key in status_values:
+                    match_vals.add(status_values[internal_key].lower())
+                values = sorted(match_vals)
                 in_list = ", ".join(str(SqlLiteral(v)) for v in values)
                 when_clauses.append(
                     f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN {SqlLiteral(safe_key)}"
@@ -83,10 +107,10 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
         
         case_expr = " ".join(when_clauses)
         return (
-            f"COALESCE(ms.mod_type, "
+            f"COALESCE({mod_normalize}, "
             f"CASE {case_expr} ELSE 'unprocessed' END)"
         )
-    return "COALESCE(ms.mod_type, 'unprocessed')"
+    return f"COALESCE({mod_normalize}, 'unprocessed')"
 
 
 @dataclass
@@ -694,10 +718,10 @@ class DataFetcher:
             
             query = f"""
             SELECT _mod_status, COUNT(*) as cnt FROM (
-                SELECT {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                SELECT {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
-                    SELECT mod_type 
+                    SELECT mod_type, new_value 
                     FROM {mods_table_sql} m
                     WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE
@@ -776,10 +800,10 @@ class DataFetcher:
                 query = f"""
                 SELECT COUNT(*) as cnt FROM (
                     SELECT d.*,
-                           {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                           {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                     FROM {data_table_sql} d
                     LEFT JOIN LATERAL (
-                        SELECT mod_type
+                        SELECT mod_type, new_value
                         FROM {mods_table_sql} m
                         WHERE m.row_pk = {pk_json_build}
                           AND m.undone = FALSE
@@ -856,10 +880,10 @@ class DataFetcher:
                 # Wrap in subquery to allow status filtering
                 inner_query = f"""
                 SELECT d.*, 
-                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
-                    SELECT mod_type 
+                    SELECT mod_type, new_value 
                     FROM {mods_table_sql} m
                     WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE
@@ -945,10 +969,10 @@ class DataFetcher:
             else:
                 inner_query = f"""
                 SELECT d.*, 
-                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
-                    SELECT mod_type 
+                    SELECT mod_type, new_value 
                     FROM {mods_table_sql} m
                     WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE
@@ -1499,10 +1523,10 @@ class ConfigInstance:
             else:
                 query = f"""
                 SELECT d.*, 
-                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
-                    SELECT mod_type 
+                    SELECT mod_type, new_value 
                     FROM {mods_table_sql} m
                     WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE
@@ -1692,10 +1716,10 @@ class ConfigInstance:
             else:
                 query = f"""
                 SELECT d.*, 
-                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None))} AS _mod_status
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 LEFT JOIN LATERAL (
-                    SELECT mod_type 
+                    SELECT mod_type, new_value 
                     FROM {mods_table_sql} m
                     WHERE m.row_pk = {pk_json_build}
                       AND m.undone = FALSE

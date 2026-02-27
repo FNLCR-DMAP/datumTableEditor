@@ -1,0 +1,99 @@
+{
+  "_description": "QC report for commute (event communication layer)",
+  "_generated": true,
+  "_summary": {
+    "total_functions": 8,
+    "unused_functions": 0,
+    "fully_annotated_functions": 8,
+    "function_coverage_percent": 100.0,
+    "parameter_coverage_percent": 100.0,
+    "test_count": 40,
+    "test_file": "tests/test_commute.py",
+    "mypy_errors": 0
+  },
+  "files": {
+    "src/commute/__init__.py": {
+      "description": "Package init — exports EventEmitter and WidgetAPI",
+      "exports": ["EventEmitter", "WidgetAPI"]
+    },
+    "src/commute/emitter.py": {
+      "description": "EventEmitter (reactive.Value wrapper) and WidgetAPI dataclass",
+      "classes": ["EventEmitter", "WidgetAPI"]
+    }
+  },
+  "function_mapping": {
+    "src/commute/emitter.py": {
+      "total": 8,
+      "functions": [
+        "EventEmitter.__init__",
+        "EventEmitter.events",
+        "EventEmitter.widget_id",
+        "EventEmitter.emit",
+        "EventEmitter.clear",
+        "EventEmitter.peek",
+        "WidgetAPI.__init__",
+        "WidgetAPI.__getitem__"
+      ],
+      "used": [
+        "EventEmitter.__init__",
+        "EventEmitter.events",
+        "EventEmitter.widget_id",
+        "EventEmitter.emit",
+        "EventEmitter.clear",
+        "EventEmitter.peek",
+        "WidgetAPI.__init__",
+        "WidgetAPI.__getitem__"
+      ]
+    }
+  },
+  "test_coverage": {
+    "tests/test_commute.py": {
+      "total_tests": 40,
+      "test_classes": [
+        {
+          "class": "TestEventEmitterInit",
+          "tests": 5,
+          "covers": ["EventEmitter.__init__", "EventEmitter.events", "EventEmitter.widget_id", "EventEmitter.peek"]
+        },
+        {
+          "class": "TestEventEmitterEmit",
+          "tests": 11,
+          "covers": ["EventEmitter.emit", "EventEmitter.peek"]
+        },
+        {
+          "class": "TestEventEmitterClear",
+          "tests": 3,
+          "covers": ["EventEmitter.clear", "EventEmitter.peek"]
+        },
+        {
+          "class": "TestEventEmitterPeek",
+          "tests": 4,
+          "covers": ["EventEmitter.peek"]
+        },
+        {
+          "class": "TestWidgetAPI",
+          "tests": 11,
+          "covers": ["WidgetAPI.__init__", "WidgetAPI.__getitem__"]
+        },
+        {
+          "class": "TestEmitterWithWidgetAPI",
+          "tests": 6,
+          "covers": ["EventEmitter.emit", "EventEmitter.clear", "EventEmitter.peek", "EventEmitter.events", "WidgetAPI.__init__", "WidgetAPI.__getitem__"]
+        }
+      ]
+    }
+  },
+  "integration_points": {
+    "server.py": {
+      "creates": "EventEmitter(widget_id=config_path)",
+      "returns": "WidgetAPI(events, data, active_columns, widget_id)",
+      "handler": "_review_detail() calls _emit('review_detail', pk=...)"
+    },
+    "ui.py": {
+      "button": "input_action_button('review_detail_btn') gated by enable_review_detail"
+    },
+    "config/app_config_schema.py": {
+      "flag": "enable_review_detail: bool = False"
+    }
+  }
+}

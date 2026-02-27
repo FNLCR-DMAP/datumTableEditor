@@ -1120,7 +1120,7 @@ pytest tests/ --cov=src --cov-report=term-missing
 
 ### Current Test Coverage
 
-- **1237+ tests passing** (~1.5s runtime)
+- **1277+ tests passing** (~1.5s runtime)
 - **96.5% public function coverage** (222/230 functions)
 - Database modules: 90–100% coverage
 - Utility modules: 93–100% coverage

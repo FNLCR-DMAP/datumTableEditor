@@ -66,6 +66,7 @@ from .utils import (
     process_undo_action,
     process_cell_edit_action,
 )
+from .commute import EventEmitter, WidgetAPI
 
 
 def create_server(input, output, session, config_path: str = "app_config.json"):  # noqa: ARG001
@@ -74,6 +75,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     Args:
         config_path: Path to the config JSON file for this widget instance
+    
+    Returns:
+        WidgetAPI: Public API object with .events, .data, .active_columns
     """
     import os
     # Get username: Posit Connect session.user → SHINY_USER env var → 'default_user'
@@ -110,6 +114,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             return False
         return True
     
+    # ── Event emitter (commute layer) ──────────────────────────
+    _emitter = EventEmitter(widget_id=config_path)
+
+    def _emit(action: str, **payload) -> None:
+        """Fire an event to the host app via the commute layer."""
+        _emitter.emit(action, **payload)
+
     # Create local functions that use this config instance
     def load_modifications_log():
         return config.load_modifications_log()
@@ -370,17 +381,24 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Helper function to save approval/rejection status to database
     def _save_status_to_db(selected_pks, mod_type: str):
-        """Save approval/rejection entries to database with PKs using config instance"""
+        """Save approval/rejection entries to database with PKs using config instance.
+        
+        Uses app_config.status_values to determine what value is written to the
+        status column.  mod_type is the internal log type ("approval"/"rejection").
+        """
+        # Resolve the value to write from status_values config
+        internal_key = "approved" if mod_type == "approval" else "rejected"
+        status_value = app_config.status_values.get(internal_key, internal_key)
         for row_pk in selected_pks:
             try:
                 result = config.save_modification_to_db(
                     row_pk=row_pk,
                     column="_status",
                     old_value=None,
-                    new_value=mod_type,
+                    new_value=status_value,
                     mod_type=mod_type
                 )
-                print(f"DEBUG: Saved {mod_type} for PK {row_pk}, result: {result}")
+                print(f"DEBUG: Saved {mod_type} ({status_value}) for PK {row_pk}, result: {result}")
             except Exception as e:
                 print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
     
@@ -404,6 +422,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if status == "unprocessed" and "_mod_status" in current_df.columns:
             try:
                 db_status = str(current_df.loc[row_idx, "_mod_status"]).strip().lower()
+                # Normalize legacy mod_type values ("approval" → "approved")
+                if db_status == "approval":
+                    db_status = "approved"
+                elif db_status == "rejection":
+                    db_status = "rejected"
+                # Also check custom status_values (reverse lookup)
+                if db_status not in ("edited", "approved", "rejected"):
+                    reverse = {v.lower(): k for k, v in app_config.status_values.items()}
+                    db_status = reverse.get(db_status, db_status)
                 if db_status in ("edited", "approved", "rejected"):
                     return db_status
             except:
@@ -1926,3 +1953,33 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             filtered_row_count.set(len(fresh))
         current_page.set(1)
         ui.notification_show("Returned to original table", type="message", duration=3)
+
+    # ── Review Detail action ──────────────────────────────────
+    @reactive.Effect
+    @reactive.event(input.review_detail_btn)
+    def _review_detail():
+        """Emit review_detail event with the first selected row's PK."""
+        current_df = data.get()
+        indices = get_selected_row_indices(input, current_df)
+        if not indices:
+            ui.notification_show("Select a row first", type="warning", duration=3)
+            return
+        pks = _get_selected_pks([indices[0]], current_df)
+        if not pks:
+            ui.notification_show("Could not resolve primary key", type="error", duration=3)
+            return
+        _emit(
+            "review_detail",
+            pk=pks[0],
+            source_table=app_config.database.data_table,
+            row_index=indices[0],
+        )
+        ui.notification_show(f"Review Detail: {pks[0]}", type="message", duration=2)
+
+    # ── Return public API ─────────────────────────────────────
+    return WidgetAPI(
+        events=_emitter.events,
+        data=data,
+        active_columns=active_columns,
+        widget_id=_emitter.widget_id,
+    )

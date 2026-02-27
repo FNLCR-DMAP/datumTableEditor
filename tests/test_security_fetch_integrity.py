@@ -1177,11 +1177,56 @@ class TestBuildModStatusExprEscaping:
 
     def test_no_status_column(self):
         result = _build_mod_status_expr(None, {"approved": "Approved"})
-        assert result == "COALESCE(ms.mod_type, 'unprocessed')"
+        # Without a status_column there's no data-table CASE fallback,
+        # but mod_type is still normalised (approval→approved, rejection→rejected)
+        assert "COALESCE(" in result
+        assert "'unprocessed'" in result
+        assert "approval" in result  # normalisation branch present
 
     def test_no_labels(self):
         result = _build_mod_status_expr("status", None)
         assert "unprocessed" in result
+
+    # -- status_values tests --
+
+    def test_status_values_recognized_in_data_table_case(self):
+        """Custom status_values should appear in the data-table CASE branches."""
+        result = _build_mod_status_expr(
+            "Status",
+            {"approved": "Approved", "rejected": "Rejected"},
+            {"approved": "Accepted", "rejected": "Declined"},
+        )
+        # The custom value "accepted" should be matched in the IN list
+        assert "'accepted'" in result
+        assert "'declined'" in result
+
+    def test_status_values_in_mod_normalize(self):
+        """Custom status_values should generate ms.new_value normalisation WHEN clauses."""
+        result = _build_mod_status_expr(
+            "Status",
+            {"approved": "Approved"},
+            {"approved": "Accepted"},
+        )
+        assert "ms.new_value" in result
+        assert "'accepted'" in result
+
+    def test_status_values_no_duplicate_when_same_as_key(self):
+        """When status_value matches the internal key, no extra new_value clause."""
+        result = _build_mod_status_expr(
+            "Status",
+            {"approved": "Approved"},
+            {"approved": "approved"},  # same as internal key
+        )
+        # Should NOT have a ms.new_value clause for 'approved' (it's already covered by mod_type)
+        assert "ms.new_value" not in result
+
+    def test_mod_type_normalization_always_present(self):
+        """Legacy mod_type values (approval/rejection) should always be normalised."""
+        result = _build_mod_status_expr("Status", None, None)
+        assert "'approval'" in result
+        assert "'approved'" in result
+        assert "'rejection'" in result
+        assert "'rejected'" in result
 
 
 class TestGetUniqueValuesColumnEscaping:

@@ -395,3 +395,58 @@ class TestPermissionsConfig:
         perm = PermissionsConfig(default_role="viewer", user_roles={"alice": "editor"})
         role = perm.user_roles.get("unknown", perm.default_role)
         assert role == "viewer"
+
+
+class TestStatusValuesConfig:
+    """Tests for the status_values configuration field."""
+
+    def test_default_status_values(self):
+        """AppConfig should default status_values to internal keys."""
+        from src.config.app_config_schema import AppConfig
+
+        cfg = AppConfig()
+        assert cfg.status_values == {"approved": "approved", "rejected": "rejected"}
+
+    def test_merge_config_loads_status_values(self):
+        """_merge_config should load custom status_values from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        cfg_data = {
+            "status_values": {
+                "approved": "Accepted",
+                "rejected": "Declined"
+            }
+        }
+        config = AppConfig()
+        _merge_config(config, cfg_data)
+        assert config.status_values["approved"] == "Accepted"
+        assert config.status_values["rejected"] == "Declined"
+
+    def test_merge_config_partial_update(self):
+        """Partial status_values update should merge, not replace."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"status_values": {"approved": "PASS"}})
+        assert config.status_values["approved"] == "PASS"
+        assert config.status_values["rejected"] == "rejected"  # default retained
+
+    def test_merge_config_missing_keeps_defaults(self):
+        """Missing status_values keeps defaults."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {})
+        assert config.status_values == {"approved": "approved", "rejected": "rejected"}
+
+    def test_status_values_independent_of_labels(self):
+        """status_values and status_labels are independent configs."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "status_labels": {"approved": "Thumbs Up"},
+            "status_values": {"approved": "PASS"}
+        })
+        assert config.status_labels["approved"] == "Thumbs Up"
+        assert config.status_values["approved"] == "PASS"

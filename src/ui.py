@@ -82,6 +82,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     enable_status_filter = app_config.enable_status_filter
     enable_synthesis = app_config.enable_synthesis
     enable_search = app_config.query.enable_search
+    enable_review_detail = app_config.enable_review_detail
     synthesis_label = app_config.synthesis.label or "Synthesis"
     
     # Status labels from config
@@ -259,6 +260,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
                         ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows(event)"),
+                        ui.input_action_button("review_detail_btn", "Review Detail", class_="btn btn-sm btn-outline-primary") if enable_review_detail else None,
                         ui.tags.button(
                             synthesis_label,
                             class_="btn btn-sm btn-outline-warning synthesis-btn",

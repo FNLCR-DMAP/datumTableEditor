@@ -281,6 +281,7 @@ class AppConfig:
     enable_copy_column: bool = True
     enable_status_filter: bool = True  # Show status filter in sidebar
     enable_synthesis: bool = False  # Show synthesis transform button
+    enable_review_detail: bool = False  # Show Review Detail button (emits event via commute layer)
     fix_filter: bool = False  # Lock filters to only the default_filters from config
     
     # Configurable status labels: internal_key -> display_label
@@ -291,6 +292,14 @@ class AppConfig:
         "edited": "Edited",
         "approved": "Approved",
         "rejected": "Rejected"
+    })
+    
+    # What value to write to the database status column on approve/reject.
+    # Maps internal status key -> value stored in DB.
+    # Example: {"approved": "Accepted", "rejected": "Declined"}
+    status_values: dict = field(default_factory=lambda: {
+        "approved": "approved",
+        "rejected": "rejected"
     })
 
 
@@ -428,6 +437,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_undo = file_config.get("enable_undo", config.enable_undo)
     config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
     config.enable_synthesis = file_config.get("enable_synthesis", config.enable_synthesis)
+    config.enable_review_detail = file_config.get("enable_review_detail", config.enable_review_detail)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
     
     # Synthesis
@@ -447,6 +457,10 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     # Status labels
     if "status_labels" in file_config:
         config.status_labels.update(file_config["status_labels"])
+    
+    # Status values (what gets written to DB)
+    if "status_values" in file_config:
+        config.status_values.update(file_config["status_values"])
     
     return config
 
