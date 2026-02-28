@@ -2010,23 +2010,38 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.review_detail_btn)
     def _review_detail():
-        """Emit review_detail event with the first selected row's PK."""
+        """Emit review_detail event with selected row PK(s)."""
         current_df = data.get()
         indices = get_selected_row_indices(input, len(current_df))
         if not indices:
             ui.notification_show("Select a row first", type="warning", duration=3)
             return
-        pks = _get_selected_pks([indices[0]], current_df)
-        if not pks:
-            ui.notification_show("Could not resolve primary key", type="error", duration=3)
-            return
-        _emit(
-            "review_detail",
-            pk=pks[0],
-            source_table=app_config.database.data_table,
-            row_index=indices[0],
-        )
-        ui.notification_show(f"Review Detail: {pks[0]}", type="message", duration=2)
+        if app_config.review_detail_multi_select:
+            # Multi-select: emit all selected rows
+            pks = _get_selected_pks(indices, current_df)
+            if not pks:
+                ui.notification_show("Could not resolve primary keys", type="error", duration=3)
+                return
+            _emit(
+                "review_detail",
+                pk=pks,
+                source_table=app_config.database.data_table,
+                row_indices=indices,
+            )
+            ui.notification_show(f"Review Detail: {len(pks)} row(s)", type="message", duration=2)
+        else:
+            # Single-select: emit first selected row only
+            pks = _get_selected_pks([indices[0]], current_df)
+            if not pks:
+                ui.notification_show("Could not resolve primary key", type="error", duration=3)
+                return
+            _emit(
+                "review_detail",
+                pk=pks[0],
+                source_table=app_config.database.data_table,
+                row_index=indices[0],
+            )
+            ui.notification_show(f"Review Detail: {pks[0]}", type="message", duration=2)
 
     # ── Return public API ─────────────────────────────────────
     return WidgetAPI(

@@ -570,3 +570,42 @@ class TestPaginationConfig:
         config = AppConfig()
         _merge_config(config, {"table": {"default_rows_per_page": 500}})
         assert config.table.default_rows_per_page == 500
+
+
+class TestReviewDetailMultiSelectConfig:
+    """Tests for the review_detail_multi_select configuration field."""
+
+    def test_default_is_false(self):
+        """review_detail_multi_select defaults to False (single select)."""
+        from src.config.app_config_schema import AppConfig
+
+        cfg = AppConfig()
+        assert cfg.review_detail_multi_select is False
+
+    def test_merge_config_enables_multi_select(self):
+        """_merge_config should load review_detail_multi_select from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"review_detail_multi_select": True})
+        assert config.review_detail_multi_select is True
+
+    def test_merge_config_missing_keeps_default(self):
+        """Missing review_detail_multi_select keeps the default False."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {})
+        assert config.review_detail_multi_select is False
+
+    def test_enable_review_detail_independent(self):
+        """enable_review_detail and review_detail_multi_select are independent flags."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "enable_review_detail": True,
+            "review_detail_multi_select": True,
+        })
+        assert config.enable_review_detail is True
+        assert config.review_detail_multi_select is True
