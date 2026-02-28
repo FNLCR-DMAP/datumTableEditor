@@ -13,14 +13,20 @@ Usage inside the widget (server.py)::
 
 Usage in the host app::
 
-    editor1 = table_editor_server("editor1", ...)
-    # editor1["events"] is the reactive.Value
+    from dmapTableEditor.widgets import table_editor_ui, table_editor_server
 
-    @reactive.effect
-    def _on_event():
-        msg = editor1["events"].get()
-        if msg and msg["action"] == "review_detail":
-            open_detail_tab(msg["pk"])
+    app_ui = ui.page_fluid(
+        table_editor_ui("editor1", config_path="app_config.json"),
+    )
+
+    def server(input, output, session):
+        api = table_editor_server("editor1", config_path="app_config.json")
+
+        @reactive.effect
+        def _on_event():
+            event = api.events.get()
+            if event and event["action"] == "review_detail":
+                print(event["pk"])
 """
 
 from .emitter import EventEmitter, WidgetAPI

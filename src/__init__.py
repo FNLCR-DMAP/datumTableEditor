@@ -11,8 +11,7 @@ Usage:
     table_editor_server("my_editor", config_path="app_config.json")
 """
 
-from .ui import create_app_ui as table_editor_ui
-from .server import create_server as table_editor_server
+from .widgets.table_editor import table_editor_ui, table_editor_server
 from .config.config_instance import load_config_instance, ConfigInstance
 from .config.app_config_schema import AppConfig, load_config
 from .commute import EventEmitter, WidgetAPI

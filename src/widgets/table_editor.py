@@ -9,11 +9,16 @@ Usage:
     
     # In UI:
     table_editor_ui("editor1", config_path="config1.json")
-    table_editor_ui("editor2", config_path="config2.json")
     
     # In server:
-    table_editor_server("editor1", config_path="config1.json")
-    table_editor_server("editor2", config_path="config2.json")
+    api = table_editor_server("editor1", config_path="config1.json")
+
+    # Access the WidgetAPI:
+    @reactive.Effect
+    def watch():
+        event = api.events.get()
+        if event and event["action"] == "review_detail":
+            print(event["pk"])
 """
 
 from shiny import module
@@ -48,6 +53,9 @@ def table_editor_server(input, output, session, config_path: str = "app_config.j
     Args:
         config_path: Path to the config JSON file for this widget instance
     
+    Returns:
+        WidgetAPI with .events (reactive.Value), .data, .active_columns, .widget_id
+    
     Provides all table editor functionality:
     - Data display and editing
     - Approval/rejection workflow
@@ -55,4 +63,4 @@ def table_editor_server(input, output, session, config_path: str = "app_config.j
     - Export capabilities
     - Pagination and sorting
     """
-    create_server(input, output, session, config_path=config_path)
+    return create_server(input, output, session, config_path=config_path)
