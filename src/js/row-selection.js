@@ -1,6 +1,32 @@
 // Row selection with Shift+Click support
 let lastSelectedRow = null;
 
+// Check if this widget is in single-select mode
+function _isSingleSelectMode(contextEl) {
+    var container = _findWidgetContainer(contextEl);
+    var nsHolder = container.querySelector('[data-selection-mode]');
+    if (nsHolder && nsHolder.getAttribute('data-selection-mode') === 'single') {
+        return true;
+    }
+    return false;
+}
+
+// Deselect all rows except the one at `keepIndex`
+function _deselectOtherRows(table, keepIndex, keepCheckbox) {
+    var container = _findWidgetContainer(table);
+    const checkboxes = container.querySelectorAll('input[type="checkbox"][id*="select_"]:not(#select_all_page)');
+    checkboxes.forEach(function(cb) {
+        if (cb !== keepCheckbox && cb.checked) {
+            cb.checked = false;
+            updateRowHighlight(cb);
+            if (typeof setShinyInput !== 'undefined') {
+                const inputName = cb.id.includes('-') ? cb.id.split('-').pop() : cb.id;
+                setShinyInput(inputName, false, {priority: 'event'}, cb);
+            }
+        }
+    });
+}
+
 function updateRowHighlight(checkbox) {
     const row = checkbox.closest('tr');
     if (row) {
@@ -40,6 +66,15 @@ function initRowSelection(contextEl) {
         
         const currentRow = parseInt(match[1]);
         
+        // Single-select mode: deselect all others when checking a row
+        if (_isSingleSelectMode(table) && checkbox.checked) {
+            _deselectOtherRows(table, currentRow, checkbox);
+            updateRowHighlight(checkbox);
+            lastSelectedRow = currentRow;
+            updateSelectAllCheckbox(table);
+            return;  // skip shift-click range logic
+        }
+
         if (e.shiftKey && lastSelectedRow !== null) {
             e.preventDefault();
             

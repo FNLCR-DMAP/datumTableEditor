@@ -640,10 +640,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Get namespace by calling session.ns with a test ID and extracting the prefix
         # session.ns("test") returns "editor1-test", so we remove "test" to get "editor1-"
         ns_prefix = session.ns("test").replace("test", "")
+        selection_mode = "multiple" if app_config.review_detail_multi_select else "single"
         from shiny import ui as sui
         return sui.div(
             style="display:none;",
-            **{"data-shiny-ns": ns_prefix}
+            **{"data-shiny-ns": ns_prefix, "data-selection-mode": selection_mode}
         )
 
     # Output: Viewer mode — inject CSS that hides edit controls for viewers
@@ -665,6 +666,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             .undo-btn { display: none !important; }
             /* Viewer banner */
             .viewer-banner { display: block !important; }
+            """
+        )
+
+    # Output: Single-select mode — hide Select All header checkbox
+    @render.ui
+    def selection_mode_ui():
+        if app_config.review_detail_multi_select:
+            return ui.div()
+        return ui.tags.style(
+            """
+            /* === Single-select mode: hide select-all checkbox === */
+            #select_all_page { display: none !important; }
             """
         )
 
