@@ -1079,6 +1079,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.set_filter_operator)
     def _set_filter_operator():
+        if app_config.fix_filter:
+            return  # Filters are locked by config
         val = input.set_filter_operator()
         if not val:
             return
@@ -1127,6 +1129,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.apply_filter_value)
     def _apply_filter_value():
+        if app_config.fix_filter:
+            return  # Filters are locked by config
         val = input.apply_filter_value()
         if not val:
             return

@@ -513,6 +513,113 @@ class TestDynamicFilterOperatorDropdown:
 
 
 # =====================================================================
+# fix_filter Locking Tests
+# =====================================================================
+
+class TestFixFilterLocking:
+    """When fix_filter=True, filter controls should be fully locked (read-only)."""
+
+    def test_operator_dropdown_disabled(self):
+        """Operator dropdown should be disabled when fix_filter=True."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=True)
+        html = str(result)
+
+        assert "disabled" in html
+
+    def test_operator_dropdown_enabled_by_default(self):
+        """Operator dropdown should NOT be disabled when fix_filter=False."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=False)
+        html = str(result)
+
+        assert 'disabled' not in html or 'disabled="disabled"' not in html
+
+    def test_edit_button_hidden_when_fixed(self):
+        """Edit (pencil) button should NOT appear when fix_filter=True."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=True)
+        html = str(result)
+
+        assert "toggleFilterEdit" not in html
+
+    def test_values_picker_hidden_when_fixed(self):
+        """Values picker (⋮) button should NOT appear when fix_filter=True."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=True)
+        html = str(result)
+
+        assert "openFilterValuesModal" not in html
+
+    def test_textarea_readonly_script_when_fixed(self):
+        """A readonly script should be injected when fix_filter=True."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=True)
+        html = str(result)
+
+        assert "readOnly=true" in html
+
+    def test_edit_button_present_when_unlocked(self):
+        """Edit button should appear when fix_filter=False."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=False)
+        html = str(result)
+
+        assert "toggleFilterEdit" in html
+
+    def test_remove_button_hidden_on_dynamic_when_fixed(self):
+        """Remove button should be hidden on dynamic filter when fix_filter=True."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=True)
+        html = str(result)
+
+        assert "removeFilter" not in html
+
+    def test_panel_add_filter_hidden_when_fixed(self):
+        """Panel should show 'No filters active' without + prompt when fix_filter=True and no filters."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+
+        df = pd.DataFrame({"Col": ["A"]})
+        result = build_dynamic_filters_panel({}, df, fix_filter=True)
+        html = str(result)
+
+        assert "No default filters configured" in html
+        assert "Click +" not in html
+
+    def test_date_filter_disabled_when_fixed(self):
+        """Date filter inputs should be disabled when fix_filter=True."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all", "2024-01-01", "2024-06-01"], "2024-01-01",
+            fix_filter=True, current_op="gt", is_date=True
+        )
+        html = str(result)
+
+        assert "disabled" in html
+        assert "applyDateFilter" not in html
+
+    def test_date_filter_enabled_when_unlocked(self):
+        """Date filter inputs should NOT be disabled when fix_filter=False."""
+        from src.utils.modal_utils import build_dynamic_filter_element
+
+        result = build_dynamic_filter_element(
+            "DateCol", ["all", "2024-01-01", "2024-06-01"], "2024-01-01",
+            fix_filter=False, current_op="gt", is_date=True
+        )
+        html = str(result)
+
+        assert "applyDateFilter" in html
+
+
+# =====================================================================
 # _looks_like_dates Tests
 # =====================================================================
 

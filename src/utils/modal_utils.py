@@ -225,17 +225,24 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         for val, label in op_options
     ]
     
+    op_select_attrs = {
+        "class_": "form-select form-select-sm filter-op-select",
+        "onchange": f"setFilterOperator('{safe_col_name}', this.value, event)",
+        "style": "font-size: 11px; padding: 2px 6px; height: auto; max-width: 160px; margin-left: 6px;",
+    }
+    if fix_filter:
+        op_select_attrs["disabled"] = "disabled"
     op_select = ui.tags.select(
         *option_tags,
-        class_="form-select form-select-sm filter-op-select",
-        onchange=f"setFilterOperator('{safe_col_name}', this.value, event)",
-        style="font-size: 11px; padding: 2px 6px; height: auto; max-width: 160px; margin-left: 6px;"
+        **op_select_attrs
     )
     
     # For 'not_empty' operator, hide the value area (no value needed)
     textarea_style = "position: relative;" if current_op != "not_empty" else "position: relative; display: none;"
     
-    # ── Date column: render calendar inputs instead of textarea ──
+    # Shared attributes for date inputs when locked
+    _date_disabled = {"disabled": "disabled"} if fix_filter else {}
+
     if is_date and current_op != "not_empty":
         # Parse existing date values
         date_vals = [v.strip()[:10] for v in display_value.split('\n') if v.strip()] if display_value else []
@@ -251,7 +258,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         type="date", value=date_from,
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px;",
-                        **{"data-column": col_name, "data-role": "from"}
+                        **{"data-column": col_name, "data-role": "from", **_date_disabled}
                     ),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
                 ),
@@ -261,15 +268,15 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         type="date", value=date_to,
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px;",
-                        **{"data-column": col_name, "data-role": "to"}
+                        **{"data-column": col_name, "data-role": "to", **_date_disabled}
                     ),
                     style="display: flex; align-items: center;"
                 ),
-                ui.tags.button(
+                *([ui.tags.button(
                     "Apply", class_="btn btn-sm btn-primary mt-1",
                     onclick=f"applyDateFilter('{safe_col_name}', event)",
                     style="font-size: 11px; padding: 2px 10px;"
-                ),
+                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         elif current_op == "last_n_days":
@@ -289,15 +296,16 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px; width: 80px; display: inline-block;",
                         id=f"filter_{col_name}",
+                        **_date_disabled
                     ),
                     ui.tags.span(" days", style="font-size: 12px; color: #6c757d; margin-left: 4px;"),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
                 ),
-                ui.tags.button(
+                *([ui.tags.button(
                     "Apply", class_="btn btn-sm btn-primary mt-1",
                     onclick=f"applyDateFilter('{safe_col_name}', event)",
                     style="font-size: 11px; padding: 2px 10px;"
-                ),
+                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         elif current_op in ("gt", "gte", "lt", "lte"):
@@ -308,13 +316,13 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     type="date", value=date_val,
                     class_="form-control form-control-sm filter-date-input",
                     style="font-size: 12px;",
-                    **{"data-column": col_name, "data-role": "single"}
+                    **{"data-column": col_name, "data-role": "single", **_date_disabled}
                 ),
-                ui.tags.button(
+                *([ui.tags.button(
                     "Apply", class_="btn btn-sm btn-primary mt-1",
                     onclick=f"applyDateFilter('{safe_col_name}', event)",
                     style="font-size: 11px; padding: 2px 10px;"
-                ),
+                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         else:
@@ -323,31 +331,48 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     
     if not is_date or current_op == "not_empty":
         # Standard textarea with edit/confirm and ⋮ buttons
-        value_area = ui.div(
-            ui.input_text_area(
-                f"filter_{col_name}",
-                label=None,
-                value=display_value,
-                placeholder=f"Paste values (one per line) or click ⋮",
-                rows=3
-            ),
-            ui.tags.button(
-                "\u270E",
-                class_="btn btn-sm btn-outline-secondary filter-edit-btn",
-                onclick=f"toggleFilterEdit('{safe_col_name}', event)",
-                title="Edit filter values",
-                style="position: absolute; right: 5px; top: 20%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px; z-index: 2;"
-            ),
-            ui.tags.button(
-                "\u22ee",
-                class_="btn btn-sm btn-outline-secondary filter-values-btn",
-                onclick=f"openFilterValuesModal('{safe_col_name}', event)",
-                title="Select from available values",
-                style="position: absolute; right: 5px; top: 70%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
-            ),
-            ui.tags.script(f"initFilterReadonly('filter_{col_name}')"),
-            style=textarea_style
-        )
+        if fix_filter:
+            # Locked mode: read-only textarea, no edit/values buttons
+            value_area = ui.div(
+                ui.input_text_area(
+                    f"filter_{col_name}",
+                    label=None,
+                    value=display_value,
+                    placeholder="",
+                    rows=3
+                ),
+                # Force textarea readonly via inline script
+                ui.tags.script(
+                    f"(function(){{ var ta = document.getElementById('filter_{col_name}'); if(ta){{ ta.readOnly=true; ta.style.background='#f0f0f0'; ta.style.cursor='default'; }} }})()"
+                ),
+                style=textarea_style
+            )
+        else:
+            value_area = ui.div(
+                ui.input_text_area(
+                    f"filter_{col_name}",
+                    label=None,
+                    value=display_value,
+                    placeholder=f"Paste values (one per line) or click ⋮",
+                    rows=3
+                ),
+                ui.tags.button(
+                    "\u270E",
+                    class_="btn btn-sm btn-outline-secondary filter-edit-btn",
+                    onclick=f"toggleFilterEdit('{safe_col_name}', event)",
+                    title="Edit filter values",
+                    style="position: absolute; right: 5px; top: 20%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px; z-index: 2;"
+                ),
+                ui.tags.button(
+                    "\u22ee",
+                    class_="btn btn-sm btn-outline-secondary filter-values-btn",
+                    onclick=f"openFilterValuesModal('{safe_col_name}', event)",
+                    title="Select from available values",
+                    style="position: absolute; right: 5px; top: 70%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
+                ),
+                ui.tags.script(f"initFilterReadonly('filter_{col_name}')"),
+                style=textarea_style
+            )
     
     return ui.div(
         ui.div(
