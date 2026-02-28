@@ -282,6 +282,7 @@ class AppConfig:
     enable_status_filter: bool = True  # Show status filter in sidebar
     enable_synthesis: bool = False  # Show synthesis transform button
     enable_review_detail: bool = False  # Show Review Detail button (emits event via commute layer)
+    review_detail_label: str = "Review Detail"  # Label text for the Review Detail button
     review_detail_multi_select: bool = False  # Allow multiple rows in review_detail event
     fix_filter: bool = False  # Lock filters to only the default_filters from config
     
@@ -445,6 +446,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_status_filter = file_config.get("enable_status_filter", config.enable_status_filter)
     config.enable_synthesis = file_config.get("enable_synthesis", config.enable_synthesis)
     config.enable_review_detail = file_config.get("enable_review_detail", config.enable_review_detail)
+    config.review_detail_label = file_config.get("review_detail_label", config.review_detail_label)
     config.review_detail_multi_select = file_config.get("review_detail_multi_select", config.review_detail_multi_select)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
     
