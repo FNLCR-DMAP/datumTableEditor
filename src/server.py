@@ -2012,7 +2012,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _review_detail():
         """Emit review_detail event with the first selected row's PK."""
         current_df = data.get()
-        indices = get_selected_row_indices(input, current_df)
+        indices = get_selected_row_indices(input, len(current_df))
         if not indices:
             ui.notification_show("Select a row first", type="warning", duration=3)
             return

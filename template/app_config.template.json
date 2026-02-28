@@ -156,8 +156,10 @@
   "enable_status_filter": true,
   "_enable_status_filter_comment": "Show status distribution and filter in sidebar",
   "enable_synthesis": false,
-  "_enable_synthesis_comment": "Enable the Synthesis feature — a long-running SQL transform whose result is materialised into a temporary PostgreSQL table with configurable TTL",  "enable_review_detail": false,
-  "_enable_review_detail_comment": "Show Review Detail button in toolbar. Emits a review_detail event via commute layer with the selected row PK.",  "synthesis": {
+  "_enable_synthesis_comment": "Enable the Synthesis feature — a long-running SQL transform whose result is materialised into a temporary PostgreSQL table with configurable TTL", 
+  "enable_review_detail": false,
+  "_enable_review_detail_comment": "Show Review Detail button in toolbar. Emits a review_detail event via commute layer with the selected row PK.",
+  "synthesis": {
     "query": "",
     "_query_comment": "The SQL SELECT query to execute. Result is materialised via CREATE TABLE AS. Not user-editable at runtime.",
     "result_table_prefix": "_synthesis_result",
