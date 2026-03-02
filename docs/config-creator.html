@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DMAP Table Editor — Config Creator</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2128;
+  --border: #30363d;
+  --border-active: #58a6ff;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --green: #3fb950;
+  --orange: #d29922;
+  --red: #f85149;
+  --radius: 8px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+/* Layout */
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 260px; min-width: 260px; background: var(--surface);
+  border-right: 1px solid var(--border); padding: 24px 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.sidebar h1 { font-size: 15px; padding: 0 20px 16px; color: var(--text); font-weight: 600; }
+.sidebar .logo { font-size: 11px; color: var(--text-muted); padding: 0 20px 20px; text-transform: uppercase; letter-spacing: 1px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px; cursor: pointer; font-size: 14px; color: var(--text-muted);
+  border-left: 3px solid transparent; transition: all .15s;
+}
+.nav-item:hover { color: var(--text); background: var(--surface2); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--surface2); }
+.nav-item .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0;
+}
+.nav-item.filled .dot { background: var(--green); }
+.nav-item.has-errors .dot { background: var(--red); }
+
+.main { flex: 1; padding: 32px 48px; max-width: 900px; }
+.main h2 { font-size: 22px; margin-bottom: 6px; }
+.main .section-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+
+/* Form */
+.field { margin-bottom: 20px; }
+.field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+.field .hint { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.field input[type="text"], .field input[type="number"], .field select, .field textarea {
+  width: 100%; padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 14px; font-family: var(--font);
+  transition: border-color .15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.field textarea { font-family: var(--mono); min-height: 80px; resize: vertical; }
+.field input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent); }
+.field .checkbox-label { display: inline-flex; align-items: center; font-size: 14px; cursor: pointer; }
+
+.field-row { display: flex; gap: 16px; }
+.field-row .field { flex: 1; }
+
+.tag-input-wrap {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 10px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  min-height: 38px; cursor: text;
+}
+.tag-input-wrap:focus-within { border-color: var(--accent); }
+.tag-input-wrap .tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #1f6feb33; color: var(--accent); padding: 2px 8px;
+  border-radius: 4px; font-size: 13px;
+}
+.tag-input-wrap .tag .remove { cursor: pointer; font-size: 15px; line-height: 1; opacity: .7; }
+.tag-input-wrap .tag .remove:hover { opacity: 1; }
+.tag-input-wrap input {
+  border: none; background: transparent; color: var(--text);
+  font-size: 14px; outline: none; flex: 1; min-width: 80px;
+}
+
+/* KV editor */
+.kv-editor { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.kv-row { display: flex; border-bottom: 1px solid var(--border); }
+.kv-row:last-child { border-bottom: none; }
+.kv-row input {
+  flex: 1; padding: 6px 10px; border: none; background: transparent;
+  color: var(--text); font-size: 13px; font-family: var(--mono); outline: none;
+}
+.kv-row input:first-child { border-right: 1px solid var(--border); }
+.kv-row .kv-remove {
+  padding: 0 10px; background: transparent; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 16px;
+}
+.kv-row .kv-remove:hover { color: var(--red); }
+.kv-add {
+  padding: 6px 12px; font-size: 13px; color: var(--accent);
+  background: transparent; border: 1px dashed var(--border); border-radius: var(--radius);
+  cursor: pointer; margin-top: 6px; width: 100%;
+}
+.kv-add:hover { border-color: var(--accent); }
+
+/* Sections */
+.section { display: none; }
+.section.active { display: block; }
+
+/* Divider */
+.divider { border-top: 1px solid var(--border); margin: 28px 0; }
+
+/* Preset cards */
+.preset-cards { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+.preset-card {
+  flex: 1; min-width: 200px; padding: 16px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
+  transition: all .15s;
+}
+.preset-card:hover { border-color: var(--accent); }
+.preset-card.selected { border-color: var(--accent); background: #1f6feb11; }
+.preset-card h4 { font-size: 14px; margin-bottom: 4px; }
+.preset-card p { font-size: 12px; color: var(--text-muted); }
+
+/* Bottom bar */
+.bottom-bar {
+  position: fixed; bottom: 0; left: 260px; right: 0;
+  padding: 12px 48px; background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; z-index: 10;
+}
+.btn {
+  padding: 8px 20px; border-radius: var(--radius); font-size: 14px;
+  font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); transition: all .15s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+.btn-group { display: flex; gap: 8px; }
+
+/* Preview panel */
+.preview-panel {
+  position: fixed; top: 0; right: -520px; width: 520px; height: 100vh;
+  background: var(--surface); border-left: 1px solid var(--border);
+  z-index: 20; transition: right .25s ease; overflow-y: auto; padding: 24px;
+}
+.preview-panel.open { right: 0; }
+.preview-panel h3 { font-size: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.preview-panel pre {
+  background: var(--bg); padding: 16px; border-radius: var(--radius);
+  font-size: 13px; line-height: 1.5; overflow-x: auto; color: var(--text);
+  font-family: var(--mono); white-space: pre-wrap; word-break: break-all;
+  border: 1px solid var(--border);
+}
+.preview-close {
+  background: none; border: none; color: var(--text-muted); font-size: 22px;
+  cursor: pointer; padding: 0 4px;
+}
+.preview-close:hover { color: var(--text); }
+
+/* Overlay */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 15; display: none; }
+.overlay.open { display: block; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { padding: 20px; }
+  .bottom-bar { left: 0; padding: 12px 20px; }
+}
+
+/* Scroll padding for bottom bar */
+.main { padding-bottom: 80px; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 80px; right: 48px; padding: 10px 20px;
+  background: var(--green); color: #fff; border-radius: var(--radius);
+  font-size: 14px; z-index: 30; opacity: 0; transform: translateY(10px);
+  transition: all .3s;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* Validation */
+.field.error input, .field.error select, .field.error textarea { border-color: var(--red); }
+.field .error-msg { color: var(--red); font-size: 12px; margin-top: 4px; display: none; }
+.field.error .error-msg { display: block; }
+
+/* Collapse */
+.collapse-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; cursor: pointer; user-select: none;
+}
+.collapse-header h3 { font-size: 15px; font-weight: 600; }
+.collapse-header .arrow { font-size: 12px; color: var(--text-muted); transition: transform .2s; }
+.collapse-header.open .arrow { transform: rotate(90deg); }
+.collapse-body { display: none; padding-bottom: 8px; }
+.collapse-body.open { display: block; }
+
+/* ── Info-tip (expandable behavioural doc) ─────────────────── */
+.info-tip {
+  margin: 4px 0 8px 0;
+  cursor: pointer;
+  user-select: none;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(99,102,241,.06);
+  padding: 6px 10px;
+  transition: background .15s;
+}
+.info-tip:hover { background: rgba(99,102,241,.12); }
+.info-tip .info-icon { font-size: 13px; color: var(--accent); }
+.info-tip .info-label {
+  font-size: 12px; font-weight: 600;
+  color: var(--accent); letter-spacing: .3px;
+}
+.info-tip .info-body {
+  display: none;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.info-tip.open .info-body { display: block; }
+.info-tip .info-body code {
+  background: var(--surface-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11.5px;
+}
+.info-tip .info-body ul { margin: 4px 0 4px 16px; padding: 0; }
+.info-tip .info-body li { margin-bottom: 2px; }
+.info-tip .info-body strong { color: var(--text-primary); }
+
+/* ── Section intro banner ───────────────────────────────────── */
+.section-banner {
+  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(99,102,241,.02));
+  border: 1px solid rgba(99,102,241,.15);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.section-banner strong { color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">DMAP Table Editor</div>
+    <h1>Config Creator</h1>
+    <div style="font-size:11px;color:var(--text-muted);margin:-8px 0 12px 0;letter-spacing:.2px">Interactive Reference &amp; Config Builder</div>
+    <div class="nav-item active" data-section="start"><span class="dot"></span> Getting Started</div>
+    <div class="nav-item" data-section="database"><span class="dot"></span> Database</div>
+    <div class="nav-item" data-section="table"><span class="dot"></span> Table &amp; Columns</div>
+    <div class="nav-item" data-section="query"><span class="dot"></span> Filters &amp; Search</div>
+    <div class="nav-item" data-section="state"><span class="dot"></span> State &amp; Cache</div>
+    <div class="nav-item" data-section="features"><span class="dot"></span> Feature Flags</div>
+    <div class="nav-item" data-section="synthesis"><span class="dot"></span> Synthesis</div>
+    <div class="nav-item" data-section="permissions"><span class="dot"></span> Permissions</div>
+    <div class="nav-item" data-section="status"><span class="dot"></span> Status Labels</div>
+    <div class="nav-item" data-section="review"><span class="dot"></span> Review</div>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- SECTION: Getting Started -->
+    <div class="section active" id="sec-start">
+      <h2>Getting Started</h2>
+      <p class="section-desc">Choose a starting template or start from scratch. Every field has a sensible default.</p>
+
+      <div class="section-banner">
+        <strong>This page is both a reference guide and a config builder.</strong>
+        Every setting has an expandable <strong>ℹ What does this do?</strong> panel explaining the runtime behavior.
+        Browse the sections to learn what each feature does, then download a ready-to-use <code>app_config.json</code>
+        when you're done. Use <strong>⌘S</strong> to save at any time.
+      </div>
+
+      <div class="preset-cards">
+        <div class="preset-card selected" data-preset="scratch">
+          <h4>Blank</h4>
+          <p>Start from scratch with all defaults.</p>
+        </div>
+        <div class="preset-card" data-preset="direct">
+          <h4>Direct PostgreSQL</h4>
+          <p>SQLAlchemy connection with approval workflow.</p>
+        </div>
+        <div class="preset-card" data-preset="datum">
+          <h4>Datum Proxy</h4>
+          <p>Via Datum proxy (Posit Connect deployment).</p>
+        </div>
+        <div class="preset-card" data-preset="subtab">
+          <h4>Sub-Table / Detail Tab</h4>
+          <p>Read-only child tab with state &amp; presets disabled.</p>
+        </div>
+      </div>
+      <div class="info-tip" onclick="this.classList.toggle('open')">
+        <span class="info-icon">ℹ</span> <span class="info-label">When should I use each template?</span>
+        <div class="info-body">
+          <ul>
+            <li><strong>Blank</strong> — start with all defaults enabled. Good for learning or customising from scratch.</li>
+            <li><strong>Direct PostgreSQL</strong> — connect directly via SQLAlchemy. Best for local dev, VPN access, or environments where the app can reach the DB directly.</li>
+            <li><strong>Datum Proxy</strong> — routes through the Datum REST proxy. Required on Posit Connect where direct DB connections are blocked by network policy.</li>
+            <li><strong>Sub-Table / Detail Tab</strong> — preconfigured for child/detail views: read-only, no state persistence, no presets, filters locked. Designed for zero-DB-call tab spinup when combined with <code>shared_cache_key</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="app_title">App Title</label>
+          <input type="text" id="app_title" value="My Table Editor" data-path="app_title">
+        </div>
+        <div class="field">
+          <label for="app_version">Version</label>
+          <input type="text" id="app_version" value="1.0.0" data-path="app_version">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: Database -->
+    <div class="section" id="sec-database">
+      <h2>Database</h2>
+      <p class="section-desc">Configure your PostgreSQL connection. Choose Direct (SQLAlchemy) for local dev, or Datum for proxied access on Posit Connect.</p>
+
+      <div class="section-banner">
+        <strong>How it works:</strong> The app reads data from a PostgreSQL table into an in-memory DataFrame.
+        Edits are written back to the <code>data_table</code> and logged in the <code>mods_table</code>.
+        In <strong>Direct</strong> mode the app connects via SQLAlchemy; in <strong>Datum</strong> mode it routes through the Datum REST proxy
+        (required on Posit Connect where direct DB access is blocked).
+      </div>
+
+      <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="db_enabled" checked data-path="database.enabled"> Enable database mode</span></label>
+        <div class="hint">When off, the app uses local CSV/JSON files.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            <strong>ON (default):</strong> Data is loaded from a PostgreSQL table. Edits, approvals, and undo operations write back to the database in real time.
+            <br><strong>OFF:</strong> The app loads data from a local CSV or JSON file (useful for demos or offline development). No writes are persisted — all changes are lost on refresh.
+          </div>
+        </div>
+      </div>
+
+      <div id="db-fields">
+        <div class="field">
+          <label for="db_mode">Connection Mode</label>
+          <select id="db_mode" data-path="database.mode">
+            <option value="direct">Direct (SQLAlchemy)</option>
+            <option value="datum">Datum Proxy</option>
+          </select>
+        </div>
+
+        <!-- Direct mode fields -->
+        <div id="direct-fields">
+          <div class="field">
+            <label for="db_conn">Connection String</label>
+            <input type="text" id="db_conn" placeholder="postgresql://user:pass@host:5432/dbname" data-path="database.connection_string">
+            <div class="hint">SQLAlchemy connection string. Passwords can also be set via APP_DB_CONNECTION_STRING env var.</div>
+          </div>
+        </div>
+
+        <!-- Datum mode fields -->
+        <div id="datum-fields" style="display:none">
+          <div class="field">
+            <label for="datum_base_url">Datum Base URL</label>
+            <input type="text" id="datum_base_url" placeholder="https://posit-connect-prod.cancer.gov/datum" data-path="database.datum_base_url">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="datum_database">Datum Database</label>
+              <input type="text" id="datum_database" placeholder="nidap" data-path="database.datum_database">
+            </div>
+            <div class="field">
+              <label for="datum_schema">Datum Schema</label>
+              <input type="text" id="datum_schema" placeholder="public" data-path="database.datum_schema" value="public">
+            </div>
+          </div>
+          <div class="field">
+            <label for="datum_service">Datum Service Name</label>
+            <input type="text" id="datum_service" placeholder="postgres_sql" data-path="database.datum_service_name" value="postgres_sql">
+          </div>
+          <div class="field">
+            <label for="datum_token">Datum Token</label>
+            <input type="text" id="datum_token" placeholder="(set via DATUM_API_TOKEN env var)" data-path="database.datum_token">
+            <div class="hint">Leave empty to use the DATUM_API_TOKEN environment variable at runtime.</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="field">
+          <label for="db_source_table">Source Table</label>
+          <input type="text" id="db_source_table" placeholder="schema.original_table (optional)" data-path="database.source_table">
+          <div class="hint">Optional. If data_table doesn't exist, it will be created as a copy of this table.</div>
+          <div class="info-tip" onclick="this.classList.toggle('open')">
+            <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+            <div class="info-body">
+              The <strong>read-only original</strong> table. On first run, if <code>data_table</code> doesn't exist in the database,
+              the app automatically creates it as a full copy of this table (schema + data).
+              This gives you a safe working copy while preserving the original.
+              <br>Leave empty if you manage the data table yourself.
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="db_data_table">Data Table</label>
+          <input type="text" id="db_data_table" placeholder="schema.my_data" data-path="database.data_table">
+          <div class="hint">Working copy of the data. Edits are written here.</div>
+          <div class="error-msg">Data table is required when database is enabled.</div>
+          <div class="info-tip" onclick="this.classList.toggle('open')">
+            <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+            <div class="info-body">
+              The <strong>working table</strong> the app reads from and writes to.
+              All cell edits, approvals, and rejections modify rows directly in this table.
+              Format: <code>schema.table_name</code> (e.g., <code>public.my_data</code>).
+            </div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="db_mods_table">Modifications Table</label>
+            <input type="text" id="db_mods_table" placeholder="schema.my_data_modifications" data-path="database.mods_table">
+          </div>
+          <div class="field">
+            <label for="db_state_table">State Table</label>
+            <input type="text" id="db_state_table" placeholder="schema.my_data_ui_state" data-path="database.state_table">
+          </div>
+        </div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What are these tables?</span>
+          <div class="info-body">
+            <strong>Modifications table:</strong> Every cell edit, approval, and rejection is logged here with
+            the column name, old value, new value, username, and timestamp. Powers the Undo feature and provides a full audit trail.
+            The table is auto-created on first use.
+            <br><br>
+            <strong>State table:</strong> Stores each user's UI state — current sort column, active filters, page number, and column selection.
+            When <code>persist_state</code> is ON, the user's view is restored on their next visit.
+            The table is auto-created on first use.
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="db_status_col">Status Column</label>
+          <input type="text" id="db_status_col" placeholder="Status" data-path="database.status_column" value="Status">
+          <div class="hint">Column used for approval status tracking. Leave blank to disable.</div>
+          <div class="info-tip" onclick="this.classList.toggle('open')">
+            <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+            <div class="info-body">
+              The column in <code>data_table</code> that tracks each row's status.
+              Values are set automatically:
+              <ul>
+                <li><strong>Unprocessed</strong> — initial state (rows not yet touched)</li>
+                <li><strong>Edited</strong> — at least one cell in this row was modified</li>
+                <li><strong>Approved / Rejected</strong> — set by the Approve/Reject buttons</li>
+              </ul>
+              If the column doesn't exist in the table, it's added automatically.
+              Leave blank to disable status tracking entirely.
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label><span class="checkbox-label"><input type="checkbox" id="db_auto_pk" checked data-path="database.auto_detect_pk"> Auto-detect primary key</span></label>
+        </div>
+
+        <div class="collapse-header" onclick="toggleCollapse(this)">
+          <h3>Advanced Settings</h3>
+          <span class="arrow">&#9654;</span>
+        </div>
+        <div class="collapse-body">
+          <div class="field-row">
+            <div class="field">
+              <label for="db_pool_size">Pool Size</label>
+              <input type="number" id="db_pool_size" value="5" data-path="database.pool_size">
+            </div>
+            <div class="field">
+              <label for="db_max_overflow">Max Overflow</label>
+              <input type="number" id="db_max_overflow" value="10" data-path="database.max_overflow">
+            </div>
+            <div class="field">
+              <label for="db_pool_timeout">Pool Timeout (s)</label>
+              <input type="number" id="db_pool_timeout" value="30" data-path="database.pool_timeout">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="db_max_rows">Max Rows</label>
+              <input type="number" id="db_max_rows" placeholder="(no limit)" data-path="database.max_rows">
+              <div class="hint">Leave empty for no limit.</div>
+            </div>
+            <div class="field">
+              <label for="db_max_rpp">Max Rows/Page</label>
+              <input type="number" id="db_max_rpp" value="100" data-path="database.max_rows_per_page">
+            </div>
+            <div class="field">
+              <label for="db_def_rpp">Default Rows/Page</label>
+              <input type="number" id="db_def_rpp" value="25" data-path="database.default_rows_per_page">
+            </div>
+          </div>
+          <div class="field">
+            <label><span class="checkbox-label"><input type="checkbox" id="db_lazy" data-path="database.lazy_loading"> Enable lazy loading (DB-level pagination)</span></label>
+            <div class="hint">Fetches only the current page. Faster startup, lower memory, but each page change queries the DB.</div>
+            <div class="info-tip" onclick="this.classList.toggle('open')">
+              <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+              <div class="info-body">
+                <strong>OFF (default):</strong> All data is loaded into memory on startup. Pagination, sorting, and filtering happen in-memory — fast navigation, higher memory use.
+                <br><strong>ON:</strong> Only the current page is fetched from the DB. Each page change, sort change, or filter change triggers a new SQL query.
+                Best for very large tables (100k+ rows) where loading everything is impractical.
+                <br><br>With <code>shared_cache_key</code>, the non-lazy (full-load) approach is recommended — subsequent sessions get the data from the shared cache with zero DB calls.
+              </div>
+            </div>
+          </div>
+          <div class="field" id="lazy-page-buf-field" style="display:none">
+            <label for="db_page_buf">Page Buffer Size</label>
+            <input type="number" id="db_page_buf" value="300" data-path="database.page_buffer_size">
+            <div class="hint">Rows fetched per query in lazy loading mode.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: Table & Columns -->
+    <div class="section" id="sec-table">
+      <h2>Table &amp; Columns</h2>
+      <p class="section-desc">Configure the table display, primary key, column visibility, and column name masks.</p>
+
+      <div class="section-banner">
+        <strong>How columns work:</strong> By default the app shows all columns from the data table.
+        Use <em>Default Visible Columns</em> to limit what users see on load (they can still toggle others via the column picker).
+        <em>Editable Columns</em> and <em>Read-Only Columns</em> control which cells are editable.
+      </div>
+
+      <div class="field">
+        <label for="tbl_title">Table Title</label>
+        <input type="text" id="tbl_title" value="Data Table" data-path="table.title">
+      </div>
+
+      <div class="field">
+        <label>Primary Key Columns</label>
+        <div class="hint">One or more columns that uniquely identify each row. Press Enter to add.</div>
+        <div class="tag-input-wrap" id="pk-tags" data-path="table.primary_key"></div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            The primary key uniquely identifies each row and is used for:
+            <ul>
+              <li><strong>Edit tracking</strong> — the modifications log records which row was changed by PK.</li>
+              <li><strong>Undo</strong> — locates the exact row to revert.</li>
+              <li><strong>Approval</strong> — identifies which rows to mark as Approved/Rejected.</li>
+              <li><strong>Row selection</strong> — drives checkbox selection and Review Detail events.</li>
+            </ul>
+            If <code>auto_detect_pk</code> is ON (Database section), the app reads the PK from the PostgreSQL table metadata.
+            Set it here to override or when auto-detection isn't available.
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Default Visible Columns</label>
+        <div class="hint">Columns shown by default. Leave empty to show all. Press Enter to add.</div>
+        <div class="tag-input-wrap" id="default-cols-tags" data-path="table.default_columns"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="tbl_sort_col">Default Sort Column</label>
+          <input type="text" id="tbl_sort_col" placeholder="(none)" data-path="table.default_sort_column">
+        </div>
+        <div class="field">
+          <label for="tbl_sort_asc">Sort Direction</label>
+          <select id="tbl_sort_asc" data-path="table.default_sort_ascending">
+            <option value="true">Ascending</option>
+            <option value="false">Descending</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="tbl_rpp">Default Rows / Page</label>
+          <input type="number" id="tbl_rpp" value="25" data-path="table.default_rows_per_page">
+        </div>
+        <div class="field">
+          <label for="tbl_col_width">Default Column Width (px)</label>
+          <input type="number" id="tbl_col_width" value="130" data-path="table.default_column_width">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Editable Columns</label>
+        <div class="hint">Leave empty to allow editing all columns (except readonly).</div>
+        <div class="tag-input-wrap" id="edit-cols-tags" data-path="table.editable_columns"></div>
+      </div>
+
+      <div class="field">
+        <label>Read-Only Columns</label>
+        <div class="hint">These columns cannot be edited regardless of editable_columns.</div>
+        <div class="tag-input-wrap" id="ro-cols-tags" data-path="table.readonly_columns"></div>
+      </div>
+      <div class="info-tip" onclick="this.classList.toggle('open')">
+        <span class="info-icon">ℹ</span> <span class="info-label">How do editable / read-only interact?</span>
+        <div class="info-body">
+          <strong>Priority order:</strong>
+          <ol>
+            <li><code>readonly_columns</code> always wins — these cells are never editable.</li>
+            <li>If <code>editable_columns</code> is non-empty, only those columns are editable (minus readonly).</li>
+            <li>If <code>editable_columns</code> is empty, all columns are editable (minus readonly).</li>
+          </ol>
+          The primary key column(s) and the status column are automatically treated as read-only.
+        </div>
+      </div>
+
+      <div class="collapse-header" onclick="toggleCollapse(this)">
+        <h3>Column Name Masks</h3>
+        <span class="arrow">&#9654;</span>
+      </div>
+      <div class="collapse-body">
+        <div class="hint" style="margin-bottom:8px">Map database column names to human-readable display names.</div>
+        <div class="kv-editor" id="col-masks-editor" data-path="table.column_masks">
+          <div class="kv-row">
+            <input type="text" placeholder="db_column_name">
+            <input type="text" placeholder="Display Name">
+            <button class="kv-remove" onclick="removeKvRow(this)">&times;</button>
+          </div>
+        </div>
+        <button class="kv-add" onclick="addKvRow('col-masks-editor')">+ Add mask</button>
+      </div>
+
+      <div class="collapse-header" onclick="toggleCollapse(this)">
+        <h3>Custom Column Widths</h3>
+        <span class="arrow">&#9654;</span>
+      </div>
+      <div class="collapse-body">
+        <div class="hint" style="margin-bottom:8px">Override default width (px) for specific columns.</div>
+        <div class="kv-editor" id="col-widths-editor" data-path="table.default_column_widths">
+          <div class="kv-row">
+            <input type="text" placeholder="column_name">
+            <input type="text" placeholder="180">
+            <button class="kv-remove" onclick="removeKvRow(this)">&times;</button>
+          </div>
+        </div>
+        <button class="kv-add" onclick="addKvRow('col-widths-editor')">+ Add width</button>
+      </div>
+
+      <div class="divider"></div>
+      <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="tbl_presets" checked data-path="table.presets_enabled"> Enable column presets</span></label>
+        <div class="hint">Allows users to save and load custom column layouts. Disable for sub-table mode.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            <strong>ON:</strong> A <strong>preset dropdown</strong> and <strong>Save Layout</strong> button appear in the toolbar.
+            Users can save their current column selection + widths as a named preset and switch between them.
+            Presets are stored in the <code>state_table</code> and shared across sessions.
+            <br><strong>OFF:</strong> No preset UI. No preset-related DB calls are made.
+            <strong>Always disable for sub-table / detail-tab mode</strong> to avoid unnecessary DB traffic.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: Filters & Search -->
+    <div class="section" id="sec-query">
+      <h2>Filters &amp; Search</h2>
+      <p class="section-desc">Configure search, filters, and default filter values applied on load.</p>
+
+      <div class="section-banner">
+        <strong>Filtering architecture:</strong> Filters can be applied from the column header dropdowns, the sidebar facets, or pre-set via <code>default_filters</code>.
+        When <code>fix_filter</code> is ON, users see only the pre-configured filters and cannot change them — ideal for sub-table / detail-tab views.
+      </div>
+
+      <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="q_search" checked data-path="query.enable_search"> Enable search</span></label>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Shows a <strong>search bar</strong> above the table. Typing filters rows in real-time across all searchable columns (case-insensitive substring match).
+            In lazy-loading mode, search is executed as a SQL <code>ILIKE</code> query.
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Searchable Columns</label>
+        <div class="hint">Leave empty to search all text columns.</div>
+        <div class="tag-input-wrap" id="search-cols-tags" data-path="query.searchable_columns"></div>
+      </div>
+
+      <div class="field">
+        <label>Facet Columns</label>
+        <div class="hint">Shown as sidebar checkbox+count panels for quick filtering.</div>
+        <div class="tag-input-wrap" id="facet-cols-tags" data-path="query.facet_columns"></div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Each facet column gets a sidebar panel showing every unique value with a <strong>count</strong> and <strong>checkbox</strong>.
+            Uncheck a value to hide those rows. Counts update dynamically as other filters are applied.
+            Great for categorical columns like <code>Department</code>, <code>Region</code>, or <code>Category</code>.
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="q_fix_filter" data-path="fix_filter"> Lock filters (fix_filter)</span></label>
+        <div class="hint">When on, users can only use the default_filters — they cannot add or remove filters.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            <strong>ON:</strong> The filter row on the table is <strong>locked</strong>. Users see the data pre-filtered by <code>default_filters</code> but cannot add, edit, or remove any filter.
+            Ideal for <strong>sub-table / detail-tab</strong> deployments where the parent app controls what data is shown.
+            <br><strong>OFF (default):</strong> Users can freely add column filters via the header dropdown.
+          </div>
+        </div>
+      </div>
+
+      <div class="collapse-header" onclick="toggleCollapse(this)">
+        <h3>Default Filters</h3>
+        <span class="arrow">&#9654;</span>
+      </div>
+      <div class="collapse-body">
+        <div class="hint" style="margin-bottom:8px">Filters applied automatically on load. JSON format supported for operator filters.</div>
+        <textarea id="default_filters" rows="6" placeholder='{"status": ["Completed", "Others"], "date": {"op": "last_n_days", "value": 7}}' data-path="query.default_filters"></textarea>
+        <div class="hint" style="margin-top:4px">
+          Operators: <code>in</code>, <code>not_in</code>, <code>contains</code>, <code>not_contains</code>, <code>between</code>,
+          <code>gt</code>, <code>gte</code>, <code>lt</code>, <code>lte</code>, <code>last_n_days</code>, <code>not_empty</code>, <code>regex</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: State & Cache -->
+    <div class="section" id="sec-state">
+      <h2>State &amp; Cache</h2>
+      <p class="section-desc">Controls whether sort, filter, and page state persists across sessions, and the cross-session data cache.</p>
+
+      <div class="section-banner">
+        <strong>Sub-table best practice:</strong> For detail-tab / sub-table deployments, set <code>persist_state = false</code>
+        and <code>presets_enabled = false</code> to eliminate all state-related DB calls.
+        Combine with <code>shared_cache_key</code> to go fully zero-DB after the initial load.
+      </div>
+
+      <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="st_persist" checked data-path="state.persist_state"> Persist UI state</span></label>
+        <div class="hint">When off, skips all state DB calls. Use false for sub-table / detail-tab mode.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            <strong>ON:</strong> When a user sorts, filters, changes page, or rearranges columns, their UI state is saved to the <code>state_table</code>.
+            Next time they open the app, everything is restored to where they left off.
+            Each sub-flag below controls which parts persist.
+            <br><br>
+            <strong>OFF:</strong> <strong>No state DB calls at all.</strong> Every session starts with default sort/filter/page.
+            This is the correct setting for sub-table or detail-tab views where the parent app controls the view.
+            Also eliminates the DNS/DB overhead that would otherwise occur on every tab spinup.
+          </div>
+        </div>
+      </div>
+
+      <div id="state-sub-fields">
+        <div class="field-row">
+          <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="st_filters" checked data-path="state.persist_filters"> Filters</span></label></div>
+          <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="st_sort" checked data-path="state.persist_sort"> Sort</span></label></div>
+          <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="st_page" checked data-path="state.persist_page"> Page</span></label></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="st_cols" checked data-path="state.persist_column_selection"> Column selection</span></label></div>
+          <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="st_widths" checked data-path="state.persist_column_widths"> Column widths</span></label></div>
+        </div>
+        <div class="field">
+          <label for="st_timeout">Session Timeout (minutes)</label>
+          <input type="number" id="st_timeout" value="30" data-path="state.session_timeout_minutes">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 style="margin-bottom:12px">Shared Data Cache</h3>
+      <p class="hint" style="margin-bottom:16px">When set, all browser sessions share one in-memory copy of the data. Only the first session hits the DB; subsequent sessions get the cached copy.</p>
+
+      <div class="field">
+        <label for="cache_key">Shared Cache Key</label>
+        <input type="text" id="cache_key" placeholder="(leave empty to disable)" data-path="database.shared_cache_key">
+        <div class="hint">A unique string identifier. All instances with the same key share the cache.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Enables the <strong>shared in-memory data cache</strong>.
+            All app instances (browser sessions) using the same key share a single copy of the data in server memory.
+            <ul>
+              <li><strong>First session</strong> loads data from the DB and populates the cache.</li>
+              <li><strong>Subsequent sessions</strong> get a copy from the cache — <strong>zero DB calls</strong> for data loading.</li>
+              <li>The cache is thread-safe (guarded by a lock) and TTL-based.</li>
+            </ul>
+            Combine with <code>persist_state = false</code> and <code>presets_enabled = false</code> for a fully
+            zero-DB startup on sub-table/detail tabs. The key should be unique per logical dataset (e.g., <code>"my_project_detail_v1"</code>).
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="cache_ttl">Cache TTL (seconds)</label>
+        <input type="number" id="cache_ttl" value="300" data-path="database.shared_cache_ttl">
+        <div class="hint">How long (seconds) the cached data lives before the next session re-fetches. Default: 300 (5 min).</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            After <code>TTL</code> seconds, the cache entry expires. The <strong>next session to start</strong> will re-fetch from the DB and refresh the cache.
+            Sessions already running are unaffected — they keep their in-memory copy.
+            <br><br>
+            <strong>Tip:</strong> Set a longer TTL (e.g., 3600 = 1 hour) for data that rarely changes.
+            Set 0 for always-fresh data (every first session per process restart hits the DB).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: Feature Flags -->
+    <div class="section" id="sec-features">
+      <h2>Feature Flags</h2>
+      <p class="section-desc">Toggle major features on or off. Click <strong>ℹ What does this do?</strong> on any flag to see its runtime behavior.</p>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_approval" checked data-path="enable_approval_workflow"> Approval workflow</span></label>
+        <div class="hint">Approve/reject buttons, status column tracking.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Adds <strong>Approve ✓</strong> and <strong>Reject ✗</strong> buttons to the toolbar.
+            <ul>
+              <li>Select one or more rows, then click Approve or Reject.</li>
+              <li>The <code>status_column</code> (default: <code>Status</code>) is updated to the configured <code>status_values.approved</code> / <code>status_values.rejected</code> value.</li>
+              <li>Approved rows show a <strong>green</strong> badge; rejected rows show <strong>red</strong>.</li>
+              <li>If <code>approval_assignment</code> is configured, approving a row also copies values from source columns to target columns (e.g., copy <code>Draft_Value</code> → <code>Final_Value</code>).</li>
+              <li>Every approval/rejection is logged in the <code>mods_table</code> with the username and timestamp.</li>
+            </ul>
+            <strong>When OFF:</strong> No approval buttons appear. The status column is not managed by the app.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_save" checked data-path="enable_save_button"> Save button</span></label>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Shows a <strong>Save</strong> button in the toolbar that commits pending cell edits to the database.
+            <ul>
+              <li>Cell edits are staged in-memory until Save is clicked.</li>
+              <li>On save, each modified cell is written to the <code>data_table</code> and a corresponding record is inserted into the <code>mods_table</code> with the old value, new value, username, and timestamp.</li>
+              <li>The row's <code>status_column</code> is set to <code>"Edited"</code> (if approval workflow is enabled).</li>
+            </ul>
+            <strong>When OFF:</strong> Edits are auto-committed on cell blur (when you click away from the cell). There is no batch-save step.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_export" checked data-path="enable_export"> Export</span></label>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Shows an <strong>Export CSV ↓</strong> button in the toolbar.
+            <ul>
+              <li>Downloads the <strong>current view</strong> as a CSV file — respects active filters, search query, sort order, and column selection.</li>
+              <li>Only the columns currently visible in the table are included.</li>
+              <li>The filename includes the table title and current date.</li>
+            </ul>
+            <strong>When OFF:</strong> No export button. Users cannot download data from the UI.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_undo" checked data-path="enable_undo"> Undo</span></label>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Shows an <strong>Undo ↺</strong> button in the toolbar.
+            <ul>
+              <li>Reverts the <strong>last cell edit</strong> — restores the original value in the <code>data_table</code>.</li>
+              <li>The corresponding modification record in the <code>mods_table</code> is marked as <code>undone</code>.</li>
+              <li>If the undo restores a cell to its very first value, the row's status reverts to its previous state.</li>
+              <li>Only the most recent edit can be undone (single-level undo).</li>
+            </ul>
+            <strong>When OFF:</strong> No undo capability. Edits are permanent once committed.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_copy" checked data-path="enable_copy_column"> Copy column</span></label>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Adds a <strong>📋 copy icon</strong> to each column header.
+            <ul>
+              <li>Click the icon to copy <strong>all visible (filtered) values</strong> in that column to your clipboard.</li>
+              <li>Values are newline-separated — paste directly into Excel, Google Sheets, or any text editor.</li>
+              <li>Respects current filters and search: only the rows currently displayed are copied.</li>
+              <li>A toast notification confirms the copy with the number of values.</li>
+            </ul>
+            <strong>When OFF:</strong> Column headers show only the column name — no copy icon.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_status" checked data-path="enable_status_filter"> Status filter sidebar</span></label>
+        <div class="hint">Status distribution histogram and filter in sidebar.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Shows a <strong>status distribution panel</strong> in the left sidebar.
+            <ul>
+              <li>Displays a count and percentage bar for each status value (Unprocessed, Edited, Approved, Rejected).</li>
+              <li>Each status has a checkbox — uncheck to hide rows with that status.</li>
+              <li>Acts as a quick visual dashboard: see at a glance how many rows are approved vs. pending.</li>
+              <li>Combines with other active filters and search.</li>
+            </ul>
+            <strong>When OFF:</strong> No status panel in the sidebar. Users can still filter by status via the column filter dropdown.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_synthesis" data-path="enable_synthesis"> Synthesis (SQL transform)</span></label>
+        <div class="hint">Long-running SQL transform with cached materialised view.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Adds a <strong>Synthesis</strong> button that runs a user-defined SQL query against the database.
+            <ul>
+              <li>The SQL result is <strong>materialised</strong> into a PostgreSQL table (named by <code>result_table_prefix</code>).</li>
+              <li>The result is cached for <code>ttl_minutes</code> — subsequent clicks serve the cached result if still fresh.</li>
+              <li>Opens a modal showing the result as a downloadable table.</li>
+              <li>Useful for cross-table aggregations, pivot summaries, or computed reports derived from the current data.</li>
+            </ul>
+            <strong>When OFF:</strong> No Synthesis button. Configure the SQL query in the Synthesis section below.
+          </div>
+        </div></div>
+
+      <div class="field"><label><span class="checkbox-label"><input type="checkbox" id="f_review" data-path="enable_review_detail"> Review Detail button</span></label>
+        <div class="hint">Emits a review_detail event via the commute layer with selected row PKs.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Adds a <strong>Review Detail</strong> button to the toolbar (label is customizable).
+            <ul>
+              <li>Select one or more rows, then click the button.</li>
+              <li>Emits a <code>review_detail</code> event through the <strong>commute layer</strong> containing the primary key(s) of selected rows.</li>
+              <li>The commute layer enables <strong>cross-app communication</strong> — a parent app or sibling tab can listen for this event and display a detail view.</li>
+              <li>In <strong>multi-select mode</strong>, all selected row PKs are included. Otherwise, only the first selected row.</li>
+            </ul>
+            <strong>When OFF:</strong> No Review Detail button. No commute events are emitted from row selection.
+          </div>
+        </div></div>
+    </div>
+
+    <!-- SECTION: Synthesis -->
+    <div class="section" id="sec-synthesis">
+      <h2>Synthesis</h2>
+      <p class="section-desc">Configure the SQL transform feature. Enable it first on the Feature Flags page.</p>
+
+      <div class="section-banner">
+        <strong>How synthesis works:</strong> When a user clicks the Synthesis button, the configured SQL query runs against the database.
+        The result is materialised into a temporary table and displayed in a modal. The result is cached for <code>ttl_minutes</code> —
+        subsequent clicks serve the cached result until it expires.
+      </div>
+
+      <div class="field">
+        <label for="syn_label">Button / Modal Label</label>
+        <input type="text" id="syn_label" value="Synthesis" data-path="synthesis.label">
+      </div>
+      <div class="field">
+        <label for="syn_query">SQL Query</label>
+        <textarea id="syn_query" rows="5" placeholder="SELECT ... FROM ..." data-path="synthesis.query"></textarea>
+        <div class="hint">The SQL transform to run. Result is materialised into a PostgreSQL table.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">Query tips</span>
+          <div class="info-body">
+            <ul>
+              <li>The query runs with the same database connection as the main app.</li>
+              <li>You can reference the <code>data_table</code> and any other tables in the same schema.</li>
+              <li>The result is materialised (CREATE TABLE AS) — it must return rows and columns.</li>
+              <li>Use this for cross-table joins, aggregations, or pivot summaries.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="syn_prefix">Result Table Prefix</label>
+          <input type="text" id="syn_prefix" value="_synthesis_result" data-path="synthesis.result_table_prefix">
+        </div>
+        <div class="field">
+          <label for="syn_ttl">TTL (minutes)</label>
+          <input type="number" id="syn_ttl" value="10" data-path="synthesis.ttl_minutes">
+          <div class="hint">0 = always regenerate.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: Permissions -->
+    <div class="section" id="sec-permissions">
+      <h2>Permissions</h2>
+      <p class="section-desc">Role-based access control. Editors can modify data; viewers are read-only.</p>
+
+      <div class="section-banner">
+        <strong>How permissions work:</strong> When a user opens the app, their Posit Connect username is checked against the <code>user_roles</code> map.
+        If found, they get that role. Otherwise, they get the <code>default_role</code>.
+        <strong>Viewers</strong> can see all data, sort, filter, and export, but cannot edit cells, approve, reject, or undo.
+        <strong>Editors</strong> have full access.
+      </div>
+
+      <div class="field">
+        <label for="perm_default">Default Role</label>
+        <select id="perm_default" data-path="permissions.default_role">
+          <option value="viewer">Viewer (read-only)</option>
+          <option value="editor">Editor (full access)</option>
+        </select>
+        <div class="hint">Applied when the user is not listed in the user roles table below.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            <strong>viewer:</strong> Safe default — new/unknown users can browse but not modify data. Recommended for production.
+            <br><strong>editor:</strong> All users can edit by default. Only use this for small teams where everyone is trusted.
+            <br><br>
+            For sub-table / detail-tab deployments, set to <code>viewer</code> to ensure the detail view is strictly read-only.
+          </div>
+        </div>
+      </div>
+
+      <div class="collapse-header open" onclick="toggleCollapse(this)">
+        <h3>User Roles</h3>
+        <span class="arrow" style="transform:rotate(90deg)">&#9654;</span>
+      </div>
+      <div class="collapse-body open">
+        <div class="hint" style="margin-bottom:8px">Map usernames to roles. Username is the Posit Connect login (lowercased, alphanumeric).</div>
+        <div class="kv-editor" id="user-roles-editor" data-path="permissions.user_roles">
+          <div class="kv-row">
+            <input type="text" placeholder="username">
+            <input type="text" placeholder="editor">
+            <button class="kv-remove" onclick="removeKvRow(this)">&times;</button>
+          </div>
+        </div>
+        <button class="kv-add" onclick="addKvRow('user-roles-editor')">+ Add user</button>
+      </div>
+    </div>
+
+    <!-- SECTION: Status Labels -->
+    <div class="section" id="sec-status">
+      <h2>Status Labels &amp; Values</h2>
+      <p class="section-desc">Customize the display labels for each status and what gets written to the database.</p>
+
+      <div class="section-banner">
+        <strong>Labels vs. values:</strong> <em>Display Labels</em> are what users see in the UI (badges, sidebar, filter dropdowns).
+        <em>Database Values</em> are the literal strings written to the <code>status_column</code> when Approve/Reject is clicked.
+        You can customise both independently — e.g., show "Verified" in the UI but write <code>"verified"</code> to the DB.
+      </div>
+
+      <h3 style="margin-bottom:12px">Display Labels</h3>
+      <div class="hint" style="margin-bottom:12px">What the user sees in the UI. Internal keys (left) are fixed.</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="sl_unprocessed">Unprocessed Label</label>
+          <input type="text" id="sl_unprocessed" value="Unprocessed" data-path="status_labels.unprocessed">
+        </div>
+        <div class="field">
+          <label for="sl_edited">Edited Label</label>
+          <input type="text" id="sl_edited" value="Edited" data-path="status_labels.edited">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="sl_approved">Approved Label</label>
+          <input type="text" id="sl_approved" value="Approved" data-path="status_labels.approved">
+        </div>
+        <div class="field">
+          <label for="sl_rejected">Rejected Label</label>
+          <input type="text" id="sl_rejected" value="Rejected" data-path="status_labels.rejected">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 style="margin-bottom:12px">Database Values</h3>
+      <div class="hint" style="margin-bottom:12px">What gets written to the status column when Approve/Reject is clicked.</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="sv_approved">Approved DB Value</label>
+          <input type="text" id="sv_approved" value="approved" data-path="status_values.approved">
+        </div>
+        <div class="field">
+          <label for="sv_rejected">Rejected DB Value</label>
+          <input type="text" id="sv_rejected" value="rejected" data-path="status_values.rejected">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="collapse-header" onclick="toggleCollapse(this)">
+        <h3>Approval Assignment</h3>
+        <span class="arrow">&#9654;</span>
+      </div>
+      <div class="collapse-body">
+        <div class="hint" style="margin-bottom:8px">Column-to-column copy on approval. When a row is approved, source column value is written to target column.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            Automates a common workflow: when a row is <strong>approved</strong>, copy the value from one column to another.
+            <br><br>
+            <strong>Example:</strong> Map <code>Draft_Name</code> → <code>Final_Name</code>.
+            When a reviewer clicks Approve, the draft value is automatically copied to the final column.
+            Multiple mappings are supported — all run atomically on each approval.
+          </div>
+        </div>
+        <div class="kv-editor" id="approval-assign-editor" data-path="approval_assignment">
+          <div class="kv-row">
+            <input type="text" placeholder="Source_Column">
+            <input type="text" placeholder="Target_Column">
+            <button class="kv-remove" onclick="removeKvRow(this)">&times;</button>
+          </div>
+        </div>
+        <button class="kv-add" onclick="addKvRow('approval-assign-editor')">+ Add mapping</button>
+      </div>
+    </div>
+
+    <!-- SECTION: Review -->
+    <div class="section" id="sec-review">
+      <h2>Review Detail</h2>
+      <p class="section-desc">Configure the Review Detail button that emits events via the commute layer.</p>
+
+      <div class="section-banner">
+        <strong>Commute layer:</strong> The commute system enables cross-app communication on Posit Connect.
+        When Review Detail is clicked, the app emits an event with the selected row's primary key(s).
+        A parent app or sibling tab can listen for this event and open a detail view, navigate to a record, or trigger a workflow.
+      </div>
+
+      <div class="field">
+        <label for="rev_label">Button Label</label>
+        <input type="text" id="rev_label" value="Review Detail" data-path="review_detail_label">
+      </div>
+      <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="rev_multi" data-path="review_detail_multi_select"> Multi-select mode</span></label>
+        <div class="hint">When on, the event includes all selected rows. When off, only the first selected row.</div>
+        <div class="info-tip" onclick="this.classList.toggle('open')">
+          <span class="info-icon">ℹ</span> <span class="info-label">What does this do?</span>
+          <div class="info-body">
+            <strong>OFF (single):</strong> The commute event payload contains the PK of the <strong>first selected row</strong> only. Clicking with multiple rows selected sends only the topmost.
+            <br><strong>ON (multi):</strong> The event includes an <strong>array of all selected row PKs</strong>. The receiving app can process them in batch (e.g., open a comparison view or bulk detail report).
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Bottom bar -->
+<div class="bottom-bar">
+  <div class="btn-group">
+    <button class="btn" id="btn-prev" onclick="navigate(-1)" disabled>&#8592; Back</button>
+    <button class="btn" id="btn-next" onclick="navigate(1)">Next &#8594;</button>
+  </div>
+  <div class="btn-group">
+    <button class="btn" onclick="togglePreview()">Preview JSON</button>
+    <button class="btn btn-primary" onclick="downloadConfig()">&#10515; Download app_config.json</button>
+  </div>
+</div>
+
+<!-- Preview panel -->
+<div class="overlay" id="overlay" onclick="togglePreview()"></div>
+<div class="preview-panel" id="preview">
+  <h3>
+    <span>app_config.json</span>
+    <button class="preview-close" onclick="togglePreview()">&times;</button>
+  </h3>
+  <div style="margin-bottom:12px">
+    <button class="btn" onclick="copyPreview()" style="font-size:12px;padding:4px 12px">Copy to clipboard</button>
+  </div>
+  <pre id="preview-json"></pre>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Section navigation ────────────────────────────────────────
+const SECTIONS = ['start','database','table','query','state','features','synthesis','permissions','status','review'];
+let currentIdx = 0;
+
+function showSection(idx) {
+  currentIdx = idx;
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + SECTIONS[idx]).classList.add('active');
+  document.querySelectorAll('.nav-item')[idx].classList.add('active');
+  document.getElementById('btn-prev').disabled = idx === 0;
+  document.getElementById('btn-next').disabled = idx === SECTIONS.length - 1;
+  window.scrollTo(0, 0);
+}
+
+function navigate(dir) { showSection(Math.max(0, Math.min(SECTIONS.length - 1, currentIdx + dir))); }
+
+document.querySelectorAll('.nav-item').forEach((el, i) => {
+  el.addEventListener('click', () => showSection(i));
+});
+
+// ─── Tag inputs ────────────────────────────────────────────────
+document.querySelectorAll('.tag-input-wrap').forEach(wrap => {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Type and press Enter';
+  wrap.appendChild(input);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      e.preventDefault();
+      addTag(wrap, input.value.trim());
+      input.value = '';
+    }
+    if (e.key === 'Backspace' && !input.value) {
+      const tags = wrap.querySelectorAll('.tag');
+      if (tags.length) tags[tags.length - 1].remove();
+    }
+  });
+  wrap.addEventListener('click', () => input.focus());
+});
+
+function addTag(wrap, text) {
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.innerHTML = `${text}<span class="remove" onclick="this.parentElement.remove()">&times;</span>`;
+  wrap.insertBefore(tag, wrap.querySelector('input'));
+}
+
+function getTagValues(wrap) {
+  return Array.from(wrap.querySelectorAll('.tag')).map(t => t.firstChild.textContent);
+}
+
+// ─── KV editor ────────────────────────────────────────────────
+function addKvRow(editorId) {
+  const editor = document.getElementById(editorId);
+  const row = document.createElement('div');
+  row.className = 'kv-row';
+  row.innerHTML = `<input type="text" placeholder="key"><input type="text" placeholder="value"><button class="kv-remove" onclick="removeKvRow(this)">&times;</button>`;
+  editor.appendChild(row);
+}
+
+function removeKvRow(btn) {
+  const editor = btn.closest('.kv-editor');
+  btn.closest('.kv-row').remove();
+  if (!editor.querySelector('.kv-row')) addKvRow(editor.id);
+}
+
+function getKvValues(editorId) {
+  const result = {};
+  document.getElementById(editorId).querySelectorAll('.kv-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const k = inputs[0].value.trim();
+    const v = inputs[1].value.trim();
+    if (k) result[k] = v;
+  });
+  return result;
+}
+
+// ─── Collapse ──────────────────────────────────────────────────
+function toggleCollapse(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// ─── Reactive toggles ──────────────────────────────────────────
+document.getElementById('db_mode').addEventListener('change', function() {
+  document.getElementById('direct-fields').style.display = this.value === 'direct' ? '' : 'none';
+  document.getElementById('datum-fields').style.display = this.value === 'datum' ? '' : 'none';
+});
+
+document.getElementById('db_enabled').addEventListener('change', function() {
+  document.getElementById('db-fields').style.display = this.checked ? '' : 'none';
+});
+
+document.getElementById('st_persist').addEventListener('change', function() {
+  document.getElementById('state-sub-fields').style.display = this.checked ? '' : 'none';
+});
+
+document.getElementById('db_lazy').addEventListener('change', function() {
+  document.getElementById('lazy-page-buf-field').style.display = this.checked ? '' : 'none';
+});
+
+// ─── Presets ───────────────────────────────────────────────────
+const PRESETS = {
+  scratch: {},
+  direct: {
+    'app_title': 'My Table Editor',
+    'database.enabled': true, 'database.mode': 'direct',
+    'database.connection_string': 'postgresql://user:pass@host:5432/dbname',
+    'database.data_table': 'schema.my_data',
+    'database.mods_table': 'schema.my_data_modifications',
+    'database.state_table': 'schema.my_data_ui_state',
+    'enable_approval_workflow': true, 'enable_status_filter': true,
+    'state.persist_state': true, 'table.presets_enabled': true,
+  },
+  datum: {
+    'app_title': 'My Table Editor',
+    'database.enabled': true, 'database.mode': 'datum',
+    'database.datum_base_url': 'https://posit-connect-prod.cancer.gov/datum',
+    'database.datum_database': 'nidap', 'database.datum_schema': 'public',
+    'database.datum_service_name': 'postgres_sql',
+    'database.data_table': 'schema.my_data',
+    'database.mods_table': 'schema.my_data_modifications',
+    'database.state_table': 'schema.my_data_ui_state',
+    'enable_approval_workflow': true, 'enable_status_filter': true,
+    'state.persist_state': true, 'table.presets_enabled': true,
+  },
+  subtab: {
+    'app_title': 'Detail Tab',
+    'database.enabled': true, 'database.mode': 'datum',
+    'database.datum_base_url': 'https://posit-connect-prod.cancer.gov/datum',
+    'database.datum_database': 'nidap', 'database.datum_schema': 'public',
+    'database.datum_service_name': 'postgres_sql',
+    'enable_approval_workflow': false, 'enable_status_filter': false,
+    'enable_save_button': false,
+    'state.persist_state': false, 'state.persist_filters': false,
+    'table.presets_enabled': false, 'fix_filter': true,
+    'permissions.default_role': 'viewer',
+  },
+};
+
+document.querySelectorAll('.preset-card').forEach(card => {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+    this.classList.add('selected');
+    applyPreset(this.dataset.preset);
+  });
+});
+
+function applyPreset(name) {
+  // Reset all inputs to defaults first
+  resetToDefaults();
+  const preset = PRESETS[name];
+  if (!preset) return;
+  for (const [path, value] of Object.entries(preset)) {
+    setFieldValue(path, value);
+  }
+  // Trigger mode toggle
+  document.getElementById('db_mode').dispatchEvent(new Event('change'));
+  document.getElementById('db_enabled').dispatchEvent(new Event('change'));
+  document.getElementById('st_persist').dispatchEvent(new Event('change'));
+  document.getElementById('db_lazy').dispatchEvent(new Event('change'));
+  updateNavDots();
+}
+
+function resetToDefaults() {
+  document.querySelectorAll('input[type="text"], input[type="number"]').forEach(el => {
+    el.value = el.defaultValue || '';
+  });
+  document.querySelectorAll('input[type="checkbox"]').forEach(el => {
+    el.checked = el.defaultChecked;
+  });
+  document.querySelectorAll('select').forEach(el => {
+    el.selectedIndex = 0;
+  });
+  document.querySelectorAll('textarea').forEach(el => {
+    el.value = '';
+  });
+  // Clear tags
+  document.querySelectorAll('.tag').forEach(t => t.remove());
+}
+
+function setFieldValue(path, value) {
+  // Find by data-path
+  const el = document.querySelector(`[data-path="${path}"]`);
+  if (!el) return;
+  if (el.type === 'checkbox') el.checked = !!value;
+  else if (el.tagName === 'SELECT') el.value = String(value);
+  else el.value = value;
+}
+
+// ─── Build config JSON ────────────────────────────────────────
+function buildConfig() {
+  const cfg = {};
+
+  // Scalars
+  cfg.app_title = v('app_title') || 'My Table Editor';
+  cfg.app_version = v('app_version') || '1.0.0';
+
+  // Database
+  const dbEnabled = cb('db_enabled');
+  cfg.database = {
+    enabled: dbEnabled,
+    mode: v('db_mode'),
+  };
+  if (dbEnabled) {
+    if (v('db_mode') === 'direct') {
+      if (v('db_conn')) cfg.database.connection_string = v('db_conn');
+    } else {
+      if (v('datum_base_url')) cfg.database.datum_base_url = v('datum_base_url');
+      if (v('datum_token')) cfg.database.datum_token = v('datum_token');
+      if (v('datum_database')) cfg.database.datum_database = v('datum_database');
+      cfg.database.datum_schema = v('datum_schema') || 'public';
+      cfg.database.datum_service_name = v('datum_service') || 'postgres_sql';
+    }
+    if (v('db_source_table')) cfg.database.source_table = v('db_source_table');
+    if (v('db_data_table')) cfg.database.data_table = v('db_data_table');
+    if (v('db_mods_table')) cfg.database.mods_table = v('db_mods_table');
+    if (v('db_state_table')) cfg.database.state_table = v('db_state_table');
+    if (v('db_status_col')) cfg.database.status_column = v('db_status_col');
+    cfg.database.auto_detect_pk = cb('db_auto_pk');
+    const poolSize = nv('db_pool_size'); if (poolSize !== 5) cfg.database.pool_size = poolSize;
+    const maxOverflow = nv('db_max_overflow'); if (maxOverflow !== 10) cfg.database.max_overflow = maxOverflow;
+    const poolTimeout = nv('db_pool_timeout'); if (poolTimeout !== 30) cfg.database.pool_timeout = poolTimeout;
+    const maxRows = nv('db_max_rows'); if (maxRows) cfg.database.max_rows = maxRows;
+    const maxRpp = nv('db_max_rpp'); if (maxRpp !== 100) cfg.database.max_rows_per_page = maxRpp;
+    const defRpp = nv('db_def_rpp'); if (defRpp !== 25) cfg.database.default_rows_per_page = defRpp;
+    cfg.database.lazy_loading = cb('db_lazy');
+    if (cb('db_lazy')) cfg.database.page_buffer_size = nv('db_page_buf') || 300;
+    const cacheKey = v('cache_key');
+    if (cacheKey) {
+      cfg.database.shared_cache_key = cacheKey;
+      cfg.database.shared_cache_ttl = nv('cache_ttl') || 300;
+    }
+  }
+
+  // Query
+  const searchCols = getTagValues(document.getElementById('search-cols-tags'));
+  const facetCols = getTagValues(document.getElementById('facet-cols-tags'));
+  let defaultFilters = {};
+  try { const raw = document.getElementById('default_filters').value.trim(); if (raw) defaultFilters = JSON.parse(raw); } catch(e) {}
+  cfg.query = {};
+  if (!cb('q_search')) cfg.query.enable_search = false;
+  if (searchCols.length) cfg.query.searchable_columns = searchCols;
+  if (facetCols.length) cfg.query.facet_columns = facetCols;
+  if (Object.keys(defaultFilters).length) cfg.query.default_filters = defaultFilters;
+  if (!Object.keys(cfg.query).length) delete cfg.query;
+
+  // State
+  cfg.state = { persist_state: cb('st_persist') };
+  if (cb('st_persist')) {
+    if (!cb('st_filters')) cfg.state.persist_filters = false;
+    if (!cb('st_sort')) cfg.state.persist_sort = false;
+    if (!cb('st_page')) cfg.state.persist_page = false;
+    if (!cb('st_cols')) cfg.state.persist_column_selection = false;
+    if (!cb('st_widths')) cfg.state.persist_column_widths = false;
+    const timeout = nv('st_timeout'); if (timeout !== 30) cfg.state.session_timeout_minutes = timeout;
+  }
+
+  // Table
+  const pkCols = getTagValues(document.getElementById('pk-tags'));
+  const defCols = getTagValues(document.getElementById('default-cols-tags'));
+  const editCols = getTagValues(document.getElementById('edit-cols-tags'));
+  const roCols = getTagValues(document.getElementById('ro-cols-tags'));
+  const colMasks = getKvValues('col-masks-editor');
+  const colWidths = getKvValues('col-widths-editor');
+  cfg.table = { title: v('tbl_title') || 'Data Table' };
+  if (pkCols.length) cfg.table.primary_key = pkCols;
+  if (defCols.length) cfg.table.default_columns = defCols;
+  if (v('tbl_sort_col')) cfg.table.default_sort_column = v('tbl_sort_col');
+  if (v('tbl_sort_asc') === 'false') cfg.table.default_sort_ascending = false;
+  const rpp = nv('tbl_rpp'); if (rpp !== 25) cfg.table.default_rows_per_page = rpp;
+  const cw = nv('tbl_col_width'); if (cw !== 130) cfg.table.default_column_width = cw;
+  if (editCols.length) cfg.table.editable_columns = editCols;
+  if (roCols.length) cfg.table.readonly_columns = roCols;
+  if (Object.keys(colMasks).length) cfg.table.column_masks = colMasks;
+  if (Object.keys(colWidths).length) {
+    const parsed = {};
+    for (const [k, val] of Object.entries(colWidths)) parsed[k] = parseInt(val) || 130;
+    cfg.table.default_column_widths = parsed;
+  }
+  cfg.table.presets_enabled = cb('tbl_presets');
+
+  // Feature flags (only write non-defaults)
+  if (!cb('f_approval')) cfg.enable_approval_workflow = false;
+  if (!cb('f_save')) cfg.enable_save_button = false;
+  if (!cb('f_export')) cfg.enable_export = false;
+  if (!cb('f_undo')) cfg.enable_undo = false;
+  if (!cb('f_copy')) cfg.enable_copy_column = false;
+  if (!cb('f_status')) cfg.enable_status_filter = false;
+  if (cb('f_synthesis')) cfg.enable_synthesis = true;
+  if (cb('f_review')) cfg.enable_review_detail = true;
+  if (cb('q_fix_filter')) cfg.fix_filter = true;
+
+  // Synthesis
+  if (cb('f_synthesis')) {
+    cfg.synthesis = {
+      query: v('syn_query') || '',
+      result_table_prefix: v('syn_prefix') || '_synthesis_result',
+      ttl_minutes: nv('syn_ttl') || 10,
+      label: v('syn_label') || 'Synthesis'
+    };
+  }
+
+  // Permissions
+  const permDefault = v('perm_default');
+  const userRoles = getKvValues('user-roles-editor');
+  cfg.permissions = { default_role: permDefault };
+  if (Object.keys(userRoles).length) cfg.permissions.user_roles = userRoles;
+
+  // Status labels (only if non-default)
+  const sl = {};
+  const slMap = {unprocessed:'sl_unprocessed', edited:'sl_edited', approved:'sl_approved', rejected:'sl_rejected'};
+  const slDefaults = {unprocessed:'Unprocessed', edited:'Edited', approved:'Approved', rejected:'Rejected'};
+  let slChanged = false;
+  for (const [key, id] of Object.entries(slMap)) {
+    sl[key] = v(id) || slDefaults[key];
+    if (sl[key] !== slDefaults[key]) slChanged = true;
+  }
+  if (slChanged) cfg.status_labels = sl;
+
+  // Status values
+  const svA = v('sv_approved'), svR = v('sv_rejected');
+  if (svA !== 'approved' || svR !== 'rejected') {
+    cfg.status_values = { approved: svA || 'approved', rejected: svR || 'rejected' };
+  }
+
+  // Approval assignment
+  const aa = getKvValues('approval-assign-editor');
+  if (Object.keys(aa).length) cfg.approval_assignment = aa;
+
+  // Review detail
+  if (cb('f_review')) {
+    const rl = v('rev_label');
+    if (rl && rl !== 'Review Detail') cfg.review_detail_label = rl;
+    if (cb('rev_multi')) cfg.review_detail_multi_select = true;
+  }
+
+  return cfg;
+}
+
+// Helpers
+function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function nv(id) { const el = document.getElementById(id); return el ? (parseInt(el.value) || 0) : 0; }
+function cb(id) { const el = document.getElementById(id); return el ? el.checked : false; }
+
+// ─── Preview ──────────────────────────────────────────────────
+function togglePreview() {
+  const panel = document.getElementById('preview');
+  const overlay = document.getElementById('overlay');
+  const isOpen = panel.classList.contains('open');
+  if (!isOpen) {
+    document.getElementById('preview-json').textContent = JSON.stringify(buildConfig(), null, 2);
+  }
+  panel.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+
+function copyPreview() {
+  const text = document.getElementById('preview-json').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'));
+}
+
+// ─── Download ─────────────────────────────────────────────────
+function downloadConfig() {
+  const json = JSON.stringify(buildConfig(), null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'app_config.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded app_config.json');
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── Nav dots (filled = section has user input) ───────────────
+function updateNavDots() {
+  const sectionHasContent = {
+    start: () => v('app_title') !== 'My Table Editor',
+    database: () => cb('db_enabled') && (v('db_conn') || v('datum_base_url') || v('db_data_table')),
+    table: () => getTagValues(document.getElementById('pk-tags')).length > 0,
+    query: () => getTagValues(document.getElementById('search-cols-tags')).length > 0 || v('default_filters'),
+    state: () => !cb('st_persist'), // non-default
+    features: () => !cb('f_approval') || !cb('f_status') || cb('f_synthesis') || cb('f_review'),
+    synthesis: () => cb('f_synthesis') && v('syn_query'),
+    permissions: () => Object.keys(getKvValues('user-roles-editor')).length > 0,
+    status: () => v('sl_unprocessed') !== 'Unprocessed' || v('sv_approved') !== 'approved',
+    review: () => cb('f_review'),
+  };
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    const key = SECTIONS[i];
+    if (sectionHasContent[key] && sectionHasContent[key]()) {
+      el.classList.add('filled');
+    } else {
+      el.classList.remove('filled');
+    }
+  });
+}
+
+// Update dots periodically
+setInterval(updateNavDots, 2000);
+
+// ─── Keyboard shortcut ────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    downloadConfig();
+  }
+});
+</script>
+</body>
+</html>
