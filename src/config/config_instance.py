@@ -1213,6 +1213,9 @@ class ConfigInstance:
     
     def _load_all(self):
         """Load configuration and data."""
+        import time as _t
+        _t0 = _t.time()
+
         # Determine project root from config path
         config_file = Path(self.config_path)
         if not config_file.is_absolute():
@@ -1225,6 +1228,8 @@ class ConfigInstance:
             str(config_file).strip(),
             username=self.username
         )
+        _t1 = _t.time()
+        print(f"[Timing] load_config: {(_t1 - _t0)*1000:.0f}ms")
         
         # Setup paths (don't create at init - filesystem may be read-only)
         self.data_dir = project_root / "data"
@@ -1252,13 +1257,17 @@ class ConfigInstance:
             print(f"📊 Lazy loading enabled: {self._data_fetcher.total_count} total rows, fetching on demand")
         else:
             # Traditional mode: load all data at startup
+            _t2 = _t.time()
             self.df = self._load_data()
+            _t3 = _t.time()
+            print(f"[Timing] _load_data: {(_t3 - _t2)*1000:.0f}ms ({len(self.df)} rows)")
             self.all_columns = list(self.df.columns)
         
         self.display_columns = self._get_display_columns()
         
         # Modifications log path (for reference only)
         self.modifications_log_path = self.data_dir / "modifications_log.json"
+        print(f"[Timing] _load_all total: {(_t.time() - _t0)*1000:.0f}ms")
     
     @property
     def data_fetcher(self) -> Optional[DataFetcher]:

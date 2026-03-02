@@ -87,9 +87,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     print(f"[Session] User: {posit_username} (safe: {safe_username})")
     
     # Load config instance for this widget, passing the username for user-scoped tables
+    import time as _t
+    _server_t0 = _t.time()
     from .config.config_instance import load_config_instance, QueryParams
     print(f"[Config] Loading config from {config_path} for user: {safe_username}")
     config = load_config_instance(config_path, username=safe_username)
+    _server_t1 = _t.time()
+    print(f"[Timing] load_config_instance: {(_server_t1 - _server_t0)*1000:.0f}ms")
     
     # Extract config values
     data_dir = config.data_dir
@@ -150,7 +154,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Presets use the server's ConfigInstance directly (handles datum & direct modes)
     
     # Load UI state (sort, filters, page) from database
+    _t2 = _t.time()
     ui_state = load_ui_state()
+    print(f"[Timing] load_ui_state: {(_t.time() - _t2)*1000:.0f}ms")
     
     # Check if lazy loading is enabled (at startup — may change when synthesis activates)
     _initial_lazy_loading = config.is_lazy_loading
@@ -241,7 +247,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "column": ui_state.get("sort_column"),
         "ascending": ui_state.get("sort_ascending", True)
     })
+    _t3 = _t.time()
     mods_log = reactive.Value(load_modifications_log())
+    print(f"[Timing] load_modifications_log: {(_t.time() - _t3)*1000:.0f}ms")
     
     # Load initial approval status from log
     initial_status, initial_timestamp = get_latest_approval_status(load_modifications_log())
@@ -249,11 +257,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     approval_timestamp = reactive.Value(initial_timestamp)
     
     # Load presets via ConfigInstance (scoped by data_table + username)
+    _t4 = _t.time()
     if app_config.table.presets_enabled:
         loaded_presets = load_presets(config, display_columns)
     else:
         loaded_presets = {"Default": {"columns": list(display_columns), "widths": {}}}
     column_presets = reactive.Value(loaded_presets)
+    print(f"[Timing] load_presets: {(_t.time() - _t4)*1000:.0f}ms")
     
     # Load last active preset (persists across refreshes)
     if app_config.table.presets_enabled:
@@ -281,6 +291,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
     current_page = reactive.Value(1)
     rows_per_page_value = reactive.Value(initial_rows_per_page)
+    print(f"[Timing] create_server total setup: {(_t.time() - _server_t0)*1000:.0f}ms")
     
     # Track first sync to avoid resetting page on initial load
     _first_rows_per_page_sync = {"done": False}
