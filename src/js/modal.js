@@ -151,9 +151,157 @@ function updateModalColumnOrder(container) {
 $(document).on('shiny:value', function(event) {
     // Check if the event name ends with available_columns_modal (namespaced)
     if (event.name && event.name.endsWith('available_columns_modal')) {
-        setTimeout(function() { initModalColumnDrag(currentModalContext); }, 100);
+        setTimeout(function() {
+            initModalColumnDrag(currentModalContext);
+            // Clear search box on refresh
+            var modal = findModalInContext(currentModalContext, 'add-column-modal');
+            if (modal) {
+                var searchInput = modal.querySelector('#col-search-input');
+                if (searchInput) searchInput.value = '';
+                var searchResults = modal.querySelector('#col-search-results');
+                if (searchResults) { searchResults.innerHTML = ''; searchResults.style.display = 'none'; }
+            }
+        }, 100);
     }
 });
+
+// ─── Column search / filter in Manage Layout modal ─────────────
+// Track the currently highlighted search result
+let _colSearchHighlighted = null;
+
+window.filterModalColumns = function(query) {
+    var modal = findModalInContext(currentModalContext, 'add-column-modal');
+    if (!modal) return;
+    var resultsDiv = modal.querySelector('#col-search-results');
+    if (!resultsDiv) return;
+
+    query = (query || '').trim().toLowerCase();
+    if (!query) {
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
+        _colSearchHighlighted = null;
+        return;
+    }
+
+    // Gather all column names from both current and available sets
+    var currentTags = modal.querySelectorAll('#modal-columns-container .modal-draggable-col');
+    var availableTags = modal.querySelectorAll('#modal-available-container .add-col-tag');
+
+    var matches = [];
+
+    // Scan current columns
+    currentTags.forEach(function(tag) {
+        var col = tag.getAttribute('data-column') || '';
+        var display = (tag.querySelector('span:nth-child(2)') || {}).textContent || col;
+        display = display.replace(/^\d+\.\s*/, ''); // strip numbering
+        if (col.toLowerCase().indexOf(query) !== -1 || display.toLowerCase().indexOf(query) !== -1) {
+            matches.push({ col: col, display: display, section: 'current' });
+        }
+    });
+
+    // Scan available columns
+    availableTags.forEach(function(tag) {
+        var onclickAttr = tag.getAttribute('onclick') || '';
+        var m = onclickAttr.match(/addColumn\('([^']+)'/);
+        var col = m ? m[1].replace(/\\\\/g, '\\').replace(/\\'/g, "'") : tag.textContent.replace(/^\+\s*/, '').trim();
+        var display = tag.textContent.replace(/^\+\s*/, '').trim();
+        if (col.toLowerCase().indexOf(query) !== -1 || display.toLowerCase().indexOf(query) !== -1) {
+            matches.push({ col: col, display: display, section: 'available' });
+        }
+    });
+
+    // Sort matches alphabetically
+    matches.sort(function(a, b) { return a.display.toLowerCase().localeCompare(b.display.toLowerCase()); });
+
+    // Render matches
+    if (!matches.length) {
+        resultsDiv.innerHTML = '<div style="padding:8px 12px;color:#999;font-size:12px;">No matching columns</div>';
+        resultsDiv.style.display = 'block';
+        _colSearchHighlighted = null;
+        return;
+    }
+
+    resultsDiv.innerHTML = '';
+    matches.forEach(function(m, idx) {
+        var row = document.createElement('div');
+        row.className = 'col-search-row';
+        row.setAttribute('data-column', m.col);
+        row.setAttribute('data-section', m.section);
+        var badge = m.section === 'current'
+            ? '<span style="font-size:10px;background:#2c3e50;color:#fff;padding:1px 6px;border-radius:3px;margin-left:8px;">current</span>'
+            : '<span style="font-size:10px;background:#e9ecef;color:#333;padding:1px 6px;border-radius:3px;margin-left:8px;">available</span>';
+        row.innerHTML = '<span>' + m.display + '</span>' + badge;
+        row.style.cssText = 'padding:6px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:space-between;';
+        row.addEventListener('mouseenter', function() { _selectSearchRow(resultsDiv, this); });
+        row.addEventListener('click', function() {
+            if (m.section === 'available') {
+                addColumn(m.col, null);
+            } else {
+                removeColumnFromModal(m.col, null);
+            }
+        });
+        resultsDiv.appendChild(row);
+    });
+
+    // Auto-highlight first result
+    _selectSearchRow(resultsDiv, resultsDiv.querySelector('.col-search-row'));
+    resultsDiv.style.display = 'block';
+};
+
+function _selectSearchRow(container, row) {
+    if (!row) return;
+    container.querySelectorAll('.col-search-row').forEach(function(r) {
+        r.style.background = '';
+    });
+    row.style.background = '#e8f0fe';
+    _colSearchHighlighted = row;
+}
+
+// Keyboard navigation in search results (arrow keys + Enter)
+document.addEventListener('keydown', function(e) {
+    var modal = findModalInContext(currentModalContext, 'add-column-modal');
+    if (!modal || !modal.classList.contains('show')) return;
+    var input = modal.querySelector('#col-search-input');
+    if (!input || document.activeElement !== input) return;
+    var resultsDiv = modal.querySelector('#col-search-results');
+    if (!resultsDiv || resultsDiv.style.display === 'none') return;
+    var rows = resultsDiv.querySelectorAll('.col-search-row');
+    if (!rows.length) return;
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        var idx = Array.from(rows).indexOf(_colSearchHighlighted);
+        if (e.key === 'ArrowDown') idx = Math.min(idx + 1, rows.length - 1);
+        else idx = Math.max(idx - 1, 0);
+        _selectSearchRow(resultsDiv, rows[idx]);
+        rows[idx].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (_colSearchHighlighted) _colSearchHighlighted.click();
+    }
+});
+
+// Add button: add the highlighted search result to current columns
+window.addSearchedColumn = function(event) {
+    if (event) event.stopPropagation();
+    if (!_colSearchHighlighted) return;
+    var col = _colSearchHighlighted.getAttribute('data-column');
+    var section = _colSearchHighlighted.getAttribute('data-section');
+    if (section === 'available' && col) {
+        addColumn(col, event);
+    }
+};
+
+// Remove button: remove the highlighted search result from current columns
+window.removeSearchedColumn = function(event) {
+    if (event) event.stopPropagation();
+    if (!_colSearchHighlighted) return;
+    var col = _colSearchHighlighted.getAttribute('data-column');
+    var section = _colSearchHighlighted.getAttribute('data-section');
+    if (section === 'current' && col) {
+        removeColumnFromModal(col, event);
+    }
+};
 
 // Close modal on overlay click (only if clicking directly on overlay, not content)
 document.addEventListener('click', function(e) {

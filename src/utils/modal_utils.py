@@ -48,9 +48,44 @@ def build_available_column_tag(col: str, column_masks: dict | None = None) -> ui
 def build_columns_modal_content(current_cols: list, available_cols: list, column_masks: dict | None = None) -> ui.div:
     """Build the full columns modal content."""
     current_html = [build_current_column_tag(col, i, column_masks=column_masks) for i, col in enumerate(current_cols, 1)]
-    available_html = [build_available_column_tag(col, column_masks=column_masks) for col in available_cols]
+    # Sort available columns alphabetically (by display name)
+    sorted_available = sorted(available_cols, key=lambda c: _mask(c, column_masks).lower())
+    available_html = [build_available_column_tag(col, column_masks=column_masks) for col in sorted_available]
     
     return ui.div(
+        # Search box with Add / Remove buttons
+        ui.div(
+            ui.div(
+                ui.tags.input(
+                    type="text",
+                    id="col-search-input",
+                    placeholder="Search columns…",
+                    autocomplete="off",
+                    style="flex: 1; padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; outline: none;",
+                    oninput="filterModalColumns(this.value)"
+                ),
+                ui.tags.button(
+                    "▼ Add",
+                    class_="btn btn-sm btn-outline-success",
+                    style="margin-left: 6px; font-size: 11px; padding: 5px 10px;",
+                    onclick="addSearchedColumn(event)",
+                    title="Add the highlighted column to Current columns"
+                ),
+                ui.tags.button(
+                    "▲ Remove",
+                    class_="btn btn-sm btn-outline-danger",
+                    style="margin-left: 4px; font-size: 11px; padding: 5px 10px;",
+                    onclick="removeSearchedColumn(event)",
+                    title="Remove the highlighted column from Current columns"
+                ),
+                style="display: flex; align-items: center; margin-bottom: 14px;"
+            ),
+            # Search results dropdown (hidden by default, shown when typing)
+            ui.div(
+                id="col-search-results",
+                style="display: none; max-height: 160px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 4px; background: #fff; margin-top: -10px; margin-bottom: 12px;"
+            ),
+        ),
         # Current columns section
         ui.div(
             ui.tags.strong("Current columns (drag to reorder):", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
@@ -66,6 +101,7 @@ def build_columns_modal_content(current_cols: list, available_cols: list, column
             ui.tags.strong("Remaining columns:", style="display: block; margin-bottom: 10px; color: #2c3e50;"),
             ui.div(
                 *available_html if available_html else [ui.span("All columns displayed.", style="color: #999;")],
+                id="modal-available-container",
                 style="display: flex; flex-wrap: wrap; min-height: 40px;"
             )
         )
