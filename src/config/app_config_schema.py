@@ -156,6 +156,9 @@ class TableConfig:
     presets_enabled: bool = True
     presets_file_path: Optional[str] = None
     default_preset: str = "Default"
+    
+    # Clickable columns (emit cell_click event on click)
+    cell_click_columns: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -289,7 +292,6 @@ class AppConfig:
     review_detail_label: str = "Review Detail"  # Label text for the Review Detail button
     review_detail_multi_select: bool = False  # Allow multiple rows in review_detail event
     fix_filter: bool = False  # Lock filters to only the default_filters from config
-    cell_click_columns: list = field(default_factory=list)  # Columns whose cells emit a cell_click event on click
     
     # Configurable status labels: internal_key -> display_label
     # Internal keys: unprocessed, edited, approved, rejected
@@ -419,6 +421,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.presets_file_path = tb.get("presets_file_path")
         config.table.default_preset = tb.get("default_preset", config.table.default_preset)
         config.table.column_masks = tb.get("column_masks", config.table.column_masks)
+        config.table.cell_click_columns = tb.get("cell_click_columns", config.table.cell_click_columns)
     
     # Database
     if "database" in file_config:
@@ -462,7 +465,6 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.review_detail_label = file_config.get("review_detail_label", config.review_detail_label)
     config.review_detail_multi_select = file_config.get("review_detail_multi_select", config.review_detail_multi_select)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
-    config.cell_click_columns = file_config.get("cell_click_columns", config.cell_click_columns)
     
     # Synthesis
     if "synthesis" in file_config:
