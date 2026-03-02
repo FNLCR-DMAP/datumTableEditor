@@ -118,7 +118,19 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `column_masks` | object | `{}` | Display-name overrides: `{"real_name": "Display Name"}` |
 | `default_sort_column` | string | `null` | Initial sort column |
 | `default_sort_ascending` | bool | `true` | Initial sort direction |
-| `presets_enabled` | bool | `true` | Enable column presets |
+| `presets_enabled` | bool | `true` | Enable column presets. When `false`, hides preset UI and skips all preset DB calls (use for sub-table / detail-tab mode) |
+
+### State Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `persist_state` | bool | `true` | When `false`, skips all UI state DB calls (table creation, load, save). Use for sub-table / detail-tab mode where the DB may be unreachable |
+| `state_storage` | string | `"local"` | State storage type |
+| `persist_filters` | bool | `true` | Persist active filters across sessions |
+| `persist_sort` | bool | `true` | Persist sort column/direction |
+| `persist_page` | bool | `true` | Persist current page |
+| `persist_column_selection` | bool | `true` | Persist selected columns |
+| `persist_column_widths` | bool | `true` | Persist column widths |
 
 ### Query Settings
 
@@ -142,6 +154,7 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `enable_copy_column` | bool | `true` | Allow copying column values |
 | `enable_status_filter` | bool | `true` | Show status distribution in sidebar |
 | `enable_synthesis` | bool | `false` | Enable the synthesis transform feature |
+| `enable_review_detail` | bool | `false` | Show Review Detail button (emits event via commute layer) |
 | `fix_filter` | bool | `false` | Lock filters to only `default_filters` |
 
 ### Synthesis
@@ -201,6 +214,19 @@ Example:
   }
 }
 ```
+
+### Sub-Table / Detail-Tab Mode
+
+When the editor is embedded as a detail tab or sub-table (e.g., opened from a parent app via commute), the Datum proxy may be unreachable from the child process. To prevent DNS/connection errors on state and preset DB calls, disable persistence:
+
+```json
+{
+  "state": { "persist_state": false },
+  "table": { "presets_enabled": false }
+}
+```
+
+This skips all state table creation/load/save and preset table creation/load/save. The app uses config defaults for sort, filters, pagination, and columns. Preset dropdown and Save Layout button are hidden from the toolbar.
 
 ## Environment Variables
 

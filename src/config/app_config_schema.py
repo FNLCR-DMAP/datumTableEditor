@@ -395,6 +395,11 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.state.persist_state = st.get("persist_state", config.state.persist_state)
         config.state.state_storage = st.get("state_storage", config.state.state_storage)
         config.state.state_file_path = st.get("state_file_path")
+        config.state.persist_filters = st.get("persist_filters", config.state.persist_filters)
+        config.state.persist_sort = st.get("persist_sort", config.state.persist_sort)
+        config.state.persist_page = st.get("persist_page", config.state.persist_page)
+        config.state.persist_column_selection = st.get("persist_column_selection", config.state.persist_column_selection)
+        config.state.persist_column_widths = st.get("persist_column_widths", config.state.persist_column_widths)
     
     # Table
     if "table" in file_config:
@@ -409,6 +414,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.rows_per_page_options = tb.get("rows_per_page_options", config.table.rows_per_page_options)
         config.table.editable_columns = tb.get("editable_columns", config.table.editable_columns)
         config.table.readonly_columns = tb.get("readonly_columns", config.table.readonly_columns)
+        config.table.presets_enabled = tb.get("presets_enabled", config.table.presets_enabled)
         config.table.presets_file_path = tb.get("presets_file_path")
         config.table.default_preset = tb.get("default_preset", config.table.default_preset)
         config.table.column_masks = tb.get("column_masks", config.table.column_masks)

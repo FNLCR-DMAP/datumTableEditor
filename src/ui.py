@@ -85,6 +85,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     enable_review_detail = app_config.enable_review_detail
     review_detail_label = app_config.review_detail_label or "Review Detail"
     synthesis_label = app_config.synthesis.label or "Synthesis"
+    presets_enabled = app_config.table.presets_enabled
     
     # Status labels from config
     status_labels = app_config.status_labels
@@ -275,7 +276,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ),
                     # Right side - Preset dropdown + Add Column button
                     ui.div(
-                        # Preset Dropdown
+                        # Preset Dropdown (hidden when presets disabled)
                         ui.div(
                             ui.tags.button(
                                 "Preset: ",
@@ -308,9 +309,9 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 class_="preset-menu"
                             ),
                             class_="preset-dropdown"
-                        ),
+                        ) if presets_enabled else None,
                         # Save Layout Button
-                        ui.tags.button("Save Layout", class_="save-layout-btn", onclick="saveLayoutPrompt(event)"),
+                        ui.tags.button("Save Layout", class_="save-layout-btn", onclick="saveLayoutPrompt(event)") if presets_enabled else None,
                         # Manage Layout Button
                         ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal(event)"),
                         # Modifications Log Button

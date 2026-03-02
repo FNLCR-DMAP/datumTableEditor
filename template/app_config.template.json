@@ -86,6 +86,7 @@
   
   "state": {
     "persist_state": true,
+    "_persist_state_comment": "When false, skips all UI state DB calls (state table creation, load, save). Use false for sub-table / detail-tab mode where the DB may be unreachable.",
     "state_storage": "local",
     "state_file_path": "data/app_state.json",
     "persist_filters": true,
@@ -146,6 +147,7 @@
     "readonly_columns": ["PatientID", "Variant_key"],
     
     "presets_enabled": true,
+    "_presets_enabled_comment": "When false, hides preset UI and skips all preset DB calls (table creation, load, save). Use false for sub-table / detail-tab mode.",
     "presets_file_path": "data/column_presets.json",
     "default_preset": "Default"
   },

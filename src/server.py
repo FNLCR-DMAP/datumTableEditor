@@ -129,11 +129,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         return config.reload_data()
     
     def save_ui_state(**kwargs):
-        """Save UI state for this instance."""
+        """Save UI state for this instance (no-op when persist_state is disabled)."""
+        if not app_config.state.persist_state:
+            return False
         return config.save_ui_state(**kwargs)
     
     def load_ui_state():
-        """Load UI state for this instance."""
+        """Load UI state for this instance (returns defaults when persist_state is disabled)."""
+        if not app_config.state.persist_state:
+            return {
+                "sort_column": app_config.table.default_sort_column,
+                "sort_ascending": app_config.table.default_sort_ascending,
+                "current_page": 1,
+                "rows_per_page": app_config.table.default_rows_per_page,
+                "filters": {},
+                "column_preset": None
+            }
         return config.load_ui_state()
     
     # Presets use the server's ConfigInstance directly (handles datum & direct modes)
@@ -237,12 +248,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     approval_timestamp = reactive.Value(initial_timestamp)
     
     # Load presets via ConfigInstance (scoped by data_table + username)
-    loaded_presets = load_presets(config, display_columns)
+    if app_config.table.presets_enabled:
+        loaded_presets = load_presets(config, display_columns)
+    else:
+        loaded_presets = {"Default": {"columns": list(display_columns), "widths": {}}}
     column_presets = reactive.Value(loaded_presets)
     
     # Load last active preset (persists across refreshes)
-    initial_active_preset = load_active_preset(config)
-    print(f"[Preset] Active preset for {safe_username}: {initial_active_preset}")
+    if app_config.table.presets_enabled:
+        initial_active_preset = load_active_preset(config)
+        print(f"[Preset] Active preset for {safe_username}: {initial_active_preset}")
+    else:
+        initial_active_preset = "Default"
     # Ensure the preset exists, fallback to Default if not
     if initial_active_preset not in loaded_presets:
         initial_active_preset = "Default"
@@ -727,7 +744,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.refresh_preset)
     def _refresh_presets():
-        """Reload presets from file when triggered"""
+        """Reload presets from file when triggered (no-op when presets disabled)"""
+        if not app_config.table.presets_enabled:
+            return
         fresh_presets = load_presets(config, display_columns)
         column_presets.set(fresh_presets)
         
