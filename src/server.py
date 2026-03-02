@@ -200,8 +200,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         except Exception as e:
             print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")
 
-    # Load fresh data from source (database) on each session
-    # This ensures browser refresh gets the latest data
+    # Use data already loaded by ConfigInstance.__post_init__ (respects shared cache).
+    # reload_data() is reserved for explicit user-triggered reloads (Reload button).
     if _synthesis_autoloaded:
         pass  # Already loaded the synthesis table above
     elif _synthesis_needs_generate:
@@ -216,8 +216,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         total_row_count = config.total_row_count
         print(f"[Lazy Loading] Enabled. Total rows in DB: {total_row_count}")
     else:
-        # Traditional mode: load all data at startup
-        initial_df = load_data_from_source() if app_config.database.enabled else df_original.copy()
+        # Traditional mode: data already loaded by __post_init__ → _load_data()
+        # which checks shared_cache_key first (no redundant DB round-trip)
+        initial_df = config.df.copy() if app_config.database.enabled else df_original.copy()
         total_row_count = len(initial_df)
     
     # Apply initial sorting if saved (only in non-lazy mode)
