@@ -161,6 +161,7 @@ document.addEventListener('click', function(e) {
         const pkJson = cell.getAttribute('data-pk');
         let pk = {};
         try { pk = JSON.parse(pkJson || '{}'); } catch(_) {}
+        console.log('[cell_click]', {row, col, value, pk});
         if (typeof setShinyInput !== 'undefined') {
             setShinyInput('cell_click', {
                 row: parseInt(row),

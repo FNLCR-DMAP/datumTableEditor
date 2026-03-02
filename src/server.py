@@ -2110,6 +2110,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             value=value,
             source_table=app_config.database.data_table,
         )
+        ui.notification_show(f"Cell click: {col} = {value}", type="message", duration=3)
 
     # ── Return public API ─────────────────────────────────────
     return WidgetAPI(
