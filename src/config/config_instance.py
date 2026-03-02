@@ -2922,6 +2922,8 @@ class ConfigInstance:
 
     def _ensure_state_table_exists(self) -> bool:
         """Create the UI state table if it doesn't exist. Only runs once per instance."""
+        if not self.app_config.state.persist_state:
+            return True
         # Skip if already checked this session
         if self._state_table_checked:
             return True
@@ -3051,6 +3053,8 @@ class ConfigInstance:
         **kwargs  # Ignore extra args for compatibility
     ) -> bool:
         """Save UI state to database for this config instance."""
+        if not self.app_config.state.persist_state:
+            return False
         if self.app_config.database.mode == "datum":
             return self._save_ui_state_datum(
                 sort_column, sort_ascending, current_page, 
@@ -3188,6 +3192,9 @@ class ConfigInstance:
             "column_preset": None
         }
         
+        if not self.app_config.state.persist_state:
+            return default_state
+        
         if self.app_config.database.mode == "datum":
             return self._load_ui_state_datum(default_state)
         
@@ -3310,6 +3317,8 @@ class ConfigInstance:
     
     def _ensure_preset_table_exists(self) -> bool:
         """Create the preset table if it doesn't exist. Only runs once per instance."""
+        if not self.app_config.table.presets_enabled:
+            return True
         # Skip if already checked this session
         if self._preset_table_checked:
             return True
@@ -3383,6 +3392,8 @@ class ConfigInstance:
     
     def save_preset(self, preset_name: str, columns: Any, is_default: bool = False) -> Optional[int]:
         """Save a column preset."""
+        if not self.app_config.table.presets_enabled:
+            return None
         self._ensure_preset_table_exists()
         
         if self.app_config.database.mode == "datum":
@@ -3494,6 +3505,8 @@ class ConfigInstance:
     
     def get_presets(self) -> List[Dict]:
         """Load all presets for the current user."""
+        if not self.app_config.table.presets_enabled:
+            return []
         self._ensure_preset_table_exists()
         
         if self.app_config.database.mode == "datum":
@@ -3579,6 +3592,8 @@ class ConfigInstance:
     
     def delete_preset(self, preset_name: str) -> bool:
         """Delete a preset by name."""
+        if not self.app_config.table.presets_enabled:
+            return False
         if self.app_config.database.mode == "datum":
             return self._delete_preset_datum(preset_name)
         
@@ -3632,6 +3647,8 @@ class ConfigInstance:
     
     def get_default_preset(self) -> Optional[Dict]:
         """Get the default preset for current user."""
+        if not self.app_config.table.presets_enabled:
+            return None
         presets = self.get_presets()
         for p in presets:
             if p.get("is_default"):
