@@ -104,6 +104,8 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `page_buffer_size` | int | `300` | Rows per query when lazy loading |
 | `max_rows` | int\|null | `null` | Max rows to load (`null` = all) |
 | `max_rows_per_page` | int | `100` | Hard upper limit per page |
+| `shared_cache_key` | string\|null | `null` | Share loaded data across sessions using this key |
+| `shared_cache_ttl` | int | `300` | Seconds to keep shared cache alive (5 min default) |
 
 ### Table Settings
 

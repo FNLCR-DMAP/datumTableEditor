@@ -4,485 +4,525 @@
       "functions": [
         {
           "name": "create_server",
-          "line": 70,
+          "line": 72,
           "decorators": []
         },
         {
           "name": "_require_editor",
-          "line": 104,
+          "line": 109,
+          "decorators": []
+        },
+        {
+          "name": "_emit",
+          "line": 120,
           "decorators": []
         },
         {
           "name": "load_modifications_log",
-          "line": 113,
+          "line": 125,
           "decorators": []
         },
         {
           "name": "load_data_from_source",
-          "line": 116,
+          "line": 128,
           "decorators": []
         },
         {
           "name": "save_ui_state",
-          "line": 119,
+          "line": 131,
           "decorators": []
         },
         {
           "name": "load_ui_state",
-          "line": 123,
-          "decorators": []
-        },
-        {
-          "name": "is_lazy_loading",
           "line": 135,
           "decorators": []
         },
         {
+          "name": "is_lazy_loading",
+          "line": 147,
+          "decorators": []
+        },
+        {
           "name": "_convert_default_filters",
-          "line": 262,
+          "line": 274,
           "decorators": []
         },
         {
           "name": "_get_selected_pks",
-          "line": 356,
+          "line": 368,
           "decorators": []
         },
         {
           "name": "_save_status_to_db",
-          "line": 371,
+          "line": 383,
           "decorators": []
         },
         {
           "name": "_get_row_status",
-          "line": 387,
+          "line": 436,
           "decorators": []
         },
         {
           "name": "_get_status_counts",
-          "line": 412,
+          "line": 470,
           "decorators": []
         },
         {
           "name": "_get_modification_summary",
-          "line": 463,
+          "line": 521,
           "decorators": []
         },
         {
           "name": "_get_filtered_rows",
-          "line": 468,
+          "line": 526,
           "decorators": []
         },
         {
           "name": "_build_query_params",
-          "line": 491,
+          "line": 549,
           "decorators": []
         },
         {
           "name": "_fetch_page_data",
-          "line": 535,
+          "line": 593,
           "decorators": []
         },
         {
           "name": "_fetch_all_filtered_data",
-          "line": 561,
+          "line": 619,
           "decorators": []
         },
         {
           "name": "_save_presets",
-          "line": 573,
+          "line": 631,
           "decorators": []
         },
         {
           "name": "_save_active_preset",
-          "line": 576,
+          "line": 634,
           "decorators": []
         },
         {
           "name": "_namespace_holder",
-          "line": 581,
+          "line": 639,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "viewer_mode_ui",
-          "line": 593,
+          "line": 652,
+          "decorators": [
+            "ui"
+          ]
+        },
+        {
+          "name": "selection_mode_ui",
+          "line": 674,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "data_summary",
-          "line": 615,
+          "line": 686,
           "decorators": [
             "text"
           ]
         },
         {
           "name": "stats_histogram",
-          "line": 628,
+          "line": 699,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "current_preset_name",
-          "line": 652,
+          "line": 723,
           "decorators": [
             "text"
           ]
         },
         {
           "name": "_refresh_presets",
-          "line": 658,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "preset_menu_items",
-          "line": 673,
-          "decorators": [
-            "ui"
-          ]
-        },
-        {
-          "name": "available_columns_modal",
-          "line": 684,
-          "decorators": [
-            "ui"
-          ]
-        },
-        {
-          "name": "_update_column_order",
-          "line": 693,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_add_column",
-          "line": 707,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_remove_column",
-          "line": 715,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_clear_all_columns",
-          "line": 723,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_add_all_columns",
           "line": 729,
           "decorators": [
             "Effect"
           ]
         },
         {
+          "name": "preset_menu_items",
+          "line": 744,
+          "decorators": [
+            "ui"
+          ]
+        },
+        {
+          "name": "available_columns_modal",
+          "line": 755,
+          "decorators": [
+            "ui"
+          ]
+        },
+        {
+          "name": "_update_column_order",
+          "line": 764,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_add_column",
+          "line": 778,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_remove_column",
+          "line": 786,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_clear_all_columns",
+          "line": 794,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_add_all_columns",
+          "line": 800,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
           "name": "_sort_column",
-          "line": 735,
+          "line": 806,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_reset_columns",
-          "line": 757,
+          "line": 828,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_update_column_widths",
-          "line": 766,
+          "line": 837,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_load_preset",
-          "line": 774,
+          "line": 845,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_save_preset",
-          "line": 795,
+          "line": 866,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_save_current_layout",
-          "line": 810,
+          "line": 881,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_delete_preset",
-          "line": 824,
+          "line": 895,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "copy_column_list",
-          "line": 845,
+          "line": 916,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "_handle_copy_request",
-          "line": 854,
+          "line": 925,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "facet_panels_ui",
+          "line": 946,
+          "decorators": [
+            "ui"
+          ]
+        },
+        {
+          "name": "_handle_facet_filter",
+          "line": 985,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "dynamic_filters",
-          "line": 872,
+          "line": 1004,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "add_filter_btn_ui",
-          "line": 899,
+          "line": 1031,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "available_filter_columns",
-          "line": 912,
+          "line": 1044,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "_add_filter",
-          "line": 926,
+          "line": 1058,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_remove_filter",
-          "line": 938,
+          "line": 1070,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_set_filter_operator",
-          "line": 949,
+          "line": 1081,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_apply_filter_value",
-          "line": 997,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "pagination_controls",
-          "line": 1035,
-          "decorators": [
-            "ui"
-          ]
-        },
-        {
-          "name": "_sync_rows_per_page",
-          "line": 1055,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_first_page",
-          "line": 1072,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_prev_page",
-          "line": 1086,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_next_page",
-          "line": 1103,
-          "decorators": [
-            "Effect"
-          ]
-        },
-        {
-          "name": "_last_page",
           "line": 1131,
           "decorators": [
             "Effect"
           ]
         },
         {
+          "name": "pagination_controls",
+          "line": 1171,
+          "decorators": [
+            "ui"
+          ]
+        },
+        {
+          "name": "_sync_rows_per_page",
+          "line": 1192,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_first_page",
+          "line": 1209,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_prev_page",
+          "line": 1223,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_next_page",
+          "line": 1240,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_last_page",
+          "line": 1268,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
           "name": "_page_jump",
-          "line": 1156,
+          "line": 1293,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_handle_search",
-          "line": 1187,
+          "line": 1324,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_handle_clear_search",
+          "line": 1333,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_reset_page_on_filter_change",
-          "line": 1196,
+          "line": 1342,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "table_container",
-          "line": 1214,
+          "line": 1360,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "approval_status_ui",
-          "line": 1254,
+          "line": 1400,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "modifications_log_ui",
-          "line": 1259,
+          "line": 1405,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "_handle_undo",
-          "line": 1265,
+          "line": 1411,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_handle_cell_edit",
-          "line": 1285,
+          "line": 1431,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_save_modifications",
-          "line": 1331,
+          "line": 1477,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_export_status_report",
-          "line": 1343,
+          "line": 1489,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_prepare_export",
-          "line": 1358,
+          "line": 1504,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "export_download_ui",
-          "line": 1421,
+          "line": 1567,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "_get_export_filename",
-          "line": 1470,
+          "line": 1616,
           "decorators": []
         },
         {
           "name": "_reload_data",
-          "line": 1495,
+          "line": 1641,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_approve_data",
-          "line": 1511,
+          "line": 1657,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_reject_data",
-          "line": 1543,
+          "line": 1701,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "_clear_approval",
-          "line": 1574,
+          "line": 1732,
           "decorators": [
             "Effect"
           ]
         },
         {
           "name": "synthesis_query_preview",
-          "line": 1583,
+          "line": 1741,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "synthesis_mode_banner",
-          "line": 1594,
+          "line": 1752,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "synthesis_status",
-          "line": 1608,
+          "line": 1766,
           "decorators": [
             "ui"
           ]
         },
         {
           "name": "_exit_synthesis",
-          "line": 1848,
+          "line": 2006,
+          "decorators": [
+            "Effect"
+          ]
+        },
+        {
+          "name": "_review_detail",
+          "line": 2029,
           "decorators": [
             "Effect"
           ]
@@ -638,525 +678,545 @@
     "config.config_instance": {
       "functions": [
         {
-          "name": "_format_table_name",
-          "line": 24,
+          "name": "_app_cache_get",
+          "line": 30,
           "decorators": []
         },
         {
-          "name": "_escape_identifier",
-          "line": 32,
+          "name": "_app_cache_set",
+          "line": 43,
           "decorators": []
         },
         {
-          "name": "_escape_literal",
-          "line": 41,
-          "decorators": []
-        },
-        {
-          "name": "_build_mod_status_expr",
+          "name": "_app_cache_invalidate",
           "line": 49,
           "decorators": []
         },
         {
+          "name": "_format_table_name",
+          "line": 60,
+          "decorators": []
+        },
+        {
+          "name": "_escape_identifier",
+          "line": 68,
+          "decorators": []
+        },
+        {
+          "name": "_escape_literal",
+          "line": 77,
+          "decorators": []
+        },
+        {
+          "name": "_build_mod_status_expr",
+          "line": 85,
+          "decorators": []
+        },
+        {
           "name": "load_config_instance",
-          "line": 3517,
+          "line": 3642,
           "decorators": []
         },
         {
           "name": "load_config_only",
-          "line": 3531,
+          "line": 3656,
           "decorators": []
         },
         {
           "name": "__post_init__",
-          "line": 128,
+          "line": 188,
           "decorators": []
         },
         {
           "name": "_init_connection",
-          "line": 133,
+          "line": 193,
           "decorators": []
         },
         {
           "name": "_effective_table",
-          "line": 148,
+          "line": 208,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "set_table_override",
-          "line": 152,
+          "line": 212,
           "decorators": []
         },
         {
           "name": "clear_table_override",
-          "line": 162,
+          "line": 222,
           "decorators": []
         },
         {
           "name": "_fetch_metadata",
-          "line": 182,
+          "line": 242,
           "decorators": []
         },
         {
           "name": "_refresh_count",
-          "line": 241,
+          "line": 301,
           "decorators": []
         },
         {
           "name": "_effective_status_column",
-          "line": 271,
+          "line": 331,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "_skip_mods",
-          "line": 288,
+          "line": 348,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "_get_columns_from_schema_datum",
-          "line": 306,
+          "line": 366,
           "decorators": []
         },
         {
           "name": "_get_column_types_from_schema",
-          "line": 331,
+          "line": 391,
           "decorators": []
         },
         {
           "name": "_is_text_column",
-          "line": 370,
+          "line": 430,
           "decorators": []
         },
         {
           "name": "is_date_column",
-          "line": 378,
+          "line": 438,
           "decorators": []
         },
         {
           "name": "date_columns",
-          "line": 383,
+          "line": 443,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "_col_expr",
-          "line": 387,
+          "line": 447,
           "decorators": []
         },
         {
           "name": "get_unique_values",
-          "line": 397,
+          "line": 457,
+          "decorators": []
+        },
+        {
+          "name": "get_value_counts",
+          "line": 484,
           "decorators": []
         },
         {
           "name": "total_count",
-          "line": 425,
+          "line": 518,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "columns",
-          "line": 430,
+          "line": 523,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "_escape_sql_value",
-          "line": 434,
+          "line": 527,
           "decorators": []
         },
         {
           "name": "_build_where_clause",
-          "line": 441,
+          "line": 534,
           "decorators": []
         },
         {
           "name": "_build_status_filter_clause",
-          "line": 611,
+          "line": 705,
           "decorators": []
         },
         {
           "name": "get_status_counts",
-          "line": 626,
+          "line": 720,
           "decorators": []
         },
         {
           "name": "_has_status_filter",
-          "line": 701,
+          "line": 795,
           "decorators": []
         },
         {
           "name": "get_filtered_count",
-          "line": 709,
+          "line": 803,
           "decorators": []
         },
         {
           "name": "fetch_page",
-          "line": 779,
+          "line": 873,
           "decorators": []
         },
         {
           "name": "fetch_all_filtered",
-          "line": 875,
+          "line": 969,
           "decorators": []
         },
         {
           "name": "_apply_field_modifications",
-          "line": 963,
+          "line": 1057,
           "decorators": []
         },
         {
           "name": "_effective_status_column",
-          "line": 1072,
+          "line": 1166,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "_skip_mods",
-          "line": 1097,
+          "line": 1191,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "__post_init__",
-          "line": 1107,
+          "line": 1201,
           "decorators": []
         },
         {
           "name": "_get_engine",
-          "line": 1111,
+          "line": 1205,
           "decorators": []
         },
         {
           "name": "_load_all",
-          "line": 1120,
+          "line": 1214,
           "decorators": []
         },
         {
           "name": "data_fetcher",
-          "line": 1170,
+          "line": 1264,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "is_lazy_loading",
-          "line": 1175,
+          "line": 1269,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "activate_synthesis_fetcher",
-          "line": 1179,
+          "line": 1273,
           "decorators": []
         },
         {
           "name": "deactivate_synthesis_fetcher",
-          "line": 1214,
+          "line": 1308,
           "decorators": []
         },
         {
           "name": "total_row_count",
-          "line": 1225,
+          "line": 1319,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "ensure_data_dir",
-          "line": 1234,
+          "line": 1328,
           "decorators": []
         },
         {
           "name": "_load_data",
-          "line": 1246,
+          "line": 1340,
           "decorators": []
         },
         {
           "name": "invalidate_data_cache",
-          "line": 1266,
+          "line": 1385,
           "decorators": []
         },
         {
           "name": "_ensure_data_table_exists",
-          "line": 1271,
+          "line": 1395,
           "decorators": []
         },
         {
           "name": "_ensure_data_table_exists_datum",
-          "line": 1352,
+          "line": 1476,
           "decorators": []
         },
         {
           "name": "_load_from_database",
-          "line": 1423,
+          "line": 1547,
           "decorators": []
         },
         {
           "name": "_apply_field_modifications",
-          "line": 1497,
+          "line": 1621,
           "decorators": []
         },
         {
           "name": "get_edited_cells",
-          "line": 1603,
+          "line": 1727,
           "decorators": []
         },
         {
           "name": "is_cell_edited",
-          "line": 1607,
+          "line": 1731,
           "decorators": []
         },
         {
           "name": "get_original_value",
-          "line": 1612,
+          "line": 1736,
           "decorators": []
         },
         {
           "name": "_load_from_datum",
-          "line": 1620,
+          "line": 1744,
           "decorators": []
         },
         {
           "name": "_apply_field_modifications_datum",
-          "line": 1696,
+          "line": 1820,
           "decorators": []
         },
         {
           "name": "_get_display_columns",
-          "line": 1817,
+          "line": 1941,
           "decorators": []
         },
         {
           "name": "load_modifications_log",
-          "line": 1823,
+          "line": 1947,
           "decorators": []
         },
         {
           "name": "invalidate_mods_cache",
-          "line": 1854,
+          "line": 1978,
           "decorators": []
         },
         {
           "name": "_ensure_mods_table_exists",
-          "line": 1859,
+          "line": 1983,
           "decorators": []
         },
         {
           "name": "_ensure_mods_table_exists_datum",
-          "line": 1915,
+          "line": 2039,
           "decorators": []
         },
         {
           "name": "get_synthesis_table_name",
-          "line": 1981,
+          "line": 2105,
           "decorators": []
         },
         {
           "name": "_get_synthesis_age_minutes",
-          "line": 1994,
+          "line": 2118,
           "decorators": []
         },
         {
           "name": "run_synthesis",
-          "line": 2056,
+          "line": 2180,
           "decorators": []
         },
         {
           "name": "_stamp_synthesis_comment",
-          "line": 2128,
+          "line": 2252,
           "decorators": []
         },
         {
           "name": "_run_synthesis_direct",
-          "line": 2155,
+          "line": 2279,
           "decorators": []
         },
         {
           "name": "_run_synthesis_datum",
-          "line": 2173,
+          "line": 2297,
           "decorators": []
         },
         {
           "name": "_refresh_synthesis",
-          "line": 2201,
+          "line": 2325,
           "decorators": []
         },
         {
           "name": "_read_synthesis_table",
-          "line": 2222,
+          "line": 2346,
           "decorators": []
         },
         {
           "name": "check_synthesis_table_exists",
-          "line": 2249,
+          "line": 2373,
           "decorators": []
         },
         {
           "name": "_load_modifications_from_datum",
-          "line": 2283,
+          "line": 2407,
           "decorators": []
         },
         {
           "name": "_load_modifications_from_db",
-          "line": 2350,
+          "line": 2474,
           "decorators": []
         },
         {
           "name": "_aggregate_approval_rejection_entries",
-          "line": 2401,
+          "line": 2525,
           "decorators": []
         },
         {
           "name": "reload_data",
-          "line": 2449,
+          "line": 2573,
           "decorators": []
         },
         {
           "name": "save_modification_to_db",
-          "line": 2455,
+          "line": 2580,
           "decorators": []
         },
         {
           "name": "_save_modification_to_datum",
-          "line": 2507,
+          "line": 2632,
           "decorators": []
         },
         {
           "name": "mark_modification_undone_in_db",
-          "line": 2589,
-          "decorators": []
-        },
-        {
-          "name": "_mark_modification_undone_datum",
-          "line": 2620,
-          "decorators": []
-        },
-        {
-          "name": "cleanup_corrupted_modifications",
-          "line": 2653,
-          "decorators": []
-        },
-        {
-          "name": "_cleanup_corrupted_modifications_datum",
-          "line": 2662,
-          "decorators": []
-        },
-        {
-          "name": "update_data_in_db",
           "line": 2714,
           "decorators": []
         },
         {
+          "name": "_mark_modification_undone_datum",
+          "line": 2745,
+          "decorators": []
+        },
+        {
+          "name": "cleanup_corrupted_modifications",
+          "line": 2778,
+          "decorators": []
+        },
+        {
+          "name": "_cleanup_corrupted_modifications_datum",
+          "line": 2787,
+          "decorators": []
+        },
+        {
+          "name": "update_data_in_db",
+          "line": 2839,
+          "decorators": []
+        },
+        {
           "name": "_update_data_in_datum",
-          "line": 2756,
+          "line": 2881,
           "decorators": []
         },
         {
           "name": "_ensure_state_table_exists",
-          "line": 2798,
+          "line": 2923,
           "decorators": []
         },
         {
           "name": "_ensure_state_table_exists_datum",
-          "line": 2855,
+          "line": 2980,
           "decorators": []
         },
         {
           "name": "save_ui_state",
-          "line": 2918,
+          "line": 3043,
           "decorators": []
         },
         {
           "name": "_save_ui_state_datum",
-          "line": 2988,
+          "line": 3113,
           "decorators": []
         },
         {
           "name": "load_ui_state",
-          "line": 3055,
+          "line": 3180,
           "decorators": []
         },
         {
           "name": "_load_ui_state_datum",
-          "line": 3114,
+          "line": 3239,
           "decorators": []
         },
         {
           "name": "_get_preset_table_name",
-          "line": 3170,
+          "line": 3295,
           "decorators": []
         },
         {
           "name": "_ensure_preset_table_exists",
-          "line": 3186,
+          "line": 3311,
           "decorators": []
         },
         {
           "name": "_ensure_preset_table_exists_datum",
-          "line": 3223,
+          "line": 3348,
           "decorators": []
         },
         {
           "name": "save_preset",
-          "line": 3259,
+          "line": 3384,
           "decorators": []
         },
         {
           "name": "_save_preset_datum",
-          "line": 3304,
+          "line": 3429,
           "decorators": []
         },
         {
           "name": "get_presets",
-          "line": 3370,
+          "line": 3495,
           "decorators": []
         },
         {
           "name": "_get_presets_datum",
-          "line": 3409,
+          "line": 3534,
           "decorators": []
         },
         {
           "name": "delete_preset",
-          "line": 3455,
+          "line": 3580,
           "decorators": []
         },
         {
           "name": "_delete_preset_datum",
-          "line": 3481,
+          "line": 3606,
           "decorators": []
         },
         {
           "name": "get_default_preset",
-          "line": 3508,
+          "line": 3633,
           "decorators": []
         }
       ],
       "classes": [
         {
           "name": "QueryParams",
-          "line": 93
+          "line": 153
         },
         {
           "name": "DataFetcher",
-          "line": 106
+          "line": 166
         },
         {
           "name": "ConfigInstance",
-          "line": 1042
+          "line": 1136
         }
       ]
     },
@@ -1164,22 +1224,22 @@
       "functions": [
         {
           "name": "load_config",
-          "line": 296,
+          "line": 321,
           "decorators": []
         },
         {
           "name": "_merge_config",
-          "line": 326,
+          "line": 351,
           "decorators": []
         },
         {
           "name": "_apply_env_overrides",
-          "line": 446,
+          "line": 488,
           "decorators": []
         },
         {
           "name": "export_config_schema",
-          "line": 503,
+          "line": 545,
           "decorators": []
         }
       ],
@@ -1198,27 +1258,27 @@
         },
         {
           "name": "StateConfig",
-          "line": 100
+          "line": 105
         },
         {
           "name": "TableConfig",
-          "line": 120
+          "line": 125
         },
         {
           "name": "DatabaseConfig",
-          "line": 157
+          "line": 162
         },
         {
           "name": "SynthesisConfig",
-          "line": 200
+          "line": 209
         },
         {
           "name": "PermissionsConfig",
-          "line": 229
+          "line": 238
         },
         {
           "name": "AppConfig",
-          "line": 250
+          "line": 259
         }
       ]
     },
@@ -1330,12 +1390,12 @@
         },
         {
           "name": "build_pagination_controls_all",
-          "line": 28,
+          "line": 38,
           "decorators": []
         },
         {
           "name": "build_pagination_controls_paged",
-          "line": 37,
+          "line": 51,
           "decorators": []
         }
       ],
@@ -1430,7 +1490,7 @@
         },
         {
           "name": "get_filtered_rows",
-          "line": 119,
+          "line": 120,
           "decorators": []
         }
       ],
@@ -1520,7 +1580,7 @@
         },
         {
           "name": "build_dynamic_filters_panel",
-          "line": 371,
+          "line": 396,
           "decorators": []
         }
       ],
@@ -1629,12 +1689,12 @@
       "functions": [
         {
           "name": "get_database_operations",
-          "line": 545,
+          "line": 546,
           "decorators": []
         },
         {
           "name": "reset_database_operations",
-          "line": 566,
+          "line": 567,
           "decorators": []
         },
         {
@@ -1649,73 +1709,73 @@
         },
         {
           "name": "_connection",
-          "line": 161,
+          "line": 162,
           "decorators": [
             "contextmanager"
           ]
         },
         {
           "name": "primary_key",
-          "line": 170,
+          "line": 171,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "columns",
-          "line": 177,
+          "line": 178,
           "decorators": [
             "property"
           ]
         },
         {
           "name": "get_session_book",
-          "line": 183,
+          "line": 184,
           "decorators": []
         },
         {
           "name": "fetch_page",
-          "line": 189,
+          "line": 190,
           "decorators": []
         },
         {
           "name": "get_all_session_data",
-          "line": 289,
+          "line": 290,
           "decorators": []
         },
         {
           "name": "save_modification",
-          "line": 302,
+          "line": 303,
           "decorators": []
         },
         {
           "name": "undo_modification",
-          "line": 357,
+          "line": 358,
           "decorators": []
         },
         {
           "name": "get_modifications_for_row",
-          "line": 397,
+          "line": 398,
           "decorators": []
         },
         {
           "name": "save_ui_state",
-          "line": 437,
+          "line": 438,
           "decorators": []
         },
         {
           "name": "load_ui_state",
-          "line": 484,
+          "line": 485,
           "decorators": []
         },
         {
           "name": "clear_session",
-          "line": 524,
+          "line": 525,
           "decorators": []
         },
         {
           "name": "close",
-          "line": 529,
+          "line": 530,
           "decorators": []
         }
       ],
@@ -1806,24 +1866,24 @@
   },
   "stats": {
     "total_modules": 18,
-    "total_functions": 264,
-    "potentially_unused": 32
+    "total_functions": 274,
+    "potentially_unused": 31
   },
   "unused_functions": [
     {
       "name": "create_server",
       "module": "server",
-      "line": 70
+      "line": 72
     },
     {
       "name": "data_summary",
       "module": "server",
-      "line": 615
+      "line": 686
     },
     {
       "name": "current_preset_name",
       "module": "server",
-      "line": 652
+      "line": 723
     },
     {
       "name": "create_app_ui",
@@ -1833,7 +1893,7 @@
     {
       "name": "ensure_data_dir",
       "module": "config.config_instance",
-      "line": 1234
+      "line": 1328
     },
     {
       "name": "get_modification_status",
@@ -1848,67 +1908,62 @@
     {
       "name": "is_date_column",
       "module": "config.config_instance",
-      "line": 378
+      "line": 438
     },
     {
       "name": "date_columns",
       "module": "config.config_instance",
-      "line": 383
+      "line": 443
     },
     {
       "name": "get_unique_values",
       "module": "config.config_instance",
-      "line": 397
+      "line": 457
     },
     {
       "name": "total_count",
       "module": "config.config_instance",
-      "line": 425
+      "line": 518
     },
     {
       "name": "columns",
       "module": "db.db_operations",
-      "line": 177
+      "line": 178
     },
     {
       "name": "data_fetcher",
       "module": "config.config_instance",
-      "line": 1170
+      "line": 1264
     },
     {
       "name": "total_row_count",
       "module": "config.config_instance",
-      "line": 1225
-    },
-    {
-      "name": "invalidate_data_cache",
-      "module": "config.config_instance",
-      "line": 1266
+      "line": 1319
     },
     {
       "name": "is_cell_edited",
       "module": "config.config_instance",
-      "line": 1607
+      "line": 1731
     },
     {
       "name": "get_original_value",
       "module": "config.config_instance",
-      "line": 1612
+      "line": 1736
     },
     {
       "name": "run_synthesis",
       "module": "config.config_instance",
-      "line": 2056
+      "line": 2180
     },
     {
       "name": "cleanup_corrupted_modifications",
       "module": "config.config_instance",
-      "line": 2653
+      "line": 2778
     },
     {
       "name": "export_config_schema",
       "module": "config.app_config_schema",
-      "line": 503
+      "line": 545
     },
     {
       "name": "export_csv",
@@ -1943,32 +1998,32 @@
     {
       "name": "reset_database_operations",
       "module": "db.db_operations",
-      "line": 566
+      "line": 567
     },
     {
       "name": "primary_key",
       "module": "db.db_operations",
-      "line": 170
+      "line": 171
     },
     {
       "name": "get_all_session_data",
       "module": "db.db_operations",
-      "line": 289
+      "line": 290
     },
     {
       "name": "save_modification",
       "module": "db.db_operations",
-      "line": 302
+      "line": 303
     },
     {
       "name": "get_modifications_for_row",
       "module": "db.db_operations",
-      "line": 397
+      "line": 398
     },
     {
       "name": "clear_session",
       "module": "db.db_operations",
-      "line": 524
+      "line": 525
     }
   ]
 }

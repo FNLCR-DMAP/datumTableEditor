@@ -609,3 +609,139 @@ class TestReviewDetailMultiSelectConfig:
         })
         assert config.enable_review_detail is True
         assert config.review_detail_multi_select is True
+
+
+# =====================================================================
+# Shared App-Level Cache Tests
+# =====================================================================
+
+class TestSharedAppCache:
+    """Tests for the shared_cache_key / shared_cache_ttl configuration."""
+
+    def test_default_shared_cache_key_is_none(self):
+        """shared_cache_key defaults to None (no sharing)."""
+        from src.config.app_config_schema import DatabaseConfig
+
+        db = DatabaseConfig()
+        assert db.shared_cache_key is None
+
+    def test_default_shared_cache_ttl(self):
+        """shared_cache_ttl defaults to 300 seconds."""
+        from src.config.app_config_schema import DatabaseConfig
+
+        db = DatabaseConfig()
+        assert db.shared_cache_ttl == 300
+
+    def test_merge_config_loads_shared_cache_key(self):
+        """_merge_config should load shared_cache_key from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"database": {"shared_cache_key": "my_table_v1"}})
+        assert config.database.shared_cache_key == "my_table_v1"
+
+    def test_merge_config_loads_shared_cache_ttl(self):
+        """_merge_config should load shared_cache_ttl from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"database": {"shared_cache_ttl": 600}})
+        assert config.database.shared_cache_ttl == 600
+
+    def test_merge_config_missing_keeps_defaults(self):
+        """Missing shared_cache_* keeps defaults."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"database": {}})
+        assert config.database.shared_cache_key is None
+        assert config.database.shared_cache_ttl == 300
+
+    def test_app_cache_get_set_hit(self):
+        """_app_cache_set + _app_cache_get should return a copy within TTL."""
+        from src.config.config_instance import _app_cache_get, _app_cache_set, _app_cache_invalidate
+
+        key = "_test_hit"
+        try:
+            df = pd.DataFrame({"a": [1, 2, 3]})
+            _app_cache_set(key, df)
+            result = _app_cache_get(key, ttl=60)
+            assert result is not None
+            assert list(result["a"]) == [1, 2, 3]
+            # Must be a copy, not the same object
+            assert result is not df
+        finally:
+            _app_cache_invalidate(key)
+
+    def test_app_cache_miss_no_key(self):
+        """_app_cache_get returns None for unknown keys."""
+        from src.config.config_instance import _app_cache_get
+
+        assert _app_cache_get("_nonexistent_key_xyz", ttl=60) is None
+
+    def test_app_cache_ttl_expiry(self):
+        """Expired entries should return None."""
+        import time
+        from src.config.config_instance import (
+            _app_cache_get, _app_cache_set, _app_cache_invalidate,
+            _APP_CACHE, _APP_CACHE_LOCK,
+        )
+
+        key = "_test_expiry"
+        try:
+            df = pd.DataFrame({"x": [10]})
+            _app_cache_set(key, df)
+            # Manually backdate the timestamp
+            with _APP_CACHE_LOCK:
+                old_df, _ = _APP_CACHE[key]
+                _APP_CACHE[key] = (old_df, time.time() - 999)
+            result = _app_cache_get(key, ttl=60)
+            assert result is None
+        finally:
+            _app_cache_invalidate(key)
+
+    def test_app_cache_invalidate(self):
+        """_app_cache_invalidate should remove the entry."""
+        from src.config.config_instance import _app_cache_get, _app_cache_set, _app_cache_invalidate
+
+        key = "_test_invalidate"
+        df = pd.DataFrame({"b": [4, 5]})
+        _app_cache_set(key, df)
+        assert _app_cache_get(key, ttl=60) is not None
+        _app_cache_invalidate(key)
+        assert _app_cache_get(key, ttl=60) is None
+
+    def test_app_cache_different_keys_isolated(self):
+        """Different keys should not interfere."""
+        from src.config.config_instance import _app_cache_get, _app_cache_set, _app_cache_invalidate
+
+        try:
+            _app_cache_set("_key_a", pd.DataFrame({"v": [1]}))
+            _app_cache_set("_key_b", pd.DataFrame({"v": [2]}))
+            a = _app_cache_get("_key_a", ttl=60)
+            b = _app_cache_get("_key_b", ttl=60)
+            assert list(a["v"]) == [1]
+            assert list(b["v"]) == [2]
+        finally:
+            _app_cache_invalidate("_key_a")
+            _app_cache_invalidate("_key_b")
+
+    def test_app_cache_invalidate_nonexistent_is_noop(self):
+        """Invalidating a non-existent key should not raise."""
+        from src.config.config_instance import _app_cache_invalidate
+
+        _app_cache_invalidate("_does_not_exist_xyz")  # Should not raise
+
+    def test_app_cache_set_stores_copy(self):
+        """Mutating the original DataFrame should not affect the cache."""
+        from src.config.config_instance import _app_cache_get, _app_cache_set, _app_cache_invalidate
+
+        key = "_test_copy_isolation"
+        try:
+            df = pd.DataFrame({"c": [10, 20]})
+            _app_cache_set(key, df)
+            df["c"] = [99, 99]  # Mutate original
+            result = _app_cache_get(key, ttl=60)
+            assert list(result["c"]) == [10, 20]  # Cache unaffected
+        finally:
+            _app_cache_invalidate(key)

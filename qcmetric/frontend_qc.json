@@ -1,6 +1,7 @@
 {
   "js_files": [
     "cell-edit.js",
+    "facet-filter.js",
     "histogram.js",
     "modal.js",
     "panel-toggle.js",
@@ -115,6 +116,66 @@
       "line": 57,
       "type": "info",
       "message": "Possible missing semicolon"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 3,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 4,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 11,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 13,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 15,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 16,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 17,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 23,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 25,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "facet-filter.js",
+      "line": 43,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "histogram.js",
@@ -604,37 +665,55 @@
     },
     {
       "file": "row-selection.js",
+      "line": 6,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "row-selection.js",
+      "line": 7,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "row-selection.js",
       "line": 16,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "row-selection.js",
-      "line": 97,
+      "line": 42,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "row-selection.js",
-      "line": 113,
+      "line": 132,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "row-selection.js",
-      "line": 135,
+      "line": 148,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "row-selection.js",
-      "line": 156,
+      "line": 170,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "row-selection.js",
       "line": 191,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "row-selection.js",
+      "line": 226,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -1077,6 +1156,10 @@
       "function": "saveCellValue"
     },
     {
+      "file": "facet-filter.js",
+      "function": "initFacetCheckboxes"
+    },
+    {
       "file": "histogram.js",
       "function": "initHistogramCheckboxes"
     },
@@ -1238,6 +1321,14 @@
     },
     {
       "file": "row-selection.js",
+      "function": "_isSingleSelectMode"
+    },
+    {
+      "file": "row-selection.js",
+      "function": "_deselectOtherRows"
+    },
+    {
+      "file": "row-selection.js",
       "function": "updateRowHighlight"
     },
     {
@@ -1338,12 +1429,12 @@
     }
   ],
   "_summary": {
-    "js_file_count": 8,
+    "js_file_count": 9,
     "css_file_count": 8,
     "js_errors": 1,
     "js_warnings": 0,
     "css_errors": 0,
     "css_warnings": 20,
-    "total_js_functions": 70
+    "total_js_functions": 73
   }
 }

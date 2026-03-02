@@ -2,11 +2,11 @@
   "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 81,
+    "total_functions": 84,
     "unused_functions": 1,
-    "fully_annotated_functions": 72,
-    "function_coverage_percent": 88.9,
-    "parameter_coverage_percent": 96.4,
+    "fully_annotated_functions": 75,
+    "function_coverage_percent": 89.3,
+    "parameter_coverage_percent": 96.6,
     "mypy_errors": 0
   },
   "files": {},
@@ -231,10 +231,13 @@
       ]
     },
     "src/utils/ui_components.py": {
-      "total": 11,
+      "total": 14,
       "functions": [
         "build_approval_status_banner",
         "build_empty_log_message",
+        "build_facet_bar",
+        "build_facet_panel",
+        "build_facet_panels",
         "build_log_entry_approval",
         "build_log_entry_field_modification",
         "build_log_entry_rejection",
@@ -248,6 +251,9 @@
       "used": [
         "build_approval_status_banner",
         "build_empty_log_message",
+        "build_facet_bar",
+        "build_facet_panel",
+        "build_facet_panels",
         "build_log_entry_approval",
         "build_log_entry_field_modification",
         "build_log_entry_rejection",
@@ -410,7 +416,7 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 371
+          "line": 396
         }
       ]
     },
@@ -421,8 +427,8 @@
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 9,
-        "annotated": 9
+        "total": 12,
+        "annotated": 12
       }
     },
     "src/utils/preset_utils.py": {
@@ -449,13 +455,13 @@
     },
     "src/utils/ui_components.py": {
       "functions": {
-        "total": 11,
-        "with_return_type": 9,
-        "fully_annotated": 9
+        "total": 14,
+        "with_return_type": 12,
+        "fully_annotated": 12
       },
       "parameters": {
-        "total": 21,
-        "annotated": 19
+        "total": 36,
+        "annotated": 34
       },
       "missing": [
         {

@@ -1272,3 +1272,518 @@ class TestMultiTabContextIntegration:
         assert th_block is not None, "Could not find .edit-table th rule in table.css"
         th_styles = th_block.group(1)
         assert "overflow: visible" in th_styles or "overflow:visible" in th_styles
+
+
+# =============================================================================
+# 18. Modal Utils Integration — Filter Panel → Apply → Table Render
+# =============================================================================
+
+class TestFilterPanelToTableRender:
+    """Full pipeline: add filter via filter_handlers → build filter panel →
+    apply filter via filter_utils → render table body with filtered rows."""
+
+    @pytest.fixture
+    def filter_df(self):
+        return pd.DataFrame({
+            "PatientID_Mutsequence": ["PK001", "PK002", "PK003", "PK004"],
+            "Gene_names": ["BRCA1", "TP53", "EGFR", "BRCA1"],
+            "Status": ["Pending", "Reviewed", "Pending", "Approved"],
+        })
+
+    def test_add_filter_build_panel_apply_render(self, filter_df):
+        """add_filter → build_dynamic_filters_panel → get_filtered_rows → build_table_body."""
+        from src.utils.filter_handlers import add_filter
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from src.utils.filter_utils import get_filtered_rows
+        from src.utils.table_utils import build_table_body
+
+        status_func = lambda idx: "unprocessed"
+        pk_cols = ["PatientID_Mutsequence"]
+        display_cols = ["Gene_names", "Status"]
+
+        # Step 1: Add filter
+        filters = add_filter({}, "Gene_names")
+        assert "Gene_names" in filters
+        assert filters["Gene_names"] == "all"
+
+        # Step 2: Build panel — should see textarea with BRCA1, EGFR, TP53
+        panel_html = str(build_dynamic_filters_panel(filters, filter_df))
+        assert "Gene_names" in panel_html
+        assert "filter_Gene_names" in panel_html
+
+        # Step 3: Set filter value to "BRCA1"
+        filters["Gene_names"] = "BRCA1"
+        result = get_filtered_rows(
+            filter_df, display_cols, "",
+            ["unprocessed", "edited", "approved", "rejected"],
+            filters, status_func
+        )
+        assert sorted(result) == [0, 3]  # PK001 and PK004 both have BRCA1
+
+        # Step 4: Render table body for filtered rows
+        tbody = build_table_body(result, filter_df, display_cols, status_func, pk_columns=pk_cols)
+        html = str(tbody)
+        assert html.count("<tr") == 2
+        assert "BRCA1" in html
+
+    def test_remove_filter_shows_all_rows(self, filter_df):
+        """After removing a filter, all rows should appear again."""
+        from src.utils.filter_handlers import add_filter, remove_filter
+        from src.utils.filter_utils import get_filtered_rows
+
+        status_func = lambda idx: "unprocessed"
+        all_statuses = ["unprocessed", "edited", "approved", "rejected"]
+
+        filters = add_filter({}, "Gene_names")
+        filters["Gene_names"] = "BRCA1"
+        result = get_filtered_rows(filter_df, ["Gene_names"], "", all_statuses, filters, status_func)
+        assert len(result) == 2
+
+        # Remove filter
+        filters = remove_filter(filters, "Gene_names")
+        result = get_filtered_rows(filter_df, ["Gene_names"], "", all_statuses, filters, status_func)
+        assert len(result) == 4
+
+
+# =============================================================================
+# 19. Modal Utils Integration — Column Modal → Preset → Table Header
+# =============================================================================
+
+class TestColumnModalToTableHeader:
+    """Pipeline: build column modal content with preset columns → render
+    table header with the same columns → verify consistency."""
+
+    def test_preset_columns_drive_modal_and_header(self):
+        """Preset columns appear both in column modal and table header."""
+        from src.utils.modal_utils import build_columns_modal_content
+        from src.utils.table_utils import build_table_header
+
+        all_cols = ["PatientID", "Gene_names", "Variant_key", "Status", "Comments"]
+        preset_cols = ["PatientID", "Gene_names", "Status"]
+        available = [c for c in all_cols if c not in preset_cols]
+
+        # Modal shows current + available
+        modal_html = str(build_columns_modal_content(preset_cols, available))
+        for c in preset_cols:
+            assert c in modal_html
+        for c in available:
+            assert c in modal_html
+        assert "Current columns" in modal_html
+        assert "Remaining columns" in modal_html
+
+        # Table header uses same columns
+        widths = {c: "150px" for c in preset_cols}
+        header_html = str(build_table_header(preset_cols, widths))
+        for c in preset_cols:
+            assert c in header_html
+        # Unavailable columns NOT in header
+        for c in available:
+            assert c not in header_html
+
+    def test_column_masks_consistent_across_modal_and_header(self):
+        """column_masks produce the same display name in modal and header."""
+        from src.utils.modal_utils import build_columns_modal_content, build_filter_column_buttons, build_copy_column_buttons
+        from src.utils.table_utils import build_draggable_header_cell
+
+        masks = {"Gene_names": "Gene", "Variant_key": "Variant"}
+        cols = ["Gene_names", "Variant_key"]
+
+        # Modal tags show masked names
+        modal_html = str(build_columns_modal_content(cols, [], column_masks=masks))
+        assert "Gene" in modal_html
+        assert "Variant" in modal_html
+
+        # Header cell shows masked name
+        th_html = str(build_draggable_header_cell("Gene_names", column_masks=masks))
+        assert "Gene" in th_html
+        assert 'data-column="Gene_names"' in th_html  # real name in data attr
+
+        # Filter buttons show masked name
+        fb_html = str(build_filter_column_buttons(cols, column_masks=masks))
+        assert "Gene" in fb_html
+        assert "Variant" in fb_html
+
+        # Copy buttons show masked name
+        cb_html = str(build_copy_column_buttons(cols, column_masks=masks))
+        assert "Gene" in cb_html
+        assert "Variant" in cb_html
+
+
+# =============================================================================
+# 20. Modal Utils Integration — Copy Modal → Clipboard Pipeline
+# =============================================================================
+
+class TestCopyModalToClipboard:
+    """Pipeline: build copy column buttons → process_copy_request → clipboard JS."""
+
+    def test_copy_button_triggers_clipboard_pipeline(self):
+        """Copy button columns match clipboard pipeline output."""
+        from src.utils.modal_utils import build_copy_column_buttons
+        from src.utils.clipboard_utils import process_copy_request
+        from src.utils.data_operations import get_paginated_indices, get_copy_column_values
+
+        df = pd.DataFrame({
+            "Gene_names": ["BRCA1", "TP53", "EGFR"],
+            "Score": [85, 42, 95],
+        })
+
+        # Build copy buttons
+        btn_html = str(build_copy_column_buttons(["Gene_names", "Score"]))
+        assert "copyColumnValues" in btn_html
+        assert "Gene_names" in btn_html
+        assert "Score" in btn_html
+
+        # Simulate the copy pipeline for Gene_names
+        filtered_indices = [0, 1, 2]
+        request = {"action": "copy_column", "column": "Gene_names", "indices": [0, 1, 2]}
+
+        def mock_paginate(indices, rpp, page):
+            return get_paginated_indices(indices, rpp, page)
+
+        def mock_copy_values(frame, col, pag_indices, sel_indices):
+            return get_copy_column_values(frame, col, pag_indices, sel_indices)
+
+        js, col, count, err = process_copy_request(
+            request, df, filtered_indices, "25", 1,
+            mock_paginate, mock_copy_values
+        )
+        assert err is None
+        assert col == "Gene_names"
+        assert count == 3
+        assert "BRCA1" in js
+        assert "TP53" in js
+
+
+# =============================================================================
+# 21. Modal Utils Integration — Operator Filter + fix_filter Lockdown
+# =============================================================================
+
+class TestFixFilterLockdownPipeline:
+    """Pipeline: config-defined operator filters rendered locked →
+    update_filter_values skips them → get_filtered_rows still applies."""
+
+    def test_locked_filter_renders_readonly_and_still_filters(self):
+        """fix_filter=True renders locked UI; filter_utils still applies the filter."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from src.utils.filter_utils import get_filtered_rows
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        df = pd.DataFrame({
+            "Gene_names": ["BRCA1", "TP53", "EGFR", "PTEN"],
+            "Score": [85, 42, 95, 70],
+        })
+        status_func = lambda idx: "unprocessed"
+
+        # Config-defined filter (no "interactive" key)
+        filters = {"Gene_names": {"op": "in", "value": ["BRCA1", "TP53"]}}
+
+        # 1) Render panel as locked
+        html = str(build_dynamic_filters_panel(filters, df, fix_filter=True))
+        assert "Gene_names" in html
+        assert "disabled" in html  # operator select locked
+
+        # 2) update_filter_values SKIPS config-defined filters
+        mock_input = MagicMock()
+        new_filters, updated = update_filter_values(filters, mock_input)
+        assert updated is False  # Nothing changed
+
+        # 3) get_filtered_rows still applies the locked filter
+        result = get_filtered_rows(
+            df, ["Gene_names", "Score"], "",
+            ["unprocessed"], filters, status_func
+        )
+        names = [df.loc[i, "Gene_names"] for i in result]
+        assert sorted(names) == ["BRCA1", "TP53"]
+
+    def test_interactive_filter_alongside_locked(self):
+        """Interactive filter works while locked config filter stays untouched."""
+        from src.utils.filter_utils import get_filtered_rows
+        from src.utils.filter_handlers import update_filter_values
+        from unittest.mock import MagicMock
+
+        df = pd.DataFrame({
+            "Gene_names": ["BRCA1", "TP53", "EGFR"],
+            "Score": [85, 42, 95],
+        })
+        status_func = lambda idx: "unprocessed"
+
+        filters = {
+            "Gene_names": {"op": "in", "value": ["BRCA1", "TP53"]},  # locked (no interactive)
+            "Score": "all",  # user-added simple filter
+        }
+
+        # User types a score filter
+        mock_input = MagicMock()
+        mock_input.filter_Gene_names = MagicMock(side_effect=Exception("should not be called"))
+        mock_input.filter_Score = MagicMock(return_value="85")
+
+        new_filters, updated = update_filter_values(filters, mock_input)
+        assert updated is True
+        assert new_filters["Score"] == "85"
+        # Gene_names unchanged
+        assert new_filters["Gene_names"] == {"op": "in", "value": ["BRCA1", "TP53"]}
+
+        # Both filters apply
+        result = get_filtered_rows(
+            df, ["Gene_names", "Score"], "",
+            ["unprocessed"], new_filters, status_func
+        )
+        assert result == [0]  # BRCA1 + Score=85
+
+
+# =============================================================================
+# 22. Modal Utils Integration — Cell Edit → Filter Panel Rebuilds
+# =============================================================================
+
+class TestCellEditUpdatesFilterPanel:
+    """After a cell edit changes a value, the rebuilt filter panel should
+    reflect the new unique values."""
+
+    def test_edit_introduces_new_unique_value_in_panel(self):
+        """Editing Gene_names from EGFR → ALK adds ALK to filter panel unique values."""
+        from src.utils.data_operations import perform_cell_edit
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from src.utils.filter_handlers import add_filter
+        from unittest.mock import MagicMock
+
+        df = pd.DataFrame({
+            "PatientID_Mutsequence": ["PK001", "PK002", "PK003"],
+            "Gene_names": ["BRCA1", "TP53", "EGFR"],
+        })
+
+        mock_ci = MagicMock()
+        mock_ci.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_ci.update_data_in_db = MagicMock(return_value=True)
+        mock_ci.save_modification_to_db = MagicMock(return_value=1)
+
+        # Edit EGFR → ALK
+        df2, log = perform_cell_edit(df, [], 2, "Gene_names", "EGFR", "ALK", config_instance=mock_ci)
+        assert df2.iloc[2]["Gene_names"] == "ALK"
+
+        # Build filter panel → should include ALK in unique values
+        filters = add_filter({}, "Gene_names")
+        panel_html = str(build_dynamic_filters_panel(filters, df2))
+        assert "ALK" in panel_html
+        assert "EGFR" not in panel_html  # Old value gone
+
+    def test_edit_does_not_affect_other_column_filters(self):
+        """Editing Gene_names should not change Status filter unique values."""
+        from src.utils.data_operations import perform_cell_edit
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from unittest.mock import MagicMock
+
+        df = pd.DataFrame({
+            "PatientID_Mutsequence": ["PK001", "PK002"],
+            "Gene_names": ["BRCA1", "TP53"],
+            "Status": ["Pending", "Reviewed"],
+        })
+
+        mock_ci = MagicMock()
+        mock_ci.app_config.table.primary_key = ["PatientID_Mutsequence"]
+        mock_ci.update_data_in_db = MagicMock(return_value=True)
+        mock_ci.save_modification_to_db = MagicMock(return_value=1)
+
+        df2, _ = perform_cell_edit(df, [], 0, "Gene_names", "BRCA1", "ALK", config_instance=mock_ci)
+
+        filters = {"Gene_names": "all", "Status": "all"}
+        panel_html = str(build_dynamic_filters_panel(filters, df2))
+        # Gene_names has the new value
+        assert "ALK" in panel_html
+        # Status still has originals
+        assert "Pending" in panel_html
+        assert "Reviewed" in panel_html
+
+
+# =============================================================================
+# 23. Modal Utils Integration — Lazy Mode get_unique_values_func Callback
+# =============================================================================
+
+class TestLazyModeUniqueValuesCallback:
+    """When DataFrame is empty (lazy loading), build_dynamic_filters_panel
+    uses the get_unique_values_func callback to populate filter values."""
+
+    def test_empty_df_calls_callback_for_values(self):
+        """Empty DataFrame triggers callback; panel shows DB-fetched values."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from unittest.mock import MagicMock
+
+        empty_df = pd.DataFrame(columns=["Gene_names", "Status"])
+
+        callback = MagicMock(return_value=["BRCA1", "TP53", "EGFR"])
+
+        filters = {"Gene_names": "all"}
+        panel_html = str(build_dynamic_filters_panel(
+            filters, empty_df,
+            all_columns=["Gene_names", "Status"],
+            get_unique_values_func=callback
+        ))
+
+        callback.assert_called_once_with("Gene_names")
+        assert "BRCA1" in panel_html
+        assert "TP53" in panel_html
+
+    def test_non_empty_df_skips_callback(self):
+        """When DataFrame has data, callback is not used."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from unittest.mock import MagicMock
+
+        df = pd.DataFrame({"Gene_names": ["BRCA1", "TP53"]})
+        callback = MagicMock(return_value=["should_not_appear"])
+
+        filters = {"Gene_names": "all"}
+        panel_html = str(build_dynamic_filters_panel(
+            filters, df, get_unique_values_func=callback
+        ))
+
+        callback.assert_not_called()
+        assert "BRCA1" in panel_html
+
+    def test_operator_filter_with_callback(self):
+        """Operator filter on empty df uses callback, then get_filtered_rows applies it."""
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        from src.utils.filter_utils import get_filtered_rows
+        from unittest.mock import MagicMock
+
+        # Panel built with callback (lazy mode)
+        empty_df = pd.DataFrame(columns=["Gene_names"])
+        callback = MagicMock(return_value=["BRCA1", "TP53", "EGFR"])
+        filters = {"Gene_names": {"op": "in", "value": ["BRCA1"], "interactive": True}}
+
+        panel_html = str(build_dynamic_filters_panel(
+            filters, empty_df,
+            all_columns=["Gene_names"],
+            get_unique_values_func=callback
+        ))
+        assert "BRCA1" in panel_html
+
+        # Now apply filter on actual data
+        real_df = pd.DataFrame({"Gene_names": ["BRCA1", "TP53", "EGFR"]})
+        status_func = lambda idx: "unprocessed"
+        result = get_filtered_rows(
+            real_df, ["Gene_names"], "",
+            ["unprocessed"], filters, status_func
+        )
+        assert result == [0]  # Only BRCA1
+
+
+# =============================================================================
+# 24. Modal Utils Integration — Preset Menu → Column Change → Filter Sync
+# =============================================================================
+
+class TestPresetMenuFilterSync:
+    """Pipeline: preset menu built → switching presets changes columns →
+    filter column buttons update to reflect available columns."""
+
+    def test_preset_switch_updates_filter_buttons(self):
+        """Different presets show different available columns for filtering."""
+        from src.utils.modal_utils import build_preset_menu_items, build_filter_column_buttons
+
+        presets = {
+            "Default": {"columns": ["Gene_names", "Status"]},
+            "Extended": {"columns": ["Gene_names", "Status", "Score", "Comments"]},
+        }
+
+        # Build preset menu
+        menu_html = str(build_preset_menu_items(presets, "Default"))
+        assert "Default" in menu_html
+        assert "Extended" in menu_html
+        assert "deletePreset" in menu_html  # Extended has delete
+
+        # Default preset: filter buttons for the 2 columns
+        fb_default = str(build_filter_column_buttons(presets["Default"]["columns"]))
+        assert "Gene_names" in fb_default
+        assert "Status" in fb_default
+        assert "Score" not in fb_default
+
+        # Extended preset: filter buttons for 4 columns
+        fb_ext = str(build_filter_column_buttons(presets["Extended"]["columns"]))
+        assert "Score" in fb_ext
+        assert "Comments" in fb_ext
+
+    def test_filtered_columns_excluded_from_available(self):
+        """Columns already filtered should not appear in filter column buttons."""
+        from src.utils.modal_utils import build_filter_column_buttons
+        from src.utils.filter_handlers import add_filter
+
+        all_cols = ["Gene_names", "Status", "Score"]
+        filters = add_filter({}, "Gene_names")
+        available = [c for c in all_cols if c not in filters]
+
+        fb_html = str(build_filter_column_buttons(available))
+        assert "Gene_names" not in fb_html  # Already filtered
+        assert "Status" in fb_html
+        assert "Score" in fb_html
+
+
+# =============================================================================
+# 25. Modal Utils Integration — All 12 Operators End-to-End
+# =============================================================================
+
+class TestAllOperatorsEndToEnd:
+    """Each operator renders correctly in the panel AND filters data correctly."""
+
+    @pytest.fixture
+    def op_df(self):
+        return pd.DataFrame({
+            "Name": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
+            "Score": ["85", "42", "95", "70", "60"],
+            "Gene": ["BRCA1", "TP53", "EGFR", "PTEN", "BRCA2"],
+        })
+
+    @pytest.fixture
+    def status_func(self):
+        return lambda idx: "unprocessed"
+
+    def _filter_names(self, df, filters, status_func, cols=None):
+        from src.utils.filter_utils import get_filtered_rows
+        cols = cols or ["Name", "Score", "Gene"]
+        result = get_filtered_rows(df, cols, "", ["unprocessed"], filters, status_func)
+        return [df.loc[i, "Name"] for i in result]
+
+    def test_contains_operator(self, op_df, status_func):
+        from src.utils.modal_utils import build_dynamic_filters_panel
+        filters = {"Gene": {"op": "contains", "value": "BRC", "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert sorted(names) == ["Alice", "Eve"]
+        html = str(build_dynamic_filters_panel(filters, op_df))
+        assert "contains" in html.lower() or "BRC" in html
+
+    def test_not_contains_operator(self, op_df, status_func):
+        filters = {"Gene": {"op": "not_contains", "value": "BRC", "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert "Alice" not in names
+        assert "Bob" in names
+
+    def test_regex_operator(self, op_df, status_func):
+        filters = {"Gene": {"op": "regex", "value": "^(BRCA|TP)", "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert sorted(names) == ["Alice", "Bob", "Eve"]
+
+    def test_not_in_operator(self, op_df, status_func):
+        filters = {"Gene": {"op": "not_in", "value": ["BRCA1", "TP53"], "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert sorted(names) == ["Charlie", "Diana", "Eve"]
+
+    def test_gt_operator_numeric(self, op_df, status_func):
+        filters = {"Score": {"op": "gt", "value": "70", "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert sorted(names) == ["Alice", "Charlie"]
+
+    def test_lte_operator_numeric(self, op_df, status_func):
+        filters = {"Score": {"op": "lte", "value": "60", "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert sorted(names) == ["Bob", "Eve"]
+
+    def test_between_operator(self, op_df, status_func):
+        filters = {"Score": {"op": "between", "value": ["50", "85"], "interactive": True}}
+        names = self._filter_names(op_df, filters, status_func)
+        assert sorted(names) == ["Alice", "Diana", "Eve"]
+
+    def test_not_empty_operator(self, op_df, status_func):
+        df2 = op_df.copy()
+        df2.loc[1, "Gene"] = None
+        filters = {"Gene": {"op": "not_empty", "value": None, "interactive": True}}
+        names = self._filter_names(df2, filters, status_func)
+        assert "Bob" not in names
+        assert len(names) == 4

@@ -7,6 +7,8 @@ Each widget can load its own config file independently.
 
 import json
 import os
+import threading
+import time as _time
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -14,6 +16,40 @@ from typing import Optional, List, Dict, Any, Tuple
 
 from .app_config_schema import AppConfig, load_config
 from .sql_types import SqlIdentifier, SqlTableName, SqlLiteral, build_pk_json_expr, build_pk_array
+
+
+# ---------------------------------------------------------------------------
+# App-level shared data cache
+# Shared across all sessions in the same worker process.  Keyed by the
+# user-configured ``shared_cache_key``.  Each entry stores (DataFrame, timestamp).
+# ---------------------------------------------------------------------------
+_APP_CACHE: Dict[str, Tuple[pd.DataFrame, float]] = {}
+_APP_CACHE_LOCK = threading.Lock()
+
+
+def _app_cache_get(key: str, ttl: int) -> Optional[pd.DataFrame]:
+    """Return a .copy() of the cached DataFrame if within TTL, else None."""
+    with _APP_CACHE_LOCK:
+        entry = _APP_CACHE.get(key)
+        if entry is None:
+            return None
+        df, ts = entry
+        if (_time.time() - ts) >= ttl:
+            del _APP_CACHE[key]
+            return None
+        return df.copy()
+
+
+def _app_cache_set(key: str, df: pd.DataFrame) -> None:
+    """Store a .copy() of the DataFrame in the app cache."""
+    with _APP_CACHE_LOCK:
+        _APP_CACHE[key] = (df.copy(), _time.time())
+
+
+def _app_cache_invalidate(key: str) -> None:
+    """Remove a key from the app cache."""
+    with _APP_CACHE_LOCK:
+        _APP_CACHE.pop(key, None)
 
 
 # ---------------------------------------------------------------------------
@@ -1302,29 +1338,59 @@ class ConfigInstance:
             return False
 
     def _load_data(self) -> pd.DataFrame:
-        """Load data from database with caching."""
+        """Load data from database with caching.
+
+        Cache layers (checked in order):
+        1. App-level shared cache (``shared_cache_key``) — survives across sessions
+        2. Per-instance cache (``_data_cache``) — 30-second TTL per session
+        3. Fresh DB query
+        """
         import time
-        cache_ttl = 30  # Cache data for 30 seconds
-        
-        # Check if we have valid cached data
+        cache_ttl = 30  # Per-instance cache TTL
+
+        # ── Layer 1: app-level shared cache ──
+        db = getattr(self.app_config, "database", None) if self.app_config else None
+        shared_key = getattr(db, "shared_cache_key", None) if db else None
+        shared_ttl = getattr(db, "shared_cache_ttl", 300) if db else 300
+        if shared_key:
+            shared_df = _app_cache_get(shared_key, shared_ttl)
+            if shared_df is not None:
+                print(f"[Cache] App-level HIT for key={shared_key}")
+                # Also populate per-instance cache
+                self._data_cache = shared_df.copy()
+                self._data_cache_time = time.time()
+                return shared_df
+
+        # ── Layer 2: per-instance cache ──
         if self._data_cache is not None and (time.time() - self._data_cache_time) < cache_ttl:
             return self._data_cache.copy()
-        
+
+        # ── Layer 3: fresh DB query ──
         if self.app_config.database.mode == "datum":
             df = self._load_from_datum()
         else:
             df = self._load_from_database()
-        
-        # Update cache
+
+        # Populate per-instance cache
         self._data_cache = df.copy()
         self._data_cache_time = time.time()
-        
+
+        # Populate app-level cache
+        if shared_key:
+            _app_cache_set(shared_key, df)
+            print(f"[Cache] App-level SET for key={shared_key}")
+
         return df
-    
+
     def invalidate_data_cache(self):
-        """Invalidate the data cache to force reload on next access."""
+        """Invalidate both per-instance and app-level shared caches."""
         self._data_cache = None
         self._data_cache_time = 0
+        db = getattr(self.app_config, "database", None) if self.app_config else None
+        shared_key = getattr(db, "shared_cache_key", None) if db else None
+        if shared_key:
+            _app_cache_invalidate(shared_key)
+            print(f"[Cache] App-level INVALIDATE for key={shared_key}")
 
     def _ensure_data_table_exists(self) -> bool:
         """
@@ -2505,7 +2571,8 @@ class ConfigInstance:
         return result
     
     def reload_data(self) -> pd.DataFrame:
-        """Reload data from database."""
+        """Reload data from database (bypasses all caches)."""
+        self.invalidate_data_cache()
         self.df = self._load_data()
         self.all_columns = list(self.df.columns)
         return self.df

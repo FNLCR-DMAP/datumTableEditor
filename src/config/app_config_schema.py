@@ -199,6 +199,10 @@ class DatabaseConfig:
     lazy_loading: bool = False  # If True, use DB-level pagination instead of loading all data
     max_rows_per_page: int = 100
     default_rows_per_page: int = 25
+    
+    # Shared app-level cache (cross-session)
+    shared_cache_key: Optional[str] = None  # If set, share loaded data across sessions using this key
+    shared_cache_ttl: int = 300  # Seconds to keep shared cache alive (default 5 minutes)
 
 
 @dataclass
@@ -437,6 +441,8 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.lazy_loading = db.get("lazy_loading", config.database.lazy_loading)
         config.database.max_rows_per_page = db.get("max_rows_per_page", config.database.max_rows_per_page)
         config.database.default_rows_per_page = db.get("default_rows_per_page", config.database.default_rows_per_page)
+        config.database.shared_cache_key = db.get("shared_cache_key")
+        config.database.shared_cache_ttl = db.get("shared_cache_ttl", config.database.shared_cache_ttl)
     
     # Feature flags
     config.enable_approval_workflow = file_config.get("enable_approval_workflow", config.enable_approval_workflow)

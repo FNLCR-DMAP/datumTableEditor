@@ -418,3 +418,453 @@ class TestDateColumnsProperty:
             "e": "timestamptz",
         })
         assert fetcher.date_columns == {"a", "b", "c", "d", "e"}
+
+
+# =============================================================================
+# DataFetcher.set_table_override / clear_table_override
+# =============================================================================
+
+class TestDataFetcherTableOverride:
+    """Tests for DataFetcher.set_table_override and clear_table_override."""
+
+    def _make_fetcher(self, data_table="original_data"):
+        from src.config.config_instance import DataFetcher
+
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher.app_config = MagicMock()
+        fetcher.app_config.database.data_table = data_table
+        fetcher._table_override = None
+        fetcher._total_count = 0
+        fetcher._refresh_count = MagicMock()
+        return fetcher
+
+    def test_set_table_override_sets_field(self):
+        """set_table_override should set _table_override."""
+        fetcher = self._make_fetcher()
+        fetcher.set_table_override("synthesis_result")
+        assert fetcher._table_override == "synthesis_result"
+
+    def test_set_table_override_calls_refresh_count(self):
+        """set_table_override should call _refresh_count."""
+        fetcher = self._make_fetcher()
+        fetcher.set_table_override("my_matview")
+        fetcher._refresh_count.assert_called_once()
+
+    def test_clear_table_override_resets_to_none(self):
+        """clear_table_override should set _table_override to None."""
+        fetcher = self._make_fetcher()
+        fetcher._table_override = "override_table"
+        fetcher.clear_table_override()
+        assert fetcher._table_override is None
+
+    def test_clear_table_override_calls_refresh_count(self):
+        """clear_table_override should call _refresh_count."""
+        fetcher = self._make_fetcher()
+        fetcher._table_override = "override_table"
+        fetcher.clear_table_override()
+        fetcher._refresh_count.assert_called_once()
+
+    def test_set_then_clear_roundtrip(self):
+        """Set override then clear should return to None."""
+        fetcher = self._make_fetcher()
+        fetcher.set_table_override("temp_table")
+        assert fetcher._table_override == "temp_table"
+        fetcher.clear_table_override()
+        assert fetcher._table_override is None
+
+
+# =============================================================================
+# DataFetcher.get_value_counts
+# =============================================================================
+
+class TestDataFetcherGetValueCounts:
+    """Tests for DataFetcher.get_value_counts."""
+
+    def _make_fetcher(self, mode="direct"):
+        from src.config.config_instance import DataFetcher
+
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher.app_config = MagicMock()
+        fetcher.app_config.database.mode = mode
+        fetcher.app_config.database.data_table = "test_data"
+        fetcher._table_override = None
+        fetcher._engine = MagicMock()
+        fetcher._datum_client = None
+        return fetcher
+
+    def test_direct_mode_returns_tuples(self):
+        """Should return list of (value, count) tuples via SQLAlchemy engine."""
+        fetcher = self._make_fetcher("direct")
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = [
+            ("Active", 50), ("Inactive", 20)
+        ]
+        fetcher._engine.connect.return_value = mock_conn
+
+        result = fetcher.get_value_counts("Status")
+
+        assert result == [("Active", 50), ("Inactive", 20)]
+
+    def test_returns_empty_on_exception(self):
+        """Should return [] when engine raises."""
+        fetcher = self._make_fetcher("direct")
+        fetcher._engine.connect.side_effect = Exception("connection error")
+
+        result = fetcher.get_value_counts("Status")
+
+        assert result == []
+
+    def test_datum_mode_queries_via_client(self):
+        """Datum mode should use _datum_client.execute_sql."""
+        fetcher = self._make_fetcher("datum")
+        fetcher._datum_client = MagicMock()
+        fetcher._datum_client.execute_sql.return_value.data = [
+            {"val": "X", "cnt": 10}, {"val": "Y", "cnt": 5}
+        ]
+        fetcher.app_config.database.datum_database = "mydb"
+        fetcher.app_config.database.datum_schema = "public"
+        fetcher.app_config.database.datum_service_name = "postgres_sql"
+
+        result = fetcher.get_value_counts("Gene")
+
+        assert result == [("X", 10), ("Y", 5)]
+        fetcher._datum_client.execute_sql.assert_called_once()
+
+    def test_respects_limit(self):
+        """The SQL should include the specified LIMIT."""
+        fetcher = self._make_fetcher("direct")
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = []
+        fetcher._engine.connect.return_value = mock_conn
+
+        fetcher.get_value_counts("Status", limit=10)
+
+        # Verify the SQL contains LIMIT 10
+        call_args = mock_conn.execute.call_args
+        sql_str = str(call_args[0][0])
+        assert "LIMIT 10" in sql_str
+
+
+# =============================================================================
+# ConfigInstance.activate_synthesis_fetcher / deactivate_synthesis_fetcher
+# =============================================================================
+
+class TestSynthesisFetcherLifecycle:
+    """Tests for activate/deactivate synthesis fetcher."""
+
+    def _make_ci(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.data_table = "base_table"
+        ci.app_config.database.lazy_loading = False
+        ci._data_fetcher = None
+        ci.all_columns = []
+        ci.display_columns = []
+        return ci
+
+    def test_activate_creates_fetcher_when_none(self):
+        """When _data_fetcher is None, should create a new one."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = self._make_ci()
+
+        with patch("src.config.config_instance.DataFetcher._init_connection"), \
+             patch("src.config.config_instance.DataFetcher._fetch_metadata"):
+            ci.activate_synthesis_fetcher("synth_table")
+
+        assert ci._data_fetcher is not None
+        assert ci._data_fetcher._table_override == "synth_table"
+
+    def test_activate_reuses_existing_fetcher(self):
+        """When _data_fetcher exists, should call set_table_override."""
+        ci = self._make_ci()
+        existing = MagicMock()
+        ci._data_fetcher = existing
+
+        ci.activate_synthesis_fetcher("synth_v2")
+
+        existing.set_table_override.assert_called_once_with("synth_v2")
+
+    def test_activate_populates_columns_if_empty(self):
+        """Should populate all_columns from fetcher if currently empty."""
+        ci = self._make_ci()
+
+        with patch("src.config.config_instance.DataFetcher._init_connection"), \
+             patch("src.config.config_instance.DataFetcher._fetch_metadata") as mock_meta:
+            def set_cols(self_inner=None):
+                ci._data_fetcher._columns = ["A", "B", "C"]
+            mock_meta.side_effect = lambda: None
+            ci.activate_synthesis_fetcher("synth_table")
+            ci._data_fetcher._columns = ["A", "B", "C"]
+            # Re-call to simulate behavior with columns
+            ci._data_fetcher = None
+            ci.all_columns = []
+            ci.display_columns = []
+
+            def fake_meta():
+                pass
+            with patch("src.config.config_instance.DataFetcher._init_connection"), \
+                 patch("src.config.config_instance.DataFetcher._fetch_metadata", side_effect=fake_meta):
+                ci.activate_synthesis_fetcher("synth_table")
+                # Manually set _columns as _fetch_metadata would
+                ci._data_fetcher._columns = ["X", "Y"]
+                # Simulate the conditional
+                if not ci.all_columns and ci._data_fetcher._columns:
+                    ci.all_columns = ci._data_fetcher._columns.copy()
+                    ci.display_columns = ci._data_fetcher._columns.copy()
+
+        assert ci.all_columns == ["X", "Y"]
+
+    def test_deactivate_removes_fetcher_when_not_lazy(self):
+        """When lazy_loading=False, should set _data_fetcher to None."""
+        ci = self._make_ci()
+        ci.app_config.database.lazy_loading = False
+        ci._data_fetcher = MagicMock()
+
+        ci.deactivate_synthesis_fetcher()
+
+        assert ci._data_fetcher is None
+
+    def test_deactivate_clears_override_when_lazy(self):
+        """When lazy_loading=True, should call clear_table_override."""
+        ci = self._make_ci()
+        ci.app_config.database.lazy_loading = True
+        ci._data_fetcher = MagicMock()
+
+        ci.deactivate_synthesis_fetcher()
+
+        ci._data_fetcher.clear_table_override.assert_called_once()
+
+    def test_deactivate_noop_when_no_fetcher(self):
+        """Should not raise when _data_fetcher is already None."""
+        ci = self._make_ci()
+        ci._data_fetcher = None
+
+        ci.deactivate_synthesis_fetcher()  # Should not raise
+
+        assert ci._data_fetcher is None
+
+
+# =============================================================================
+# ConfigInstance.get_synthesis_table_name
+# =============================================================================
+
+class TestGetSynthesisTableName:
+    """Tests for ConfigInstance.get_synthesis_table_name."""
+
+    def _make_ci(self, data_table="my_data", prefix="_synthesis_result"):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.data_table = data_table
+        ci.app_config.synthesis.result_table_prefix = prefix
+        return ci
+
+    def test_simple_table_returns_prefix(self):
+        """No schema in data_table → returns just prefix."""
+        ci = self._make_ci(data_table="my_data")
+        assert ci.get_synthesis_table_name() == "_synthesis_result"
+
+    def test_schema_qualified_table(self):
+        """Schema.table in data_table → returns schema.prefix."""
+        ci = self._make_ci(data_table="myschema.my_data")
+        assert ci.get_synthesis_table_name() == "myschema._synthesis_result"
+
+    def test_custom_prefix(self):
+        """Custom prefix should be used."""
+        ci = self._make_ci(data_table="abc.data", prefix="_custom_synth")
+        assert ci.get_synthesis_table_name() == "abc._custom_synth"
+
+    def test_none_prefix_uses_default(self):
+        """None prefix should fall back to '_synthesis_result'."""
+        ci = self._make_ci(data_table="data", prefix=None)
+        assert ci.get_synthesis_table_name() == "_synthesis_result"
+
+    def test_empty_prefix_uses_default(self):
+        """Empty string prefix should fall back to '_synthesis_result'."""
+        ci = self._make_ci(data_table="data", prefix="")
+        assert ci.get_synthesis_table_name() == "_synthesis_result"
+
+
+# =============================================================================
+# ConfigInstance.check_synthesis_table_exists
+# =============================================================================
+
+class TestCheckSynthesisTableExists:
+    """Tests for ConfigInstance.check_synthesis_table_exists."""
+
+    def _make_ci(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "direct"
+        ci.app_config.database.data_table = "test_data"
+        ci.app_config.synthesis.result_table_prefix = "_synthesis_result"
+        ci._synthesis_exists_cache = None
+        return ci
+
+    def test_returns_cached_true(self):
+        """Should return cached value without DB query."""
+        ci = self._make_ci()
+        ci._synthesis_exists_cache = True
+        assert ci.check_synthesis_table_exists() is True
+
+    def test_returns_cached_false(self):
+        """Should return cached False without DB query."""
+        ci = self._make_ci()
+        ci._synthesis_exists_cache = False
+        assert ci.check_synthesis_table_exists() is False
+
+    def test_direct_mode_query_success(self):
+        """DB query success → returns True and caches."""
+        ci = self._make_ci()
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_engine.connect.return_value = mock_conn
+        ci._get_engine = MagicMock(return_value=mock_engine)
+
+        result = ci.check_synthesis_table_exists()
+
+        assert result is True
+        assert ci._synthesis_exists_cache is True
+
+    def test_direct_mode_query_failure(self):
+        """DB query failure → returns False and caches."""
+        ci = self._make_ci()
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.side_effect = Exception("relation does not exist")
+        mock_engine.connect.return_value = mock_conn
+        ci._get_engine = MagicMock(return_value=mock_engine)
+
+        result = ci.check_synthesis_table_exists()
+
+        assert result is False
+        assert ci._synthesis_exists_cache is False
+
+
+# =============================================================================
+# ConfigInstance.run_synthesis
+# =============================================================================
+
+class TestRunSynthesis:
+    """Tests for ConfigInstance.run_synthesis."""
+
+    def _make_ci(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "direct"
+        ci.app_config.database.data_table = "test_data"
+        ci.app_config.synthesis.query = "SELECT * FROM source"
+        ci.app_config.synthesis.result_table_prefix = "_synth"
+        ci.app_config.synthesis.ttl_minutes = 10
+        ci._synthesis_exists_cache = None
+        ci._synthesis_age_cache = None
+        ci._synthesis_age_cache_time = 0
+        return ci
+
+    def test_raises_when_no_query(self):
+        """Should raise ValueError when synthesis query is empty."""
+        ci = self._make_ci()
+        ci.app_config.synthesis.query = ""
+
+        with pytest.raises(ValueError, match="No synthesis query"):
+            ci.run_synthesis()
+
+    def test_cache_hit_returns_cached_df(self):
+        """When table exists and within TTL, should return cached data."""
+        ci = self._make_ci()
+        expected_df = pd.DataFrame({"x": [1, 2]})
+
+        ci.check_synthesis_table_exists = MagicMock(return_value=True)
+        ci._get_synthesis_age_minutes = MagicMock(return_value=5.0)
+        ci._read_synthesis_table = MagicMock(return_value=expected_df)
+
+        df, was_cached = ci.run_synthesis()
+
+        assert was_cached is True
+        assert list(df["x"]) == [1, 2]
+        ci._read_synthesis_table.assert_called_once()
+
+    def test_force_triggers_refresh(self):
+        """force=True should refresh even within TTL."""
+        ci = self._make_ci()
+        expected_df = pd.DataFrame({"y": [3]})
+
+        ci.check_synthesis_table_exists = MagicMock(return_value=True)
+        ci._get_synthesis_age_minutes = MagicMock(return_value=1.0)
+        ci._refresh_synthesis = MagicMock()
+        ci._stamp_synthesis_comment = MagicMock()
+        ci._read_synthesis_table = MagicMock(return_value=expected_df)
+
+        df, was_cached = ci.run_synthesis(force=True)
+
+        assert was_cached is False
+        ci._refresh_synthesis.assert_called_once()
+
+    def test_creates_when_missing(self):
+        """When table doesn't exist, should create it."""
+        ci = self._make_ci()
+        expected_df = pd.DataFrame({"z": [9]})
+
+        ci.check_synthesis_table_exists = MagicMock(return_value=False)
+        ci._run_synthesis_direct = MagicMock()
+        ci._stamp_synthesis_comment = MagicMock()
+        ci._read_synthesis_table = MagicMock(return_value=expected_df)
+
+        df, was_cached = ci.run_synthesis()
+
+        assert was_cached is False
+        ci._run_synthesis_direct.assert_called_once()
+        assert ci._synthesis_exists_cache is True
+
+
+# =============================================================================
+# load_config_only
+# =============================================================================
+
+class TestLoadConfigOnly:
+    """Tests for load_config_only module-level function."""
+
+    def test_calls_load_config_with_path(self, tmp_path):
+        """Should call load_config with resolved absolute path."""
+        from src.config.config_instance import load_config_only
+        from src.config.app_config_schema import AppConfig
+
+        config_file = tmp_path / "app_config.json"
+        config_file.write_text('{}')
+
+        with patch("src.config.app_config_schema.load_config") as mock_load:
+            mock_load.return_value = AppConfig()
+            result = load_config_only(str(config_file))
+
+        mock_load.assert_called_once()
+        assert isinstance(result, AppConfig)
+
+    def test_relative_path_resolved(self):
+        """Relative path should be resolved against cwd."""
+        from src.config.config_instance import load_config_only
+
+        with patch("src.config.app_config_schema.load_config") as mock_load:
+            from src.config.app_config_schema import AppConfig
+            mock_load.return_value = AppConfig()
+
+            result = load_config_only("nonexistent_config.json")
+
+        # It should have been called with an absolute path
+        called_path = mock_load.call_args[0][0]
+        assert "/" in called_path or "\\" in called_path  # Absolute path

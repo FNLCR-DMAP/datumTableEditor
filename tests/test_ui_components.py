@@ -424,3 +424,249 @@ class TestBuildLogEntryRejectionEmptyRows:
         html = str(result)
         
         assert "?" in html
+
+
+# =====================================================================
+# Facet UI Components Tests
+# =====================================================================
+
+class TestBuildFacetBar:
+    """Tests for build_facet_bar function."""
+
+    def test_renders_checkbox_with_value(self):
+        """Should render a checkbox with the given value."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Status", "Active", 50, 100, True)
+        html = str(result)
+
+        assert "Active" in html
+        assert 'value="Active"' in html
+        assert 'data-column="Status"' in html
+
+    def test_checked_when_is_checked_true(self):
+        """Should include checked attribute when is_checked=True."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Status", "Active", 50, 100, True)
+        html = str(result)
+
+        assert "checked" in html
+
+    def test_unchecked_when_is_checked_false(self):
+        """Should not include checked attribute when is_checked=False."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Status", "Inactive", 20, 100, False)
+        html = str(result)
+
+        # The checkbox should not be checked
+        assert 'checked="checked"' not in html
+
+    def test_count_displayed(self):
+        """Should display the count value."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Gene", "BRCA1", 42, 100, True)
+        html = str(result)
+
+        assert "42" in html
+
+    def test_bar_width_percentage(self):
+        """Bar width should reflect count/max_count ratio."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Gene", "TP53", 50, 100, True)
+        html = str(result)
+
+        assert "50.0%" in html or "50%" in html
+
+    def test_zero_max_count_no_division_error(self):
+        """Should not crash with max_count=0."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Gene", "X", 0, 0, True)
+        html = str(result)
+
+        assert "X" in html
+
+    def test_long_value_truncated(self):
+        """Values longer than 25 chars should be truncated with ellipsis."""
+        from src.utils.ui_components import build_facet_bar
+
+        long_val = "A" * 30
+        result = build_facet_bar("Col", long_val, 10, 10, True)
+        html = str(result)
+
+        assert "…" in html
+        assert long_val[:22] in html
+
+    def test_facet_bar_css_class(self):
+        """Should have facet-bar CSS class."""
+        from src.utils.ui_components import build_facet_bar
+
+        result = build_facet_bar("Col", "val", 5, 10, True)
+        html = str(result)
+
+        assert "facet-bar" in html
+
+
+class TestBuildFacetPanel:
+    """Tests for build_facet_panel function."""
+
+    def test_renders_column_title(self):
+        """Should render uppercased column name as title."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("Active", 50), ("Inactive", 20)]
+        result = build_facet_panel("Status", vc, None)
+        html = str(result)
+
+        assert "STATUS" in html
+
+    def test_renders_all_values(self):
+        """Should render a bar for each value_count entry."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("A", 10), ("B", 5), ("C", 3)]
+        result = build_facet_panel("Gene", vc, None, max_visible=10)
+        html = str(result)
+
+        assert "A" in html
+        assert "B" in html
+        assert "C" in html
+
+    def test_show_more_when_exceeds_max_visible(self):
+        """Should show 'Show more' toggle when values exceed max_visible."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("A", 10), ("B", 5), ("C", 3), ("D", 2), ("E", 1), ("F", 1)]
+        result = build_facet_panel("Gene", vc, None, max_visible=3)
+        html = str(result)
+
+        assert "Show more" in html
+        assert "facet-overflow" in html
+
+    def test_no_show_more_when_within_limit(self):
+        """Should not show toggle when all values fit."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("A", 10), ("B", 5)]
+        result = build_facet_panel("Gene", vc, None, max_visible=5)
+        html = str(result)
+
+        assert "Show more" not in html
+
+    def test_selected_values_checked(self):
+        """Only selected values should be checked."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("Active", 50), ("Inactive", 20)]
+        result = build_facet_panel("Status", vc, ["Active"], max_visible=5)
+        html = str(result)
+
+        assert "Active" in html
+
+    def test_none_selected_means_all_checked(self):
+        """selected_values=None should check all values."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("A", 10), ("B", 5)]
+        result = build_facet_panel("Col", vc, None, max_visible=5)
+        html = str(result)
+
+        # Both should be checked
+        assert html.count("checked") >= 2
+
+    def test_column_masks_applied(self):
+        """Should apply column mask to the title."""
+        from src.utils.ui_components import build_facet_panel
+
+        vc = [("X", 10)]
+        result = build_facet_panel("gene_names", vc, None, column_masks={"gene_names": "Gene"})
+        html = str(result)
+
+        assert "GENE" in html
+
+    def test_data_facet_column_attribute(self):
+        """Should have data-facet-column attribute."""
+        from src.utils.ui_components import build_facet_panel
+
+        result = build_facet_panel("Status", [("A", 1)], None)
+        html = str(result)
+
+        assert 'data-facet-column="Status"' in html
+
+
+class TestBuildFacetPanels:
+    """Tests for build_facet_panels function."""
+
+    def test_renders_multiple_panels(self):
+        """Should render a panel for each facet column."""
+        from src.utils.ui_components import build_facet_panels
+
+        vc_map = {
+            "Status": [("Active", 50), ("Inactive", 20)],
+            "Gene": [("BRCA1", 30), ("TP53", 15)],
+        }
+        result = build_facet_panels(["Status", "Gene"], vc_map)
+        html = str(result)
+
+        assert "STATUS" in html
+        assert "GENE" in html
+        assert "Active" in html
+        assert "BRCA1" in html
+
+    def test_empty_columns_returns_empty_div(self):
+        """Empty facet_columns should return empty div."""
+        from src.utils.ui_components import build_facet_panels
+
+        result = build_facet_panels([], {})
+        html = str(result)
+
+        assert "<div>" in html or "div" in html
+
+    def test_missing_column_in_map_renders_empty_panel(self):
+        """Column not in value_counts_map gets empty panel."""
+        from src.utils.ui_components import build_facet_panels
+
+        result = build_facet_panels(["Missing"], {})
+        html = str(result)
+
+        assert "MISSING" in html
+
+    def test_selected_map_passed_through(self):
+        """selected_map should filter checked values."""
+        from src.utils.ui_components import build_facet_panels
+
+        vc_map = {"Status": [("Active", 50), ("Inactive", 20)]}
+        result = build_facet_panels(
+            ["Status"], vc_map,
+            selected_map={"Status": ["Active"]}
+        )
+        html = str(result)
+
+        assert "Active" in html
+
+    def test_column_masks_passed_through(self):
+        """Column masks should be applied to panel titles."""
+        from src.utils.ui_components import build_facet_panels
+
+        vc_map = {"gene_names": [("BRCA1", 10)]}
+        result = build_facet_panels(
+            ["gene_names"], vc_map,
+            column_masks={"gene_names": "Gene"}
+        )
+        html = str(result)
+
+        assert "GENE" in html
+
+    def test_facet_panels_css_class(self):
+        """Wrapper should have facet-panels CSS class."""
+        from src.utils.ui_components import build_facet_panels
+
+        vc_map = {"Col": [("A", 1)]}
+        result = build_facet_panels(["Col"], vc_map)
+        html = str(result)
+
+        assert "facet-panels" in html
