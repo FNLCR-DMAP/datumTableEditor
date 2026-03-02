@@ -150,6 +150,30 @@ window.saveCellValue = function() {
     closeCellPopup();
 };
 
+// Click handler for clickable cells (cell_click_columns) — fires before editable-cell handler
+document.addEventListener('click', function(e) {
+    const cell = e.target.closest('.clickable-cell');
+    if (cell) {
+        e.stopPropagation();
+        const row = cell.getAttribute('data-row');
+        const col = cell.getAttribute('data-col');
+        const value = cell.getAttribute('data-value');
+        const pkJson = cell.getAttribute('data-pk');
+        let pk = {};
+        try { pk = JSON.parse(pkJson || '{}'); } catch(_) {}
+        if (typeof setShinyInput !== 'undefined') {
+            setShinyInput('cell_click', {
+                row: parseInt(row),
+                col: col,
+                value: value,
+                pk: pk,
+                ts: Date.now()
+            }, {priority: 'event'}, cell);
+        }
+        return;
+    }
+}, true);  // useCapture=true so this fires before the editable-cell handler
+
 // Click handler for editable cells using event delegation
 document.addEventListener('click', function(e) {
     const cell = e.target.closest('.editable-cell');

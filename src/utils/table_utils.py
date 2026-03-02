@@ -80,13 +80,14 @@ def build_status_badge(status: str, status_labels: dict = None) -> ui.tags.span:
     return ui.tags.span(status_text, class_=f"row-status-badge status-{status}")
 
 
-def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None) -> ui.tags.tr:
+def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None) -> ui.tags.tr:
     """Build a single table row with all cells."""
     cells = []
     edited_cells = edited_cells or {}
     pk_columns = pk_columns or []
     editable_columns = editable_columns or []
     readonly_columns = readonly_columns or []
+    cell_click_columns = cell_click_columns or []
     
     # Build PK tuple for this row (for looking up edited cells)
     row_pk = {pk: row[pk] for pk in pk_columns if pk in row.index}
@@ -147,6 +148,14 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
             original = cell_info.get("original", "")
             cell_attrs["data-original"] = str(original) if original is not None else ""
         
+        # Clickable cell — emits cell_click event
+        is_clickable = col in cell_click_columns
+        if is_clickable:
+            cell_class += " clickable-cell"
+            # Embed PK values as JSON for the JS handler
+            import json as _json
+            cell_attrs["data-pk"] = _json.dumps({k: str(v) for k, v in row_pk.items()})
+        
         cells.append(
             ui.tags.td(
                 ui.span(value if value else "—", class_="cell-value"),
@@ -158,7 +167,7 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
     return ui.tags.tr(*cells, class_=row_class)
 
 
-def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None) -> ui.tags.tbody:
+def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None) -> ui.tags.tbody:
     """Build the table body with all rows."""
     table_rows = []
     edited_cells = edited_cells or {}
@@ -168,14 +177,14 @@ def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: li
         row = current_df.loc[idx]
         # Add zebra striping class based on visual position
         row_class = "row-even" if i % 2 == 0 else "row-odd"
-        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels))
+        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns))
     return ui.tags.tbody(*table_rows)
 
 
-def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None) -> ui.tags.table:
+def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None, cell_click_columns: list = None) -> ui.tags.table:
     """Build the complete data table."""
     header = build_table_header(cols, widths, show_status_column=show_status_column, column_masks=column_masks)
-    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels)
+    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns)
     return ui.tags.table(header, body, class_="edit-table")
 
 
@@ -193,7 +202,8 @@ def build_table_container(
     readonly_columns: list = None,
     show_status_column: bool = True,
     status_labels: dict = None,
-    column_masks: dict | None = None
+    column_masks: dict | None = None,
+    cell_click_columns: list = None
 ) -> ui.div:
     """Build the complete table container with summary and table."""
     displayed_count = len(paginated_indices)
@@ -203,7 +213,7 @@ def build_table_container(
     else:
         rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
     
-    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks)
+    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks, cell_click_columns=cell_click_columns)
     
     return ui.div(
         ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),

@@ -1423,7 +1423,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             readonly_columns=list(all_columns) if is_viewer else app_config.table.readonly_columns,
             show_status_column=app_config.enable_approval_workflow,
             status_labels=app_config.status_labels,
-            column_masks=column_masks
+            column_masks=column_masks,
+            cell_click_columns=app_config.cell_click_columns
         )
     
     # Output: Approval status
@@ -2090,6 +2091,25 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 row_index=indices[0],
             )
             ui.notification_show(f"Review Detail: {pks[0]}", type="message", duration=2)
+
+    # ── Cell click event ──────────────────────────────────────
+    @reactive.Effect
+    @reactive.event(input.cell_click)
+    def _cell_click():
+        """Emit cell_click event when a clickable-cell is clicked."""
+        payload = input.cell_click()
+        if not payload or not app_config.cell_click_columns:
+            return
+        col = payload.get("col", "")
+        value = payload.get("value", "")
+        pk = payload.get("pk", {})
+        _emit(
+            "cell_click",
+            pk=pk,
+            column=col,
+            value=value,
+            source_table=app_config.database.data_table,
+        )
 
     # ── Return public API ─────────────────────────────────────
     return WidgetAPI(

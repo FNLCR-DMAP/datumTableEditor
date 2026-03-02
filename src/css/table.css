@@ -255,6 +255,20 @@ table.edit-table > tbody > tr:hover > td {
     background-color: #e3f2fd !important;
 }
 
+/* Clickable Cell Styles (cell_click_columns) */
+.clickable-cell {
+    cursor: pointer;
+    position: relative;
+    color: #0d6efd;
+}
+.clickable-cell:hover {
+    background-color: #e8f0fe !important;
+    text-decoration: underline;
+}
+.clickable-cell .cell-value {
+    text-decoration: inherit;
+}
+
 /* Readonly Cell Styles */
 .readonly-cell {
     cursor: default;
