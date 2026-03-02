@@ -97,12 +97,16 @@ class WidgetAPI:
         The list of currently visible column names.
     widget_id : str
         The namespace id of the widget instance.
+    config : ConfigInstance | None
+        The widget's ConfigInstance, exposing ``reload_data()``,
+        ``invalidate_data_cache()``, and the loaded ``AppConfig``.
     """
 
     events: reactive.Value
     data: reactive.Value
     active_columns: reactive.Value
     widget_id: str = ""
+    config: Any = None
     _extra: dict = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:

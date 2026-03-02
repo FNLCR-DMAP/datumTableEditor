@@ -2120,4 +2120,5 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         data=data,
         active_columns=active_columns,
         widget_id=_emitter.widget_id,
+        config=config,
     )
