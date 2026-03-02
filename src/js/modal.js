@@ -153,21 +153,71 @@ $(document).on('shiny:value', function(event) {
     if (event.name && event.name.endsWith('available_columns_modal')) {
         setTimeout(function() {
             initModalColumnDrag(currentModalContext);
-            // Clear search box on refresh
+            // Clear search box and selection basket on refresh
+            _colSearchSelected = [];
+            _colSearchHighlighted = null;
             var modal = findModalInContext(currentModalContext, 'add-column-modal');
             if (modal) {
                 var searchInput = modal.querySelector('#col-search-input');
                 if (searchInput) searchInput.value = '';
                 var searchResults = modal.querySelector('#col-search-results');
                 if (searchResults) { searchResults.innerHTML = ''; searchResults.style.display = 'none'; }
+                var selectedWrap = modal.querySelector('#col-search-selected');
+                if (selectedWrap) { selectedWrap.innerHTML = ''; selectedWrap.style.display = 'none'; }
             }
         }, 100);
     }
 });
 
-// ─── Column search / filter in Manage Layout modal ─────────────
-// Track the currently highlighted search result
+// ─── Column search / multi-select in Manage Layout modal ──────
+// Staging basket: columns the user has selected from search results
+let _colSearchSelected = [];   // [{col, display, section}]
 let _colSearchHighlighted = null;
+
+function _getSelectedCols() { return _colSearchSelected.map(function(s) { return s.col; }); }
+
+// Render the staging tags underneath the search bar
+function _renderSelectedTags(modal) {
+    var wrap = modal.querySelector('#col-search-selected');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!_colSearchSelected.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    _colSearchSelected.forEach(function(item) {
+        var tag = document.createElement('span');
+        var borderColor = item.section === 'current' ? '#dc3545' : '#28a745';
+        tag.style.cssText = 'display:inline-flex;align-items:center;padding:3px 8px;border:1px solid ' + borderColor + ';border-radius:4px;font-size:11px;color:#333;background:#fff;';
+        var badge = item.section === 'current'
+            ? '<span style="font-size:9px;background:#2c3e50;color:#fff;padding:0 4px;border-radius:2px;margin-right:4px;">C</span>'
+            : '<span style="font-size:9px;background:#e9ecef;color:#333;padding:0 4px;border-radius:2px;margin-right:4px;">A</span>';
+        tag.innerHTML = badge + item.display +
+            ' <span style="margin-left:6px;cursor:pointer;color:#999;font-weight:bold" data-remove-col="' + item.col + '">&times;</span>';
+        tag.querySelector('[data-remove-col]').addEventListener('click', function() {
+            _colSearchSelected = _colSearchSelected.filter(function(s) { return s.col !== item.col; });
+            _renderSelectedTags(modal);
+            _refreshSearchHighlights(modal);
+        });
+        wrap.appendChild(tag);
+    });
+}
+
+// Refresh checkmarks / highlights in the dropdown based on current selection
+function _refreshSearchHighlights(modal) {
+    var resultsDiv = modal.querySelector('#col-search-results');
+    if (!resultsDiv) return;
+    var selected = _getSelectedCols();
+    resultsDiv.querySelectorAll('.col-search-row').forEach(function(row) {
+        var col = row.getAttribute('data-column');
+        var check = row.querySelector('.search-check');
+        if (selected.indexOf(col) !== -1) {
+            row.style.background = '#e8f0fe';
+            if (check) check.textContent = '✓';
+        } else {
+            row.style.background = '';
+            if (check) check.textContent = '';
+        }
+    });
+}
 
 window.filterModalColumns = function(query) {
     var modal = findModalInContext(currentModalContext, 'add-column-modal');
@@ -186,20 +236,17 @@ window.filterModalColumns = function(query) {
     // Gather all column names from both current and available sets
     var currentTags = modal.querySelectorAll('#modal-columns-container .modal-draggable-col');
     var availableTags = modal.querySelectorAll('#modal-available-container .add-col-tag');
-
     var matches = [];
 
-    // Scan current columns
     currentTags.forEach(function(tag) {
         var col = tag.getAttribute('data-column') || '';
         var display = (tag.querySelector('span:nth-child(2)') || {}).textContent || col;
-        display = display.replace(/^\d+\.\s*/, ''); // strip numbering
+        display = display.replace(/^\d+\.\s*/, '');
         if (col.toLowerCase().indexOf(query) !== -1 || display.toLowerCase().indexOf(query) !== -1) {
             matches.push({ col: col, display: display, section: 'current' });
         }
     });
 
-    // Scan available columns
     availableTags.forEach(function(tag) {
         var onclickAttr = tag.getAttribute('onclick') || '';
         var m = onclickAttr.match(/addColumn\('([^']+)'/);
@@ -210,10 +257,8 @@ window.filterModalColumns = function(query) {
         }
     });
 
-    // Sort matches alphabetically
     matches.sort(function(a, b) { return a.display.toLowerCase().localeCompare(b.display.toLowerCase()); });
 
-    // Render matches
     if (!matches.length) {
         resultsDiv.innerHTML = '<div style="padding:8px 12px;color:#999;font-size:12px;">No matching columns</div>';
         resultsDiv.style.display = 'block';
@@ -221,43 +266,41 @@ window.filterModalColumns = function(query) {
         return;
     }
 
+    var selectedCols = _getSelectedCols();
     resultsDiv.innerHTML = '';
-    matches.forEach(function(m, idx) {
+    matches.forEach(function(m) {
         var row = document.createElement('div');
         row.className = 'col-search-row';
         row.setAttribute('data-column', m.col);
         row.setAttribute('data-section', m.section);
+        var isSelected = selectedCols.indexOf(m.col) !== -1;
         var badge = m.section === 'current'
             ? '<span style="font-size:10px;background:#2c3e50;color:#fff;padding:1px 6px;border-radius:3px;margin-left:8px;">current</span>'
             : '<span style="font-size:10px;background:#e9ecef;color:#333;padding:1px 6px;border-radius:3px;margin-left:8px;">available</span>';
-        row.innerHTML = '<span>' + m.display + '</span>' + badge;
-        row.style.cssText = 'padding:6px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:space-between;';
-        row.addEventListener('mouseenter', function() { _selectSearchRow(resultsDiv, this); });
-        row.addEventListener('click', function() {
-            if (m.section === 'available') {
-                addColumn(m.col, null);
-            } else {
-                removeColumnFromModal(m.col, null);
-            }
-        });
+        row.innerHTML = '<span class="search-check" style="width:16px;font-size:13px;color:#28a745;">' + (isSelected ? '✓' : '') + '</span>' +
+            '<span style="flex:1">' + m.display + '</span>' + badge;
+        row.style.cssText = 'padding:6px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;' + (isSelected ? 'background:#e8f0fe;' : '');
+        row.addEventListener('mouseenter', function() { _colSearchHighlighted = this; });
+        row.addEventListener('click', function() { _toggleSearchSelection(m, modal); });
         resultsDiv.appendChild(row);
     });
 
-    // Auto-highlight first result
-    _selectSearchRow(resultsDiv, resultsDiv.querySelector('.col-search-row'));
+    _colSearchHighlighted = resultsDiv.querySelector('.col-search-row');
     resultsDiv.style.display = 'block';
 };
 
-function _selectSearchRow(container, row) {
-    if (!row) return;
-    container.querySelectorAll('.col-search-row').forEach(function(r) {
-        r.style.background = '';
-    });
-    row.style.background = '#e8f0fe';
-    _colSearchHighlighted = row;
+function _toggleSearchSelection(item, modal) {
+    var idx = _colSearchSelected.findIndex(function(s) { return s.col === item.col; });
+    if (idx !== -1) {
+        _colSearchSelected.splice(idx, 1);
+    } else {
+        _colSearchSelected.push(item);
+    }
+    _renderSelectedTags(modal);
+    _refreshSearchHighlights(modal);
 }
 
-// Keyboard navigation in search results (arrow keys + Enter)
+// Keyboard navigation in search results (arrow keys + Enter to toggle)
 document.addEventListener('keydown', function(e) {
     var modal = findModalInContext(currentModalContext, 'add-column-modal');
     if (!modal || !modal.classList.contains('show')) return;
@@ -270,10 +313,10 @@ document.addEventListener('keydown', function(e) {
 
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        var idx = Array.from(rows).indexOf(_colSearchHighlighted);
+        var idx = _colSearchHighlighted ? Array.from(rows).indexOf(_colSearchHighlighted) : -1;
         if (e.key === 'ArrowDown') idx = Math.min(idx + 1, rows.length - 1);
         else idx = Math.max(idx - 1, 0);
-        _selectSearchRow(resultsDiv, rows[idx]);
+        _colSearchHighlighted = rows[idx];
         rows[idx].scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -281,25 +324,57 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Add button: add the highlighted search result to current columns
-window.addSearchedColumn = function(event) {
+// Bulk Add — add all selected available columns to Current
+window.bulkAddSelected = function(event) {
     if (event) event.stopPropagation();
-    if (!_colSearchHighlighted) return;
-    var col = _colSearchHighlighted.getAttribute('data-column');
-    var section = _colSearchHighlighted.getAttribute('data-section');
-    if (section === 'available' && col) {
-        addColumn(col, event);
+    var toAdd = _colSearchSelected.filter(function(s) { return s.section === 'available'; });
+    if (!toAdd.length) return;
+    // Add them one-by-one (each triggers a server round-trip; last one wins)
+    // To avoid N round-trips, collect the desired full order and send once
+    var modal = findModalInContext(currentModalContext, 'add-column-modal');
+    if (!modal) return;
+    var container = modal.querySelector('#modal-columns-container');
+    if (!container) return;
+    // Current order
+    var order = [];
+    container.querySelectorAll('.modal-draggable-col').forEach(function(el) {
+        var c = el.getAttribute('data-column');
+        if (c) order.push(c);
+    });
+    // Append new columns
+    toAdd.forEach(function(item) {
+        if (order.indexOf(item.col) === -1) order.push(item.col);
+    });
+    // Clear selection
+    _colSearchSelected = [];
+    _renderSelectedTags(modal);
+    // Send single column_order update
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('column_order', {order: order, ts: Date.now()}, {priority: 'event'}, container);
     }
 };
 
-// Remove button: remove the highlighted search result from current columns
-window.removeSearchedColumn = function(event) {
+// Bulk Remove — remove all selected current columns from Current
+window.bulkRemoveSelected = function(event) {
     if (event) event.stopPropagation();
-    if (!_colSearchHighlighted) return;
-    var col = _colSearchHighlighted.getAttribute('data-column');
-    var section = _colSearchHighlighted.getAttribute('data-section');
-    if (section === 'current' && col) {
-        removeColumnFromModal(col, event);
+    var toRemove = _colSearchSelected.filter(function(s) { return s.section === 'current'; }).map(function(s) { return s.col; });
+    if (!toRemove.length) return;
+    var modal = findModalInContext(currentModalContext, 'add-column-modal');
+    if (!modal) return;
+    var container = modal.querySelector('#modal-columns-container');
+    if (!container) return;
+    // Current order minus removed
+    var order = [];
+    container.querySelectorAll('.modal-draggable-col').forEach(function(el) {
+        var c = el.getAttribute('data-column');
+        if (c && toRemove.indexOf(c) === -1) order.push(c);
+    });
+    // Clear selection
+    _colSearchSelected = [];
+    _renderSelectedTags(modal);
+    // Send single column_order update
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('column_order', {order: order, ts: Date.now()}, {priority: 'event'}, container);
     }
 };
 

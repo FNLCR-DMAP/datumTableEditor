@@ -65,25 +65,30 @@ def build_columns_modal_content(current_cols: list, available_cols: list, column
                     oninput="filterModalColumns(this.value)"
                 ),
                 ui.tags.button(
-                    "▼ Add",
+                    "▼ Add selected",
                     class_="btn btn-sm btn-outline-success",
                     style="margin-left: 6px; font-size: 11px; padding: 5px 10px;",
-                    onclick="addSearchedColumn(event)",
-                    title="Add the highlighted column to Current columns"
+                    onclick="bulkAddSelected(event)",
+                    title="Add all selected columns to Current columns"
                 ),
                 ui.tags.button(
-                    "▲ Remove",
+                    "▲ Remove selected",
                     class_="btn btn-sm btn-outline-danger",
                     style="margin-left: 4px; font-size: 11px; padding: 5px 10px;",
-                    onclick="removeSearchedColumn(event)",
-                    title="Remove the highlighted column from Current columns"
+                    onclick="bulkRemoveSelected(event)",
+                    title="Remove all selected columns from Current columns"
                 ),
-                style="display: flex; align-items: center; margin-bottom: 14px;"
+                style="display: flex; align-items: center;"
             ),
             # Search results dropdown (hidden by default, shown when typing)
             ui.div(
                 id="col-search-results",
-                style="display: none; max-height: 160px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 4px; background: #fff; margin-top: -10px; margin-bottom: 12px;"
+                style="display: none; max-height: 160px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 4px; background: #fff; margin-top: 4px; margin-bottom: 4px;"
+            ),
+            # Selected columns staging area
+            ui.div(
+                id="col-search-selected",
+                style="display: none; flex-wrap: wrap; gap: 4px; padding: 6px 0; margin-bottom: 10px;"
             ),
         ),
         # Current columns section
