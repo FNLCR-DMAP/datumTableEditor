@@ -1435,8 +1435,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             column_masks=column_masks,
             cell_click_columns=app_config.table.cell_click_columns
         )
-        if app_config.table.cell_click_columns:
-            print(f"[DEBUG] table_container rendering with cell_click_columns={app_config.table.cell_click_columns}, active_cols={active_columns.get()[:5]}...")
     
     # Output: Approval status
     @render.ui

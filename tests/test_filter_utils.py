@@ -120,6 +120,66 @@ class TestOperatorBetween:
 
 
 # =====================================================================
+# _row_matches_operator — BETWEEN (null / empty bounds)
+# =====================================================================
+
+class TestOperatorBetweenNullBounds:
+    """Tests for between operator with None or empty-string bounds."""
+
+    def test_both_none_passes(self):
+        """[None, None] → no filtering, always pass."""
+        assert _row_matches_operator("5", {"op": "between", "value": [None, None]}) is True
+
+    def test_both_empty_string_passes(self):
+        """['', ''] → treated as null bounds, always pass."""
+        assert _row_matches_operator("5", {"op": "between", "value": ["", ""]}) is True
+
+    def test_lower_only_numeric_pass(self):
+        """[5, None] → gte 5."""
+        assert _row_matches_operator("10", {"op": "between", "value": [5, None]}) is True
+
+    def test_lower_only_numeric_fail(self):
+        assert _row_matches_operator("3", {"op": "between", "value": [5, None]}) is False
+
+    def test_lower_only_boundary(self):
+        assert _row_matches_operator("5", {"op": "between", "value": [5, None]}) is True
+
+    def test_upper_only_numeric_pass(self):
+        """[None, 10] → lte 10."""
+        assert _row_matches_operator("5", {"op": "between", "value": [None, 10]}) is True
+
+    def test_upper_only_numeric_fail(self):
+        assert _row_matches_operator("15", {"op": "between", "value": [None, 10]}) is False
+
+    def test_upper_only_boundary(self):
+        assert _row_matches_operator("10", {"op": "between", "value": [None, 10]}) is True
+
+    def test_lower_only_empty_string_upper(self):
+        """['5', ''] → lower bound only."""
+        assert _row_matches_operator("10", {"op": "between", "value": ["5", ""]}) is True
+        assert _row_matches_operator("3", {"op": "between", "value": ["5", ""]}) is False
+
+    def test_upper_only_empty_string_lower(self):
+        """['', '10'] → upper bound only."""
+        assert _row_matches_operator("5", {"op": "between", "value": ["", "10"]}) is True
+        assert _row_matches_operator("15", {"op": "between", "value": ["", "10"]}) is False
+
+    def test_date_lower_only(self):
+        """Date string with only lower bound."""
+        assert _row_matches_operator("2024-06-15", {"op": "between", "value": ["2024-01-01", None]}) is True
+        assert _row_matches_operator("2023-06-15", {"op": "between", "value": ["2024-01-01", None]}) is False
+
+    def test_date_upper_only(self):
+        """Date string with only upper bound."""
+        assert _row_matches_operator("2024-06-15", {"op": "between", "value": [None, "2024-12-31"]}) is True
+        assert _row_matches_operator("2025-06-15", {"op": "between", "value": [None, "2024-12-31"]}) is False
+
+    def test_whitespace_only_treated_as_null(self):
+        """'   ' is treated as empty → null bound."""
+        assert _row_matches_operator("5", {"op": "between", "value": ["  ", "  "]}) is True
+
+
+# =====================================================================
 # _row_matches_operator — GT / GTE / LT / LTE
 # =====================================================================
 
@@ -316,6 +376,28 @@ class TestGetFilteredRowsOperator:
         scores = [df.loc[i, "Score"] for i in result]
         assert all(60 <= s <= 85 for s in scores)
         assert len(result) == 3  # Alice(85), Diana(70), Eve(60)
+
+    def test_between_both_null_passes_all(self, df, status_func):
+        """[None, None] between should not filter anything."""
+        filters = {"Score": {"op": "between", "value": [None, None]}}
+        result = get_filtered_rows(df, ["Name", "Score", "Status"], "", ["unprocessed"], filters, status_func)
+        assert len(result) == 5
+
+    def test_between_lower_only(self, df, status_func):
+        """[70, None] → rows with score >= 70."""
+        filters = {"Score": {"op": "between", "value": [70, None]}}
+        result = get_filtered_rows(df, ["Name", "Score", "Status"], "", ["unprocessed"], filters, status_func)
+        scores = [df.loc[i, "Score"] for i in result]
+        assert all(s >= 70 for s in scores)
+        assert len(result) == 3  # Alice(85), Charlie(95), Diana(70)
+
+    def test_between_upper_only(self, df, status_func):
+        """[None, 70] → rows with score <= 70."""
+        filters = {"Score": {"op": "between", "value": [None, 70]}}
+        result = get_filtered_rows(df, ["Name", "Score", "Status"], "", ["unprocessed"], filters, status_func)
+        scores = [df.loc[i, "Score"] for i in result]
+        assert all(s <= 70 for s in scores)
+        assert len(result) == 3  # Bob(42), Diana(70), Eve(60)
 
     def test_not_empty_operator(self, df, status_func):
         df2 = df.copy()

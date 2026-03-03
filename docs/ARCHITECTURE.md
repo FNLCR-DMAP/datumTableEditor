@@ -144,11 +144,31 @@ User Clicks "Export to CSV"
       ↓
 Get Current DataFrame
       ↓
-Write to data_modified.csv
+Filter to active_columns (UI-visible columns only)
       ↓
-Show Notification: "📥 Exported to data_modified.csv!"
+Reorder columns to match UI display order
+      ↓
+Apply column_masks (rename headers to display names)
+      ↓
+Write CSV
+      ↓
+Show Notification: "📥 Exported!"
       ↓
 File Available for Download/Use
+```
+
+### Cell Click Flow
+
+```
+User clicks a cell in a cell_click_columns column
+      ↓
+JS: handleCellClick() fires with column name + row PK
+      ↓
+Shiny.setInputValue("cell_click_event", {column, pk})
+      ↓
+Server: @reactive.effect on input.cell_click_event
+      ↓
+WidgetAPI.cell_click_event updated for downstream consumption
 ```
 
 ### Processing Flow

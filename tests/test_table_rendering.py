@@ -145,6 +145,125 @@ class TestBuildTableRow:
         assert "editable-cell" in tr_str
 
 
+class TestCellClickColumns:
+    """Tests for cell_click_columns rendering in build_table_row."""
+
+    def test_clickable_cell_has_class(self, sample_data):
+        """Cells in cell_click_columns should get 'clickable-cell' class."""
+        from src.utils.table_utils import build_table_row
+
+        row = sample_data.iloc[0]
+        tr = build_table_row(
+            idx=0,
+            row=row,
+            cols=["PatientID", "Gene_names"],
+            current_df=sample_data,
+            get_row_status_func=lambda x: "unprocessed",
+            row_class="",
+            edited_cells={},
+            pk_columns=["PatientID_Mutsequence"],
+            cell_click_columns=["Gene_names"]
+        )
+        tr_str = str(tr)
+        assert "clickable-cell" in tr_str
+
+    def test_non_clickable_cell_no_class(self, sample_data):
+        """Cells NOT in cell_click_columns should not get 'clickable-cell'."""
+        from src.utils.table_utils import build_table_row
+
+        row = sample_data.iloc[0]
+        tr = build_table_row(
+            idx=0,
+            row=row,
+            cols=["PatientID"],
+            current_df=sample_data,
+            get_row_status_func=lambda x: "unprocessed",
+            row_class="",
+            edited_cells={},
+            pk_columns=["PatientID_Mutsequence"],
+            cell_click_columns=["Gene_names"]
+        )
+        tr_str = str(tr)
+        assert "clickable-cell" not in tr_str
+
+    def test_clickable_cell_has_data_pk(self, sample_data):
+        """Clickable cells should have data-pk JSON attribute."""
+        from src.utils.table_utils import build_table_row
+
+        row = sample_data.iloc[0]
+        tr = build_table_row(
+            idx=0,
+            row=row,
+            cols=["Gene_names"],
+            current_df=sample_data,
+            get_row_status_func=lambda x: "unprocessed",
+            row_class="",
+            edited_cells={},
+            pk_columns=["PatientID_Mutsequence"],
+            cell_click_columns=["Gene_names"]
+        )
+        tr_str = str(tr)
+        assert "data-pk" in tr_str
+
+    def test_empty_cell_click_columns(self, sample_data):
+        """Empty cell_click_columns should produce no clickable cells."""
+        from src.utils.table_utils import build_table_row
+
+        row = sample_data.iloc[0]
+        tr = build_table_row(
+            idx=0,
+            row=row,
+            cols=["PatientID", "Gene_names"],
+            current_df=sample_data,
+            get_row_status_func=lambda x: "unprocessed",
+            row_class="",
+            edited_cells={},
+            pk_columns=["PatientID_Mutsequence"],
+            cell_click_columns=[]
+        )
+        tr_str = str(tr)
+        assert "clickable-cell" not in tr_str
+
+    def test_none_cell_click_columns(self, sample_data):
+        """None cell_click_columns (default) should produce no clickable cells."""
+        from src.utils.table_utils import build_table_row
+
+        row = sample_data.iloc[0]
+        tr = build_table_row(
+            idx=0,
+            row=row,
+            cols=["PatientID", "Gene_names"],
+            current_df=sample_data,
+            get_row_status_func=lambda x: "unprocessed",
+            row_class="",
+            edited_cells={},
+            pk_columns=["PatientID_Mutsequence"],
+            cell_click_columns=None
+        )
+        tr_str = str(tr)
+        assert "clickable-cell" not in tr_str
+
+    def test_multiple_click_columns(self, sample_data):
+        """Multiple columns in cell_click_columns should all be clickable."""
+        from src.utils.table_utils import build_table_row
+
+        row = sample_data.iloc[0]
+        tr = build_table_row(
+            idx=0,
+            row=row,
+            cols=["PatientID", "Gene_names"],
+            current_df=sample_data,
+            get_row_status_func=lambda x: "unprocessed",
+            row_class="",
+            edited_cells={},
+            pk_columns=["PatientID_Mutsequence"],
+            cell_click_columns=["PatientID", "Gene_names"]
+        )
+        tr_str = str(tr)
+        # Both data cells should be clickable (2 occurrences, not counting the word elsewhere)
+        assert tr_str.count("clickable-cell") >= 2
+
+
 class TestBuildTableBody:
     """Tests for build_table_body function."""
     

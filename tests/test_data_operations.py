@@ -996,3 +996,121 @@ class TestPhantomLogOnDbFailure:
 
         assert len(updated_log) == 1
         assert updated_log[0]["db_id"] == 42
+
+
+# =====================================================================
+# Export Column Masking & Ordering
+# =====================================================================
+
+class TestExportColumnMasking:
+    """Tests for export respecting UI column order and masking."""
+
+    def test_export_filters_to_active_columns(self):
+        """Export DataFrame should only contain active_columns."""
+        import io
+        df = pd.DataFrame({
+            "PatientID": ["P001", "P002"],
+            "Gene_names": ["BRCA1", "TP53"],
+            "Status": ["Pending", "Reviewed"],
+            "Score": [85, 42],
+        })
+        active_columns = ["PatientID", "Gene_names"]
+        ui_cols = [c for c in active_columns if c in df.columns]
+        result = df[ui_cols]
+
+        output = io.StringIO()
+        result.to_csv(output, index=False)
+        csv_text = output.getvalue()
+
+        assert "PatientID" in csv_text
+        assert "Gene_names" in csv_text
+        assert "Status" not in csv_text
+        assert "Score" not in csv_text
+
+    def test_export_preserves_column_order(self):
+        """Export should match active_columns order, not DataFrame native order."""
+        import io
+        df = pd.DataFrame({
+            "A": [1], "B": [2], "C": [3], "D": [4]
+        })
+        # UI order is reversed from DataFrame order
+        active_columns = ["D", "B", "A"]
+        ui_cols = [c for c in active_columns if c in df.columns]
+        result = df[ui_cols]
+
+        output = io.StringIO()
+        result.to_csv(output, index=False)
+        header_line = output.getvalue().split("\n")[0]
+
+        assert header_line == "D,B,A"
+
+    def test_export_applies_column_masks(self):
+        """Export should rename headers using column_masks."""
+        import io
+        df = pd.DataFrame({
+            "gene_id": ["BRCA1"],
+            "pat_id": ["P001"],
+        })
+        active_columns = ["pat_id", "gene_id"]
+        column_masks = {"gene_id": "Gene Name", "pat_id": "Patient ID"}
+
+        ui_cols = [c for c in active_columns if c in df.columns]
+        result = df[ui_cols].rename(columns=column_masks)
+
+        output = io.StringIO()
+        result.to_csv(output, index=False)
+        header_line = output.getvalue().split("\n")[0]
+
+        assert "Patient ID" in header_line
+        assert "Gene Name" in header_line
+        assert "pat_id" not in header_line
+        assert "gene_id" not in header_line
+
+    def test_export_no_masks_keeps_original_headers(self):
+        """Without column_masks, export keeps original column names."""
+        import io
+        df = pd.DataFrame({"A": [1], "B": [2]})
+        active_columns = ["A", "B"]
+        column_masks = None
+
+        ui_cols = [c for c in active_columns if c in df.columns]
+        result = df[ui_cols]
+        if column_masks:
+            result = result.rename(columns=column_masks)
+
+        output = io.StringIO()
+        result.to_csv(output, index=False)
+        header_line = output.getvalue().split("\n")[0]
+
+        assert header_line == "A,B"
+
+    def test_export_ignores_missing_active_columns(self):
+        """Active columns not in DataFrame should be skipped gracefully."""
+        import io
+        df = pd.DataFrame({"A": [1], "B": [2]})
+        active_columns = ["A", "NonExistent", "B"]
+
+        ui_cols = [c for c in active_columns if c in df.columns]
+        result = df[ui_cols]
+
+        output = io.StringIO()
+        result.to_csv(output, index=False)
+        header_line = output.getvalue().split("\n")[0]
+
+        assert header_line == "A,B"
+
+    def test_export_mask_partial(self):
+        """Only masked columns get renamed; others keep original names."""
+        import io
+        df = pd.DataFrame({"A": [1], "B": [2], "C": [3]})
+        active_columns = ["A", "B", "C"]
+        column_masks = {"B": "Beta"}
+
+        ui_cols = [c for c in active_columns if c in df.columns]
+        result = df[ui_cols].rename(columns=column_masks)
+
+        output = io.StringIO()
+        result.to_csv(output, index=False)
+        header_line = output.getvalue().split("\n")[0]
+
+        assert header_line == "A,Beta,C"

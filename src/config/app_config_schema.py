@@ -422,10 +422,6 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.default_preset = tb.get("default_preset", config.table.default_preset)
         config.table.column_masks = tb.get("column_masks", config.table.column_masks)
         config.table.cell_click_columns = tb.get("cell_click_columns", config.table.cell_click_columns)
-        if config.table.cell_click_columns:
-            print(f"[DEBUG] cell_click_columns loaded from config: {config.table.cell_click_columns}")
-        else:
-            print("[DEBUG] cell_click_columns is EMPTY — no columns will be clickable")
     
     # Database
     if "database" in file_config:

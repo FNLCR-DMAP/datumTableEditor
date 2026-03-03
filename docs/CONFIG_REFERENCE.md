@@ -175,7 +175,7 @@ Default filters support both simple values and operator objects:
 | `not_in` | Value not in list | `{"op": "not_in", "value": ["X"]}` |
 | `contains` | Substring match | `{"op": "contains", "value": "TP53"}` |
 | `not_contains` | Exclude substring | `{"op": "not_contains", "value": "RT"}` |
-| `between` | Range (inclusive) | `{"op": "between", "value": [0, 100]}` |
+| `between` | Range (inclusive). Supports half-open ranges: omit or set a bound to `null`/`""` to leave it open | `{"op": "between", "value": [0, 100]}` |
 | `gt` / `gte` | Greater than / or equal | `{"op": "gt", "value": 50}` |
 | `lt` / `lte` | Less than / or equal | `{"op": "lte", "value": 99}` |
 | `last_n_days` | Within last N days | `{"op": "last_n_days", "value": 7}` |
@@ -226,7 +226,8 @@ Table display defaults — columns, sorting, pagination, editing rules.
 | `rows_per_page_options` | array | `[10, 25, 50, 100, "all"]` | Page size options |
 | `editable_columns` | array | `[]` | Columns users can edit. Empty = all editable |
 | `readonly_columns` | array | `[]` | Columns that are never editable (overrides `editable_columns`) |
-| `column_masks` | object | `{}` | Display name overrides. Format: `{"real_col": "Display Name"}` |
+| `column_masks` | object | `{}` | Display name overrides. Format: `{"real_col": "Display Name"}`. Also applied to CSV export headers |
+| `cell_click_columns` | array | `[]` | Columns whose cells emit a click event to the server. Cells render as clickable links |
 | `presets_enabled` | bool | `true` | Enable column preset switching |
 | `presets_file_path` | string \| null | `null` | Path to saved presets JSON file |
 | `default_preset` | string | `"Default"` | Name of the preset to load on startup |
@@ -295,6 +296,10 @@ Top-level boolean flags that toggle UI features on or off.
 | `enable_approval_workflow` | `true` | Show Approve/Reject buttons and status column |
 | `enable_save_button` | `true` | Show the Save button in toolbar |
 | `enable_export` | `true` | Show the Export button |
+
+> **Export behaviour:** CSV export respects the current UI column selection
+> and order (active columns). If `column_masks` are defined, the exported
+> header row uses the display names, not the raw database column names.
 | `enable_undo` | `true` | Show the Undo button |
 | `enable_copy_column` | `true` | Show "Copy Column Values" in column menu |
 | `enable_status_filter` | `true` | Show status distribution and filter in sidebar |

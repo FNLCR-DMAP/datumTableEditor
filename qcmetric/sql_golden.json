@@ -157,6 +157,26 @@
         "p1": "M"
       }
     },
+    "between_both_null": {
+      "where": "",
+      "params": {}
+    },
+    "between_lower_only": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) >= :p0",
+      "params": {
+        "p0": "A"
+      }
+    },
+    "between_upper_only": {
+      "where": " WHERE CAST(\"Gene_names\" AS TEXT) <= :p0",
+      "params": {
+        "p0": "M"
+      }
+    },
+    "between_empty_strings": {
+      "where": "",
+      "params": {}
+    },
     "regex": {
       "where": " WHERE CAST(\"Gene_names\" AS TEXT) ~* :p0",
       "params": {
