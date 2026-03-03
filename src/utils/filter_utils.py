@@ -68,17 +68,19 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     elif op == "between":
         if isinstance(fval, list) and len(fval) == 2:
             lo_raw, hi_raw = fval
+            lo_none = lo_raw is None or str(lo_raw).strip() == ""
+            hi_none = hi_raw is None or str(hi_raw).strip() == ""
             # Both bounds absent — pass through (no filtering)
-            if lo_raw is None and hi_raw is None:
+            if lo_none and hi_none:
                 return True
             # Half-open: only lower bound → gte
-            if hi_raw is None:
+            if hi_none:
                 try:
                     return float(row_str) >= float(lo_raw)
                 except (ValueError, TypeError):
                     return row_str >= str(lo_raw)
             # Half-open: only upper bound → lte
-            if lo_raw is None:
+            if lo_none:
                 try:
                     return float(row_str) <= float(hi_raw)
                 except (ValueError, TypeError):

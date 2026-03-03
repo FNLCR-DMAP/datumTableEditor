@@ -572,6 +572,42 @@ class TestDataFetcherWhereClauseGoldenSnapshots:
         assert where == GOLDEN_DF5_WHERE
         assert params == GOLDEN_DF5_PARAMS
 
+    def test_df5_between_both_null(self, fetcher):
+        """Both bounds None → no WHERE clause at all."""
+        from src.config.config_instance import QueryParams
+        where, params = fetcher._build_where_clause(
+            QueryParams(filters={"Gene_names": {"op": "between", "value": [None, None]}}),
+            use_params=True)
+        assert where == ""
+        assert params == {}
+
+    def test_df5_between_lower_only(self, fetcher):
+        """Only lower bound → >= clause."""
+        from src.config.config_instance import QueryParams
+        where, params = fetcher._build_where_clause(
+            QueryParams(filters={"Gene_names": {"op": "between", "value": ["A", None]}}),
+            use_params=True)
+        assert where == ' WHERE CAST("Gene_names" AS TEXT) >= :p0'
+        assert params == {"p0": "A"}
+
+    def test_df5_between_upper_only(self, fetcher):
+        """Only upper bound → <= clause."""
+        from src.config.config_instance import QueryParams
+        where, params = fetcher._build_where_clause(
+            QueryParams(filters={"Gene_names": {"op": "between", "value": [None, "M"]}}),
+            use_params=True)
+        assert where == ' WHERE CAST("Gene_names" AS TEXT) <= :p0'
+        assert params == {"p0": "M"}
+
+    def test_df5_between_empty_strings(self, fetcher):
+        """Empty strings treated as null bounds."""
+        from src.config.config_instance import QueryParams
+        where, params = fetcher._build_where_clause(
+            QueryParams(filters={"Gene_names": {"op": "between", "value": ["", ""]}}),
+            use_params=True)
+        assert where == ""
+        assert params == {}
+
     def test_df6_regex(self, fetcher):
         from src.config.config_instance import QueryParams
         where, params = fetcher._build_where_clause(

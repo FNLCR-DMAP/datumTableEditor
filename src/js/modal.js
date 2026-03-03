@@ -543,7 +543,9 @@ window.applyDateFilter = function(columnName, event) {
     var dateInputs = filterGroup.querySelectorAll('.filter-date-input');
     var values = [];
     dateInputs.forEach(function(inp) {
-        if (inp.value) values.push(inp.value);
+        // Always push the value (empty string if not set) to preserve position
+        // so server knows which bound (from/to) was provided
+        values.push(inp.value || '');
     });
     
     var value = values.join('\n');

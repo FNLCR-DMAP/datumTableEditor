@@ -1173,8 +1173,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         filters = active_filters.get().copy()
         old = filters.get(col_name)
         
+        # Determine if this is a between-type operator filter
+        is_between = isinstance(old, dict) and old.get("op") == "between"
+        
         # Parse textarea content into values list
-        if raw_value and str(raw_value).strip():
+        if is_between:
+            # For between, preserve positional empty strings (from/to)
+            parts = str(raw_value).split('\n') if raw_value is not None else []
+            values = [v.strip() for v in parts]
+            # Normalize: convert empty strings to None for null-bound semantics
+            values = [v if v else None for v in values]
+        elif raw_value and str(raw_value).strip():
             values = [v.strip() for v in str(raw_value).replace(',', '\n').split('\n') if v.strip()]
         else:
             values = []

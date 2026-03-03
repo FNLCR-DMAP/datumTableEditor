@@ -605,13 +605,37 @@ class DataFetcher:
                 
                 elif op == "between":
                     if isinstance(fval, list) and len(fval) == 2:
-                        if use_params:
-                            conditions.append(f'{col_e} BETWEEN :p{param_idx} AND :p{param_idx + 1}')
-                            sql_params[f"p{param_idx}"] = str(fval[0])
-                            sql_params[f"p{param_idx + 1}"] = str(fval[1])
-                            param_idx += 2
+                        lo_raw, hi_raw = fval
+                        lo_none = lo_raw is None or str(lo_raw).strip() == ""
+                        hi_none = hi_raw is None or str(hi_raw).strip() == ""
+                        if lo_none and hi_none:
+                            # Both bounds absent — no constraint
+                            pass
+                        elif hi_none:
+                            # Only lower bound → >=
+                            if use_params:
+                                conditions.append(f'{col_e} >= :p{param_idx}')
+                                sql_params[f"p{param_idx}"] = str(lo_raw)
+                                param_idx += 1
+                            else:
+                                conditions.append(f'{col_e} >= {SqlLiteral(str(lo_raw))}')
+                        elif lo_none:
+                            # Only upper bound → <=
+                            if use_params:
+                                conditions.append(f'{col_e} <= :p{param_idx}')
+                                sql_params[f"p{param_idx}"] = str(hi_raw)
+                                param_idx += 1
+                            else:
+                                conditions.append(f'{col_e} <= {SqlLiteral(str(hi_raw))}')
                         else:
-                            conditions.append(f'{col_e} BETWEEN {SqlLiteral(str(fval[0]))} AND {SqlLiteral(str(fval[1]))}')
+                            # Both bounds present — closed range
+                            if use_params:
+                                conditions.append(f'{col_e} BETWEEN :p{param_idx} AND :p{param_idx + 1}')
+                                sql_params[f"p{param_idx}"] = str(lo_raw)
+                                sql_params[f"p{param_idx + 1}"] = str(hi_raw)
+                                param_idx += 2
+                            else:
+                                conditions.append(f'{col_e} BETWEEN {SqlLiteral(str(lo_raw))} AND {SqlLiteral(str(hi_raw))}')
                 
                 elif op in ("gt", "gte", "lt", "lte"):
                     sql_op = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[op]
