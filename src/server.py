@@ -1596,6 +1596,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 export_state.set("idle")
                 return
             
+            # Mirror UI display: filter to active columns and preserve their order
+            ui_cols = [c for c in active_columns.get() if c in result_df.columns]
+            if ui_cols:
+                result_df = result_df[ui_cols]
+            
+            # Apply column masks (display names) to CSV headers
+            if column_masks:
+                result_df = result_df.rename(columns=column_masks)
+            
             output = io.StringIO()
             result_df.to_csv(output, index=False)
             export_csv_data.set(output.getvalue())
