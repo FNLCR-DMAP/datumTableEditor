@@ -67,12 +67,27 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     
     elif op == "between":
         if isinstance(fval, list) and len(fval) == 2:
-            # Try numeric comparison first, fall back to string
+            lo_raw, hi_raw = fval
+            # Both bounds absent — pass through (no filtering)
+            if lo_raw is None and hi_raw is None:
+                return True
+            # Half-open: only lower bound → gte
+            if hi_raw is None:
+                try:
+                    return float(row_str) >= float(lo_raw)
+                except (ValueError, TypeError):
+                    return row_str >= str(lo_raw)
+            # Half-open: only upper bound → lte
+            if lo_raw is None:
+                try:
+                    return float(row_str) <= float(hi_raw)
+                except (ValueError, TypeError):
+                    return row_str <= str(hi_raw)
+            # Both bounds present — closed range
             try:
-                return float(fval[0]) <= float(row_str) <= float(fval[1])
+                return float(lo_raw) <= float(row_str) <= float(hi_raw)
             except (ValueError, TypeError):
-                lo, hi = str(fval[0]), str(fval[1])
-                return lo <= row_str <= hi
+                return str(lo_raw) <= row_str <= str(hi_raw)
         return True  # malformed — don't filter
     
     elif op == "gt":
