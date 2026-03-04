@@ -51,11 +51,20 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     fval = filter_def.get("value")
     row_str = str(row_value_raw) if row_value_raw is not None else ""
     
-    if op == "in":
+    # Empty / blank value → no constraint (pass through) for value-based ops
+    if op not in ("not_empty",):
+        if fval is None or fval == "" or fval == []:
+            return True
+        if isinstance(fval, list) and all(
+            v is None or (isinstance(v, str) and v.strip() == "") for v in fval
+        ):
+            return True
+    
+    if op == "in" or op == "is":
         targets = fval if isinstance(fval, list) else [fval]
         return row_str in [str(t) for t in targets]
     
-    elif op == "not_in":
+    elif op == "not_in" or op == "is not":
         targets = fval if isinstance(fval, list) else [fval]
         return row_str not in [str(t) for t in targets]
     

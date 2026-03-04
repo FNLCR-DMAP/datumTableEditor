@@ -304,10 +304,23 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Initialize default filters from config
     # Config format: {column: [values]} or {column: "value"} or {column: {"op": "...", "value": ...}}
     # Internal format: {column: "value1\nvalue2\n..."} or {column: {"op": "...", "value": ...}}
+    # Map user-friendly operator labels (used in config) to internal keys
+    _OP_LABEL_TO_KEY = {
+        "is": "in", "is not": "not_in",
+        "contains": "contains", "does not contain": "not_contains",
+        "between": "between",
+        ">": "gt", "≥": "gte", ">=": "gte",
+        "<": "lt", "≤": "lte", "<=": "lte",
+        "matches regex": "regex", "matches": "regex",
+        "is not empty": "not_empty",
+        "within last n days": "last_n_days",
+    }
+
     def _convert_default_filters(config_filters: dict) -> dict:
         """Convert config default_filters to internal format.
         
-        Operator dicts ({"op": "...", "value": ...}) are passed through as-is.
+        Operator dicts ({"op": "...", "value": ...}) are normalised so that
+        user-friendly labels (e.g. "is") are mapped to internal keys ("in").
         Simple values are converted to newline-delimited strings.
         """
         result = {}
@@ -315,8 +328,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if col.startswith("_"):  # skip _comment, _example keys
                 continue
             if isinstance(values, dict) and "op" in values:
-                # Operator filter — pass through as-is
-                result[col] = values
+                # Normalise operator name (e.g. "is" → "in")
+                raw_op = values.get("op", "in")
+                normalised_op = _OP_LABEL_TO_KEY.get(raw_op.lower(), raw_op) if isinstance(raw_op, str) else raw_op
+                result[col] = {**values, "op": normalised_op}
             elif isinstance(values, list):
                 # List of values -> newline-delimited string
                 result[col] = "\n".join(str(v) for v in values)

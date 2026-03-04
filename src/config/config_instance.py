@@ -602,7 +602,16 @@ class DataFetcher:
                 fval = value.get("value")
                 col_e = self._col_expr(col_ident, col)
                 
-                if op == "in":
+                # Skip if value is empty/blank (no constraint)
+                if op not in ("not_empty",):
+                    if fval is None or fval == "" or fval == []:
+                        continue
+                    if isinstance(fval, list) and all(
+                        v is None or (isinstance(v, str) and v.strip() == "") for v in fval
+                    ):
+                        continue
+                
+                if op in ("in", "is"):
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
@@ -614,7 +623,7 @@ class DataFetcher:
                         placeholders = ", ".join(str(SqlLiteral(str(v))) for v in vals)
                         conditions.append(f'{col_e} IN ({placeholders})')
                 
-                elif op == "not_in":
+                elif op in ("not_in", "is not"):
                     vals = fval if isinstance(fval, list) else [fval]
                     if use_params:
                         placeholders = ", ".join(f":p{param_idx + i}" for i in range(len(vals)))
