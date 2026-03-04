@@ -93,6 +93,26 @@ class TestSafetyGateAllowed:
     def test_rollback(self):
         validate_sql_safety("ROLLBACK")
 
+    def test_with_cte_select(self):
+        validate_sql_safety(
+            "WITH latest_mod AS ("
+            "  SELECT DISTINCT ON (lm.row_pk) lm.row_pk, lm.mod_type"
+            "  FROM schema.mods lm WHERE lm.undone = FALSE"
+            "  ORDER BY lm.row_pk, lm.created_at DESC"
+            ") SELECT _status, COUNT(*) FROM latest_mod GROUP BY 1"
+        )
+
+    def test_with_cte_and_left_join(self):
+        validate_sql_safety(
+            "WITH latest_mod AS ("
+            "  SELECT DISTINCT ON (row_pk) row_pk, mod_type, new_value"
+            "  FROM schema.mods WHERE undone = FALSE"
+            "  ORDER BY row_pk, created_at DESC"
+            ") SELECT COALESCE(lm.mod_type, 'unprocessed') AS _status, COUNT(*)"
+            " FROM schema.data d LEFT JOIN latest_mod lm ON lm.row_pk = jsonb_build_object('id', d.id::text)"
+            " GROUP BY 1"
+        )
+
     def test_create_table_without_if_not_exists(self):
         validate_sql_safety(
             "CREATE TABLE schema.mods (id SERIAL PRIMARY KEY)"

@@ -25,6 +25,7 @@ class DestructiveSqlError(Exception):
 _ALLOWED_STATEMENT_PREFIXES = re.compile(
     r"^\s*"
     r"(?:BEGIN|COMMIT|ROLLBACK"
+    r"|WITH\s"
     r"|SELECT"
     r"|INSERT\s+INTO"
     r"|UPDATE"
@@ -32,8 +33,7 @@ _ALLOWED_STATEMENT_PREFIXES = re.compile(
     r"|CREATE\s+(?:TABLE|SCHEMA|INDEX|MATERIALIZED\s+VIEW)"
     r"|REFRESH\s+MATERIALIZED\s+VIEW"
     r"|COMMENT\s+ON\s+(?:TABLE|MATERIALIZED\s+VIEW)"
-    r")"
-    r"\b",
+    r")",
     re.IGNORECASE,
 )
 
