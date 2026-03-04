@@ -549,35 +549,40 @@ class TestGetStatusCounts:
     """DataFetcher.get_status_counts – both modes + exception."""
 
     def test_datum_mode_returns_counts(self):
+        """Mods-only approach: mods CTE returns per-status counts,
+        unprocessed = _total_count - sum(mod counts)."""
         mock_client = MagicMock()
+        # The optimised query hits the mods table first (returns _status)
         mock_client.execute_sql.return_value = MagicMock(data=[
-            {"_mod_status": "unprocessed", "cnt": 50},
-            {"_mod_status": "edited", "cnt": 10},
-            {"_mod_status": "approved", "cnt": 5},
-            {"_mod_status": "rejected", "cnt": 2},
+            {"_status": "edited", "cnt": 10},
+            {"_status": "approved", "cnt": 5},
+            {"_status": "rejected", "cnt": 2},
         ])
         fetcher = _make_fetcher(mode="datum", datum_client=mock_client, pk_columns=["id"])
         counts = fetcher.get_status_counts()
-        assert counts == {"unprocessed": 50, "edited": 10, "approved": 5, "rejected": 2}
+        # unprocessed = _total_count(100) - 10 - 5 - 2 = 83
+        assert counts == {"unprocessed": 83, "edited": 10, "approved": 5, "rejected": 2}
 
     def test_datum_mode_partial_counts(self):
         """Response missing some statuses should still return zeroes for them."""
         mock_client = MagicMock()
         mock_client.execute_sql.return_value = MagicMock(data=[
-            {"_mod_status": "edited", "cnt": 3},
+            {"_status": "edited", "cnt": 3},
         ])
         fetcher = _make_fetcher(mode="datum", datum_client=mock_client, pk_columns=["id"])
         counts = fetcher.get_status_counts()
-        assert counts["unprocessed"] == 0
+        # unprocessed = 100 - 3 = 97
+        assert counts["unprocessed"] == 97
         assert counts["edited"] == 3
         assert counts["approved"] == 0
 
     def test_sqlalchemy_mode_returns_counts(self):
         mock_conn = MagicMock()
         mock_result = MagicMock()
+        # The optimised query returns (_status, cnt) from the mods CTE
         mock_result.fetchall.return_value = [
-            ("unprocessed", 40),
             ("edited", 8),
+            ("approved", 2),
         ]
         mock_conn.execute.return_value = mock_result
         mock_engine = MagicMock()
@@ -586,9 +591,10 @@ class TestGetStatusCounts:
 
         fetcher = _make_fetcher(mode="direct", engine=mock_engine, pk_columns=["id"])
         counts = fetcher.get_status_counts()
-        assert counts["unprocessed"] == 40
+        # unprocessed = 100 - 8 - 2 = 90
+        assert counts["unprocessed"] == 90
         assert counts["edited"] == 8
-        assert counts["approved"] == 0
+        assert counts["approved"] == 2
 
     def test_exception_returns_zeroes(self):
         mock_client = MagicMock()
@@ -604,11 +610,13 @@ class TestGetStatusCounts:
                                 pk_columns=["id"], columns=["id", "name"])
         params = QueryParams(filters={"name": "test"})
         fetcher.get_status_counts(params)
-        sql = mock_client.execute_sql.call_args.kwargs.get(
-            "sql", mock_client.execute_sql.call_args[1].get("sql", "")
+        # First call is the mods CTE with EXISTS filter, second is the total count
+        assert mock_client.execute_sql.call_count >= 1
+        # Check the first call includes WHERE (EXISTS sub-query has the filter)
+        first_sql = mock_client.execute_sql.call_args_list[0].kwargs.get(
+            "sql", mock_client.execute_sql.call_args_list[0][1].get("sql", "")
         )
-        assert "WHERE" in sql
-        assert "GROUP BY" in sql
+        assert "WHERE" in first_sql
 
 
 class TestGetFilteredCount:

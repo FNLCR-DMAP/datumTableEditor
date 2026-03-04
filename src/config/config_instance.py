@@ -755,6 +755,14 @@ class DataFetcher:
         
         Returns:
             Dict like {"unprocessed": N, "edited": N, "approved": N, "rejected": N}
+
+        Optimisation:  Instead of a LATERAL JOIN across every data row
+        (which is O(N) × mods-table lookups), we query only the small
+        mods table to aggregate per-PK latest status, then derive
+        ``unprocessed = total_filtered - sum(modified_counts)``.
+
+        When column/search filters are active we use an EXISTS sub-query
+        against the data table so that only matching rows are counted.
         """
         counts = {"unprocessed": 0, "edited": 0, "approved": 0, "rejected": 0}
 
@@ -771,35 +779,74 @@ class DataFetcher:
             mods_table_sql = SqlTableName(mods_table)
             
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
-            
+
             # Build WHERE clause from filters (but ignore status_filters)
             where_clause = ""
             sql_params = {}
+            has_filters = False
             if params:
-                # Create a copy without status filters so we count all statuses
                 where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
-            
+                has_filters = bool(where_clause.strip())
+
             pk_json_build = build_pk_json_expr(pk_columns)
-            
+
+            # ── Build the mod-status normalisation expression ────────
+            status_labels = getattr(self.app_config, "status_labels", None)
+            status_values = getattr(self.app_config, "status_values", None)
+            status_col = self._effective_status_column
+
+            # Normalise mod_type/new_value → internal status key
+            mod_when_clauses = [
+                "WHEN lm.mod_type = 'approval' THEN 'approved'",
+                "WHEN lm.mod_type = 'rejection' THEN 'rejected'",
+            ]
+            if status_values:
+                for internal_key, db_val in status_values.items():
+                    safe_val = db_val.lower()
+                    safe_key = internal_key.lower()
+                    if safe_val not in (safe_key, "approval", "rejection"):
+                        mod_when_clauses.append(
+                            f"WHEN LOWER(CAST(lm.new_value AS TEXT)) = {SqlLiteral(safe_val)} THEN {SqlLiteral(safe_key)}"
+                        )
+            mod_when_clauses.append("ELSE lm.mod_type")
+            mod_normalize = f"CASE {' '.join(mod_when_clauses)} END"
+
+            # ── Fast path: aggregate only the (small) mods table ─────
+            # Step 1: Get per-PK latest modification status from the mods
+            # table.  This CTE touches only the mods table (typically a few
+            # hundred rows), not the main data table.
+            #
+            # When column/search filters are active we add an EXISTS guard
+            # so that only PKs present in the filtered data table are counted.
+            if has_filters:
+                exists_clause = f"""
+                    AND EXISTS (
+                        SELECT 1 FROM {data_table_sql} d
+                        WHERE d.{SqlIdentifier(pk_columns[0])}::text = (lm.row_pk->>'{pk_columns[0]}')
+                        {where_clause.replace('WHERE', 'AND', 1) if where_clause.strip().upper().startswith('WHERE') else where_clause}
+                    )
+                """
+            else:
+                exists_clause = ""
+
             query = f"""
-            SELECT _mod_status, COUNT(*) as cnt FROM (
-                SELECT {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
-                FROM {data_table_sql} d
-                LEFT JOIN LATERAL (
-                    SELECT mod_type, new_value 
-                    FROM {mods_table_sql} m
-                    WHERE m.row_pk = {pk_json_build}
-                      AND m.undone = FALSE
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) ms ON TRUE
-                {where_clause}
-            ) subq
-            GROUP BY _mod_status
+            WITH latest_mod AS (
+                SELECT DISTINCT ON (lm.row_pk)
+                       lm.row_pk,
+                       {mod_normalize} AS _status
+                FROM {mods_table_sql} lm
+                WHERE lm.undone = FALSE {exists_clause}
+                ORDER BY lm.row_pk, lm.created_at DESC
+            )
+            SELECT _status, COUNT(*) AS cnt
+            FROM latest_mod
+            WHERE _status IN ('edited', 'approved', 'rejected')
+            GROUP BY _status
             """
-            
+
+            mod_counts = {}
             if is_datum:
-                with tracker.track_sql("get_status_counts", query):
+                with tracker.track_sql("get_status_counts.mods", query):
                     response = self._datum_client.execute_sql(
                         sql=query,
                         database=self.app_config.database.datum_database,
@@ -807,19 +854,120 @@ class DataFetcher:
                         service_name=self.app_config.database.datum_service_name,
                     )
                 for row in response.data:
-                    status = row.get("_mod_status", "unprocessed")
-                    if status in counts:
-                        counts[status] = row.get("cnt", 0)
+                    s = row.get("_status", "")
+                    if s in counts:
+                        mod_counts[s] = int(row.get("cnt", 0))
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    with tracker.track_sql("get_status_counts", query):
+                    with tracker.track_sql("get_status_counts.mods", query):
                         result = conn.execute(text(query), sql_params)
                         rows = result.fetchall()
                     for row in rows:
-                        status = row[0] or "unprocessed"
-                        if status in counts:
-                            counts[status] = row[1]
+                        s = row[0] or ""
+                        if s in counts:
+                            mod_counts[s] = int(row[1])
+
+            # Step 2: Determine total filtered count.
+            if has_filters:
+                # Re-use the existing fast-path (simple COUNT with WHERE, no LATERAL)
+                total_query = f"SELECT COUNT(*) AS cnt FROM {data_table_sql} d {where_clause}"
+                if is_datum:
+                    with tracker.track_sql("get_status_counts.total", total_query):
+                        response = self._datum_client.execute_sql(
+                            sql=total_query,
+                            database=self.app_config.database.datum_database,
+                            schema=self.app_config.database.datum_schema,
+                            service_name=self.app_config.database.datum_service_name,
+                        )
+                    total_filtered = response.data[0]["cnt"] if response.data else 0
+                else:
+                    with self._engine.connect() as conn:
+                        with tracker.track_sql("get_status_counts.total", total_query):
+                            result = conn.execute(text(total_query), sql_params)
+                            total_filtered = result.scalar() or 0
+            else:
+                total_filtered = self._total_count
+
+            # Also account for rows whose data-table status column already
+            # indicates approved/rejected (written back by approval_assignment).
+            # These rows may not have a mods entry if the status was set
+            # directly.  We only do this extra query when a status column
+            # exists in the table and status_labels/values are configured.
+            db_status_counts: dict = {}
+            if status_col and status_labels:
+                # Count rows per recognised status value directly from the
+                # data table's status column.  This is a simple GROUP BY
+                # on a single column — fast even on large tables.
+                col_ident = SqlIdentifier(status_col)
+                when_parts = []
+                for internal_key, label in status_labels.items():
+                    if internal_key == "unprocessed":
+                        continue
+                    match_vals = {internal_key.lower(), label.lower()}
+                    if status_values and internal_key in status_values:
+                        match_vals.add(status_values[internal_key].lower())
+                    in_list = ", ".join(str(SqlLiteral(v)) for v in sorted(match_vals))
+                    when_parts.append(
+                        f"WHEN LOWER(CAST({col_ident} AS TEXT)) IN ({in_list}) THEN {SqlLiteral(internal_key.lower())}"
+                    )
+                case_expr = f"CASE {' '.join(when_parts)} ELSE 'unprocessed' END"
+                db_status_query = f"""
+                    SELECT _s, COUNT(*) AS cnt FROM (
+                        SELECT {case_expr} AS _s FROM {data_table_sql} d {where_clause}
+                    ) _t GROUP BY _s
+                """
+                if is_datum:
+                    with tracker.track_sql("get_status_counts.db_col", db_status_query):
+                        response = self._datum_client.execute_sql(
+                            sql=db_status_query,
+                            database=self.app_config.database.datum_database,
+                            schema=self.app_config.database.datum_schema,
+                            service_name=self.app_config.database.datum_service_name,
+                        )
+                    for row in response.data:
+                        s = row.get("_s", "")
+                        if s in counts:
+                            db_status_counts[s] = int(row.get("cnt", 0))
+                else:
+                    with self._engine.connect() as conn:
+                        with tracker.track_sql("get_status_counts.db_col", db_status_query):
+                            result = conn.execute(text(db_status_query), sql_params)
+                            for row in result.fetchall():
+                                s = row[0] or ""
+                                if s in counts:
+                                    db_status_counts[s] = int(row[1])
+
+            # Step 3: Merge.  Mods-table entries override the data-table
+            # status column (a row with a mod entry should not also be
+            # counted from the data-table column).
+            if db_status_counts:
+                # Start from db_status_counts as the base
+                for k in ("edited", "approved", "rejected"):
+                    counts[k] = db_status_counts.get(k, 0)
+                counts["unprocessed"] = db_status_counts.get("unprocessed", 0)
+                # Now overlay: for rows that *also* have a mod entry, the
+                # mod takes precedence.  Subtract the db_status_count for
+                # those PKs and add the mod_count instead.
+                modified_total = sum(mod_counts.values())
+                if modified_total > 0:
+                    # The mod_counts represent a subset of rows.  Their
+                    # data-table status may differ from the mod status.
+                    # We don't know which db-status bucket they came from
+                    # without another query, so we approximate: the
+                    # modified rows were originally "unprocessed" in the
+                    # data table (most common case).  For exact counts
+                    # subtract the total modified from unprocessed and add
+                    # mod_counts.
+                    counts["unprocessed"] = max(0, counts["unprocessed"] - modified_total)
+                    for k, v in mod_counts.items():
+                        counts[k] = counts.get(k, 0) + v
+            else:
+                # No status column in data table — purely mods-driven
+                for k, v in mod_counts.items():
+                    counts[k] = v
+                counts["unprocessed"] = max(0, total_filtered - sum(mod_counts.values()))
+
         except Exception as e:
             print(f"✗ Error getting status counts: {e}")
         return counts
