@@ -95,6 +95,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     _server_t1 = _t.time()
     print(f"[Timing] load_config_instance: {(_server_t1 - _server_t0)*1000:.0f}ms")
     
+    # Initialise tracker mode (force-flush SQL + render timings)
+    from .utils import tracker
+    tracker.init(config.app_config.tracker_mode)
+    
     # Extract config values
     data_dir = config.data_dir
     modifications_log_path = config.modifications_log_path
@@ -728,23 +732,24 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def stats_histogram():
         # Explicit dependency on mods_log for reactivity
         _ = mods_log.get()
-        counts = _get_status_counts()
-        total = sum(counts.values()) or 1
-        
-        # Get current filter selections
-        try:
-            selected = list(input.status_filter_multi())
-        except:
-            selected = list(app_config.status_labels.keys())
-        
-        # Get configured labels
-        labels = app_config.status_labels
-        
-        bars = []
-        for status, count in counts.items():
-            pct = (count / total) * 100
-            is_checked = status in selected
-            bars.append(build_status_histogram_bar(status, count, pct, is_checked, label=labels.get(status)))
+        with tracker.track_render("stats_histogram"):
+            counts = _get_status_counts()
+            total = sum(counts.values()) or 1
+            
+            # Get current filter selections
+            try:
+                selected = list(input.status_filter_multi())
+            except:
+                selected = list(app_config.status_labels.keys())
+            
+            # Get configured labels
+            labels = app_config.status_labels
+            
+            bars = []
+            for status, count in counts.items():
+                pct = (count / total) * 100
+                is_checked = status in selected
+                bars.append(build_status_histogram_bar(status, count, pct, is_checked, label=labels.get(status)))
         return ui.div(*bars)
     
     # Output: Current preset name
@@ -982,34 +987,36 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Depend on active_filters so the UI refreshes when selections change
         filters = active_filters.get()
 
-        # Build value counts map — lazy loading uses DB, traditional uses in‑memory
-        vc_map = {}
-        selected_map = {}
-        for col in _facet_columns:
-            if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
-                vc_map[col] = config.data_fetcher.get_value_counts(col, limit=_facet_max * 10)
-            else:
-                df = data.get()
-                if col in df.columns:
-                    counts = df[col].fillna("No value").astype(str).value_counts()
-                    vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
+        with tracker.track_render("facet_panels_ui"):
+            # Build value counts map — lazy loading uses DB, traditional uses in‑memory
+            vc_map = {}
+            selected_map = {}
+            for col in _facet_columns:
+                if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
+                    vc_map[col] = config.data_fetcher.get_value_counts(col, limit=_facet_max * 10)
                 else:
-                    vc_map[col] = []
+                    df = data.get()
+                    if col in df.columns:
+                        counts = df[col].fillna("No value").astype(str).value_counts()
+                        vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
+                    else:
+                        vc_map[col] = []
 
-            # Derive selected from active_filters
-            fv = filters.get(col)
-            if fv and isinstance(fv, str) and fv.strip() and fv != "all":
-                selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
-            elif isinstance(fv, dict) and fv.get("op") == "in":
-                selected_map[col] = [str(v) for v in fv.get("value", [])]
-            # else: None → all checked
+                # Derive selected from active_filters
+                fv = filters.get(col)
+                if fv and isinstance(fv, str) and fv.strip() and fv != "all":
+                    selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
+                elif isinstance(fv, dict) and fv.get("op") == "in":
+                    selected_map[col] = [str(v) for v in fv.get("value", [])]
+                # else: None → all checked
 
-        return build_facet_panels(
-            _facet_columns, vc_map,
-            selected_map=selected_map if selected_map else None,
-            max_visible=_facet_max,
-            column_masks=column_masks,
-        )
+            result = build_facet_panels(
+                _facet_columns, vc_map,
+                selected_map=selected_map if selected_map else None,
+                max_visible=_facet_max,
+                column_masks=column_masks,
+            )
+        return result
 
     @reactive.Effect
     @reactive.event(input.facet_filter_change)
@@ -1210,22 +1217,24 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def pagination_controls():
         """Render pagination controls with rows per page selector"""
-        if is_lazy_loading():
-            # In lazy loading mode, use the filtered count from the fetcher
-            total_filtered = filtered_row_count.get()
-        else:
-            # Traditional mode: count filtered indices
-            filtered_indices = _get_filtered_rows()
-            total_filtered = len(filtered_indices)
-        
-        rows_per_page_val = rows_per_page_value.get()
-        rpp_options = app_config.table.rows_per_page_options
-        
-        if rows_per_page_val == "all":
-            return build_pagination_controls_all(total_filtered, rows_per_page_val, rpp_options)
-        
-        page, total_pages, start_row, end_row = calculate_pagination(total_filtered, rows_per_page_val, current_page.get())
-        return build_pagination_controls_paged(page, total_pages, start_row, end_row, total_filtered, rows_per_page_val, rpp_options)
+        with tracker.track_render("pagination_controls"):
+            if is_lazy_loading():
+                # In lazy loading mode, use the filtered count from the fetcher
+                total_filtered = filtered_row_count.get()
+            else:
+                # Traditional mode: count filtered indices
+                filtered_indices = _get_filtered_rows()
+                total_filtered = len(filtered_indices)
+            
+            rows_per_page_val = rows_per_page_value.get()
+            rpp_options = app_config.table.rows_per_page_options
+            
+            if rows_per_page_val == "all":
+                result = build_pagination_controls_all(total_filtered, rows_per_page_val, rpp_options)
+            else:
+                page, total_pages, start_row, end_row = calculate_pagination(total_filtered, rows_per_page_val, current_page.get())
+                result = build_pagination_controls_paged(page, total_pages, start_row, end_row, total_filtered, rows_per_page_val, rpp_options)
+        return result
     
     # Sync rows_per_page input with reactive value
     @reactive.Effect
@@ -1403,48 +1412,54 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         _ = approval_status.get()
         _ = _table_reload_trigger.get()  # force re-render after synthesis completes
         
-        if is_lazy_loading():
-            # Lazy loading mode: fetch data from database
-            current_df, filt_count, tot_count = _fetch_page_data()
-            # In lazy mode, all returned rows are the "paginated" data
-            paginated_indices = list(current_df.index)
-            filtered_count = filt_count
-            total_count = tot_count
-        else:
-            # Traditional mode: slice in-memory data
-            current_df = data.get()
-            filtered_indices = _get_filtered_rows()
-            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
-            filtered_count = len(filtered_indices)
-            total_count = len(current_df)
-        
-        return build_table_container(
-            paginated_indices=paginated_indices,
-            current_df=current_df,
-            cols=active_columns.get(),
-            widths=column_widths.get(),
-            filtered_count=filtered_count,
-            total_rows=total_count,
-            get_row_status_func=_get_row_status,
-            edited_cells=edited_cells.get(),
-            pk_columns=app_config.table.primary_key,
-            editable_columns=[] if is_viewer else app_config.table.editable_columns,
-            readonly_columns=list(all_columns) if is_viewer else app_config.table.readonly_columns,
-            show_status_column=app_config.enable_approval_workflow,
-            status_labels=app_config.status_labels,
-            column_masks=column_masks,
-            cell_click_columns=app_config.table.cell_click_columns
-        )
+        with tracker.track_render("table_container"):
+            if is_lazy_loading():
+                # Lazy loading mode: fetch data from database
+                current_df, filt_count, tot_count = _fetch_page_data()
+                # In lazy mode, all returned rows are the "paginated" data
+                paginated_indices = list(current_df.index)
+                filtered_count = filt_count
+                total_count = tot_count
+            else:
+                # Traditional mode: slice in-memory data
+                current_df = data.get()
+                filtered_indices = _get_filtered_rows()
+                paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+                filtered_count = len(filtered_indices)
+                total_count = len(current_df)
+            
+            result = build_table_container(
+                paginated_indices=paginated_indices,
+                current_df=current_df,
+                cols=active_columns.get(),
+                widths=column_widths.get(),
+                filtered_count=filtered_count,
+                total_rows=total_count,
+                get_row_status_func=_get_row_status,
+                edited_cells=edited_cells.get(),
+                pk_columns=app_config.table.primary_key,
+                editable_columns=[] if is_viewer else app_config.table.editable_columns,
+                readonly_columns=list(all_columns) if is_viewer else app_config.table.readonly_columns,
+                show_status_column=app_config.enable_approval_workflow,
+                status_labels=app_config.status_labels,
+                column_masks=column_masks,
+                cell_click_columns=app_config.table.cell_click_columns
+            )
+        return result
     
     # Output: Approval status
     @render.ui
     def approval_status_ui():
-        return build_approval_status_banner(approval_status.get(), approval_timestamp.get())
+        with tracker.track_render("approval_status_ui"):
+            result = build_approval_status_banner(approval_status.get(), approval_timestamp.get())
+        return result
     
     # Output: Modifications log
     @render.ui
     def modifications_log_ui():
-        return build_modifications_log(mods_log.get())
+        with tracker.track_render("modifications_log_ui"):
+            result = build_modifications_log(mods_log.get())
+        return result
     
     # Event: Handle undo modification
     @reactive.Effect

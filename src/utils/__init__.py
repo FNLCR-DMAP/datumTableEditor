@@ -80,6 +80,7 @@ from .event_handlers import (
     process_undo_action,
     process_cell_edit_action,
 )
+from . import tracker
 
 __all__ = [
     # Preset utilities

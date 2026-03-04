@@ -34,6 +34,7 @@ from .query_builder import (
     parse_filters_from_list,
 )
 from .session_book import SessionBook, SessionBookManager
+from ..utils import tracker
 
 
 logger = logging.getLogger(__name__)
@@ -258,9 +259,10 @@ class DatabaseOperations:
         )
         
         with self._connection() as conn:
-            result = conn.execute(text(sql), params)
-            rows = result.fetchall()
-            columns = result.keys()
+            with tracker.track_sql("dbops.fetch_page", sql):
+                result = conn.execute(text(sql), params)
+                rows = result.fetchall()
+                columns = result.keys()
         
         # Convert to DataFrame
         df = pd.DataFrame(rows, columns=columns)
@@ -268,8 +270,9 @@ class DatabaseOperations:
         # Get total count
         count_sql, count_params = self._query_builder.build_count_query(filter_conditions)
         with self._connection() as conn:
-            result = conn.execute(text(count_sql), count_params)
-            total_count = result.scalar()
+            with tracker.track_sql("dbops.count", count_sql):
+                result = conn.execute(text(count_sql), count_params)
+                total_count = result.scalar()
         
         # Determine if there are more pages
         has_more = (page * rows_per_page) < total_count
@@ -331,18 +334,19 @@ class DatabaseOperations:
         sql = self._query_builder.build_insert_modification()
         
         with self._connection() as conn:
-            result = conn.execute(
-                text(sql),
-                {
-                    "row_pk": json.dumps(pk_values, sort_keys=True),
-                    "column_name": column_name,
-                    "old_value": json.dumps(old_value) if old_value is not None else None,
-                    "new_value": json.dumps(new_value) if new_value is not None else None,
-                    "mod_type": mod_type,
-                    "created_by": created_by
-                }
-            )
-            mod_id = result.scalar()
+            with tracker.track_sql("dbops.save_modification", sql):
+                result = conn.execute(
+                    text(sql),
+                    {
+                        "row_pk": json.dumps(pk_values, sort_keys=True),
+                        "column_name": column_name,
+                        "old_value": json.dumps(old_value) if old_value is not None else None,
+                        "new_value": json.dumps(new_value) if new_value is not None else None,
+                        "mod_type": mod_type,
+                        "created_by": created_by
+                    }
+                )
+                mod_id = result.scalar()
             conn.commit()
         
         # Update session book

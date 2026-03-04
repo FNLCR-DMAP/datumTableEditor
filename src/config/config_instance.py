@@ -16,6 +16,7 @@ from typing import Optional, List, Dict, Any, Tuple
 
 from .app_config_schema import AppConfig, load_config
 from .sql_types import SqlIdentifier, SqlTableName, SqlLiteral, build_pk_json_expr, build_pk_array
+from ..utils import tracker
 
 
 # ---------------------------------------------------------------------------
@@ -250,21 +251,23 @@ class DataFetcher:
             
             if self.app_config.database.mode == "datum" and self._datum_client:
                 # Datum mode
-                response = self._datum_client.execute_sql(
-                    sql=count_query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                with tracker.track_sql("fetch_metadata.count", count_query):
+                    response = self._datum_client.execute_sql(
+                        sql=count_query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
                 self._total_count = response.data[0]["cnt"] if response.data else 0
                 
                 # Get columns
-                response = self._datum_client.execute_sql(
-                    sql=columns_query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                with tracker.track_sql("fetch_metadata.columns", columns_query):
+                    response = self._datum_client.execute_sql(
+                        sql=columns_query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
                 # Use response.columns (always present) rather than
                 # response.data[0].keys() which fails when LIMIT 0 returns no rows
                 self._columns = list(response.columns) if response.columns else []
@@ -278,13 +281,15 @@ class DataFetcher:
                 # Direct SQLAlchemy mode
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    result = conn.execute(text(count_query))
-                    row = result.fetchone()
-                    self._total_count = row[0] if row else 0
+                    with tracker.track_sql("fetch_metadata.count", count_query):
+                        result = conn.execute(text(count_query))
+                        row = result.fetchone()
+                        self._total_count = row[0] if row else 0
                     
                     # Get columns
-                    result = conn.execute(text(columns_query))
-                    self._columns = list(result.keys())
+                    with tracker.track_sql("fetch_metadata.columns", columns_query):
+                        result = conn.execute(text(columns_query))
+                        self._columns = list(result.keys())
                 
                 # Fetch column types from information_schema
                 self._column_types = self._get_column_types_from_schema()
@@ -794,12 +799,13 @@ class DataFetcher:
             """
             
             if is_datum:
-                response = self._datum_client.execute_sql(
-                    sql=query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                with tracker.track_sql("get_status_counts", query):
+                    response = self._datum_client.execute_sql(
+                        sql=query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
                 for row in response.data:
                     status = row.get("_mod_status", "unprocessed")
                     if status in counts:
@@ -807,8 +813,10 @@ class DataFetcher:
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    result = conn.execute(text(query), sql_params)
-                    for row in result.fetchall():
+                    with tracker.track_sql("get_status_counts", query):
+                        result = conn.execute(text(query), sql_params)
+                        rows = result.fetchall()
+                    for row in rows:
                         status = row[0] or "unprocessed"
                         if status in counts:
                             counts[status] = row[1]
@@ -876,18 +884,20 @@ class DataFetcher:
                 """
 
             if is_datum:
-                response = self._datum_client.execute_sql(
-                    sql=query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                with tracker.track_sql("get_filtered_count", query):
+                    response = self._datum_client.execute_sql(
+                        sql=query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
                 return response.data[0]["cnt"] if response.data else 0
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    result = conn.execute(text(query), sql_params)
-                    row = result.fetchone()
+                    with tracker.track_sql("get_filtered_count", query):
+                        result = conn.execute(text(query), sql_params)
+                        row = result.fetchone()
                     return row[0] if row else 0
                     
         except Exception as e:
@@ -963,19 +973,21 @@ class DataFetcher:
             print(f"[DataFetcher] Fetching page {params.page}, size {params.page_size}, offset {offset}")
             
             if is_datum:
-                response = self._datum_client.execute_sql(
-                    sql=query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                with tracker.track_sql("fetch_page", query):
+                    response = self._datum_client.execute_sql(
+                        sql=query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
                 df = pd.DataFrame(response.data)
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    result = conn.execute(text(query), sql_params)
-                    rows = result.fetchall()
-                    columns = result.keys()
+                    with tracker.track_sql("fetch_page", query):
+                        result = conn.execute(text(query), sql_params)
+                        rows = result.fetchall()
+                        columns = result.keys()
                 df = pd.DataFrame(rows, columns=columns)
             
             # Apply field modifications
@@ -1051,19 +1063,21 @@ class DataFetcher:
             print(f"[DataFetcher] Fetching ALL filtered data for export...")
             
             if is_datum:
-                response = self._datum_client.execute_sql(
-                    sql=query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                with tracker.track_sql("fetch_all_filtered", query):
+                    response = self._datum_client.execute_sql(
+                        sql=query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
                 df = pd.DataFrame(response.data)
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    result = conn.execute(text(query), sql_params)
-                    rows = result.fetchall()
-                    columns = result.keys()
+                    with tracker.track_sql("fetch_all_filtered", query):
+                        result = conn.execute(text(query), sql_params)
+                        rows = result.fetchall()
+                        columns = result.keys()
                 df = pd.DataFrame(rows, columns=columns)
             
             # Apply field modifications
@@ -2462,12 +2476,13 @@ class ConfigInstance:
             
             print(f"[Datum DEBUG] Loading modifications from {mods_table_sql}, database={self.app_config.database.datum_database}, schema={self.app_config.database.datum_schema}")
             
-            response = client.execute_sql(
-                sql=query,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            with tracker.track_sql("load_modifications.datum", query):
+                response = client.execute_sql(
+                    sql=query,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
             
             print(f"[Datum DEBUG] Loaded {len(response.data)} raw modifications")
             # Show latest few IDs to verify new entries
@@ -2519,14 +2534,16 @@ class ConfigInstance:
                 return []
             
             table_sql = _format_table_name(mods_table)
-            with engine.connect() as conn:
-                result = conn.execute(text(f'''
+            load_mods_sql = f'''
                     SELECT id, row_pk, column_name, old_value, new_value, 
                            mod_type, created_by, created_at, undone
                     FROM {table_sql}
                     ORDER BY created_at ASC
-                '''))
-                rows = result.fetchall()
+                '''
+            with engine.connect() as conn:
+                with tracker.track_sql("load_modifications", load_mods_sql):
+                    result = conn.execute(text(load_mods_sql))
+                    rows = result.fetchall()
             
             log = []
             for row in rows:
@@ -2633,25 +2650,27 @@ class ConfigInstance:
             
             table_sql = _format_table_name(mods_table)
             
-            with engine.connect() as conn:
-                result = conn.execute(
-                    text(f'''
+            insert_sql = f'''
                         INSERT INTO {table_sql} 
                             (row_pk, column_name, old_value, new_value, mod_type, created_by)
                         VALUES 
                             (:row_pk, :column_name, :old_value, :new_value, :mod_type, :created_by)
                         RETURNING id
-                    '''),
-                    {
-                        "row_pk": json.dumps(row_pk),
-                        "column_name": column,
-                        "old_value": str(old_value) if old_value is not None else None,
-                        "new_value": str(new_value) if new_value is not None else None,
-                        "mod_type": mod_type,
-                        "created_by": self.username
-                    }
-                )
-                mod_id = result.scalar()
+                    '''
+            with engine.connect() as conn:
+                with tracker.track_sql("save_modification", insert_sql):
+                    result = conn.execute(
+                        text(insert_sql),
+                        {
+                            "row_pk": json.dumps(row_pk),
+                            "column_name": column,
+                            "old_value": str(old_value) if old_value is not None else None,
+                            "new_value": str(new_value) if new_value is not None else None,
+                            "mod_type": mod_type,
+                            "created_by": self.username
+                        }
+                    )
+                    mod_id = result.scalar()
                 conn.commit()
                 
                 # Invalidate cache after successful insert
@@ -2722,12 +2741,13 @@ class ConfigInstance:
             print(f"[Datum DEBUG] INSERT SQL table: {mods_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}")
             print(f"[Datum DEBUG] Full SQL: {sql}")
             
-            response = client.execute_sql(
-                sql=sql,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            with tracker.track_sql("save_modification.datum", sql):
+                response = client.execute_sql(
+                    sql=sql,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
             
             if response.data:
                 mod_id = response.data[0].get("id")
@@ -3112,8 +3132,7 @@ class ConfigInstance:
             
             with engine.connect() as conn:
                 # Use upsert pattern
-                conn.execute(
-                    text(f'''
+                upsert_sql = f'''
                         INSERT INTO {state_table_sql} 
                             (user_id, session_id, sort_column, sort_ascending, 
                              current_page, rows_per_page, filters, column_preset, updated_at)
@@ -3129,18 +3148,21 @@ class ConfigInstance:
                             filters = :filters,
                             column_preset = :column_preset,
                             updated_at = NOW()
-                    '''),
-                    {
-                        "user_id": self.username,
-                        "session_id": "default_session",
-                        "sort_column": sort_column,
-                        "sort_ascending": sort_ascending,
-                        "current_page": current_page,
-                        "rows_per_page": rows_per_page,
-                        "filters": filters_json,
-                        "column_preset": column_preset
-                    }
-                )
+                    '''
+                with tracker.track_sql("save_ui_state", upsert_sql):
+                    conn.execute(
+                        text(upsert_sql),
+                        {
+                            "user_id": self.username,
+                            "session_id": "default_session",
+                            "sort_column": sort_column,
+                            "sort_ascending": sort_ascending,
+                            "current_page": current_page,
+                            "rows_per_page": rows_per_page,
+                            "filters": filters_json,
+                            "column_preset": column_preset
+                        }
+                    )
                 conn.commit()
                 return True
         except Exception as e:
@@ -3245,16 +3267,18 @@ class ConfigInstance:
                 return default_state
             
             with engine.connect() as conn:
-                result = conn.execute(
-                    text(f'''
+                load_sql = f'''
                         SELECT sort_column, sort_ascending, current_page, 
                                rows_per_page, filters, column_preset
                         FROM {state_table_sql}
                         WHERE user_id = :user_id AND session_id = :session_id
-                    '''),
-                    {"user_id": self.username, "session_id": "default_session"}
-                )
-                row = result.fetchone()
+                    '''
+                with tracker.track_sql("load_ui_state", load_sql):
+                    result = conn.execute(
+                        text(load_sql),
+                        {"user_id": self.username, "session_id": "default_session"}
+                    )
+                    row = result.fetchone()
             
             if row:
                 filters = row[4]
