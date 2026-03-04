@@ -150,6 +150,40 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
     return f"COALESCE({mod_normalize}, 'unprocessed')"
 
 
+def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
+    """Return (cte_clause, join_clause) to replace LATERAL JOIN with a CTE.
+
+    The CTE materialises only the latest undone modification per PK from the
+    (small) mods table.  PostgreSQL uses a hash-join against the data table
+    instead of a correlated sub-query per row.
+
+    The join alias is ``ms`` so that ``_build_mod_status_expr()`` expressions
+    referencing ``ms.mod_type`` / ``ms.new_value`` work unchanged.
+
+    Usage::
+
+        cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
+        query = f'''
+            {cte}
+            SELECT d.*, {mod_status_expr} AS _mod_status
+            FROM {data_table_sql} d
+            {join}
+            {where_clause}
+        '''
+    """
+    cte_clause = f"""WITH latest_mod AS (
+                SELECT DISTINCT ON (lm.row_pk)
+                       lm.row_pk,
+                       lm.mod_type,
+                       lm.new_value
+                FROM {mods_table_sql} lm
+                WHERE lm.undone = FALSE
+                ORDER BY lm.row_pk, lm.created_at DESC
+            )"""
+    join_clause = f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build}"
+    return cte_clause, join_clause
+
+
 @dataclass
 class QueryParams:
     """Parameters for database queries - filters, sort, pagination."""
@@ -897,8 +931,8 @@ class DataFetcher:
         Optimisation layers (fastest first):
           1. No filters, no search, no status filter → return cached _total_count
           2. Column/search filters but no status filter → simple COUNT on data
-             table with WHERE clause (no LATERAL JOIN to mods table)
-          3. Status filter active → full sub-query with LATERAL JOIN
+             table with WHERE clause (no join to mods table)
+          3. Status filter active → CTE + LEFT JOIN (hash-join on tiny mods CTE)
         """
         try:
             data_table = self._effective_table
@@ -918,25 +952,20 @@ class DataFetcher:
             if not needs_status:
                 query = f"SELECT COUNT(*) as cnt FROM {data_table_sql} d {where_clause}"
             else:
-                # ── Full path: need LATERAL JOIN for _mod_status ──────────
+                # ── Status filter path: CTE + LEFT JOIN ──────────────────
                 mods_table = self.app_config.database.mods_table
                 pk_columns = self.app_config.table.primary_key
                 mods_table_sql = SqlTableName(mods_table)
                 pk_json_build = build_pk_json_expr(pk_columns)
+                cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
 
                 query = f"""
+                {cte}
                 SELECT COUNT(*) as cnt FROM (
-                    SELECT d.*,
+                    SELECT
                            {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                     FROM {data_table_sql} d
-                    LEFT JOIN LATERAL (
-                        SELECT mod_type, new_value
-                        FROM {mods_table_sql} m
-                        WHERE m.row_pk = {pk_json_build}
-                          AND m.undone = FALSE
-                        ORDER BY m.created_at DESC
-                        LIMIT 1
-                    ) ms ON TRUE
+                    {join}
                     {where_clause}
                 ) subq
                 WHERE 1=1 {self._build_status_filter_clause(params)}
@@ -1006,23 +1035,19 @@ class DataFetcher:
                 {limit_clause}
                 """
             else:
-                # Wrap in subquery to allow status filtering
+                # CTE materialises the tiny mods table; hash-join replaces
+                # the expensive per-row LATERAL sub-query.
+                cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 inner_query = f"""
                 SELECT d.*, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
-                LEFT JOIN LATERAL (
-                    SELECT mod_type, new_value 
-                    FROM {mods_table_sql} m
-                    WHERE m.row_pk = {pk_json_build}
-                      AND m.undone = FALSE
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) ms ON TRUE
+                {join}
                 {where_clause}
                 """
                 
                 query = f"""
+                {cte}
                 SELECT * FROM ({inner_query}) subq
                 WHERE 1=1 {status_filter}
                 {order_clause}
@@ -1098,22 +1123,17 @@ class DataFetcher:
                 {order_clause}
                 """
             else:
+                cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 inner_query = f"""
                 SELECT d.*, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
-                LEFT JOIN LATERAL (
-                    SELECT mod_type, new_value 
-                    FROM {mods_table_sql} m
-                    WHERE m.row_pk = {pk_json_build}
-                      AND m.undone = FALSE
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) ms ON TRUE
+                {join}
                 {where_clause}
                 """
                 
                 query = f"""
+                {cte}
                 SELECT * FROM ({inner_query}) subq
                 WHERE 1=1 {status_filter}
                 {order_clause}
@@ -1693,18 +1713,13 @@ class ConfigInstance:
                 {limit_clause}
                 """
             else:
+                cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 query = f"""
+                {cte}
                 SELECT d.*, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
-                LEFT JOIN LATERAL (
-                    SELECT mod_type, new_value 
-                    FROM {mods_table_sql} m
-                    WHERE m.row_pk = {pk_json_build}
-                      AND m.undone = FALSE
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) ms ON TRUE
+                {join}
                 ORDER BY d.{SqlIdentifier(pk_columns[0])}
                 {limit_clause}
                 """
@@ -1886,18 +1901,13 @@ class ConfigInstance:
                 {limit_clause}
                 """
             else:
+                cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 query = f"""
+                {cte}
                 SELECT d.*, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
-                LEFT JOIN LATERAL (
-                    SELECT mod_type, new_value 
-                    FROM {mods_table_sql} m
-                    WHERE m.row_pk = {pk_json_build}
-                      AND m.undone = FALSE
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) ms ON TRUE
+                {join}
                 ORDER BY d.{SqlIdentifier(pk_columns[0])}
                 {limit_clause}
                 """

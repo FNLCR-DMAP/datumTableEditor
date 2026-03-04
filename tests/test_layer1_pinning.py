@@ -336,8 +336,8 @@ class TestDataFetcherGetFilteredCount:
         assert "LATERAL" not in executed_sql
         assert "COUNT(*)" in executed_sql
 
-    def test_status_filter_uses_lateral_join(self):
-        """Status filter active → must use LATERAL JOIN for _mod_status."""
+    def test_status_filter_uses_cte_join(self):
+        """Status filter active → must use CTE + LEFT JOIN for _mod_status."""
         from src.config.config_instance import DataFetcher, QueryParams
 
         fetcher = DataFetcher.__new__(DataFetcher)
@@ -366,7 +366,10 @@ class TestDataFetcherGetFilteredCount:
 
         assert result == 10
         executed_sql = mock_client.execute_sql.call_args[1]["sql"]
-        assert "LATERAL" in executed_sql
+        # CTE + LEFT JOIN replaces LATERAL
+        assert "WITH latest_mod AS" in executed_sql
+        assert "LEFT JOIN latest_mod" in executed_sql
+        assert "LATERAL" not in executed_sql
 
 
 class TestDataFetcherFetchAllFiltered:
