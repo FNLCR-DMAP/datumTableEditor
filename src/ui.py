@@ -40,6 +40,7 @@ def _load_js_files() -> str:
         "modal.js",
         "preset.js",
         "histogram.js",
+        "facet-filter.js",
         "cell-edit.js",
         "row-selection.js",
         "synthesis.js",
