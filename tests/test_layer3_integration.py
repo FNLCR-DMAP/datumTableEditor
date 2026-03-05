@@ -1623,21 +1623,22 @@ class TestLazyModeUniqueValuesCallback:
         assert "BRCA1" in panel_html
         assert "TP53" in panel_html
 
-    def test_non_empty_df_skips_callback(self):
-        """When DataFrame has data, callback is not used."""
+    def test_non_empty_df_prefers_callback(self):
+        """When callback is available, it is preferred over DataFrame for full unique values."""
         from src.utils.modal_utils import build_dynamic_filters_panel
         from unittest.mock import MagicMock
 
         df = pd.DataFrame({"Gene_names": ["BRCA1", "TP53"]})
-        callback = MagicMock(return_value=["should_not_appear"])
+        callback = MagicMock(return_value=["BRCA1", "TP53", "EGFR"])
 
         filters = {"Gene_names": "all"}
         panel_html = str(build_dynamic_filters_panel(
             filters, df, get_unique_values_func=callback
         ))
 
-        callback.assert_not_called()
+        callback.assert_called_once_with("Gene_names")
         assert "BRCA1" in panel_html
+        assert "EGFR" in panel_html
 
     def test_operator_filter_with_callback(self):
         """Operator filter on empty df uses callback, then get_filtered_rows applies it."""

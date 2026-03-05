@@ -434,7 +434,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         ui.tags.div(
             id=f"filter_values_{col_name}",
             style="display: none;",
-            **{"data-values": ",".join(value_options[:5000])}  # Limit to 5000 values
+            **{"data-values": ",".join(value_options)}
         ),
         class_="filter-group",
         style="margin-bottom: 10px;"
@@ -491,11 +491,12 @@ def build_dynamic_filters_panel(
                 display_val = ""
             
             # Get unique values for the values picker
-            if col_name in df.columns and len(df) > 0:
-                unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
-            elif get_unique_values_func:
+            # Prefer DB callback (full table) over DataFrame (may be paginated)
+            if get_unique_values_func:
                 db_values = get_unique_values_func(col_name)
                 unique_values = ["all"] + db_values
+            elif col_name in df.columns and len(df) > 0:
+                unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
             else:
                 unique_values = ["all"]
             
@@ -510,12 +511,12 @@ def build_dynamic_filters_panel(
         if col_name not in known_columns:
             continue
         
-        # Get unique values: prefer DB query (lazy mode), fall back to DataFrame
-        if col_name in df.columns and len(df) > 0:
-            unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
-        elif get_unique_values_func:
+        # Get unique values: prefer DB query (full table), fall back to DataFrame
+        if get_unique_values_func:
             db_values = get_unique_values_func(col_name)
             unique_values = ["all"] + db_values
+        elif col_name in df.columns and len(df) > 0:
+            unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
         else:
             unique_values = ["all"]
         
