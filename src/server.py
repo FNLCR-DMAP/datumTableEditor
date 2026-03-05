@@ -5,6 +5,7 @@ Updated for split panel layout with column customization
 
 from shiny import render, ui, reactive
 import pandas as pd
+from datetime import datetime
 
 from .utils import (
     load_presets,
@@ -1669,10 +1670,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             row_count = export_row_count.get()
             etype = export_type.get()
             label = f"selected" if etype == "selected" else "filtered"
+            ready_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             return ui.div(
                 ui.div(
                     ui.tags.span("✅ ", style="font-size: 18px; margin-right: 6px;"),
                     f"Data ready — {row_count} {label} row(s)",
+                    ui.tags.span(
+                        f" (prepared at {ready_ts})",
+                        style="font-weight: 400; font-size: 0.85em; color: #6c757d; margin-left: 4px;"
+                    ),
                     style="font-weight: 500; color: #198754; margin-bottom: 10px;"
                 ),
                 ui.download_button(
@@ -1680,6 +1686,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     "⬇ Download CSV",
                     class_="btn btn-success",
                     style="width: 100%;"
+                ),
+                # Reset the "Preparing..." button state now that data is ready
+                ui.tags.script(
+                    "(function() {"
+                    "  var modal = document.getElementById('export-confirm-modal');"
+                    "  if (modal) {"
+                    "    var btn = modal.querySelector('#export-confirm-btn');"
+                    "    if (btn) { btn.disabled = false; btn.textContent = 'I Understand'; }"
+                    "  }"
+                    "})()"
                 ),
                 style="margin-top: 16px; padding: 12px; background: #f0fff4; border-radius: 6px;"
             )
