@@ -1687,16 +1687,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     class_="btn btn-success",
                     style="width: 100%;"
                 ),
-                # Reset the "Preparing..." button state now that data is ready
-                ui.tags.script(
-                    "(function() {"
-                    "  var modal = document.getElementById('export-confirm-modal');"
-                    "  if (modal) {"
-                    "    var btn = modal.querySelector('#export-confirm-btn');"
-                    "    if (btn) { btn.disabled = false; btn.textContent = 'I Understand'; }"
-                    "  }"
-                    "})()"
-                ),
                 style="margin-top: 16px; padding: 12px; background: #f0fff4; border-radius: 6px;"
             )
         

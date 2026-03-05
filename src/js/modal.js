@@ -782,6 +782,9 @@ window.openExportConfirmModal = function(event, exportType) {
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.textContent = 'I Understand';
+            confirmBtn.classList.remove('btn-outline-success', 'btn-outline-secondary');
+            confirmBtn.classList.add('btn-primary');
+            confirmBtn.onclick = function(e) { confirmExportDownload(e); };
         }
         modal.classList.add('show');
     }
@@ -803,6 +806,36 @@ window.confirmExportDownload = function(event) {
         if (confirmBtn) {
             confirmBtn.disabled = true;
             confirmBtn.textContent = 'Preparing...';
+        }
+
+        // Watch for the download button to appear, then transition to "Done"
+        // Use attribute-ends-with selector to handle namespaced IDs (e.g. "editor1-export_download_ui")
+        var outputContainer = modal.querySelector('[id$="export_download_ui"]');
+        if (outputContainer) {
+            var observer = new MutationObserver(function(mutations) {
+                // Check if download button has been rendered (namespaced ID)
+                var downloadBtn = outputContainer.querySelector('[id$="export_prepared_btn"]');
+                if (downloadBtn && confirmBtn) {
+                    confirmBtn.textContent = 'Done';
+                    confirmBtn.disabled = false;
+                    confirmBtn.classList.remove('btn-primary');
+                    confirmBtn.classList.add('btn-outline-success');
+                    // Click "Done" = close modal
+                    confirmBtn.onclick = function() { closeExportConfirmModal(); };
+                    observer.disconnect();
+                }
+                // Also handle error state
+                var errorDiv = outputContainer.querySelector('[style*="fff0f0"]');
+                if (errorDiv && confirmBtn) {
+                    confirmBtn.textContent = 'Close';
+                    confirmBtn.disabled = false;
+                    confirmBtn.classList.remove('btn-primary');
+                    confirmBtn.classList.add('btn-outline-secondary');
+                    confirmBtn.onclick = function() { closeExportConfirmModal(); };
+                    observer.disconnect();
+                }
+            });
+            observer.observe(outputContainer, { childList: true, subtree: true });
         }
     }
     
