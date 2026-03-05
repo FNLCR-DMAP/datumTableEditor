@@ -533,6 +533,38 @@ window.toggleFilterEdit = function(columnName, event) {
     }
 };
 
+// Clear all content from a filter textarea and send empty value to server
+window.clearFilterContent = function(columnName, event) {
+    var btn = event ? event.currentTarget : null;
+    if (!btn) return;
+    var filterGroup = btn.closest('.filter-group');
+    if (!filterGroup) return;
+    var textarea = filterGroup.querySelector('textarea');
+    if (!textarea) return;
+
+    textarea.value = '';
+    textarea.readOnly = true;
+    textarea.style.opacity = '0.85';
+    textarea.style.cursor = 'default';
+
+    // Reset edit button if it was in edit mode
+    var editBtn = filterGroup.querySelector('.filter-edit-btn');
+    if (editBtn) {
+        editBtn.textContent = '\u270E';
+        editBtn.title = 'Edit filter values';
+        editBtn.classList.remove('btn-outline-success');
+        editBtn.classList.add('btn-outline-secondary');
+    }
+
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('apply_filter_value', {
+            column: columnName,
+            value: '',
+            ts: Date.now()
+        }, {priority: 'event'}, textarea);
+    }
+};
+
 // Apply date filter — reads date input(s) from the filter group and sends to server
 window.applyDateFilter = function(columnName, event) {
     var btn = event ? event.currentTarget : null;
