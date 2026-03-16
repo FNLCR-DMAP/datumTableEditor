@@ -263,7 +263,7 @@
         {
           "type": "return",
           "function": "__init__",
-          "line": 95
+          "line": 96
         }
       ]
     },

@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 84,
-    "unused_functions": 1,
-    "fully_annotated_functions": 75,
-    "function_coverage_percent": 89.3,
-    "parameter_coverage_percent": 96.6,
+    "total_functions": 93,
+    "unused_functions": 4,
+    "fully_annotated_functions": 81,
+    "function_coverage_percent": 87.1,
+    "parameter_coverage_percent": 96.8,
     "mypy_errors": 0
   },
   "files": {},
@@ -230,6 +230,38 @@
         "build_table_row"
       ]
     },
+    "src/utils/tracker.py": {
+      "total": 9,
+      "functions": [
+        "_log",
+        "decorator",
+        "init",
+        "is_enabled",
+        "log_sql",
+        "render_timer",
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ],
+      "used": [
+        "_log",
+        "decorator",
+        "init",
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ],
+      "unused": [
+        "is_enabled",
+        "log_sql",
+        "render_timer"
+      ],
+      "framework_managed": [
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ]
+    },
     "src/utils/ui_components.py": {
       "total": 14,
       "functions": [
@@ -416,7 +448,7 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 396
+          "line": 444
         }
       ]
     },
@@ -449,9 +481,37 @@
         "fully_annotated": 8
       },
       "parameters": {
-        "total": 60,
-        "annotated": 60
+        "total": 64,
+        "annotated": 64
       }
+    },
+    "src/utils/tracker.py": {
+      "functions": {
+        "total": 9,
+        "with_return_type": 6,
+        "fully_annotated": 6
+      },
+      "parameters": {
+        "total": 10,
+        "annotated": 10
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "track_sql",
+          "line": 42
+        },
+        {
+          "type": "return",
+          "function": "track_render",
+          "line": 75
+        },
+        {
+          "type": "return",
+          "function": "render_timer",
+          "line": 96
+        }
+      ]
     },
     "src/utils/ui_components.py": {
       "functions": {

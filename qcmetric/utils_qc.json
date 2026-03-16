@@ -6,7 +6,7 @@
     "unused_functions": 1,
     "fully_annotated_functions": 75,
     "function_coverage_percent": 89.3,
-    "parameter_coverage_percent": 96.6,
+    "parameter_coverage_percent": 96.7,
     "mypy_errors": 0
   },
   "files": {},
@@ -416,7 +416,7 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 396
+          "line": 444
         }
       ]
     },
@@ -449,8 +449,8 @@
         "fully_annotated": 8
       },
       "parameters": {
-        "total": 60,
-        "annotated": 60
+        "total": 64,
+        "annotated": 64
       }
     },
     "src/utils/ui_components.py": {

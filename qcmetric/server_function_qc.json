@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 84,
-    "total_unused": 1,
-    "unused_percentage": 1.2
+    "total_functions": 93,
+    "total_unused": 4,
+    "unused_percentage": 4.3
   },
   "modules": {
     "clipboard_utils.py": {
@@ -248,6 +248,35 @@
         "build_table_row"
       ]
     },
+    "tracker.py": {
+      "description": "Tracker Mode \u2014 performance instrumentation for SQL queries and UI renders.",
+      "path": "src/utils/tracker.py",
+      "total_functions": 9,
+      "functions": [
+        "_log",
+        "decorator",
+        "init",
+        "is_enabled",
+        "log_sql",
+        "render_timer",
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ],
+      "used_internally": [
+        "_log",
+        "decorator",
+        "init",
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ],
+      "unused": [
+        "is_enabled",
+        "log_sql",
+        "render_timer"
+      ]
+    },
     "ui_components.py": {
       "description": "UI component builders for the Epitopes Data Editor.",
       "path": "src/utils/ui_components.py",
@@ -290,6 +319,11 @@
   "unused_functions": {
     "preset_utils.py": [
       "_convert_presets_from_db"
+    ],
+    "tracker.py": [
+      "is_enabled",
+      "log_sql",
+      "render_timer"
     ]
   }
 }
