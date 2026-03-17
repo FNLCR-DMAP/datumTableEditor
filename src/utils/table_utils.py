@@ -14,6 +14,13 @@ def _mask(col: str, column_masks: dict | None) -> str:
     return column_masks.get(col, col) if column_masks else col
 
 
+def _format_array_value(value: str) -> str:
+    """Format PostgreSQL array values like {a, b, c} as 'a, b, c' for display."""
+    if value.startswith("{") and value.endswith("}"):
+        return value[1:-1]
+    return value
+
+
 def build_draggable_header_cell(col: str, width_style: str = "", column_masks: dict | None = None) -> ui.tags.th:
     """Build a draggable table header cell with action dropdown."""
     display = _mask(col, column_masks)
@@ -156,9 +163,10 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
             import json as _json
             cell_attrs["data-pk"] = _json.dumps({k: str(v) for k, v in row_pk.items()})
         
+        display_value = _format_array_value(value) if value else "—"
         cells.append(
             ui.tags.td(
-                ui.span(value if value else "—", class_="cell-value"),
+                ui.span(display_value, class_="cell-value"),
                 class_=cell_class,
                 **cell_attrs
             )
