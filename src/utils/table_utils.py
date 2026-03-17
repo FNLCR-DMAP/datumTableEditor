@@ -15,9 +15,17 @@ def _mask(col: str, column_masks: dict | None) -> str:
 
 
 def _format_array_value(value: str) -> str:
-    """Format PostgreSQL array values like {a, b, c} as 'a, b, c' for display."""
+    """Format array values for display as comma-separated list.
+
+    Handles PostgreSQL literal {a, b, c} and Python list str ['a', 'b', 'c'].
+    """
     if value.startswith("{") and value.endswith("}"):
         return value[1:-1]
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1]
+        # Strip quotes around each element: 'a', 'b' → a, b
+        parts = [p.strip().strip("'\"") for p in inner.split(",")]
+        return ", ".join(parts)
     return value
 
 
