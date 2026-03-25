@@ -67,17 +67,30 @@ class TestOperatorIn:
 # =====================================================================
 
 class TestOperatorContains:
+
     def test_contains_match(self):
         assert _row_matches_operator("Hello World", {"op": "contains", "value": "world"}) is True
 
     def test_contains_no_match(self):
         assert _row_matches_operator("Hello", {"op": "contains", "value": "xyz"}) is False
 
+    def test_contains_multiple_any_match(self):
+        # Should match if any value is present
+        assert _row_matches_operator("Hello World", {"op": "contains", "value": ["foo", "world"]}) is True
+        assert _row_matches_operator("Hello World", {"op": "contains", "value": ["world", "foo"]}) is True
+        assert _row_matches_operator("Hello World", {"op": "contains", "value": ["foo", "bar"]}) is False
+
     def test_not_contains_match(self):
         assert _row_matches_operator("Hello", {"op": "not_contains", "value": "xyz"}) is True
 
     def test_not_contains_no_match(self):
         assert _row_matches_operator("Hello World", {"op": "not_contains", "value": "world"}) is False
+
+    def test_not_contains_multiple_all_must_absent(self):
+        # Should only match if all values are absent
+        assert _row_matches_operator("Hello World", {"op": "not_contains", "value": ["foo", "bar"]}) is True
+        assert _row_matches_operator("Hello World", {"op": "not_contains", "value": ["foo", "world"]}) is False
+        assert _row_matches_operator("Hello World", {"op": "not_contains", "value": ["world", "foo"]}) is False
 
 
 # =====================================================================
