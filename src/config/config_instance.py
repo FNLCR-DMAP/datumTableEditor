@@ -636,20 +636,34 @@ class DataFetcher:
                         conditions.append(f'{col_e} NOT IN ({placeholders})')
                 
                 elif op == "contains":
-                    if use_params:
-                        conditions.append(f'{col_e} ILIKE :p{param_idx}')
-                        sql_params[f"p{param_idx}"] = f"%{fval}%"
-                        param_idx += 1
-                    else:
-                        conditions.append(f'{col_e} ILIKE {SqlLiteral(f"%{fval}%")}')
+                    targets = fval if isinstance(fval, list) else [fval]
+                    targets = [t for t in targets if t is not None and str(t).strip()]
+                    if targets:
+                        if use_params:
+                            parts = []
+                            for t in targets:
+                                parts.append(f'{col_e} ILIKE :p{param_idx}')
+                                sql_params[f"p{param_idx}"] = f"%{t}%"
+                                param_idx += 1
+                            conditions.append(f'({" OR ".join(parts)})' if len(parts) > 1 else parts[0])
+                        else:
+                            parts = [f'{col_e} ILIKE {SqlLiteral(f"%{t}%")}' for t in targets]
+                            conditions.append(f'({" OR ".join(parts)})' if len(parts) > 1 else parts[0])
                 
                 elif op == "not_contains":
-                    if use_params:
-                        conditions.append(f'{col_e} NOT ILIKE :p{param_idx}')
-                        sql_params[f"p{param_idx}"] = f"%{fval}%"
-                        param_idx += 1
-                    else:
-                        conditions.append(f'{col_e} NOT ILIKE {SqlLiteral(f"%{fval}%")}')
+                    targets = fval if isinstance(fval, list) else [fval]
+                    targets = [t for t in targets if t is not None and str(t).strip()]
+                    if targets:
+                        if use_params:
+                            parts = []
+                            for t in targets:
+                                parts.append(f'{col_e} NOT ILIKE :p{param_idx}')
+                                sql_params[f"p{param_idx}"] = f"%{t}%"
+                                param_idx += 1
+                            conditions.append(f'({" AND ".join(parts)})' if len(parts) > 1 else parts[0])
+                        else:
+                            parts = [f'{col_e} NOT ILIKE {SqlLiteral(f"%{t}%")}' for t in targets]
+                            conditions.append(f'({" AND ".join(parts)})' if len(parts) > 1 else parts[0])
                 
                 elif op == "between":
                     if isinstance(fval, list) and len(fval) == 2:

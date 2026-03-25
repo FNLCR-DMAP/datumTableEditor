@@ -69,10 +69,12 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
         return row_str not in [str(t) for t in targets]
     
     elif op == "contains":
-        return str(fval).lower() in row_str.lower()
+        targets = fval if isinstance(fval, list) else [fval]
+        return any(str(t).lower() in row_str.lower() for t in targets if t)
     
     elif op == "not_contains":
-        return str(fval).lower() not in row_str.lower()
+        targets = fval if isinstance(fval, list) else [fval]
+        return all(str(t).lower() not in row_str.lower() for t in targets if t)
     
     elif op == "between":
         if isinstance(fval, list) and len(fval) == 2:
