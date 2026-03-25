@@ -14,6 +14,32 @@ def _mask(col: str, column_masks: dict | None) -> str:
     return column_masks.get(col, col) if column_masks else col
 
 
+def _format_cell_value(value: Any, dtype) -> str:
+    """Format a cell value respecting the column's dtype.
+
+    Integer-typed columns (including nullable Int64) display without decimals.
+    Float values that are whole numbers in float64 columns are left as-is
+    (they could legitimately be floats).
+    """
+    if pd.isna(value):
+        return ""
+    # Nullable integer types (Int8..Int64, UInt8..UInt64)
+    if pd.api.types.is_integer_dtype(dtype):
+        try:
+            return str(int(value))
+        except (ValueError, TypeError):
+            return str(value)
+    # float64 column but value is a whole number → likely int with NaN peers
+    if pd.api.types.is_float_dtype(dtype):
+        try:
+            fv = float(value)
+            if fv.is_integer():
+                return str(int(fv))
+        except (ValueError, TypeError):
+            pass
+    return str(value)
+
+
 def _format_array_value(value: str) -> str:
     """Format array values for display as comma-separated list.
 
@@ -132,7 +158,7 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
     # Data cells
     for col in cols:
         if col in current_df.columns:
-            value = str(row[col]) if pd.notna(row[col]) else ""
+            value = _format_cell_value(row[col], current_df[col].dtype) if pd.notna(row[col]) else ""
         else:
             value = ""
         
