@@ -1538,7 +1538,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Get the row's PK values
             pk_cols = app_config.table.primary_key
             # Resolve edit_assignment redirect for tracking
-            target_col = app_config.edit_assignment.get(col, col) if app_config.edit_assignment else col
+            target_col = col
+            for mapping in (app_config.edit_assignment or []):
+                if isinstance(mapping, dict) and mapping.get('source') == col:
+                    target_col = mapping['target']
+                    break
             try:
                 row_data = current_df.iloc[row]
                 row_pk = {pk: row_data[pk] for pk in pk_cols if pk in current_df.columns}

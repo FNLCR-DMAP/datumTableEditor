@@ -244,8 +244,11 @@ def perform_cell_edit(
     target_col = col
     if config_instance and hasattr(config_instance, 'app_config'):
         ea = getattr(config_instance.app_config, 'edit_assignment', None)
-        if isinstance(ea, dict) and col in ea:
-            target_col = ea[col]
+        if isinstance(ea, list):
+            for mapping in ea:
+                if isinstance(mapping, dict) and mapping.get('source') == col:
+                    target_col = mapping['target']
+                    break
     if target_col != col:
         print(f"[Datum DEBUG] edit_assignment redirect: {col} → {target_col}", flush=True)
 

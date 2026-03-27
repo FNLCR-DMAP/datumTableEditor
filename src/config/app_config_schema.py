@@ -320,8 +320,8 @@ class AppConfig:
     # Column redirect on edit.  When a user edits a cell in a source column,
     # the new value is written to the target column instead and the source
     # column is left unchanged.
-    # Example: {"Draft_Value": "Review_Value"}
-    edit_assignment: dict = field(default_factory=dict)
+    # Example: [{"source": "Draft_Value", "target": "Review_Value"}]
+    edit_assignment: list = field(default_factory=list)
 
 
 # =============================================================================
@@ -502,7 +502,14 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     
     # Edit assignment (column redirect on edit)
     if "edit_assignment" in file_config:
-        config.edit_assignment = file_config["edit_assignment"]
+        raw = file_config["edit_assignment"]
+        if isinstance(raw, list):
+            config.edit_assignment = raw
+        elif isinstance(raw, dict):
+            # Accept legacy {source: target} dict format
+            config.edit_assignment = [
+                {"source": s, "target": t} for s, t in raw.items()
+            ]
     
     return config
 
