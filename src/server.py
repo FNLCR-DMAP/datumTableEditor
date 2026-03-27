@@ -465,8 +465,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
             # Write a field_modification for the real status column so the
             # value is applied to the dataset by _apply_field_modifications.
+            # Also UPDATE the data table directly to keep it in sync.
             if status_col:
                 try:
+                    config.update_data_in_db(row_pk, status_col, status_value)
                     config.save_modification_to_db(
                         row_pk=row_pk,
                         column=status_col,
@@ -487,11 +489,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 for src_col, tgt_col in assignment.items():
                     try:
                         src_val = row[src_col] if src_col in row.index else None
+                        new_val = str(src_val) if src_val is not None else None
+                        config.update_data_in_db(row_pk, tgt_col, new_val)
                         config.save_modification_to_db(
                             row_pk=row_pk,
                             column=tgt_col,
                             old_value=None,
-                            new_value=str(src_val) if src_val is not None else None,
+                            new_value=new_val,
                             mod_type="field_modification"
                         )
                         print(f"DEBUG: Assignment {src_col} → {tgt_col} = {src_val} for PK {row_pk}")
