@@ -59,6 +59,9 @@ def mock_ci(pk_cols):
     """Lightweight mock ConfigInstance so perform_cell_edit can resolve PK cols."""
     ci = MagicMock()
     ci.app_config.table.primary_key = pk_cols
+    ci.app_config.edit_assignment = []
+    ci.app_config.status_values = {"approved": "approved", "rejected": "rejected", "edited": "edited"}
+    ci.app_config.database.status_column = "Status"
     ci.update_data_in_db = MagicMock(return_value=True)
     ci.save_modification_to_db = MagicMock(return_value=999)
     ci.mark_modification_undone_in_db = MagicMock()
@@ -755,26 +758,31 @@ class TestEditPipelineSQLCalls:
     via config_instance method invocations."""
 
     def test_cell_edit_issues_update_then_insert(self, df, pk_cols, mock_ci):
-        """perform_cell_edit must call update_data_in_db then save_modification_to_db."""
+        """perform_cell_edit must call update_data_in_db then save_modification_to_db,
+        plus an additional pair of calls to sync the status column to 'edited'."""
         from src.utils.data_operations import perform_cell_edit
 
         perform_cell_edit(df, [], 1, "Gene_names", "TP53", "TP53_mut", config_instance=mock_ci)
 
-        # UPDATE data table
-        mock_ci.update_data_in_db.assert_called_once()
-        args_update = mock_ci.update_data_in_db.call_args
-        assert args_update[0][0] == {"PatientID_Mutsequence": "PK002"}  # row_pk
-        assert args_update[0][1] == "Gene_names"  # column
-        assert args_update[0][2] == "TP53_mut"  # new_value
+        # UPDATE data table: field edit + status sync
+        assert mock_ci.update_data_in_db.call_count == 2
+        field_update = mock_ci.update_data_in_db.call_args_list[0]
+        assert field_update[0][0] == {"PatientID_Mutsequence": "PK002"}  # row_pk
+        assert field_update[0][1] == "Gene_names"  # column
+        assert field_update[0][2] == "TP53_mut"  # new_value
+        # Status sync
+        status_update = mock_ci.update_data_in_db.call_args_list[1]
+        assert status_update[0][1] == "Status"
+        assert status_update[0][2] == "edited"
 
-        # INSERT modification record
-        mock_ci.save_modification_to_db.assert_called_once()
-        args_insert = mock_ci.save_modification_to_db.call_args
-        assert args_insert[0][0] == {"PatientID_Mutsequence": "PK002"}
-        assert args_insert[0][1] == "Gene_names"
-        assert args_insert[0][2] == "TP53"  # old_value
-        assert args_insert[0][3] == "TP53_mut"  # new_value
-        assert args_insert[0][4] == "field_modification"
+        # INSERT modification records: field edit + status sync
+        assert mock_ci.save_modification_to_db.call_count == 2
+        field_insert = mock_ci.save_modification_to_db.call_args_list[0]
+        assert field_insert[0][0] == {"PatientID_Mutsequence": "PK002"}
+        assert field_insert[0][1] == "Gene_names"
+        assert field_insert[0][2] == "TP53"  # old_value
+        assert field_insert[0][3] == "TP53_mut"  # new_value
+        assert field_insert[0][4] == "field_modification"
 
     def test_undo_issues_revert_update_mark_undone_and_insert(self, df, pk_cols, mock_ci):
         """perform_undo calls: update_data_in_db (revert), mark_modification_undone_in_db,
@@ -808,7 +816,8 @@ class TestEditPipelineSQLCalls:
         assert undo_args[4] == "undo"  # mod_type
 
     def test_multi_edit_accumulates_sequential_db_calls(self, df, pk_cols, mock_ci):
-        """Three consecutive edits → 3 update_data_in_db + 3 save_modification_to_db."""
+        """Three consecutive edits → 3 field updates + 2 status syncs (editing Status
+        itself skips the sync) = 5 update_data_in_db + 5 save_modification_to_db."""
         from src.utils.data_operations import perform_cell_edit
 
         log = []
@@ -816,19 +825,23 @@ class TestEditPipelineSQLCalls:
         df2, log = perform_cell_edit(df1, log, 1, "Status", "Reviewed", "Done", config_instance=mock_ci)
         df3, log = perform_cell_edit(df2, log, 2, "Gene_names", "EGFR", "EGFRx", config_instance=mock_ci)
 
-        assert mock_ci.update_data_in_db.call_count == 3
-        assert mock_ci.save_modification_to_db.call_count == 3
+        # 3 field updates + 2 status syncs (editing Status col directly skips sync)
+        assert mock_ci.update_data_in_db.call_count == 5
+        assert mock_ci.save_modification_to_db.call_count == 5
 
-        # Verify each call's row_pk
+        # Verify field updates (every other call is a status sync)
         update_calls = mock_ci.update_data_in_db.call_args_list
+        # Edit 1: Gene_names on PK001 + status sync
         assert update_calls[0][0][0] == {"PatientID_Mutsequence": "PK001"}
-        assert update_calls[1][0][0] == {"PatientID_Mutsequence": "PK002"}
-        assert update_calls[2][0][0] == {"PatientID_Mutsequence": "PK003"}
-
-        # Verify columns
         assert update_calls[0][0][1] == "Gene_names"
-        assert update_calls[1][0][1] == "Status"
-        assert update_calls[2][0][1] == "Gene_names"
+        assert update_calls[1][0][1] == "Status"  # status sync
+        # Edit 2: Status on PK002 (no status sync — editing Status itself)
+        assert update_calls[2][0][0] == {"PatientID_Mutsequence": "PK002"}
+        assert update_calls[2][0][1] == "Status"
+        # Edit 3: Gene_names on PK003 + status sync
+        assert update_calls[3][0][0] == {"PatientID_Mutsequence": "PK003"}
+        assert update_calls[3][0][1] == "Gene_names"
+        assert update_calls[4][0][1] == "Status"  # status sync
 
 
 # =============================================================================

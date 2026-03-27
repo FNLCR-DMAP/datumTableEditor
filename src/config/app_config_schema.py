@@ -304,12 +304,13 @@ class AppConfig:
         "rejected": "Rejected"
     })
     
-    # What value to write to the database status column on approve/reject.
+    # What value to write to the database status column on approve/reject/edit.
     # Maps internal status key -> value stored in DB.
-    # Example: {"approved": "Accepted", "rejected": "Declined"}
+    # Example: {"approved": "Accepted", "rejected": "Declined", "edited": "Modified"}
     status_values: dict = field(default_factory=lambda: {
         "approved": "approved",
-        "rejected": "rejected"
+        "rejected": "rejected",
+        "edited": "edited"
     })
     
     # Column-to-column copy on approval.  When a row is approved, for each

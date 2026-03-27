@@ -383,6 +383,9 @@ def mock_ci():
     """Mock ConfigInstance for edit/undo pipeline tests."""
     ci = MagicMock()
     ci.app_config.table.primary_key = ["PatientID_Mutsequence"]
+    ci.app_config.edit_assignment = []
+    ci.app_config.status_values = {"approved": "approved", "rejected": "rejected", "edited": "edited"}
+    ci.app_config.database.status_column = "Status"
     ci.update_data_in_db.return_value = True
     ci.save_modification_to_db.return_value = 999
     ci.mark_modification_undone_in_db.return_value = True
@@ -721,7 +724,7 @@ class TestEditUndoPipelineGoldenSnapshots:
         perform_cell_edit(
             edit_df, [], 1, "Gene_names", "TP53", "TP53_mut",
             config_instance=mock_ci)
-        args = mock_ci.update_data_in_db.call_args[0]
+        args = mock_ci.update_data_in_db.call_args_list[0][0]
         assert args == GOLDEN_EDIT_UPDATE_ARGS
 
     def test_cell_edit_save_modification_args(self, edit_df, mock_ci):
@@ -729,7 +732,7 @@ class TestEditUndoPipelineGoldenSnapshots:
         perform_cell_edit(
             edit_df, [], 1, "Gene_names", "TP53", "TP53_mut",
             config_instance=mock_ci)
-        args = mock_ci.save_modification_to_db.call_args[0]
+        args = mock_ci.save_modification_to_db.call_args_list[0][0]
         assert args == GOLDEN_EDIT_INSERT_ARGS
 
     def test_undo_revert_args(self, edit_df, mock_ci):
@@ -764,7 +767,9 @@ class TestEditUndoPipelineGoldenSnapshots:
         df, log = perform_cell_edit(df, log, 1, "Status", "Reviewed", "Done", config_instance=mock_ci)
         df, log = perform_cell_edit(df, log, 2, "Gene_names", "EGFR", "EGFRx", config_instance=mock_ci)
 
+        # Field edit calls (filter out status sync calls)
         calls = mock_ci.update_data_in_db.call_args_list
-        assert calls[0][0] == ({"PatientID_Mutsequence": "PK001"}, "Gene_names", "BRCA1x")
-        assert calls[1][0] == ({"PatientID_Mutsequence": "PK002"}, "Status", "Done")
-        assert calls[2][0] == ({"PatientID_Mutsequence": "PK003"}, "Gene_names", "EGFRx")
+        field_calls = [c for c in calls if c[0][1] != "Status" or c[0][2] != "edited"]
+        assert field_calls[0][0] == ({"PatientID_Mutsequence": "PK001"}, "Gene_names", "BRCA1x")
+        assert field_calls[1][0] == ({"PatientID_Mutsequence": "PK002"}, "Status", "Done")
+        assert field_calls[2][0] == ({"PatientID_Mutsequence": "PK003"}, "Gene_names", "EGFRx")

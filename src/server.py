@@ -1806,6 +1806,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         pass
             _save_status_to_db(selected_pks, "approval", row_data_map)
         
+        # Force-sync in-memory DataFrame so the status column reflects the change immediately
+        internal_key = "approved"
+        status_value = app_config.status_values.get(internal_key, internal_key)
+        updated_df = current_df.copy()
+        status_col = getattr(app_config.database, "status_column", None)
+        for idx in selected_indices:
+            if status_col and status_col in updated_df.columns:
+                updated_df.at[updated_df.index[idx], status_col] = status_value
+            if "_mod_status" in updated_df.columns:
+                updated_df.at[updated_df.index[idx], "_mod_status"] = internal_key
+        data.set(updated_df)
+        
         mods_log.set(log)
         ui.notification_show(f"{len(selected_pks)} row(s) APPROVED!", type="message", duration=2)
     
@@ -1836,6 +1848,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Save to database if enabled
         if app_config.database.enabled:
             _save_status_to_db(selected_pks, "rejection")
+        
+        # Force-sync in-memory DataFrame so the status column reflects the change immediately
+        internal_key = "rejected"
+        status_value = app_config.status_values.get(internal_key, internal_key)
+        updated_df = current_df.copy()
+        status_col = getattr(app_config.database, "status_column", None)
+        for idx in selected_indices:
+            if status_col and status_col in updated_df.columns:
+                updated_df.at[updated_df.index[idx], status_col] = status_value
+            if "_mod_status" in updated_df.columns:
+                updated_df.at[updated_df.index[idx], "_mod_status"] = internal_key
+        data.set(updated_df)
         
         mods_log.set(log)
         ui.notification_show(f"{len(selected_pks)} row(s) REJECTED!", type="message", duration=2)

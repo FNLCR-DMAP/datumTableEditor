@@ -299,6 +299,46 @@ def perform_cell_edit(
         else:
             # target_col not in current view — DB was updated; skip DataFrame
             print(f"[Datum DEBUG] target_col '{target_col}' not in DataFrame columns, skipping in-memory update", flush=True)
+        
+        # Force-sync the status column to "edited" so it reflects the modification
+        _sync_status = None
+        _status_col = None
+        if config_instance and hasattr(config_instance, 'app_config'):
+            _ac = config_instance.app_config
+            _sv = getattr(_ac, 'status_values', None)
+            if isinstance(_sv, dict):
+                _sync_status = _sv.get('edited', 'edited')
+            _sc = getattr(getattr(_ac, 'database', None), 'status_column', None)
+            if isinstance(_sc, str):
+                _status_col = _sc
+        elif DB_AVAILABLE and app_config:
+            _sv = getattr(app_config, 'status_values', None)
+            if isinstance(_sv, dict):
+                _sync_status = _sv.get('edited', 'edited')
+            _sc = getattr(getattr(app_config, 'database', None), 'status_column', None)
+            if isinstance(_sc, str):
+                _status_col = _sc
+            _status_col = getattr(getattr(app_config, 'database', None), 'status_column', None)
+        else:
+            _status_col = None
+
+        if _sync_status and _status_col and target_col != _status_col:
+            # Update the data table's status column in DB
+            try:
+                if config_instance:
+                    config_instance.update_data_in_db(row_pk, _status_col, _sync_status)
+                    config_instance.save_modification_to_db(row_pk, _status_col, None, _sync_status, "field_modification")
+                elif DB_AVAILABLE and app_config.database.enabled:
+                    update_data_in_db(row_pk, _status_col, _sync_status)
+                    save_modification_to_db(row_pk, _status_col, None, _sync_status, "field_modification")
+            except Exception as e:
+                print(f"[Datum DEBUG] status sync to '{_status_col}' failed: {e}", flush=True)
+
+            # Update in-memory DataFrame
+            if _status_col in updated_df.columns:
+                updated_df.iloc[row, updated_df.columns.get_loc(_status_col)] = _sync_status
+            if "_mod_status" in updated_df.columns:
+                updated_df.iloc[row, updated_df.columns.get_loc("_mod_status")] = "edited"
     
     updated_log = log.copy()
     # Only log the modification if DB succeeded (or no DB configured)
