@@ -448,6 +448,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         internal_key = "approved" if mod_type == "approval" else "rejected"
         status_value = app_config.status_values.get(internal_key, internal_key)
         assignment = app_config.approval_assignment if mod_type == "approval" else {}
+        # Also write to the actual status_column so _apply_field_modifications
+        # propagates the value into the dataset.
+        status_col = getattr(app_config.database, "status_column", None)
         for row_pk in selected_pks:
             try:
                 result = config.save_modification_to_db(
@@ -460,6 +463,20 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 print(f"DEBUG: Saved {mod_type} ({status_value}) for PK {row_pk}, result: {result}")
             except Exception as e:
                 print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
+            # Write a field_modification for the real status column so the
+            # value is applied to the dataset by _apply_field_modifications.
+            if status_col:
+                try:
+                    config.save_modification_to_db(
+                        row_pk=row_pk,
+                        column=status_col,
+                        old_value=None,
+                        new_value=status_value,
+                        mod_type="field_modification"
+                    )
+                    print(f"DEBUG: Status column '{status_col}' set to '{status_value}' for PK {row_pk}")
+                except Exception as e:
+                    print(f"Warning: Could not update status column '{status_col}' for PK {row_pk}: {e}")
             
             # Approval assignment: copy source col → target col
             if assignment and row_data_map:
@@ -1520,6 +1537,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Track edited cell for brown border display using PK-based key
             # Get the row's PK values
             pk_cols = app_config.table.primary_key
+            # Resolve edit_assignment redirect for tracking
+            target_col = app_config.edit_assignment.get(col, col) if app_config.edit_assignment else col
             try:
                 row_data = current_df.iloc[row]
                 row_pk = {pk: row_data[pk] for pk in pk_cols if pk in current_df.columns}
@@ -1527,7 +1546,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 
                 # Keep original value from first edit, update current value
                 current_edited = edited_cells.get().copy()
-                cell_key = (pk_tuple, col)
+                cell_key = (pk_tuple, target_col)
                 if cell_key not in current_edited:
                     # First edit - old_val is the original
                     current_edited[cell_key] = {"original": old_val, "current": new_val}
@@ -1541,7 +1560,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Auto-save log and data state to file
             save_log_to_file(updated_log, modifications_log_path)
             updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
-            ui.notification_show(f"Updated Row {row + 1}, {col}", type="message", duration=2)
+            col_label = f"{col} → {target_col}" if target_col != col else col
+            ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)
     
     # Event: Save modifications to file
     @reactive.Effect

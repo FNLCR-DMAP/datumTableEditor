@@ -317,6 +317,12 @@ class AppConfig:
     # Example: {"Draft_Value": "Final_Value", "Notes": "Approved_Notes"}
     approval_assignment: dict = field(default_factory=dict)
 
+    # Column redirect on edit.  When a user edits a cell in a source column,
+    # the new value is written to the target column instead and the source
+    # column is left unchanged.
+    # Example: {"Draft_Value": "Review_Value"}
+    edit_assignment: dict = field(default_factory=dict)
+
 
 # =============================================================================
 # Configuration Loader
@@ -493,6 +499,10 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     # Approval assignment (column-to-column copy on approve)
     if "approval_assignment" in file_config:
         config.approval_assignment = file_config["approval_assignment"]
+    
+    # Edit assignment (column redirect on edit)
+    if "edit_assignment" in file_config:
+        config.edit_assignment = file_config["edit_assignment"]
     
     return config
 

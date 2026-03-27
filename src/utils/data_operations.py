@@ -239,15 +239,25 @@ def perform_cell_edit(
     row_pk = _get_row_pk(df, row, pk_cols)
     print(f"[Datum DEBUG] row_pk={row_pk}", flush=True)
     
+    # Resolve edit_assignment: redirect edit to a different target column
+    # while keeping the source column unchanged.
+    target_col = col
+    if config_instance and hasattr(config_instance, 'app_config'):
+        ea = getattr(config_instance.app_config, 'edit_assignment', None)
+        if isinstance(ea, dict) and col in ea:
+            target_col = ea[col]
+    if target_col != col:
+        print(f"[Datum DEBUG] edit_assignment redirect: {col} → {target_col}", flush=True)
+
     # Save to database FIRST, before mutating the DataFrame
     db_id = None
     db_failed = False
     print(f"[Datum DEBUG] config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     if config_instance:
         print(f"[Datum DEBUG] Using config_instance to save modification", flush=True)
-        # Update the data table
+        # Update the data table — write to target_col
         try:
-            update_result = config_instance.update_data_in_db(row_pk, col, new_value)
+            update_result = config_instance.update_data_in_db(row_pk, target_col, new_value)
             print(f"[Datum DEBUG] update_data_in_db returned: {update_result}", flush=True)
         except Exception as e:
             print(f"[Datum DEBUG] ERROR in update_data_in_db: {e}", flush=True)
@@ -258,30 +268,34 @@ def perform_cell_edit(
         # Save modification record (only if data update didn't fail)
         if not db_failed:
             try:
-                db_id = config_instance.save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+                db_id = config_instance.save_modification_to_db(row_pk, target_col, old_value, new_value, "field_modification")
                 print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
                 if db_id is None:
-                    print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{col}", flush=True)
+                    print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{target_col}", flush=True)
             except Exception as e:
                 print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
                 import traceback
                 traceback.print_exc()
     elif DB_AVAILABLE and app_config.database.enabled:
         print(f"[Datum DEBUG] Using global app_config to save modification", flush=True)
-        # Update the data table
-        update_data_in_db(row_pk, col, new_value)
+        # Update the data table — write to target_col
+        update_data_in_db(row_pk, target_col, new_value)
         # Save modification record
-        db_id = save_modification_to_db(row_pk, col, old_value, new_value, "field_modification")
+        db_id = save_modification_to_db(row_pk, target_col, old_value, new_value, "field_modification")
         if db_id is None:
-            print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{col}", flush=True)
+            print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{target_col}", flush=True)
     else:
         print(f"[Datum DEBUG] No database save - config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     
     # Only mutate the DataFrame AFTER successful DB writes (or when no DB is configured)
     updated_df = df.copy()
     if not db_failed:
-        # Use iloc for positional indexing (row is a position, not a label)
-        updated_df.iloc[row, updated_df.columns.get_loc(col)] = new_value
+        # Write to target_col (source col stays unchanged when redirected)
+        if target_col in updated_df.columns:
+            updated_df.iloc[row, updated_df.columns.get_loc(target_col)] = new_value
+        else:
+            # target_col not in current view — DB was updated; skip DataFrame
+            print(f"[Datum DEBUG] target_col '{target_col}' not in DataFrame columns, skipping in-memory update", flush=True)
     
     updated_log = log.copy()
     # Only log the modification if DB succeeded (or no DB configured)
@@ -293,7 +307,8 @@ def perform_cell_edit(
                 "row_index": row,
                 "row_pk": row_pk,
                 "primary_key": _pk_to_string(row_pk),
-                "column": col,
+                "column": target_col,
+                "source_column": col if target_col != col else None,
                 "old_value": old_value,
                 "new_value": new_value,
             }
