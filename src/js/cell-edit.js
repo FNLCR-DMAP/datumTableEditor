@@ -134,21 +134,20 @@ window.saveCellValue = function() {
     const oldValue = currentEditCell.dataset.value || '';
     const newValue = document.getElementById('popup-new-value').value;
     
-    if (newValue !== oldValue) {
-        // Update the cell display
-        currentEditCell.dataset.value = newValue;
-        currentEditCell.querySelector('.cell-value').textContent = newValue || '—';
-        
-        // Send to Shiny (pass currentEditCell as context for namespace detection)
-        if (typeof setShinyInput !== 'undefined') {
-            setShinyInput('cell_edit', {
-                row: parseInt(row),
-                col: col,
-                oldValue: oldValue,
-                newValue: newValue,
-                ts: Date.now()
-            }, {priority: 'event'}, currentEditCell);
-        }
+    // Update the cell display
+    currentEditCell.dataset.value = newValue;
+    currentEditCell.querySelector('.cell-value').textContent = newValue || '—';
+    
+    // Always send to Shiny — even same-value saves must propagate
+    // through edit_assignment to downstream columns
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('cell_edit', {
+            row: parseInt(row),
+            col: col,
+            oldValue: oldValue,
+            newValue: newValue,
+            ts: Date.now()
+        }, {priority: 'event'}, currentEditCell);
     }
     
     closeCellPopup();

@@ -252,6 +252,13 @@ def perform_cell_edit(
     if target_col != col:
         print(f"[Datum DEBUG] edit_assignment redirect: {col} → {target_col}", flush=True)
 
+    # Skip no-op edits ONLY when there is no edit_assignment redirect.
+    # When redirected, old_value is from the source column but the write
+    # goes to a different target column, so the values will differ there.
+    if old_value == new_value and target_col == col:
+        print(f"[Datum DEBUG] No-op edit (same value, no redirect), skipping", flush=True)
+        return df, log
+
     # Save to database FIRST, before mutating the DataFrame
     db_id = None
     db_failed = False
