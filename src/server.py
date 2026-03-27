@@ -1573,6 +1573,59 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)
     
+    # Event: Reset cell to original value
+    @reactive.Effect
+    @reactive.event(input.cell_reset)
+    def _handle_cell_reset():
+        if not _require_editor("Reset"):
+            return
+        reset_data = input.cell_reset()
+        print(f"DEBUG: cell_reset received: {reset_data}")
+        if not reset_data:
+            return
+        row = reset_data.get("row")
+        col = reset_data.get("col")
+        original_value = reset_data.get("originalValue", "")
+        current_value = reset_data.get("oldValue", "")
+        if row is None or not col:
+            return
+
+        current_df = data.get()
+        current_log = mods_log.get()
+
+        # Resolve edit_assignment
+        target_col = col
+        for mapping in (app_config.edit_assignment or []):
+            if isinstance(mapping, dict) and mapping.get('source') == col:
+                target_col = mapping['target']
+                break
+
+        # Use perform_cell_edit to write original value back (handles DB + mods table)
+        updated_df, updated_log = perform_cell_edit(
+            current_df, current_log, row, target_col,
+            current_value, original_value, config_instance=config
+        )
+        data.set(updated_df)
+        mods_log.set(updated_log)
+
+        # Remove from edited_cells tracking
+        pk_cols = app_config.table.primary_key
+        try:
+            row_data = current_df.iloc[row]
+            row_pk = {pk: row_data[pk] for pk in pk_cols if pk in current_df.columns}
+            pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
+            current_edited = edited_cells.get().copy()
+            cell_key = (pk_tuple, target_col)
+            if cell_key in current_edited:
+                del current_edited[cell_key]
+            edited_cells.set(current_edited)
+        except Exception as e:
+            print(f"Warning: Could not clear edited cell tracking: {e}")
+
+        save_log_to_file(updated_log, modifications_log_path)
+        updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+        ui.notification_show(f"Reset Row {row + 1}, {col} to original value", type="message", duration=2)
+    
     # Event: Save modifications to file
     @reactive.Effect
     @reactive.event(input.save_btn)

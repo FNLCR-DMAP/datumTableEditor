@@ -451,3 +451,11 @@ table.edit-table > tbody > tr:hover > td {
 .cell-edit-popup .btn-save:hover {
     background: #218838;
 }
+.cell-edit-popup .btn-reset {
+    background: #dc3545;
+    border: 1px solid #dc3545;
+    color: white;
+}
+.cell-edit-popup .btn-reset:hover {
+    background: #c82333;
+}

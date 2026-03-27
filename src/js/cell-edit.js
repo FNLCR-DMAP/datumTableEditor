@@ -27,6 +27,7 @@ function createCellEditPopup() {
         </div>
         <div class="popup-actions">
             <button class="btn-cancel" onclick="closeCellPopup()">Cancel</button>
+            <button class="btn-reset" id="popup-reset-btn" onclick="resetCellValue()" style="display: none;">Reset</button>
             <button class="btn-save" onclick="saveCellValue()">Save</button>
         </div>
     `;
@@ -60,16 +61,19 @@ window.openCellPopup = function(cell) {
     document.getElementById('popup-current-value').textContent = value || '(empty)';
     document.getElementById('popup-new-value').value = value;
     
-    // Show/hide original value row
+    // Show/hide original value row and reset button
     const originalRow = document.getElementById('original-value-row');
     const originalValueEl = document.getElementById('popup-original-value');
+    const resetBtn = document.getElementById('popup-reset-btn');
     if (originalValue !== undefined) {
-        // Cell has been edited - show original value
+        // Cell has been edited - show original value and reset button
         originalValueEl.textContent = originalValue || '(empty)';
         originalRow.style.display = 'flex';
+        resetBtn.style.display = '';
     } else {
-        // Cell not edited - hide original row
+        // Cell not edited - hide original row and reset button
         originalRow.style.display = 'none';
+        resetBtn.style.display = 'none';
     }
     
     const popup = document.getElementById('cell-edit-popup');
@@ -145,6 +149,37 @@ window.saveCellValue = function() {
                 ts: Date.now()
             }, {priority: 'event'}, currentEditCell);
         }
+    }
+    
+    closeCellPopup();
+};
+
+window.resetCellValue = function() {
+    if (!currentEditCell) return;
+    
+    const row = currentEditCell.dataset.row;
+    const col = currentEditCell.dataset.col;
+    const currentValue = currentEditCell.dataset.value || '';
+    const originalValue = currentEditCell.dataset.original;
+    
+    if (originalValue === undefined) return;
+    
+    // Update the cell display to original value
+    currentEditCell.dataset.value = originalValue;
+    currentEditCell.querySelector('.cell-value').textContent = originalValue || '—';
+    // Remove original marker and edited styling
+    delete currentEditCell.dataset.original;
+    currentEditCell.classList.remove('cell-edited');
+    
+    // Send reset event to Shiny
+    if (typeof setShinyInput !== 'undefined') {
+        setShinyInput('cell_reset', {
+            row: parseInt(row),
+            col: col,
+            oldValue: currentValue,
+            originalValue: originalValue,
+            ts: Date.now()
+        }, {priority: 'event'}, currentEditCell);
     }
     
     closeCellPopup();
