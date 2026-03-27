@@ -522,11 +522,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if status == "unprocessed" and "_mod_status" in current_df.columns:
             try:
                 db_status = str(current_df.loc[row_idx, "_mod_status"]).strip().lower()
-                # Normalize legacy mod_type values ("approval" → "approved")
+                # Normalize raw mod_type values to internal keys
                 if db_status == "approval":
                     db_status = "approved"
                 elif db_status == "rejection":
                     db_status = "rejected"
+                elif db_status == "field_modification":
+                    db_status = "edited"
                 # Also check custom status_values (reverse lookup)
                 if db_status not in ("edited", "approved", "rejected"):
                     reverse = {v.lower(): k for k, v in app_config.status_values.items()}

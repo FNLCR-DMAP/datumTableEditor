@@ -83,6 +83,71 @@ def _escape_literal(value) -> str:
     return str(SqlLiteral(value))
 
 
+# Priority order for status reconciliation: higher number wins.
+_STATUS_PRIORITY = {
+    "unprocessed": 0,
+    "edited": 1,
+    "approved": 2,
+    "rejected": 3,
+}
+
+
+def _normalize_mod_status(raw: str) -> str:
+    """Map raw mod_type / _mod_status values to internal status keys."""
+    s = raw.strip().lower()
+    _MAP = {
+        "field_modification": "edited",
+        "approval": "approved",
+        "rejection": "rejected",
+    }
+    return _MAP.get(s, s)
+
+
+def _reconcile_status_df(df, status_col: str, status_values: dict,
+                         pk_columns: list, update_fn) -> 'pd.DataFrame':
+    """Shared reconciliation logic used by DataFetcher and ConfigInstance.
+
+    For every row where ``_mod_status`` indicates a non-unprocessed state
+    that outranks the current ``status_col`` value, overwrite the status
+    column and persist via *update_fn(row_pk, col, val)*.
+
+    Priority: rejected > approved > edited > unprocessed.
+    """
+    if "_mod_status" not in df.columns or status_col not in df.columns:
+        return df
+
+    # Build reverse lookup: mapped DB value → internal key
+    reverse_values = {}
+    for key, val in status_values.items():
+        reverse_values[key.lower()] = key.lower()
+        reverse_values[val.lower()] = key.lower()
+
+    for idx, row in df.iterrows():
+        mod_raw = str(row.get("_mod_status", "unprocessed")).strip().lower()
+        mod_key = _normalize_mod_status(mod_raw)
+        if mod_key == "unprocessed":
+            continue
+
+        cur_raw = str(row.get(status_col, "")).strip().lower()
+        cur_key = reverse_values.get(cur_raw, "unprocessed")
+
+        mod_prio = _STATUS_PRIORITY.get(mod_key, 1)
+        cur_prio = _STATUS_PRIORITY.get(cur_key, 0)
+        if mod_prio <= cur_prio:
+            continue  # current status already outranks or equals
+
+        new_val = status_values.get(mod_key, mod_key)
+        df.at[idx, status_col] = new_val
+        try:
+            row_pk = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+            if row_pk:
+                update_fn(row_pk, status_col, new_val)
+        except Exception as e:
+            print(f"[Reconcile] DB update failed for row {idx}: {e}")
+
+    return df
+
+
 def _build_mod_status_expr(status_column: str = None, status_labels: dict = None,
                            status_values: dict = None) -> str:
     """
@@ -104,6 +169,7 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
     mod_when_clauses = [
         "WHEN ms.mod_type = 'approval' THEN 'approved'",
         "WHEN ms.mod_type = 'rejection' THEN 'rejected'",
+        "WHEN ms.mod_type = 'field_modification' THEN 'edited'",
     ]
     if status_values:
         for internal_key, db_val in status_values.items():
@@ -1197,48 +1263,16 @@ class DataFetcher:
             return pd.DataFrame()
     
     def _reconcile_status_column(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Sync the status column with _mod_status for rows where they disagree.
-
-        When _mod_status shows a non-unprocessed value (edited/approved/rejected)
-        but the real status_column still holds an unrecognised or stale value,
-        overwrite it so the data table stays in sync with the modifications table.
-        Also issues UPDATE statements to persist the fix in the database.
-        """
+        """Sync the status column with _mod_status for rows where they disagree."""
         status_col = self._effective_status_column
-        if not status_col or "_mod_status" not in df.columns or status_col not in df.columns:
+        if not status_col:
             return df
-
         status_values = getattr(self.app_config, "status_values", {})
         if not isinstance(status_values, dict):
             return df
-
-        # Build the set of values considered "already synced" (both internal keys and mapped values)
-        synced_values = set()
-        for key, val in status_values.items():
-            synced_values.add(key.lower())
-            synced_values.add(val.lower())
-
         pk_columns = self.app_config.table.primary_key
-
-        for idx, row in df.iterrows():
-            mod_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
-            if mod_status == "unprocessed":
-                continue
-            cur_status = str(row.get(status_col, "")).strip().lower()
-            if cur_status in synced_values:
-                continue
-            # Status column is stale — update it
-            new_val = status_values.get(mod_status, mod_status)
-            df.at[idx, status_col] = new_val
-            # Persist to database
-            try:
-                row_pk = {pk: row[pk] for pk in pk_columns if pk in df.columns}
-                if row_pk:
-                    self._update_status_in_db(row_pk, status_col, new_val)
-            except Exception as e:
-                print(f"[DataFetcher] Status reconcile DB update failed for row {idx}: {e}")
-
-        return df
+        return _reconcile_status_df(df, status_col, status_values, pk_columns,
+                                    self._update_status_in_db)
 
     def _update_status_in_db(self, row_pk: dict, column: str, value: str):
         """Issue an UPDATE to the data table for a single row's status column."""
@@ -1857,47 +1891,16 @@ class ConfigInstance:
             return pd.DataFrame()
     
     def _reconcile_status_column(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Sync the status column with _mod_status for rows where they disagree.
-
-        When _mod_status shows a non-unprocessed value (edited/approved/rejected)
-        but the real status_column still holds a stale value, overwrite it and
-        persist the change to the database.
-        """
+        """Sync the status column with _mod_status for rows where they disagree."""
         status_col = self._effective_status_column
-        if not status_col or "_mod_status" not in df.columns or status_col not in df.columns:
+        if not status_col:
             return df
-
         status_values = getattr(self.app_config, "status_values", {})
         if not isinstance(status_values, dict):
             return df
-
-        # Values considered already synced
-        synced_values = set()
-        for key, val in status_values.items():
-            synced_values.add(key.lower())
-            synced_values.add(val.lower())
-
         pk_columns = self.app_config.table.primary_key
-
-        for idx, row in df.iterrows():
-            mod_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
-            if mod_status == "unprocessed":
-                continue
-            cur_status = str(row.get(status_col, "")).strip().lower()
-            if cur_status in synced_values:
-                continue
-            # Status column is stale — update it
-            new_val = status_values.get(mod_status, mod_status)
-            df.at[idx, status_col] = new_val
-            # Persist to database
-            try:
-                row_pk = {pk: row[pk] for pk in pk_columns if pk in df.columns}
-                if row_pk:
-                    self.update_data_in_db(row_pk, status_col, new_val)
-            except Exception as e:
-                print(f"[ConfigInstance] Status reconcile DB update failed for row {idx}: {e}")
-
-        return df
+        return _reconcile_status_df(df, status_col, status_values, pk_columns,
+                                    self.update_data_in_db)
 
     def _apply_field_modifications(self, df: pd.DataFrame, engine) -> pd.DataFrame:
         """
