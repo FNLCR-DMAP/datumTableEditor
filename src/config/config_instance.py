@@ -1099,6 +1099,7 @@ class DataFetcher:
             
             # Apply field modifications
             df = self._apply_field_modifications(df)
+            df = self._reconcile_status_column(df)
             
             print(f"[DataFetcher] Fetched {len(df)} rows")
             return df
@@ -1184,6 +1185,7 @@ class DataFetcher:
             
             # Apply field modifications
             df = self._apply_field_modifications(df)
+            df = self._reconcile_status_column(df)
             
             print(f"[DataFetcher] Fetched {len(df)} rows for export")
             return df
@@ -1194,6 +1196,97 @@ class DataFetcher:
             traceback.print_exc()
             return pd.DataFrame()
     
+    def _reconcile_status_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Sync the status column with _mod_status for rows where they disagree.
+
+        When _mod_status shows a non-unprocessed value (edited/approved/rejected)
+        but the real status_column still holds an unrecognised or stale value,
+        overwrite it so the data table stays in sync with the modifications table.
+        Also issues UPDATE statements to persist the fix in the database.
+        """
+        status_col = self._effective_status_column
+        if not status_col or "_mod_status" not in df.columns or status_col not in df.columns:
+            return df
+
+        status_values = getattr(self.app_config, "status_values", {})
+        if not isinstance(status_values, dict):
+            return df
+
+        # Build the set of values considered "already synced" (both internal keys and mapped values)
+        synced_values = set()
+        for key, val in status_values.items():
+            synced_values.add(key.lower())
+            synced_values.add(val.lower())
+
+        pk_columns = self.app_config.table.primary_key
+
+        for idx, row in df.iterrows():
+            mod_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
+            if mod_status == "unprocessed":
+                continue
+            cur_status = str(row.get(status_col, "")).strip().lower()
+            if cur_status in synced_values:
+                continue
+            # Status column is stale — update it
+            new_val = status_values.get(mod_status, mod_status)
+            df.at[idx, status_col] = new_val
+            # Persist to database
+            try:
+                row_pk = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+                if row_pk:
+                    self._update_status_in_db(row_pk, status_col, new_val)
+            except Exception as e:
+                print(f"[DataFetcher] Status reconcile DB update failed for row {idx}: {e}")
+
+        return df
+
+    def _update_status_in_db(self, row_pk: dict, column: str, value: str):
+        """Issue an UPDATE to the data table for a single row's status column."""
+        db_mode = self.app_config.database.mode
+        data_table = self._active_table_name
+        pk_columns = self.app_config.table.primary_key
+
+        if db_mode == "datum" and self._datum_client:
+            where_parts = []
+            for pk_col in pk_columns:
+                if pk_col in row_pk:
+                    pk_val = SqlLiteral(row_pk[pk_col])
+                    where_parts.append(f"{SqlIdentifier(pk_col)} = {pk_val}")
+            if not where_parts:
+                return
+            sql = (
+                f"UPDATE {SqlTableName(data_table)} "
+                f"SET {SqlIdentifier(column)} = {SqlLiteral(value)} "
+                f"WHERE {' AND '.join(where_parts)}"
+            )
+            self._datum_client.execute_sql(
+                sql=sql,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+        else:
+            engine = self._get_engine()
+            if engine is None:
+                return
+            from sqlalchemy import text
+            where_parts = []
+            params = {"new_value": value}
+            for i, pk_col in enumerate(pk_columns):
+                if pk_col in row_pk:
+                    where_parts.append(f"{SqlIdentifier(pk_col)} = :pk_{i}")
+                    params[f"pk_{i}"] = row_pk[pk_col]
+            if not where_parts:
+                return
+            sql = (
+                f"UPDATE {SqlTableName(data_table)} "
+                f"SET {SqlIdentifier(column)} = :new_value "
+                f"WHERE {' AND '.join(where_parts)}"
+            )
+            with engine.connect() as conn:
+                conn.execute(text(sql), params)
+                conn.commit()
+
     def _apply_field_modifications(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply field modifications to the fetched data."""
         if df.empty or self._skip_mods:
@@ -1756,12 +1849,56 @@ class ConfigInstance:
             
             # Apply field modifications to the data (also optimized)
             df = self._apply_field_modifications(df, engine)
+            df = self._reconcile_status_column(df)
             
             return df
         except Exception as e:
             print(f"✗ Error loading from database: {e}")
             return pd.DataFrame()
     
+    def _reconcile_status_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Sync the status column with _mod_status for rows where they disagree.
+
+        When _mod_status shows a non-unprocessed value (edited/approved/rejected)
+        but the real status_column still holds a stale value, overwrite it and
+        persist the change to the database.
+        """
+        status_col = self._effective_status_column
+        if not status_col or "_mod_status" not in df.columns or status_col not in df.columns:
+            return df
+
+        status_values = getattr(self.app_config, "status_values", {})
+        if not isinstance(status_values, dict):
+            return df
+
+        # Values considered already synced
+        synced_values = set()
+        for key, val in status_values.items():
+            synced_values.add(key.lower())
+            synced_values.add(val.lower())
+
+        pk_columns = self.app_config.table.primary_key
+
+        for idx, row in df.iterrows():
+            mod_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
+            if mod_status == "unprocessed":
+                continue
+            cur_status = str(row.get(status_col, "")).strip().lower()
+            if cur_status in synced_values:
+                continue
+            # Status column is stale — update it
+            new_val = status_values.get(mod_status, mod_status)
+            df.at[idx, status_col] = new_val
+            # Persist to database
+            try:
+                row_pk = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+                if row_pk:
+                    self.update_data_in_db(row_pk, status_col, new_val)
+            except Exception as e:
+                print(f"[ConfigInstance] Status reconcile DB update failed for row {idx}: {e}")
+
+        return df
+
     def _apply_field_modifications(self, df: pd.DataFrame, engine) -> pd.DataFrame:
         """
         Apply field modifications to the dataframe AND track which cells were edited.
@@ -1950,6 +2087,7 @@ class ConfigInstance:
             
             # Apply field modifications to the data (also optimized)
             df = self._apply_field_modifications_datum(df, client)
+            df = self._reconcile_status_column(df)
             
             return df
         except Exception as e:
