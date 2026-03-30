@@ -543,7 +543,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Wrapper for get_status_counts that uses reactive values.
         In lazy loading mode, queries DB for overall counts instead of page-only."""
         if is_lazy_loading():
-            # Use DB query for full dataset status distribution
+            # Use DB query for filtered status distribution
             params = _build_query_params()
             # Build params without status filters to get counts for all statuses
             from .config.config_instance import QueryParams as QP
@@ -557,20 +557,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 page_size=1,
                 status_filters=list(app_config.status_labels.keys())
             )
-            return config.data_fetcher.get_status_counts(count_params)
-        # Non-lazy mode: use _mod_status column if available (already mapped by SQL)
-        current_df = data.get()
-        if "_mod_status" in current_df.columns:
-            counts = {k: 0 for k in app_config.status_labels.keys()}
-            for status in current_df["_mod_status"]:
-                s = str(status).strip().lower() if status else "unprocessed"
-                if s in counts:
-                    counts[s] += 1
-                else:
-                    counts["unprocessed"] = counts.get("unprocessed", 0) + 1
-            # Overlay live modifications from the log
+            counts = config.data_fetcher.get_status_counts(count_params)
+            # Overlay uncommitted mods_log changes on top of DB counts
             current_log = mods_log.get()
             if current_log:
+                current_df = data.get()
                 pk_cols = app_config.table.primary_key
                 for idx in current_df.index:
                     try:
@@ -579,7 +570,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         log_status = get_row_status(idx, current_log, row_pk)
                         db_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
                         if log_status != "unprocessed" and log_status != db_status:
-                            # Log overrides DB status
                             if db_status in counts:
                                 counts[db_status] = max(0, counts[db_status] - 1)
                             if log_status in counts:
@@ -587,8 +577,29 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     except:
                         pass
             return counts
-        pk_cols = app_config.table.primary_key if hasattr(app_config.table, 'primary_key') else None
-        return get_status_counts(data.get(), mods_log.get(), pk_cols)
+        # Non-lazy mode: count statuses from filtered rows (respecting column/search filters)
+        current_df = data.get()
+        _ = mods_log.get()  # reactive dependency on mods_log
+        all_statuses = list(app_config.status_labels.keys())
+        # Get rows filtered by column filters and search (include ALL statuses for counting)
+        search = search_state.get()
+        filtered_indices = get_filtered_rows(
+            df=current_df,
+            active_columns=active_columns.get(),
+            search_term=search.get("term", ""),
+            status_filters=all_statuses,
+            column_filters=active_filters.get(),
+            get_row_status_func=_get_row_status,
+            search_column=search.get("column", "all")
+        )
+        counts = {k: 0 for k in all_statuses}
+        for idx in filtered_indices:
+            status = _get_row_status(idx)
+            if status in counts:
+                counts[status] += 1
+            else:
+                counts["unprocessed"] = counts.get("unprocessed", 0) + 1
+        return counts
     
     def _get_modification_summary():
         """Wrapper for get_modification_summary that uses reactive values"""
