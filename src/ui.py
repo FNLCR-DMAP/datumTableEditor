@@ -267,6 +267,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
                         ui.tags.button("Clear Selection", class_="btn btn-sm btn-outline-secondary", onclick="deselectAllRows(event)"),
+                        ui.input_action_button("reload_btn", "↻ Refresh", class_="btn btn-sm btn-outline-secondary"),
                         ui.input_action_button("review_detail_btn", review_detail_label, class_="btn btn-sm btn-outline-primary") if enable_review_detail else None,
                         ui.tags.button(
                             synthesis_label,
