@@ -548,12 +548,6 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 class_="btn btn-outline-warning",
                                 style="display: none; margin-left: 8px;"
                             ),
-                            ui.input_action_button(
-                                "synthesis_exit_btn",
-                                "Exit Synthesis Mode",
-                                class_="btn btn-outline-secondary",
-                                style="display: none;"
-                            ),
                             style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;",
                             id="synthesis-modal-footer"
                         ),

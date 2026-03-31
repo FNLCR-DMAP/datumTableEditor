@@ -2056,10 +2056,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
               (function(){
                 var r=document.querySelector('[id$="synthesis_run_btn"]');
                 var g=document.querySelector('[id$="synthesis_regen_btn"]');
-                var x=document.querySelector('[id$="synthesis_exit_btn"]');
                 if(r) r.style.display='none';
                 if(g) g.style.display='';
-                if(x) x.style.display='';
               })();
             </script>"""))
             return ui.div(*status_children, class_="synthesis-status-area")
@@ -2069,10 +2067,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
           (function(){
             var r=document.querySelector('[id$="synthesis_run_btn"]');
             var g=document.querySelector('[id$="synthesis_regen_btn"]');
-            var x=document.querySelector('[id$="synthesis_exit_btn"]');
             if(r) r.style.display='';
             if(g) g.style.display='none';
-            if(x) x.style.display='none';
           })();
         </script>""")
         if enable_synthesis:
