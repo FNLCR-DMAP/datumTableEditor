@@ -2054,9 +2054,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Toggle footer buttons: hide Run, show Regen + Exit
             status_children.append(ui.HTML("""<script>
               (function(){
-                var r=document.getElementById('synthesis_run_btn');
-                var g=document.getElementById('synthesis_regen_btn');
-                var x=document.getElementById('synthesis_exit_btn');
+                var r=document.querySelector('[id$="synthesis_run_btn"]');
+                var g=document.querySelector('[id$="synthesis_regen_btn"]');
+                var x=document.querySelector('[id$="synthesis_exit_btn"]');
                 if(r) r.style.display='none';
                 if(g) g.style.display='';
                 if(x) x.style.display='';
@@ -2067,9 +2067,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Reset footer buttons: show Run, hide Regen + Exit
         _btn_reset = ui.HTML("""<script>
           (function(){
-            var r=document.getElementById('synthesis_run_btn');
-            var g=document.getElementById('synthesis_regen_btn');
-            var x=document.getElementById('synthesis_exit_btn');
+            var r=document.querySelector('[id$="synthesis_run_btn"]');
+            var g=document.querySelector('[id$="synthesis_regen_btn"]');
+            var x=document.querySelector('[id$="synthesis_exit_btn"]');
             if(r) r.style.display='';
             if(g) g.style.display='none';
             if(x) x.style.display='none';
