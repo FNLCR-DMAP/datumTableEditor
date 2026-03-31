@@ -37,12 +37,26 @@ def remove_column_from_list(columns: List[str], column: str) -> List[str]:
     return cols
 
 
-def sort_dataframe(df: pd.DataFrame, column: str, direction: str = 'asc') -> pd.DataFrame:
-    """Sort a dataframe by column. Returns new sorted dataframe."""
-    if column not in df.columns:
+def sort_dataframe(df: pd.DataFrame, column, direction='asc') -> pd.DataFrame:
+    """Sort a dataframe by one or more columns. Returns new sorted dataframe.
+
+    Args:
+        column: Single column name (str) or list of column names.
+        direction: 'asc'/'desc' (str) or list of 'asc'/'desc' for multi-column.
+    """
+    if isinstance(column, str):
+        column = [column]
+    if isinstance(direction, str):
+        direction = [direction] * len(column)
+    while len(direction) < len(column):
+        direction.append('asc')
+    # Filter to columns that exist
+    valid = [(c, d) for c, d in zip(column, direction) if c in df.columns]
+    if not valid:
         return df
-    ascending = direction == 'asc'
-    return df.sort_values(by=column, ascending=ascending, ignore_index=True)
+    cols, dirs = zip(*valid)
+    ascending = [d == 'asc' for d in dirs]
+    return df.sort_values(by=list(cols), ascending=list(ascending), ignore_index=True)
 
 
 def get_preset_columns_and_widths(preset_data: Any, default_columns: List[str]) -> Tuple[List[str], Dict[str, Any]]:

@@ -137,9 +137,11 @@ class TableConfig:
     # Column widths (column_name: width_px)
     default_column_widths: dict[str, int] = field(default_factory=dict)
     
-    # Default sort
-    default_sort_column: Optional[str] = None
-    default_sort_ascending: bool = True
+    # Default sort (single column or multi-column)
+    # Single: default_sort_column = "col1", default_sort_ascending = true
+    # Multi:  default_sort_column = ["col1", "col2"], default_sort_ascending = [true, false]
+    default_sort_column: Optional[str | list[str]] = None
+    default_sort_ascending: bool | list[bool] = True
     
     # Pagination
     default_rows_per_page: int = 25

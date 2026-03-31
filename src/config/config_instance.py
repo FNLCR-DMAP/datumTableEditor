@@ -256,8 +256,8 @@ class QueryParams:
     filters: Dict[str, Any] = field(default_factory=dict)  # column -> value(s)
     search_term: str = ""
     search_column: str = "all"  # "all" or specific column name
-    sort_column: Optional[str] = None
-    sort_ascending: bool = True
+    sort_column: Optional[str | List[str]] = None
+    sort_ascending: bool | List[bool] = True
     page: int = 1
     page_size: int = 300
     status_filters: List[str] = field(default_factory=lambda: ["unprocessed", "edited", "approved", "rejected"])
@@ -1017,6 +1017,33 @@ class DataFetcher:
         all_keys = set(labels.keys()) or {"unprocessed", "edited", "approved", "rejected"}
         return set(params.status_filters) != all_keys
 
+    def _build_order_clause(self, params: QueryParams) -> str:
+        """Build ORDER BY clause supporting single or multi-column sort."""
+        pk_columns = self.app_config.table.primary_key
+        cols = params.sort_column
+        asc = params.sort_ascending
+        if not cols:
+            if pk_columns:
+                return f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
+            return ""
+        if isinstance(cols, str):
+            cols = [cols]
+        if isinstance(asc, bool):
+            asc = [asc] * len(cols)
+        # Pad ascending list if shorter than columns
+        while len(asc) < len(cols):
+            asc.append(True)
+        parts = []
+        for c, a in zip(cols, asc):
+            if c in self._columns:
+                direction = "ASC" if a else "DESC"
+                parts.append(f'{SqlIdentifier(c)} {direction}')
+        if not parts:
+            if pk_columns:
+                return f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
+            return ""
+        return f'ORDER BY {", ".join(parts)}'
+
     def get_filtered_count(self, params: QueryParams) -> int:
         """Get count of rows matching the current filters.
 
@@ -1101,13 +1128,7 @@ class DataFetcher:
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
-            # Order clause
-            order_clause = ""
-            if params.sort_column and params.sort_column in self._columns:
-                direction = "ASC" if params.sort_ascending else "DESC"
-                order_clause = f'ORDER BY {SqlIdentifier(params.sort_column)} {direction}'
-            elif pk_columns:
-                order_clause = f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
+            order_clause = self._build_order_clause(params)
             
             # Pagination
             offset = (params.page - 1) * params.page_size
@@ -1196,13 +1217,7 @@ class DataFetcher:
             is_datum = self.app_config.database.mode == "datum" and self._datum_client
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
-            # Order clause
-            order_clause = ""
-            if params.sort_column and params.sort_column in self._columns:
-                direction = "ASC" if params.sort_ascending else "DESC"
-                order_clause = f'ORDER BY {SqlIdentifier(params.sort_column)} {direction}'
-            elif pk_columns:
-                order_clause = f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
+            order_clause = self._build_order_clause(params)
             
             # Build query with mod status (NO LIMIT for export)
             pk_json_build = build_pk_json_expr(pk_columns)

@@ -234,11 +234,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Apply initial sorting if saved (only in non-lazy mode)
     if not _initial_lazy_loading and ui_state.get("sort_column"):
-        initial_df = sort_dataframe(
-            initial_df, 
-            ui_state["sort_column"], 
-            "asc" if ui_state.get("sort_ascending", True) else "desc"
-        )
+        sort_col = ui_state["sort_column"]
+        sort_asc = ui_state.get("sort_ascending", True)
+        # Normalise ascending to list of direction strings matching columns
+        if isinstance(sort_col, list):
+            if isinstance(sort_asc, list):
+                direction = ["asc" if a else "desc" for a in sort_asc]
+            else:
+                direction = ["asc" if sort_asc else "desc"] * len(sort_col)
+        else:
+            direction = "asc" if sort_asc else "desc"
+        initial_df = sort_dataframe(initial_df, sort_col, direction)
     
     # Reactive values
     data = reactive.Value(initial_df)
