@@ -856,12 +856,13 @@ class DataFetcher:
     
     def _build_status_filter_clause(self, params: QueryParams) -> str:
         """Build status filter clause using modification status."""
-        if not params.status_filters or set(params.status_filters) == {"unprocessed", "edited", "approved", "rejected"}:
+        labels = getattr(self.app_config, 'status_labels', None) or {}
+        all_keys = set(labels.keys()) or {"unprocessed", "edited", "approved", "rejected"}
+        if not params.status_filters or set(params.status_filters) == all_keys:
             return ""
         
-        # Whitelist: only allow known status values
-        allowed = {"unprocessed", "edited", "approved", "rejected"}
-        safe_statuses = [s for s in params.status_filters if s in allowed]
+        # Whitelist: only allow configured status keys
+        safe_statuses = [s for s in params.status_filters if s in all_keys]
         if not safe_statuses:
             return ""
         
@@ -1012,7 +1013,9 @@ class DataFetcher:
             return False
         if not params.status_filters:
             return False
-        return set(params.status_filters) != {"unprocessed", "edited", "approved", "rejected"}
+        labels = getattr(self.app_config, 'status_labels', None) or {}
+        all_keys = set(labels.keys()) or {"unprocessed", "edited", "approved", "rejected"}
+        return set(params.status_filters) != all_keys
 
     def get_filtered_count(self, params: QueryParams) -> int:
         """Get count of rows matching the current filters.

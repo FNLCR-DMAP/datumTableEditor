@@ -1,27 +1,22 @@
-// Sync histogram checkboxes with Shiny checkbox group
-function initHistogramCheckboxes(contextEl) {
-    var container = _findWidgetContainer(contextEl);
-    const histogramCheckboxes = container.querySelectorAll('.status-checkbox');
-    histogramCheckboxes.forEach(function(checkbox) {
-        checkbox.addEventListener('change', function() {
-            // Get all checked statuses within this widget
-            var widgetContainer = _findWidgetContainer(checkbox);
-            const checked = [];
-            widgetContainer.querySelectorAll('.status-checkbox:checked').forEach(function(cb) {
-                checked.push(cb.value);
-            });
-            // Update the hidden Shiny checkbox group (pass checkbox as context)
-            if (typeof setShinyInput !== 'undefined') {
-                setShinyInput('status_filter_multi', checked, {priority: 'event'}, checkbox);
-            }
-        });
-    });
-}
-
-// Initialize histogram checkbox sync after Shiny renders
+// Sync histogram checkboxes with Shiny checkbox group via event delegation.
+// The output container (event.target) is stable across re-renders — only its
+// innerHTML changes.  A single delegated listener avoids the race condition
+// where individual listeners registered after a timeout could miss clicks.
 $(document).on('shiny:value', function(event) {
     if (event.name && event.name.endsWith('stats_histogram')) {
-        var target = event.target;
-        setTimeout(function() { initHistogramCheckboxes(target); }, 50);
+        var outputEl = event.target;
+        if (outputEl._histDelegated) return;  // already wired
+        outputEl._histDelegated = true;
+        outputEl.addEventListener('change', function(e) {
+            if (!e.target.classList.contains('status-checkbox')) return;
+            var container = _findWidgetContainer(e.target);
+            var checked = [];
+            container.querySelectorAll('.status-checkbox:checked').forEach(function(cb) {
+                checked.push(cb.value);
+            });
+            if (typeof setShinyInput !== 'undefined') {
+                setShinyInput('status_filter_multi', checked, {priority: 'event'}, e.target);
+            }
+        });
     }
 });

@@ -804,12 +804,13 @@ class TestJSContextScopingTransitions:
         assert "var target = event.target" in js
         assert "initRowSelection(target)" in js
 
-    def test_histogram_passes_event_target(self, js_dir):
-        """shiny:value handler must pass event.target to initHistogramCheckboxes."""
+    def test_histogram_uses_event_delegation(self, js_dir):
+        """shiny:value handler must use event delegation on the output element."""
         js = (js_dir / "histogram.js").read_text()
 
-        assert "var target = event.target" in js
-        assert "initHistogramCheckboxes(target)" in js
+        assert "var outputEl = event.target" in js
+        assert "outputEl.addEventListener" in js
+        assert "status-checkbox" in js
 
     def test_synthesis_uses_context_modal_lookup(self, js_dir):
         """synthesis.js must use findModalInContext, not bare getElementById."""
