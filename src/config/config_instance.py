@@ -920,6 +920,7 @@ class DataFetcher:
             mod_when_clauses = [
                 "WHEN lm.mod_type = 'approval' THEN 'approved'",
                 "WHEN lm.mod_type = 'rejection' THEN 'rejected'",
+                "WHEN lm.mod_type = 'field_modification' THEN 'edited'",
             ]
             if status_values:
                 for internal_key, db_val in status_values.items():
