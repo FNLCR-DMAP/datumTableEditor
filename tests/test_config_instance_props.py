@@ -435,7 +435,9 @@ class TestDataFetcherTableOverride:
         fetcher.app_config.database.data_table = data_table
         fetcher._table_override = None
         fetcher._total_count = 0
-        fetcher._refresh_count = MagicMock()
+        fetcher._columns = []
+        fetcher._column_types = {}
+        fetcher._fetch_metadata = MagicMock()
         return fetcher
 
     def test_set_table_override_sets_field(self):
@@ -445,10 +447,10 @@ class TestDataFetcherTableOverride:
         assert fetcher._table_override == "synthesis_result"
 
     def test_set_table_override_calls_refresh_count(self):
-        """set_table_override should call _refresh_count."""
+        """set_table_override should call _fetch_metadata."""
         fetcher = self._make_fetcher()
         fetcher.set_table_override("my_matview")
-        fetcher._refresh_count.assert_called_once()
+        fetcher._fetch_metadata.assert_called_once()
 
     def test_clear_table_override_resets_to_none(self):
         """clear_table_override should set _table_override to None."""
@@ -458,11 +460,11 @@ class TestDataFetcherTableOverride:
         assert fetcher._table_override is None
 
     def test_clear_table_override_calls_refresh_count(self):
-        """clear_table_override should call _refresh_count."""
+        """clear_table_override should call _fetch_metadata."""
         fetcher = self._make_fetcher()
         fetcher._table_override = "override_table"
         fetcher.clear_table_override()
-        fetcher._refresh_count.assert_called_once()
+        fetcher._fetch_metadata.assert_called_once()
 
     def test_set_then_clear_roundtrip(self):
         """Set override then clear should return to None."""

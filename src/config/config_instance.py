@@ -313,18 +313,18 @@ class DataFetcher:
     def set_table_override(self, table_name: str):
         """Point all runtime queries at *table_name* (e.g. a matview).
 
-        Refreshes the row count automatically.  Modification tracking
-        is suppressed while the override is active.
+        Refreshes the row count and column metadata automatically.
+        Modification tracking is suppressed while the override is active.
         """
         self._table_override = table_name
-        self._refresh_count()
-        print(f"[DataFetcher] Table override → {table_name} ({self._total_count} rows)")
+        self._fetch_metadata()
+        print(f"[DataFetcher] Table override → {table_name} ({self._total_count} rows, {len(self._columns)} cols)")
 
     def clear_table_override(self):
         """Restore queries to the original data table."""
         self._table_override = None
-        self._refresh_count()
-        print(f"[DataFetcher] Table override cleared → {self.app_config.database.data_table} ({self._total_count} rows)")
+        self._fetch_metadata()
+        print(f"[DataFetcher] Table override cleared → {self.app_config.database.data_table} ({self._total_count} rows, {len(self._columns)} cols)")
 
     # PostgreSQL types that are natively textual — no CAST needed for
     # string comparisons (=, IN, ILIKE, ~*).  Keeping them bare allows
