@@ -468,6 +468,28 @@ class DataFetcher:
             return True
         return not getattr(self.app_config, "enable_status_filter", True)
     
+    @property
+    def _select_columns(self) -> str:
+        """Build an explicit column list for SELECT instead of ``d.*``.
+
+        PostgreSQL ARRAY columns crash the Datum proxy during result
+        serialisation.  Selecting columns explicitly with a ``CAST`` for
+        array types avoids the 500 error.
+        """
+        if not self._columns:
+            return "d.*"
+        col_types = getattr(self, "_column_types", None) or {}
+        parts = []
+        _ARRAY_TYPES = frozenset({"array", "anyarray", "user-defined"})
+        for col in self._columns:
+            ctype = col_types.get(col, "").lower()
+            ident = SqlIdentifier(col)
+            if ctype.startswith("array") or ctype.endswith("[]") or ctype in _ARRAY_TYPES:
+                parts.append(f"CAST(d.{ident} AS TEXT) AS {ident}")
+            else:
+                parts.append(f"d.{ident}")
+        return ", ".join(parts)
+
     def _get_columns_from_schema_datum(self) -> List[str]:
         """Get column names from information_schema via Datum."""
         try:
@@ -1139,10 +1161,11 @@ class DataFetcher:
             pk_json_build = build_pk_json_expr(pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
+            cols = self._select_columns
             if self._skip_mods:
                 # No modification tracking — simple SELECT, no LATERAL JOIN
                 query = f"""
-                SELECT d.*, 'unprocessed' AS _mod_status
+                SELECT {cols}, 'unprocessed' AS _mod_status
                 FROM {data_table_sql} d
                 {where_clause}
                 {order_clause}
@@ -1153,7 +1176,7 @@ class DataFetcher:
                 # the expensive per-row LATERAL sub-query.
                 cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 inner_query = f"""
-                SELECT d.*, 
+                SELECT {cols}, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 {join}
@@ -1224,9 +1247,10 @@ class DataFetcher:
             pk_json_build = build_pk_json_expr(pk_columns)
             status_filter = self._build_status_filter_clause(params)
             
+            cols = self._select_columns
             if self._skip_mods:
                 query = f"""
-                SELECT d.*, 'unprocessed' AS _mod_status
+                SELECT {cols}, 'unprocessed' AS _mod_status
                 FROM {data_table_sql} d
                 {where_clause}
                 {order_clause}
@@ -1234,7 +1258,7 @@ class DataFetcher:
             else:
                 cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 inner_query = f"""
-                SELECT d.*, 
+                SELECT {cols}, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 {join}
@@ -2075,9 +2099,12 @@ class ConfigInstance:
             max_rows = self.app_config.database.max_rows
             limit_clause = f"LIMIT {max_rows}" if max_rows else ""
             
+            # Use explicit columns when available (avoids ARRAY crash in Datum proxy)
+            cols = self._data_fetcher._select_columns if self._data_fetcher else "d.*"
+            
             if self._skip_mods:
                 query = f"""
-                SELECT d.*, 'unprocessed' AS _mod_status
+                SELECT {cols}, 'unprocessed' AS _mod_status
                 FROM {data_table_sql} d
                 ORDER BY d.{SqlIdentifier(pk_columns[0])}
                 {limit_clause}
@@ -2086,7 +2113,7 @@ class ConfigInstance:
                 cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 query = f"""
                 {cte}
-                SELECT d.*, 
+                SELECT {cols}, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
                 FROM {data_table_sql} d
                 {join}
