@@ -105,13 +105,12 @@ def _normalize_mod_status(raw: str) -> str:
 
 def _reconcile_status_df(df, status_col: str, status_values: dict,
                          pk_columns: list, update_fn) -> 'pd.DataFrame':
-    """Shared reconciliation logic used by DataFetcher and ConfigInstance.
+    """Data-table-wins reconciliation.
 
-    For every row where ``_mod_status`` indicates a non-unprocessed state
-    that outranks the current ``status_col`` value, overwrite the status
-    column and persist via *update_fn(row_pk, col, val)*.
-
-    Priority: rejected > approved > edited > unprocessed.
+    The status column in the data table is authoritative.  If ``_mod_status``
+    disagrees, overwrite ``_mod_status`` in the DataFrame to match the status
+    column.  No DB writes are needed because the data table already holds the
+    correct value.
     """
     if "_mod_status" not in df.columns or status_col not in df.columns:
         return df
@@ -123,27 +122,15 @@ def _reconcile_status_df(df, status_col: str, status_values: dict,
         reverse_values[val.lower()] = key.lower()
 
     for idx, row in df.iterrows():
-        mod_raw = str(row.get("_mod_status", "unprocessed")).strip().lower()
-        mod_key = _normalize_mod_status(mod_raw)
-        if mod_key == "unprocessed":
-            continue
-
         cur_raw = str(row.get(status_col, "")).strip().lower()
         cur_key = reverse_values.get(cur_raw, "unprocessed")
 
-        mod_prio = _STATUS_PRIORITY.get(mod_key, 1)
-        cur_prio = _STATUS_PRIORITY.get(cur_key, 0)
-        if mod_prio <= cur_prio:
-            continue  # current status already outranks or equals
+        mod_raw = str(row.get("_mod_status", "unprocessed")).strip().lower()
+        mod_key = _normalize_mod_status(mod_raw)
 
-        new_val = status_values.get(mod_key, mod_key)
-        df.at[idx, status_col] = new_val
-        try:
-            row_pk = {pk: row[pk] for pk in pk_columns if pk in df.columns}
-            if row_pk:
-                update_fn(row_pk, status_col, new_val)
-        except Exception as e:
-            print(f"[Reconcile] DB update failed for row {idx}: {e}")
+        if cur_key != mod_key:
+            # Data table wins — sync _mod_status in DataFrame only
+            df.at[idx, "_mod_status"] = cur_key
 
     return df
 
@@ -1373,7 +1360,13 @@ class DataFetcher:
                 conn.commit()
 
     def _apply_field_modifications(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply field modifications to the fetched data."""
+        """Reconcile field modifications: data table wins.
+        
+        Since edits write directly to the data table, the SELECT already
+        contains the correct values.  This method queries the mods table to
+        detect disagreements and fixes them so the mod table stays consistent.
+        The DataFrame is NEVER overwritten — the data table is the source of truth.
+        """
         if df.empty or self._skip_mods:
             return df
         
@@ -1429,7 +1422,9 @@ class DataFetcher:
                     result = conn.execute(text(mods_query))
                     mods = [dict(row._mapping) for row in result.fetchall()]
             
-            # Apply modifications
+            # Detect disagreements — data table wins, don't overwrite df
+            disagreements = []  # [(pk_json, col, data_table_value)]
+            seen = set()  # Track (pk_json, col) to only record latest disagreement
             for mod in mods:
                 row_pk = mod["row_pk"]
                 if isinstance(row_pk, str):
@@ -1438,16 +1433,59 @@ class DataFetcher:
                 
                 if pk_json in pk_index:
                     col = mod["column_name"]
-                    new_val = mod["new_value"]
-                    for idx in pk_index[pk_json]:
-                        if col in df.columns:
-                            df.at[idx, col] = new_val
+                    mod_val = mod["new_value"]
+                    idx = pk_index[pk_json][0]
+                    if col in df.columns:
+                        actual = df.at[idx, col]
+                        actual_str = str(actual) if pd.notna(actual) else ""
+                        mod_str = str(mod_val) if mod_val is not None else ""
+                        cell_key = (pk_json, col)
+                        if actual_str != mod_str:
+                            if cell_key not in seen:
+                                disagreements.append((pk_json, col, actual_str))
+                                seen.add(cell_key)
+            
+            # Fix mod table for any disagreements
+            if disagreements:
+                self._fix_mod_disagreements(disagreements, mods_table_sql)
             
             return df
             
         except Exception as e:
             print(f"✗ Error applying field modifications: {e}")
             return df
+
+    def _fix_mod_disagreements(self, disagreements: list,
+                               mods_table_sql: SqlTableName):
+        """Update the latest mod record's new_value to match the data table."""
+        for pk_json, col, data_val in disagreements:
+            sql = (
+                f"UPDATE {mods_table_sql} "
+                f"SET new_value = {SqlLiteral(data_val)} "
+                f"WHERE id = ("
+                f"  SELECT id FROM {mods_table_sql} "
+                f"  WHERE row_pk = {SqlLiteral(pk_json)}::jsonb "
+                f"    AND column_name = {SqlLiteral(col)} "
+                f"    AND mod_type = 'field_modification' "
+                f"    AND undone = FALSE "
+                f"  ORDER BY created_at DESC LIMIT 1"
+                f")"
+            )
+            try:
+                if self.app_config.database.mode == "datum" and self._datum_client:
+                    self._datum_client.execute_sql(
+                        sql=sql,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                elif self._engine:
+                    from sqlalchemy import text as sa_text
+                    with self._engine.connect() as conn:
+                        conn.execute(sa_text(sql))
+                        conn.commit()
+            except Exception as e:
+                print(f"[Reconcile] Failed to fix mod for {col}: {e}")
 
 
 @dataclass
@@ -1954,12 +1992,13 @@ class ConfigInstance:
                                     self.update_data_in_db)
 
     def _apply_field_modifications(self, df: pd.DataFrame, engine) -> pd.DataFrame:
-        """
-        Apply field modifications to the dataframe AND track which cells were edited.
-        Tracks the FIRST old_value as the original value for each cell.
+        """Reconcile field modifications: data table wins.
         
-        OPTIMIZED: Only queries mods for PKs present in the current dataframe,
-        avoiding full table scan when mods table is large.
+        Since edits write directly to the data table, the SELECT already
+        holds the correct values.  This method queries the mods table to
+        track which cells were edited, but NEVER overwrites the DataFrame.
+        If a mod record's new_value disagrees with the data table, the mod
+        record is updated to match.
         """
         try:
             from sqlalchemy import text
@@ -1976,16 +2015,14 @@ class ConfigInstance:
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = SqlTableName(mods_table)
             
-            # OPTIMIZED: Build list of PKs from current dataframe
-            # Create JSONB array of all PKs in the current view
+            # Build list of PKs from current dataframe
             pk_values = []
-            pk_index = {}  # Map pk_json -> row indices for fast lookup
+            pk_index = {}
             for idx, row in df.iterrows():
                 pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
-                # Convert to JSON-compatible types
                 serializable_pk = {}
                 for k, v in pk_dict.items():
-                    if hasattr(v, 'item'):  # numpy scalar
+                    if hasattr(v, 'item'):
                         serializable_pk[k] = v.item()
                     elif pd.isna(v):
                         serializable_pk[k] = None
@@ -2001,8 +2038,6 @@ class ConfigInstance:
                 self.edited_cells = {}
                 return df
             
-            # OPTIMIZED: Query only modifications for PKs in current view
-            # Use ANY with jsonb array for efficient filtering
             pk_array = build_pk_array(pk_values)
             
             mods_query = f"""
@@ -2018,8 +2053,9 @@ class ConfigInstance:
                 result = conn.execute(text(mods_query))
                 mods_data = result.fetchall()
             
-            # Store edited cells info: {(pk_tuple, col_name): {"original": first_old_value, "current": latest_new_value}}
             self.edited_cells = {}
+            disagreements = []  # [(pk_json, col, data_table_value)]
+            seen = set()
             
             if mods_data:
                 for mod in mods_data:
@@ -2031,33 +2067,68 @@ class ConfigInstance:
                     new_value = mod[3]
                     
                     if col_name in df.columns:
-                        # OPTIMIZED: Use pre-built index instead of building mask each time
                         pk_json = json.dumps(row_pk, sort_keys=True)
                         row_indices = pk_index.get(pk_json, [])
                         
                         if row_indices:
-                            # Create PK tuple for stable cell key (hashable)
                             pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
                             cell_key = (pk_tuple, col_name)
                             
-                            # Track edited cell - keep FIRST old_value as original
+                            # Use the data table value as "current"
+                            idx = row_indices[0]
+                            actual = df.at[idx, col_name]
+                            actual_str = str(actual) if pd.notna(actual) else ""
+                            
                             if cell_key not in self.edited_cells:
                                 self.edited_cells[cell_key] = {
                                     "original": old_value,
-                                    "current": new_value
+                                    "current": actual_str
                                 }
                             else:
-                                self.edited_cells[cell_key]["current"] = new_value
+                                self.edited_cells[cell_key]["current"] = actual_str
                             
-                            # Apply modification to df using direct index access
-                            for idx in row_indices:
-                                df.at[idx, col_name] = new_value
+                            # Detect disagreement — data table wins
+                            mod_str = str(new_value) if new_value is not None else ""
+                            disagree_key = (pk_json, col_name)
+                            if actual_str != mod_str and disagree_key not in seen:
+                                disagreements.append((pk_json, col_name, actual_str))
+                                seen.add(disagree_key)
+                            
+                            # DON'T overwrite df — data table is source of truth
+            
+            # Fix mod table for any disagreements
+            if disagreements:
+                self._fix_mod_disagreements(disagreements, mods_table_sql, engine)
             
             return df
         except Exception as e:
             print(f"⚠ Could not apply field modifications: {e}")
             self.edited_cells = {}
             return df
+
+    def _fix_mod_disagreements(self, disagreements: list,
+                               mods_table_sql: SqlTableName, engine):
+        """Update the latest mod record's new_value to match the data table."""
+        from sqlalchemy import text as sa_text
+        for pk_json, col, data_val in disagreements:
+            sql = (
+                f"UPDATE {mods_table_sql} "
+                f"SET new_value = {SqlLiteral(data_val)} "
+                f"WHERE id = ("
+                f"  SELECT id FROM {mods_table_sql} "
+                f"  WHERE row_pk = {SqlLiteral(pk_json)}::jsonb "
+                f"    AND column_name = {SqlLiteral(col)} "
+                f"    AND mod_type = 'field_modification' "
+                f"    AND undone = FALSE "
+                f"  ORDER BY created_at DESC LIMIT 1"
+                f")"
+            )
+            try:
+                with engine.connect() as conn:
+                    conn.execute(sa_text(sql))
+                    conn.commit()
+            except Exception as e:
+                print(f"[Reconcile] Failed to fix mod for {col}: {e}")
     
     def get_edited_cells(self) -> dict:
         """Return dict of edited cells: {(pk_tuple, col_name): {"original": val, "current": val}}"""
@@ -2152,11 +2223,13 @@ class ConfigInstance:
             return pd.DataFrame()
     
     def _apply_field_modifications_datum(self, df: pd.DataFrame, client) -> pd.DataFrame:
-        """
-        Apply field modifications to the dataframe via Datum proxy.
-        Tracks the FIRST old_value as the original value for each cell.
+        """Reconcile field modifications via Datum proxy: data table wins.
         
-        OPTIMIZED: Only queries mods for PKs present in the current dataframe.
+        Since edits write directly to the data table, the SELECT already
+        holds the correct values.  This method queries the mods table to
+        track which cells were edited, but NEVER overwrites the DataFrame.
+        If a mod record's new_value disagrees with the data table, the mod
+        record is updated to match.
         """
         try:
             if df.empty:
@@ -2171,9 +2244,8 @@ class ConfigInstance:
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = SqlTableName(mods_table)
             
-            # OPTIMIZED: Build list of PKs from current dataframe
             pk_values = []
-            pk_index = {}  # Map pk_json -> row indices for fast lookup
+            pk_index = {}
             for idx, row in df.iterrows():
                 pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
                 serializable_pk = {}
@@ -2194,7 +2266,6 @@ class ConfigInstance:
                 self.edited_cells = {}
                 return df
             
-            # OPTIMIZED: Query only modifications for PKs in current view
             pk_array = build_pk_array(pk_values)
             
             mods_query = f"""
@@ -2206,8 +2277,6 @@ class ConfigInstance:
             ORDER BY created_at ASC
             """
             
-            print(f"[Datum DEBUG] Applying field modifications, query: {mods_query[:200]}...")
-            
             response = client.execute_sql(
                 sql=mods_query,
                 database=self.app_config.database.datum_database,
@@ -2215,13 +2284,12 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
-            print(f"[Datum DEBUG] Found {len(response.data)} field modifications to apply")
-            
-            # Store edited cells info
             self.edited_cells = {}
+            disagreements = []
+            seen = set()
             
             if response.data:
-                for idx, mod in enumerate(response.data):
+                for mod in response.data:
                     row_pk_raw = mod.get("row_pk", {})
                     row_pk = row_pk_raw
                     if isinstance(row_pk, str):
@@ -2230,15 +2298,10 @@ class ConfigInstance:
                     old_value = mod.get("old_value")
                     new_value = mod.get("new_value")
                     
-                    print(f"[Datum DEBUG] Mod {idx}: pk={row_pk}, col={col_name}, old={old_value[:30] if old_value else None}..., new={new_value[:30] if new_value else None}...")
-                    
-                    # Skip modifications with empty row_pk
                     if not row_pk:
-                        print(f"[Datum DEBUG] Skipping mod {idx}: empty row_pk")
                         continue
                     
                     if col_name in df.columns:
-                        # OPTIMIZED: Use pre-built index instead of building mask
                         pk_json = json.dumps(row_pk, sort_keys=True)
                         row_indices = pk_index.get(pk_json, [])
                         
@@ -2246,31 +2309,67 @@ class ConfigInstance:
                             pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
                             cell_key = (pk_tuple, col_name)
                             
+                            # Use the data table value as "current"
+                            idx = row_indices[0]
+                            actual = df.at[idx, col_name]
+                            actual_str = str(actual) if pd.notna(actual) else ""
+                            
                             if cell_key not in self.edited_cells:
                                 self.edited_cells[cell_key] = {
                                     "original": old_value,
-                                    "current": new_value
+                                    "current": actual_str
                                 }
                             else:
-                                self.edited_cells[cell_key]["current"] = new_value
+                                self.edited_cells[cell_key]["current"] = actual_str
                             
-                            # Apply modification using direct index access
-                            for row_idx in row_indices:
-                                df.at[row_idx, col_name] = new_value
-                        else:
-                            print(f"[Datum DEBUG] No matching row found for pk_json={pk_json}")
-                    else:
-                        print(f"[Datum DEBUG] Column {col_name} not in dataframe")
+                            # Detect disagreement — data table wins
+                            mod_str = str(new_value) if new_value is not None else ""
+                            disagree_key = (pk_json, col_name)
+                            if actual_str != mod_str and disagree_key not in seen:
+                                disagreements.append((pk_json, col_name, actual_str))
+                                seen.add(disagree_key)
+                            
+                            # DON'T overwrite df — data table is source of truth
+            
+            # Fix mod table for any disagreements
+            if disagreements:
+                self._fix_mod_disagreements_datum(disagreements, mods_table_sql, client)
             
             mod_count = len(self.edited_cells)
             if mod_count > 0:
-                print(f"✓ Applied {mod_count} modifications to data")
+                print(f"✓ Tracked {mod_count} edited cells (data table authoritative)")
             
             return df
         except Exception as e:
             print(f"⚠ Could not apply field modifications via Datum: {e}")
             self.edited_cells = {}
             return df
+
+    def _fix_mod_disagreements_datum(self, disagreements: list,
+                                     mods_table_sql: SqlTableName, client):
+        """Update the latest mod record's new_value to match the data table (Datum)."""
+        for pk_json, col, data_val in disagreements:
+            sql = (
+                f"UPDATE {mods_table_sql} "
+                f"SET new_value = {SqlLiteral(data_val)} "
+                f"WHERE id = ("
+                f"  SELECT id FROM {mods_table_sql} "
+                f"  WHERE row_pk = {SqlLiteral(pk_json)}::jsonb "
+                f"    AND column_name = {SqlLiteral(col)} "
+                f"    AND mod_type = 'field_modification' "
+                f"    AND undone = FALSE "
+                f"  ORDER BY created_at DESC LIMIT 1"
+                f")"
+            )
+            try:
+                client.execute_sql(
+                    sql=sql,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+            except Exception as e:
+                print(f"[Reconcile] Failed to fix mod for {col}: {e}")
 
     def _get_display_columns(self) -> List[str]:
         """Get default display columns from configuration."""
