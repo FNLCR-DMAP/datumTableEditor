@@ -744,7 +744,7 @@ class TestEditUndoPipelineGoldenSnapshots:
         df_copy = edit_df.copy()
         df_copy.iloc[1, df_copy.columns.get_loc("Gene_names")] = "TP53_mut"
         perform_undo(df_copy, log, 0, config_instance=mock_ci)
-        args = mock_ci.update_data_in_db.call_args[0]
+        args = mock_ci.update_data_in_db.call_args_list[0][0]
         assert args == GOLDEN_UNDO_REVERT_ARGS
 
     def test_undo_insert_record_type(self, edit_df, mock_ci):

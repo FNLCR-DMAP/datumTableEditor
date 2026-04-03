@@ -405,7 +405,7 @@ class TestStatusValuesConfig:
         from src.config.app_config_schema import AppConfig
 
         cfg = AppConfig()
-        assert cfg.status_values == {"approved": "approved", "rejected": "rejected", "edited": "edited"}
+        assert cfg.status_values == {"approved": "Accepted", "rejected": "Rejected", "edited": "Edited"}
 
     def test_merge_config_loads_status_values(self):
         """_merge_config should load custom status_values from JSON."""
@@ -429,7 +429,7 @@ class TestStatusValuesConfig:
         config = AppConfig()
         _merge_config(config, {"status_values": {"approved": "PASS"}})
         assert config.status_values["approved"] == "PASS"
-        assert config.status_values["rejected"] == "rejected"  # default retained
+        assert config.status_values["rejected"] == "Rejected"  # default retained
 
     def test_merge_config_missing_keeps_defaults(self):
         """Missing status_values keeps defaults."""
@@ -437,7 +437,7 @@ class TestStatusValuesConfig:
 
         config = AppConfig()
         _merge_config(config, {})
-        assert config.status_values == {"approved": "approved", "rejected": "rejected", "edited": "edited"}
+        assert config.status_values == {"approved": "Accepted", "rejected": "Rejected", "edited": "Edited"}
 
     def test_status_values_independent_of_labels(self):
         """status_values and status_labels are independent configs."""

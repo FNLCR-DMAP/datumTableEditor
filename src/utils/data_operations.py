@@ -179,6 +179,51 @@ def perform_undo(
     updated_log[log_idx] = updated_log[log_idx].copy()
     updated_log[log_idx]["undone"] = True
     
+    # Reset the status column if no active field_modifications remain for this row.
+    # The status column is the source of truth for the badge indicator.
+    _status_col = None
+    _unprocessed_val = None
+    _edited_val = None
+    _ac = None
+    if config_instance and hasattr(config_instance, 'app_config'):
+        _ac = config_instance.app_config
+    elif DB_AVAILABLE and app_config:
+        _ac = app_config
+    if _ac:
+        _sc = getattr(getattr(_ac, 'database', None), 'status_column', None)
+        if isinstance(_sc, str):
+            _status_col = _sc
+        _sv = getattr(_ac, 'status_values', None) or {}
+        if isinstance(_sv, dict):
+            _edited_val = _sv.get('edited', 'Edited')
+        # Value to write when no edits remain — empty string or original status
+        _unprocessed_val = ""
+
+    if _status_col:
+        # Check if the row still has any remaining active field_modifications
+        has_remaining = any(
+            m.get("type") == "field_modification"
+            and not m.get("undone", False)
+            and m is not updated_log[log_idx]  # exclude the one we just undone
+            and m.get("details", {}).get("row_pk") == row_pk
+            and m.get("details", {}).get("column") != _status_col  # skip status-sync entries
+            for m in updated_log
+        )
+        if not has_remaining:
+            # Reset status column to unprocessed
+            try:
+                if config_instance:
+                    config_instance.update_data_in_db(row_pk, _status_col, _unprocessed_val)
+                elif DB_AVAILABLE and app_config.database.enabled:
+                    update_data_in_db(row_pk, _status_col, _unprocessed_val)
+            except Exception as e:
+                print(f"[Datum DEBUG] status reset on undo failed: {e}")
+            # Update in-memory DataFrame
+            if _status_col in updated_df.columns:
+                updated_df.loc[mask.values, _status_col] = _unprocessed_val
+            if "_mod_status" in updated_df.columns:
+                updated_df.loc[mask.values, "_mod_status"] = "unprocessed"
+    
     # Add undo entry to the log
     updated_log.append({
         "timestamp": datetime.now().isoformat(),

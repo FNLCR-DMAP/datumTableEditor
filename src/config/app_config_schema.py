@@ -310,9 +310,9 @@ class AppConfig:
     # Maps internal status key -> value stored in DB.
     # Example: {"approved": "Accepted", "rejected": "Declined", "edited": "Modified"}
     status_values: dict = field(default_factory=lambda: {
-        "approved": "approved",
-        "rejected": "rejected",
-        "edited": "edited"
+        "approved": "Accepted",
+        "rejected": "Rejected",
+        "edited": "Edited"
     })
     
     # Column-to-column copy on approval.  When a row is approved, for each

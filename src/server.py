@@ -510,40 +510,45 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
-        """Wrapper for get_row_status that uses reactive log and PK for accurate matching.
-        Falls back to _mod_status column (SQL-computed with status_column mapping) when
-        the modifications log has no entries for this row."""
+        """Determine row status.
+        
+        The status_column in the data table is the source of truth.
+        The _mod_status column (SQL-computed) normalises it to an internal key.
+        For in-memory mode (no _mod_status column), the mods log is checked.
+        """
         current_df = data.get()
         current_log = mods_log.get()
-        # Get the primary key for this row (using DataFrame index label, not position)
+        
+        # Prefer _mod_status column (already normalised from status_column by SQL)
+        if "_mod_status" in current_df.columns:
+            try:
+                db_status = str(current_df.loc[row_idx, "_mod_status"]).strip().lower()
+                if db_status in ("edited", "approved", "rejected"):
+                    return db_status
+                # Normalize raw mod_type values to internal keys
+                if db_status == "approval":
+                    return "approved"
+                elif db_status == "rejection":
+                    return "rejected"
+                elif db_status == "field_modification":
+                    return "edited"
+                # Also check custom status_values (reverse lookup)
+                reverse = {v.lower(): k for k, v in app_config.status_values.items()}
+                mapped = reverse.get(db_status, db_status)
+                if mapped in ("edited", "approved", "rejected"):
+                    return mapped
+            except:
+                pass
+            return "unprocessed"
+        
+        # Fallback: in-memory mods log (non-lazy / non-DB mode)
         try:
             pk_cols = app_config.table.primary_key
-            row = current_df.loc[row_idx]  # Use .loc for label-based indexing
+            row = current_df.loc[row_idx]
             row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
         except:
             row_pk = None
-        status = get_row_status(row_idx, current_log, row_pk)
-        # If log says unprocessed, check the SQL-computed _mod_status column
-        # which already maps status_column values via status_labels
-        if status == "unprocessed" and "_mod_status" in current_df.columns:
-            try:
-                db_status = str(current_df.loc[row_idx, "_mod_status"]).strip().lower()
-                # Normalize raw mod_type values to internal keys
-                if db_status == "approval":
-                    db_status = "approved"
-                elif db_status == "rejection":
-                    db_status = "rejected"
-                elif db_status == "field_modification":
-                    db_status = "edited"
-                # Also check custom status_values (reverse lookup)
-                if db_status not in ("edited", "approved", "rejected"):
-                    reverse = {v.lower(): k for k, v in app_config.status_values.items()}
-                    db_status = reverse.get(db_status, db_status)
-                if db_status in ("edited", "approved", "rejected"):
-                    return db_status
-            except:
-                pass
-        return status
+        return get_row_status(row_idx, current_log, row_pk)
     
     def _get_status_counts():
         """Wrapper for get_status_counts that uses reactive values.
@@ -1499,7 +1504,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 show_status_column=app_config.enable_approval_workflow,
                 status_labels=app_config.status_labels,
                 column_masks=column_masks,
-                cell_click_columns=app_config.table.cell_click_columns
+                cell_click_columns=app_config.table.cell_click_columns,
+                status_col_name=getattr(app_config.database, "status_column", None)
             )
         return result
     

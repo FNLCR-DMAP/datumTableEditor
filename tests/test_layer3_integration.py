@@ -800,11 +800,16 @@ class TestEditPipelineSQLCalls:
         assert err is None
 
         # 1) Revert: update_data_in_db with old_value
-        mock_ci.update_data_in_db.assert_called_once()
-        revert_args = mock_ci.update_data_in_db.call_args[0]
+        assert mock_ci.update_data_in_db.call_count == 2
+        revert_args = mock_ci.update_data_in_db.call_args_list[0][0]
         assert revert_args[0] == {"PatientID_Mutsequence": "PK002"}
         assert revert_args[1] == "Gene_names"
         assert revert_args[2] == "TP53"  # reverted to original
+
+        # 1b) Status column reset (no remaining edits for this row)
+        status_reset = mock_ci.update_data_in_db.call_args_list[1][0]
+        assert status_reset[1] == "Status"
+        assert status_reset[2] == ""  # cleared
 
         # 2) Mark original mod as undone
         mock_ci.mark_modification_undone_in_db.assert_called_once()

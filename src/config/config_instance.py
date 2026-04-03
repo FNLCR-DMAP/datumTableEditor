@@ -153,19 +153,43 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
     """
     Build the SQL expression for _mod_status.
     
-    Falls back to the data table's status_column if the mods table has no entry,
-    matching against configured status_labels values (case-insensitive).
+    When a status_column is configured, it is the single source of truth:
+    edits, approvals, rejections, and undos all write to it, so the badge
+    always mirrors the data table.  The mods-table CTE is only used as a
+    fallback when no status_column exists.
     
     Args:
         status_column: Name of the status column in the data table
-        status_labels: Dict mapping internal keys to display labels, e.g.
-                       {"approved": "Accepted", "rejected": "Rejected", ...}
-        status_values: Dict mapping internal keys to DB-written values, e.g.
-                       {"approved": "Accepted", "rejected": "Declined"}
+        status_labels: Dict mapping internal keys to display labels
+        status_values: Dict mapping internal keys to DB-written values
     """
-    # Build the ms.new_value normalizer — maps custom DB values back to internal keys
-    # This handles both legacy mod_type values ("approval"/"rejection") and
-    # custom status_values written by the approve/reject buttons.
+    if status_column:
+        col = f'd.{SqlIdentifier(status_column)}'
+        # Normalise the status column value → internal key
+        when_clauses = []
+        if status_labels:
+            for internal_key, label in status_labels.items():
+                if internal_key == "unprocessed":
+                    continue
+                safe_key = internal_key.lower()
+                safe_label = label.lower()
+                match_vals = {safe_key, safe_label}
+                if status_values and internal_key in status_values:
+                    match_vals.add(status_values[internal_key].lower())
+                values = sorted(match_vals)
+                in_list = ", ".join(str(SqlLiteral(v)) for v in values)
+                when_clauses.append(
+                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN {SqlLiteral(safe_key)}"
+                )
+        else:
+            when_clauses.append(
+                f"WHEN LOWER(CAST({col} AS TEXT)) IN ('approved', 'rejected', 'edited') "
+                f"THEN LOWER(CAST({col} AS TEXT))"
+            )
+        case_expr = " ".join(when_clauses)
+        return f"CASE {case_expr} ELSE 'unprocessed' END"
+    
+    # No status_column — derive status from the mods table CTE
     mod_when_clauses = [
         "WHEN ms.mod_type = 'approval' THEN 'approved'",
         "WHEN ms.mod_type = 'rejection' THEN 'rejected'",
@@ -181,38 +205,6 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
                 )
     mod_when_clauses.append("ELSE ms.mod_type")
     mod_normalize = f"CASE {' '.join(mod_when_clauses)} END"
-    
-    if status_column:
-        col = f'd.{SqlIdentifier(status_column)}'
-        # Build CASE WHEN branches for each status, matching both internal key and label
-        when_clauses = []
-        if status_labels:
-            for internal_key, label in status_labels.items():
-                if internal_key == "unprocessed":
-                    continue  # unprocessed is the default/fallback
-                # Match the internal key, configured label, AND custom status_value
-                safe_key = internal_key.lower()
-                safe_label = label.lower()
-                match_vals = {safe_key, safe_label}
-                if status_values and internal_key in status_values:
-                    match_vals.add(status_values[internal_key].lower())
-                values = sorted(match_vals)
-                in_list = ", ".join(str(SqlLiteral(v)) for v in values)
-                when_clauses.append(
-                    f"WHEN LOWER(CAST({col} AS TEXT)) IN ({in_list}) THEN {SqlLiteral(safe_key)}"
-                )
-        else:
-            # Default: recognize the standard internal keys
-            when_clauses.append(
-                f"WHEN LOWER(CAST({col} AS TEXT)) IN ('approved', 'rejected', 'edited') "
-                f"THEN LOWER(CAST({col} AS TEXT))"
-            )
-        
-        case_expr = " ".join(when_clauses)
-        return (
-            f"COALESCE({mod_normalize}, "
-            f"CASE {case_expr} ELSE 'unprocessed' END)"
-        )
     return f"COALESCE({mod_normalize}, 'unprocessed')"
 
 
@@ -223,8 +215,15 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
     (small) mods table.  PostgreSQL uses a hash-join against the data table
     instead of a correlated sub-query per row.
 
-    The join alias is ``ms`` so that ``_build_mod_status_expr()`` expressions
-    referencing ``ms.mod_type`` / ``ms.new_value`` work unchanged.
+    A second CTE (``any_mod``) tracks PKs that have *any* modification
+    history (including undone).  When all mods for a row have been undone
+    the active-CTE produces NULL, but we must NOT fall back to the data
+    table's status column because that value is stale from the original
+    edit.  ``any_mod`` lets the status expression distinguish "never
+    modified" from "all modifications undone".
+
+    The join aliases are ``ms`` (active mod) and ``am`` (any mod) so that
+    ``_build_mod_status_expr()`` expressions work unchanged.
 
     Usage::
 
@@ -245,8 +244,15 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
                 FROM {mods_table_sql} lm
                 WHERE lm.undone = FALSE
                 ORDER BY lm.row_pk, lm.created_at DESC
+            ),
+            any_mod AS (
+                SELECT DISTINCT row_pk
+                FROM {mods_table_sql}
             )"""
-    join_clause = f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build}"
+    join_clause = (
+        f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build} "
+        f"LEFT JOIN any_mod am ON am.row_pk = {pk_json_build}"
+    )
     return cte_clause, join_clause
 
 
@@ -933,30 +939,14 @@ class DataFetcher:
 
             pk_json_build = build_pk_json_expr(pk_columns)
 
-            # ── Build the mod-status normalisation expression ────────
+            # ── Resolve status config ────────────────────────────────
             status_labels = getattr(self.app_config, "status_labels", None)
             status_values = getattr(self.app_config, "status_values", None)
             status_col = self._effective_status_column
 
-            # Normalise mod_type/new_value → internal status key
-            mod_when_clauses = [
-                "WHEN lm.mod_type = 'approval' THEN 'approved'",
-                "WHEN lm.mod_type = 'rejection' THEN 'rejected'",
-                "WHEN lm.mod_type = 'field_modification' THEN 'edited'",
-            ]
-            if status_values:
-                for internal_key, db_val in status_values.items():
-                    safe_val = db_val.lower()
-                    safe_key = internal_key.lower()
-                    if safe_val not in (safe_key, "approval", "rejection"):
-                        mod_when_clauses.append(
-                            f"WHEN LOWER(CAST(lm.new_value AS TEXT)) = {SqlLiteral(safe_val)} THEN {SqlLiteral(safe_key)}"
-                        )
-            mod_when_clauses.append("ELSE lm.mod_type")
-            mod_normalize = f"CASE {' '.join(mod_when_clauses)} END"
-
-            # ── Build fallback from the data table's status column ───
+            # ── Build status expression ────────────────────────────
             if status_col:
+                # status_column is the source of truth — no mods table needed
                 col_ident = SqlIdentifier(status_col)
                 when_parts = []
                 if status_labels:
@@ -975,34 +965,52 @@ class DataFetcher:
                         f"WHEN LOWER(CAST(d.{col_ident} AS TEXT)) IN ('approved', 'rejected', 'edited') "
                         f"THEN LOWER(CAST(d.{col_ident} AS TEXT))"
                     )
-                fallback_expr = f"CASE {' '.join(when_parts)} ELSE 'unprocessed' END"
-            else:
-                fallback_expr = "'unprocessed'"
+                status_expr = f"CASE {' '.join(when_parts)} ELSE 'unprocessed' END"
 
-            # ── Single query: CTE + LEFT JOIN + GROUP BY ─────────────
-            # The CTE materialises the latest mod per PK (~tens of rows).
-            # The LEFT JOIN lets PostgreSQL hash-join the tiny CTE against
-            # the data table in a single sequential scan.  COALESCE picks
-            # the mod status when present, otherwise falls back to the
-            # data table's status column (or 'unprocessed').
-            query = f"""
-            WITH latest_mod AS (
-                SELECT DISTINCT ON (lm.row_pk)
-                       lm.row_pk,
-                       lm.mod_type,
-                       lm.new_value
-                FROM {mods_table_sql} lm
-                WHERE lm.undone = FALSE
-                ORDER BY lm.row_pk, lm.created_at DESC
-            )
-            SELECT
-                COALESCE({mod_normalize}, {fallback_expr}) AS _status,
-                COUNT(*) AS cnt
-            FROM {data_table_sql} d
-            LEFT JOIN latest_mod lm ON lm.row_pk = {pk_json_build}
-            {where_clause}
-            GROUP BY 1
-            """
+                query = f"""
+                SELECT
+                    {status_expr} AS _status,
+                    COUNT(*) AS cnt
+                FROM {data_table_sql} d
+                {where_clause}
+                GROUP BY 1
+                """
+            else:
+                # No status_column — use mods table CTE
+                mod_when_clauses = [
+                    "WHEN lm.mod_type = 'approval' THEN 'approved'",
+                    "WHEN lm.mod_type = 'rejection' THEN 'rejected'",
+                    "WHEN lm.mod_type = 'field_modification' THEN 'edited'",
+                ]
+                if status_values:
+                    for internal_key, db_val in status_values.items():
+                        safe_val = db_val.lower()
+                        safe_key = internal_key.lower()
+                        if safe_val not in (safe_key, "approval", "rejection"):
+                            mod_when_clauses.append(
+                                f"WHEN LOWER(CAST(lm.new_value AS TEXT)) = {SqlLiteral(safe_val)} THEN {SqlLiteral(safe_key)}"
+                            )
+                mod_when_clauses.append("ELSE lm.mod_type")
+                mod_normalize = f"CASE {' '.join(mod_when_clauses)} END"
+
+                query = f"""
+                WITH latest_mod AS (
+                    SELECT DISTINCT ON (lm.row_pk)
+                           lm.row_pk,
+                           lm.mod_type,
+                           lm.new_value
+                    FROM {mods_table_sql} lm
+                    WHERE lm.undone = FALSE
+                    ORDER BY lm.row_pk, lm.created_at DESC
+                )
+                SELECT
+                    COALESCE({mod_normalize}, 'unprocessed') AS _status,
+                    COUNT(*) AS cnt
+                FROM {data_table_sql} d
+                LEFT JOIN latest_mod lm ON lm.row_pk = {pk_json_build}
+                {where_clause}
+                GROUP BY 1
+                """
 
             if is_datum:
                 with tracker.track_sql("get_status_counts", query):
