@@ -113,7 +113,25 @@
     },
     {
       "file": "cell-edit.js",
-      "line": 57,
+      "line": 31,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 58,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 198,
+      "type": "warning",
+      "message": "console.log statement found (consider removing for production)"
+    },
+    {
+      "file": "cell-edit.js",
+      "line": 210,
       "type": "info",
       "message": "Possible missing semicolon"
     },
@@ -179,19 +197,19 @@
     },
     {
       "file": "histogram.js",
-      "line": 3,
+      "line": 7,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "histogram.js",
-      "line": 8,
+      "line": 12,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "histogram.js",
-      "line": 24,
+      "line": 13,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -239,7 +257,43 @@
     },
     {
       "file": "modal.js",
-      "line": 185,
+      "line": 159,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 161,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 163,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 165,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 181,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 187,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 188,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -251,31 +305,49 @@
     },
     {
       "file": "modal.js",
-      "line": 197,
+      "line": 190,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "modal.js",
+      "line": 191,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "modal.js",
+      "line": 206,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 198,
+      "line": 208,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 199,
+      "line": 210,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 200,
+      "line": 211,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 232,
+      "line": 223,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 225,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -287,19 +359,49 @@
     },
     {
       "file": "modal.js",
-      "line": 244,
+      "line": 238,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 255,
+      "line": 239,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 265,
+      "line": 242,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 243,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 251,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 252,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 269,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 272,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -311,61 +413,73 @@
     },
     {
       "file": "modal.js",
+      "line": 277,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 277,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "modal.js",
       "line": 278,
       "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 280,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 289,
-      "type": "info",
       "message": "Possible missing semicolon"
     },
     {
       "file": "modal.js",
-      "line": 298,
-      "type": "info",
-      "message": "Possible missing semicolon"
-    },
-    {
-      "file": "modal.js",
-      "line": 302,
+      "line": 293,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 315,
+      "line": 305,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 317,
+      "line": 307,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 320,
+      "line": 309,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 321,
+      "line": 311,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 326,
+      "line": 316,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 330,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 334,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 336,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -377,19 +491,7 @@
     },
     {
       "file": "modal.js",
-      "line": 342,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 352,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 353,
+      "line": 341,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -401,67 +503,43 @@
     },
     {
       "file": "modal.js",
-      "line": 365,
+      "line": 362,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 366,
+      "line": 364,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 371,
+      "line": 367,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 374,
+      "line": 369,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 375,
+      "line": 408,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 376,
+      "line": 413,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 382,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 386,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 387,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 403,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 412,
+      "line": 420,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -473,133 +551,91 @@
     },
     {
       "file": "modal.js",
-      "line": 428,
+      "line": 422,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 430,
+      "line": 423,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 439,
+      "line": 455,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 441,
+      "line": 460,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 446,
+      "line": 467,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 448,
+      "line": 478,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 449,
+      "line": 488,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 451,
+      "line": 499,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 457,
+      "line": 501,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 461,
+      "line": 503,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 462,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 465,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 466,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 473,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 486,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 494,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 496,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 505,
-      "type": "info",
-      "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "modal.js",
-      "line": 515,
+      "line": 512,
       "type": "info",
       "message": "Possible missing semicolon"
     },
     {
       "file": "modal.js",
-      "line": 522,
+      "line": 521,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "modal.js",
+      "line": 525,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 524,
+      "line": 538,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 534,
+      "line": 540,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
@@ -611,15 +647,321 @@
     },
     {
       "file": "modal.js",
-      "line": 543,
+      "line": 551,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
       "file": "modal.js",
-      "line": 545,
+      "line": 570,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 572,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 575,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 576,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 583,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 596,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 599,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 609,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 610,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 617,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 622,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 623,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 628,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 631,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 632,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 633,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 639,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 643,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 644,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 660,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 669,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 678,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 685,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 687,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 696,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 698,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 703,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 705,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 706,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 708,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 714,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 718,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 719,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 722,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 723,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 730,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 743,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 751,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 753,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 762,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 772,
+      "type": "info",
+      "message": "Possible missing semicolon"
+    },
+    {
+      "file": "modal.js",
+      "line": 779,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 781,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 794,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 802,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 803,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 805,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 813,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 815,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 817,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 828,
+      "type": "info",
+      "message": "Using 'var' (consider using 'let' or 'const')"
+    },
+    {
+      "file": "modal.js",
+      "line": 0,
+      "type": "error",
+      "message": "Unbalanced parentheses: +1"
     },
     {
       "file": "panel-toggle.js",
@@ -1117,19 +1459,25 @@
     },
     {
       "file": "table.css",
-      "line": 270,
-      "type": "warning",
-      "message": "!important usage (consider specificity instead)"
-    },
-    {
-      "file": "table.css",
-      "line": 274,
-      "type": "warning",
-      "message": "!important usage (consider specificity instead)"
-    },
-    {
-      "file": "table.css",
       "line": 279,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 284,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 288,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 293,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     }
@@ -1156,12 +1504,12 @@
       "function": "saveCellValue"
     },
     {
-      "file": "facet-filter.js",
-      "function": "initFacetCheckboxes"
+      "file": "cell-edit.js",
+      "function": "resetCellValue"
     },
     {
-      "file": "histogram.js",
-      "function": "initHistogramCheckboxes"
+      "file": "facet-filter.js",
+      "function": "initFacetCheckboxes"
     },
     {
       "file": "modal.js",
@@ -1174,6 +1522,22 @@
     {
       "file": "modal.js",
       "function": "updateModalColumnOrder"
+    },
+    {
+      "file": "modal.js",
+      "function": "_getSelectedCols"
+    },
+    {
+      "file": "modal.js",
+      "function": "_renderSelectedTags"
+    },
+    {
+      "file": "modal.js",
+      "function": "_refreshSearchHighlights"
+    },
+    {
+      "file": "modal.js",
+      "function": "_toggleSearchSelection"
     },
     {
       "file": "modal.js",
@@ -1198,6 +1562,18 @@
     {
       "file": "modal.js",
       "function": "closeLogModal"
+    },
+    {
+      "file": "modal.js",
+      "function": "filterModalColumns"
+    },
+    {
+      "file": "modal.js",
+      "function": "bulkAddSelected"
+    },
+    {
+      "file": "modal.js",
+      "function": "bulkRemoveSelected"
     },
     {
       "file": "modal.js",
@@ -1234,6 +1610,10 @@
     {
       "file": "modal.js",
       "function": "toggleFilterEdit"
+    },
+    {
+      "file": "modal.js",
+      "function": "clearFilterContent"
     },
     {
       "file": "modal.js",
@@ -1431,10 +1811,10 @@
   "_summary": {
     "js_file_count": 9,
     "css_file_count": 8,
-    "js_errors": 1,
-    "js_warnings": 0,
+    "js_errors": 2,
+    "js_warnings": 1,
     "css_errors": 0,
-    "css_warnings": 20,
-    "total_js_functions": 73
+    "css_warnings": 21,
+    "total_js_functions": 81
   }
 }

@@ -149,7 +149,10 @@
     "presets_enabled": true,
     "_presets_enabled_comment": "When false, hides preset UI and skips all preset DB calls (table creation, load, save). Use false for sub-table / detail-tab mode.",
     "presets_file_path": "data/column_presets.json",
-    "default_preset": "Default"
+    "default_preset": "Default",
+    
+    "no_tz_display": false,
+    "_no_tz_display_comment": "When true, strips timezone from datetime/timestamp values in table display (e.g., '2024-01-15 10:30:00+00' → '2024-01-15 10:30:00')"
   },
   
   "enable_approval_workflow": true,
@@ -193,6 +196,8 @@
   "_status_values_comment": "What value to write to the database status column when Approve/Reject buttons are clicked. Change to match your column's convention, e.g. {\"approved\": \"Accepted\", \"rejected\": \"Declined\"}.",
   "approval_assignment": {},
   "_approval_assignment_comment": "Column-to-column copy on approval. For each {source: target} pair, the source column value is written to the target column when a row is approved. Example: {\"Draft_Value\": \"Final_Value\", \"Notes\": \"Approved_Notes\"}.",
+  "read_only": false,
+  "_read_only_comment": "When true, all columns are set as read-only and editing controls are hidden for all users regardless of role.",
   "fix_filter": false,
   "_fix_filter_comment": "When true, locks filters to only the default_filters defined above. Users cannot add or remove filters."
 }

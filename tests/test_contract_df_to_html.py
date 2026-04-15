@@ -696,3 +696,103 @@ class TestDraggableHeaderCell:
         th = build_draggable_header_cell("gene", "width: 200px; min-width: 200px;")
         html = _render_html(th)
         assert "200px" in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Datetime Timezone Display Contract
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestNoTzDisplay:
+    """Contract: no_tz_display option strips timezone from datetime values."""
+
+    @pytest.fixture
+    def datetime_df(self):
+        """DataFrame with timezone-aware datetime column."""
+        return pd.DataFrame({
+            "pk": ["PK1", "PK2"],
+            "timestamp": pd.to_datetime([
+                "2024-01-15 10:30:00+00:00",
+                "2024-06-20 14:45:00+00:00",
+            ]),
+        })
+
+    def test_datetime_with_tz_display_default(self, datetime_df):
+        """Default (no_tz_display=False) preserves timezone in display."""
+        from src.utils.table_utils import _format_cell_value
+        val = datetime_df["timestamp"].iloc[0]
+        result = _format_cell_value(val, datetime_df["timestamp"].dtype, no_tz_display=False)
+        # Should contain timezone info
+        assert "+00:00" in result or "UTC" in result or result.endswith("+00")
+
+    def test_datetime_without_tz_display(self, datetime_df):
+        """no_tz_display=True strips timezone from datetime."""
+        from src.utils.table_utils import _format_cell_value
+        val = datetime_df["timestamp"].iloc[0]
+        result = _format_cell_value(val, datetime_df["timestamp"].dtype, no_tz_display=True)
+        # Should NOT contain timezone info
+        assert "+00" not in result
+        assert "UTC" not in result
+        # Should still contain date and time
+        assert "2024-01-15" in result
+        assert "10:30:00" in result
+
+    def test_datetime_format_structure(self, datetime_df):
+        """no_tz_display produces YYYY-MM-DD HH:MM:SS format."""
+        from src.utils.table_utils import _format_cell_value
+        val = datetime_df["timestamp"].iloc[0]
+        result = _format_cell_value(val, datetime_df["timestamp"].dtype, no_tz_display=True)
+        assert result == "2024-01-15 10:30:00"
+
+    def test_naive_datetime_unaffected(self):
+        """Naive datetime (no tz) works with no_tz_display=True."""
+        from src.utils.table_utils import _format_cell_value
+        df = pd.DataFrame({"ts": pd.to_datetime(["2024-01-15 10:30:00"])})
+        val = df["ts"].iloc[0]
+        result = _format_cell_value(val, df["ts"].dtype, no_tz_display=True)
+        assert result == "2024-01-15 10:30:00"
+
+    def test_build_table_row_with_no_tz_display(self, datetime_df):
+        """build_table_row passes no_tz_display to cell formatting."""
+        tr = build_table_row(
+            idx=0,
+            row=datetime_df.iloc[0],
+            cols=["timestamp"],
+            current_df=datetime_df,
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["pk"],
+            no_tz_display=True,
+        )
+        html = _render_html(tr)
+        # Should have stripped timezone
+        assert "2024-01-15 10:30:00" in html
+        assert "+00:00" not in html
+
+    def test_build_table_container_with_no_tz_display(self, datetime_df):
+        """build_table_container propagates no_tz_display through call chain."""
+        container = build_table_container(
+            paginated_indices=[0, 1],
+            current_df=datetime_df,
+            cols=["timestamp"],
+            widths={"timestamp": 180},
+            filtered_count=2,
+            total_rows=2,
+            get_row_status_func=lambda x: "unprocessed",
+            pk_columns=["pk"],
+            no_tz_display=True,
+        )
+        html = _render_html(container)
+        # Both timestamps should be without timezone
+        assert "2024-01-15 10:30:00" in html
+        assert "2024-06-20 14:45:00" in html
+        assert "+00:00" not in html
+
+    def test_non_datetime_unaffected_by_no_tz_display(self):
+        """Non-datetime columns are unaffected by no_tz_display."""
+        from src.utils.table_utils import _format_cell_value
+        # Integer
+        assert _format_cell_value(42, pd.Series([42]).dtype, no_tz_display=True) == "42"
+        # String
+        assert _format_cell_value("hello", pd.Series(["hello"]).dtype, no_tz_display=True) == "hello"
+        # Float
+        assert _format_cell_value(3.14, pd.Series([3.14]).dtype, no_tz_display=True) == "3.14"

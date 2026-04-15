@@ -112,8 +112,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Resolve permission role for this user
     _perm = app_config.permissions
     user_role = _perm.user_roles.get(safe_username, _perm.default_role)
-    is_viewer = user_role == "viewer"
-    print(f"[Permissions] User={safe_username} | role={user_role} | default_role={_perm.default_role} | user_roles={_perm.user_roles} | is_viewer={is_viewer}")
+    is_viewer = user_role == "viewer" or app_config.read_only
+    print(f"[Permissions] User={safe_username} | role={user_role} | default_role={_perm.default_role} | user_roles={_perm.user_roles} | is_viewer={is_viewer} | read_only={app_config.read_only}")
     
     def _require_editor(action: str = "This action") -> bool:
         """Return True if the user has editor permissions; show notification and return False for viewers."""
@@ -1505,7 +1505,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 status_labels=app_config.status_labels,
                 column_masks=column_masks,
                 cell_click_columns=app_config.table.cell_click_columns,
-                status_col_name=getattr(app_config.database, "status_column", None)
+                status_col_name=getattr(app_config.database, "status_column", None),
+                no_tz_display=app_config.table.no_tz_display
             )
         return result
     

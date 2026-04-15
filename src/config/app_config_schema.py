@@ -161,6 +161,9 @@ class TableConfig:
     
     # Clickable columns (emit cell_click event on click)
     cell_click_columns: list[str] = field(default_factory=list)
+    
+    # Remove timezone from datetime/timestamp display (e.g., "2024-01-15 10:30:00+00" → "2024-01-15 10:30:00")
+    no_tz_display: bool = False
 
 
 @dataclass
@@ -293,6 +296,7 @@ class AppConfig:
     enable_review_detail: bool = False  # Show Review Detail button (emits event via commute layer)
     review_detail_label: str = "Review Detail"  # Label text for the Review Detail button
     review_detail_multi_select: bool = False  # Allow multiple rows in review_detail event
+    read_only: bool = False  # Global read-only mode: sets all columns as readonly
     fix_filter: bool = False  # Lock filters to only the default_filters from config
     tracker_mode: bool = False  # Force-flush log every SQL query and render with elapsed time
     
@@ -474,6 +478,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.enable_review_detail = file_config.get("enable_review_detail", config.enable_review_detail)
     config.review_detail_label = file_config.get("review_detail_label", config.review_detail_label)
     config.review_detail_multi_select = file_config.get("review_detail_multi_select", config.review_detail_multi_select)
+    config.read_only = file_config.get("read_only", config.read_only)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
     config.tracker_mode = file_config.get("tracker_mode", config.tracker_mode)
     

@@ -154,6 +154,8 @@
   "enable_status_filter": true,
   "enable_synthesis": false,
 
+  "read_only": false,
+
   "synthesis": {
     "_comment": "Long-running SQL transform. Result cached in a temporary table with TTL.",
     "query": "",

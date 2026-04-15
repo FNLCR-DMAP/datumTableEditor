@@ -745,3 +745,87 @@ class TestSharedAppCache:
             assert list(result["c"]) == [10, 20]  # Cache unaffected
         finally:
             _app_cache_invalidate(key)
+
+
+class TestReadOnlyConfig:
+    """Tests for the read_only feature flag."""
+
+    def test_default_is_false(self):
+        """AppConfig.read_only should default to False."""
+        from src.config.app_config_schema import AppConfig
+
+        cfg = AppConfig()
+        assert cfg.read_only is False
+
+    def test_merge_config_sets_read_only_true(self):
+        """_merge_config should load read_only: true from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {"read_only": True})
+        assert config.read_only is True
+
+    def test_merge_config_sets_read_only_false(self):
+        """_merge_config should load read_only: false from JSON."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        config.read_only = True  # Start with True
+        _merge_config(config, {"read_only": False})
+        assert config.read_only is False
+
+    def test_merge_config_missing_read_only_keeps_default(self):
+        """_merge_config should keep default when read_only absent."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {})
+        assert config.read_only is False
+
+    def test_read_only_independent_of_permissions(self):
+        """read_only flag should be independent of permissions config."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "read_only": True,
+            "permissions": {
+                "default_role": "editor",
+                "user_roles": {"alice": "editor"}
+            }
+        })
+        assert config.read_only is True
+        assert config.permissions.default_role == "editor"
+
+    def test_read_only_independent_of_editable_columns(self):
+        """read_only should not alter table.editable_columns or readonly_columns."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "read_only": True,
+            "table": {
+                "editable_columns": ["Gene_names"],
+                "readonly_columns": ["PatientID"]
+            }
+        })
+        # read_only is a runtime flag; it doesn't mutate config-level column lists
+        assert config.read_only is True
+        assert config.table.editable_columns == ["Gene_names"]
+        assert config.table.readonly_columns == ["PatientID"]
+
+    def test_read_only_with_all_features_enabled(self):
+        """read_only should coexist with other feature flags."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "read_only": True,
+            "enable_approval_workflow": True,
+            "enable_save_button": True,
+            "enable_export": True,
+        })
+        assert config.read_only is True
+        assert config.enable_approval_workflow is True
+        assert config.enable_save_button is True
+        assert config.enable_export is True

@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 93,
-    "unused_functions": 4,
+    "total_functions": 95,
+    "unused_functions": 1,
     "fully_annotated_functions": 81,
-    "function_coverage_percent": 87.1,
-    "parameter_coverage_percent": 96.8,
+    "function_coverage_percent": 85.3,
+    "parameter_coverage_percent": 95.8,
     "mypy_errors": 0
   },
   "files": {},
@@ -208,8 +208,10 @@
       ]
     },
     "src/utils/table_utils.py": {
-      "total": 8,
+      "total": 10,
       "functions": [
+        "_format_array_value",
+        "_format_cell_value",
         "_mask",
         "build_data_table",
         "build_draggable_header_cell",
@@ -220,6 +222,8 @@
         "build_table_row"
       ],
       "used": [
+        "_format_array_value",
+        "_format_cell_value",
         "_mask",
         "build_data_table",
         "build_draggable_header_cell",
@@ -247,14 +251,12 @@
         "_log",
         "decorator",
         "init",
+        "is_enabled",
+        "log_sql",
+        "render_timer",
         "track_render",
         "track_sql",
         "wrapper"
-      ],
-      "unused": [
-        "is_enabled",
-        "log_sql",
-        "render_timer"
       ],
       "framework_managed": [
         "track_render",
@@ -314,12 +316,26 @@
       "functions": {
         "total": 8,
         "with_return_type": 8,
-        "fully_annotated": 8
+        "fully_annotated": 7
       },
       "parameters": {
         "total": 15,
-        "annotated": 15
-      }
+        "annotated": 13
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "sort_dataframe",
+          "name": "column",
+          "line": 40
+        },
+        {
+          "type": "parameter",
+          "function": "sort_dataframe",
+          "name": "direction",
+          "line": 40
+        }
+      ]
     },
     "src/utils/data_operations.py": {
       "functions": {
@@ -342,7 +358,7 @@
           "type": "parameter",
           "function": "perform_cell_edit",
           "name": "config_instance",
-          "line": 200
+          "line": 245
         }
       ]
     },
@@ -476,14 +492,22 @@
     },
     "src/utils/table_utils.py": {
       "functions": {
-        "total": 8,
-        "with_return_type": 8,
-        "fully_annotated": 8
+        "total": 10,
+        "with_return_type": 10,
+        "fully_annotated": 9
       },
       "parameters": {
-        "total": 64,
-        "annotated": 64
-      }
+        "total": 72,
+        "annotated": 71
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "_format_cell_value",
+          "name": "dtype",
+          "line": 17
+        }
+      ]
     },
     "src/utils/tracker.py": {
       "functions": {

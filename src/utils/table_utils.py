@@ -14,15 +14,29 @@ def _mask(col: str, column_masks: dict | None) -> str:
     return column_masks.get(col, col) if column_masks else col
 
 
-def _format_cell_value(value: Any, dtype) -> str:
+def _format_cell_value(value: Any, dtype, no_tz_display: bool = False) -> str:
     """Format a cell value respecting the column's dtype.
 
     Integer-typed columns (including nullable Int64) display without decimals.
     Float values that are whole numbers in float64 columns are left as-is
     (they could legitimately be floats).
+    If no_tz_display is True, datetime values have timezone info stripped.
     """
     if pd.isna(value):
         return ""
+    # Handle datetime types - strip timezone if no_tz_display is enabled
+    if pd.api.types.is_datetime64_any_dtype(dtype):
+        if no_tz_display:
+            # Convert to string without timezone
+            if hasattr(value, 'strftime'):
+                return value.strftime("%Y-%m-%d %H:%M:%S")
+            # Fallback: strip timezone from string representation
+            str_val = str(value)
+            # Remove timezone patterns like "+00:00", "-05:00", " UTC", etc.
+            import re
+            str_val = re.sub(r'[+-]\d{2}:?\d{2}$', '', str_val).strip()
+            return str_val
+        return str(value)
     # Nullable integer types (Int8..Int64, UInt8..UInt64)
     if pd.api.types.is_integer_dtype(dtype):
         try:
@@ -129,7 +143,7 @@ def build_status_badge(status: str, status_labels: dict = None, raw_value: str =
     return ui.tags.span(status_text, class_=f"row-status-badge status-{status}")
 
 
-def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None) -> ui.tags.tr:
+def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False) -> ui.tags.tr:
     """Build a single table row with all cells."""
     cells = []
     edited_cells = edited_cells or {}
@@ -172,7 +186,7 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
     # Data cells
     for col in cols:
         if col in current_df.columns:
-            value = _format_cell_value(row[col], current_df[col].dtype) if pd.notna(row[col]) else ""
+            value = _format_cell_value(row[col], current_df[col].dtype, no_tz_display=no_tz_display) if pd.notna(row[col]) else ""
         else:
             value = ""
         
@@ -223,7 +237,7 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
     return ui.tags.tr(*cells, class_=row_class)
 
 
-def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None) -> ui.tags.tbody:
+def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False) -> ui.tags.tbody:
     """Build the table body with all rows."""
     table_rows = []
     edited_cells = edited_cells or {}
@@ -233,14 +247,14 @@ def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: li
         row = current_df.loc[idx]
         # Add zebra striping class based on visual position
         row_class = "row-even" if i % 2 == 0 else "row-odd"
-        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name))
+        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display))
     return ui.tags.tbody(*table_rows)
 
 
-def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None, cell_click_columns: list = None, status_col_name: str = None) -> ui.tags.table:
+def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False) -> ui.tags.table:
     """Build the complete data table."""
     header = build_table_header(cols, widths, show_status_column=show_status_column, column_masks=column_masks)
-    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name)
+    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display)
     return ui.tags.table(header, body, class_="edit-table")
 
 
@@ -260,7 +274,8 @@ def build_table_container(
     status_labels: dict = None,
     column_masks: dict | None = None,
     cell_click_columns: list = None,
-    status_col_name: str = None
+    status_col_name: str = None,
+    no_tz_display: bool = False
 ) -> ui.div:
     """Build the complete table container with summary and table."""
     displayed_count = len(paginated_indices)
@@ -270,7 +285,7 @@ def build_table_container(
     else:
         rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
     
-    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks, cell_click_columns=cell_click_columns, status_col_name=status_col_name)
+    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display)
     
     return ui.div(
         ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),

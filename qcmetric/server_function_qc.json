@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 93,
-    "total_unused": 4,
-    "unused_percentage": 4.3
+    "total_functions": 95,
+    "total_unused": 1,
+    "unused_percentage": 1.1
   },
   "modules": {
     "clipboard_utils.py": {
@@ -226,8 +226,10 @@
     "table_utils.py": {
       "description": "Table rendering utilities for the Epitopes Data Editor.",
       "path": "src/utils/table_utils.py",
-      "total_functions": 8,
+      "total_functions": 10,
       "functions": [
+        "_format_array_value",
+        "_format_cell_value",
         "_mask",
         "build_data_table",
         "build_draggable_header_cell",
@@ -238,6 +240,8 @@
         "build_table_row"
       ],
       "used_internally": [
+        "_format_array_value",
+        "_format_cell_value",
         "_mask",
         "build_data_table",
         "build_draggable_header_cell",
@@ -267,14 +271,12 @@
         "_log",
         "decorator",
         "init",
+        "is_enabled",
+        "log_sql",
+        "render_timer",
         "track_render",
         "track_sql",
         "wrapper"
-      ],
-      "unused": [
-        "is_enabled",
-        "log_sql",
-        "render_timer"
       ]
     },
     "ui_components.py": {
@@ -319,11 +321,6 @@
   "unused_functions": {
     "preset_utils.py": [
       "_convert_presets_from_db"
-    ],
-    "tracker.py": [
-      "is_enabled",
-      "log_sql",
-      "render_timer"
     ]
   }
 }
