@@ -796,3 +796,25 @@ class TestNoTzDisplay:
         assert _format_cell_value("hello", pd.Series(["hello"]).dtype, no_tz_display=True) == "hello"
         # Float
         assert _format_cell_value(3.14, pd.Series([3.14]).dtype, no_tz_display=True) == "3.14"
+
+    def test_string_datetime_with_tz_stripped(self):
+        """String datetime values from DB have timezone stripped."""
+        from src.utils.table_utils import _format_cell_value
+        # Common formats from PostgreSQL
+        test_cases = [
+            ("2026-03-30 +00", "2026-03-30"),
+            ("2026-03-30 10:00:00+00:00", "2026-03-30 10:00:00"),
+            ("2026-03-30 10:00:00 +00", "2026-03-30 10:00:00"),
+            ("2024-01-15 14:30:00-05:00", "2024-01-15 14:30:00"),
+        ]
+        for input_val, expected in test_cases:
+            result = _format_cell_value(input_val, pd.Series([input_val]).dtype, no_tz_display=True)
+            assert result == expected, f"Expected {expected}, got {result} for {input_val}"
+
+    def test_string_without_tz_unchanged(self):
+        """String values without timezone pattern are unchanged."""
+        from src.utils.table_utils import _format_cell_value
+        # Date without timezone
+        assert _format_cell_value("2024-01-15", pd.Series(["x"]).dtype, no_tz_display=True) == "2024-01-15"
+        # Non-date string
+        assert _format_cell_value("Hello World", pd.Series(["x"]).dtype, no_tz_display=True) == "Hello World"

@@ -37,6 +37,14 @@ def _format_cell_value(value: Any, dtype, no_tz_display: bool = False) -> str:
             str_val = re.sub(r'[+-]\d{2}:?\d{2}$', '', str_val).strip()
             return str_val
         return str(value)
+    # Handle string values that look like datetime with timezone (common from DB)
+    if no_tz_display and isinstance(value, str):
+        import re
+        # Match datetime-like strings with timezone: "2026-03-30 +00", "2026-03-30 10:00:00+00:00", etc.
+        if re.search(r'\d{4}-\d{2}-\d{2}.*[+-]\d{2}', value):
+            # Remove timezone patterns like " +00", "+00:00", "-05:00", etc.
+            cleaned = re.sub(r'\s*[+-]\d{2}:?\d{0,2}\s*$', '', value).strip()
+            return cleaned
     # Nullable integer types (Int8..Int64, UInt8..UInt64)
     if pd.api.types.is_integer_dtype(dtype):
         try:
