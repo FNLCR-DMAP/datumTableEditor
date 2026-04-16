@@ -2181,7 +2181,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.synthesis_regen_btn)
     async def _regen_synthesis():
-        """Force-refresh the materialized view (REFRESH MATERIALIZED VIEW)."""
+        """Force-recreate the synthesis view (CREATE OR REPLACE VIEW)."""
         import asyncio
         if not enable_synthesis:
             return

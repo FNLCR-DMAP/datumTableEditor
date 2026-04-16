@@ -2611,15 +2611,15 @@ class ConfigInstance:
             return None
 
     def run_synthesis(self, force: bool = False) -> pd.DataFrame:
-        """Return the synthesis result, creating the materialized view if needed.
+        """Return the synthesis result, creating the view if needed.
 
         Cache logic:
-          1. Check if the materialized view already exists.
+          1. Check if the synthesis view already exists.
           2. If exists and ``force=False`` → check TTL.
              a. If within TTL → read (cache hit).
-             b. If expired → REFRESH MATERIALIZED VIEW + re-stamp.
-          3. If exists and ``force=True`` → REFRESH unconditionally.
-          4. If missing → CREATE MATERIALIZED VIEW AS + stamp COMMENT.
+             b. If expired → CREATE OR REPLACE VIEW + re-stamp.
+          3. If exists and ``force=True`` → recreate unconditionally.
+          4. If missing → CREATE OR REPLACE VIEW AS + stamp COMMENT.
 
         Returns ``(df, was_cached)`` tuple.
         """
@@ -2647,26 +2647,26 @@ class ConfigInstance:
                 print(f"[Synthesis] Cache hit — matview exists ({age:.0f} min old)")
                 return self._read_synthesis_table(result_table), True
 
-            # Refresh the materialized view
+            # Recreate the view
             reason = "forced" if force else f"expired ({age:.0f} min > {ttl} min TTL)"
             start = _time.time()
-            print(f"[Synthesis] Refreshing matview ({reason}) → {result_table_sql} ...")
-            self._refresh_synthesis(result_table_sql, is_datum)
+            print(f"[Synthesis] Recreating view ({reason}) → {result_table_sql} ...")
+            self._refresh_synthesis(result_table_sql, is_datum, synthesis_query)
             self._stamp_synthesis_comment(result_table_sql, _time.time())
             self._synthesis_exists_cache = True
             self._synthesis_age_cache_time = _time.time()
             elapsed = _time.time() - start
-            print(f"[Synthesis] Refresh completed in {elapsed:.1f}s")
+            print(f"[Synthesis] View recreated in {elapsed:.1f}s")
             return self._read_synthesis_table(result_table), False
 
-        # Materialized view doesn't exist — create it
+        # View doesn't exist — create it
         schema_sql = None
         if "." in result_table:
             schema = result_table.split(".", 1)[0]
             schema_sql = str(SqlIdentifier(schema))
 
         start = _time.time()
-        print(f"[Synthesis] Matview missing — creating → {result_table_sql} ...")
+        print(f"[Synthesis] View missing — creating → {result_table_sql} ...")
 
         if is_datum:
             self._run_synthesis_datum(result_table_sql, schema_sql, synthesis_query)
@@ -2678,16 +2678,16 @@ class ConfigInstance:
         self._synthesis_age_cache_time = _time.time()
 
         elapsed = _time.time() - start
-        print(f"[Synthesis] Transform completed in {elapsed:.1f}s")
+        print(f"[Synthesis] View created in {elapsed:.1f}s")
 
         return self._read_synthesis_table(result_table), False
 
     def _stamp_synthesis_comment(self, result_table_sql, epoch: float):
-        """Store creation timestamp as COMMENT ON MATERIALIZED VIEW for TTL checking."""
+        """Store creation timestamp as COMMENT ON VIEW for TTL checking."""
         # Update in-memory cache immediately
         self._synthesis_age_cache_time = epoch
         comment = f"synthesis_created_at:{epoch}"
-        stmt = f"COMMENT ON MATERIALIZED VIEW {result_table_sql} IS {SqlLiteral(comment)}"
+        stmt = f"COMMENT ON VIEW {result_table_sql} IS {SqlLiteral(comment)}"
         try:
             if self.app_config.database.mode == "datum":
                 from ..adapter.datum import DatumClient
@@ -2710,7 +2710,7 @@ class ConfigInstance:
             print(f"[Synthesis] Warning: could not stamp comment: {e}")
 
     def _run_synthesis_direct(self, result_table_sql, schema_sql, synthesis_query):
-        """Create the synthesis materialized view via direct SQLAlchemy."""
+        """Create the synthesis view via direct SQLAlchemy."""
         from sqlalchemy import text
 
         engine = self._get_engine()
@@ -2724,11 +2724,11 @@ class ConfigInstance:
                 if schema_name and schema_name not in self._schemas_verified:
                     conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}"))
                     self._schemas_verified.add(schema_name)
-            conn.execute(text(f"CREATE MATERIALIZED VIEW {result_table_sql} AS ({synthesis_query})"))
+            conn.execute(text(f"CREATE OR REPLACE VIEW {result_table_sql} AS ({synthesis_query})"))
             conn.commit()
 
     def _run_synthesis_datum(self, result_table_sql, schema_sql, synthesis_query):
-        """Create the synthesis materialized view via Datum proxy."""
+        """Create the synthesis view via Datum proxy."""
         from ..adapter.datum import DatumClient
 
         base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
@@ -2752,12 +2752,12 @@ class ConfigInstance:
                     pass
                 self._schemas_verified.add(schema_name)
 
-        client.execute_sql(sql=f"CREATE MATERIALIZED VIEW {result_table_sql} AS ({synthesis_query})",
+        client.execute_sql(sql=f"CREATE OR REPLACE VIEW {result_table_sql} AS ({synthesis_query})",
                            database=db, schema=schema, service_name=svc)
 
-    def _refresh_synthesis(self, result_table_sql, is_datum: bool):
-        """REFRESH MATERIALIZED VIEW — atomic in-place data replacement."""
-        stmt = f"REFRESH MATERIALIZED VIEW {result_table_sql}"
+    def _refresh_synthesis(self, result_table_sql, is_datum: bool, synthesis_query: str):
+        """Recreate the synthesis view (CREATE OR REPLACE VIEW) with the latest query."""
+        stmt = f"CREATE OR REPLACE VIEW {result_table_sql} AS ({synthesis_query})"
         if is_datum:
             from ..adapter.datum import DatumClient
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
