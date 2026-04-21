@@ -100,7 +100,9 @@ class DatumProxyRequest(BaseModel):
     endpoint_name: str
     path: str
     method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"]
-    body: Dict[str, Any]
+    # NOTE: body is a JSON string because the current proxy expects it that way.
+    # The SDK will accept a dict and encode it for you.
+    body: str
 
 
 class DatumProxyResponse(BaseModel):
@@ -213,12 +215,14 @@ class DatumClient:
         Build a DatumProxyRequest, send it to /proxy_request,
         and parse the DatumProxyResponse.
         """
+        # The proxy currently expects `body` to be a JSON string,
+        # so we encode the inner body dict here.
         req_envelope = DatumProxyRequest(
             service_name=service_name,
             endpoint_name=endpoint_name,
             path=path,
             method=method,
-            body=body_obj,
+            body=json.dumps(body_obj),
         )
 
         url = f"{self.base_url}/proxy_request"
