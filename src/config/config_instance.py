@@ -351,7 +351,7 @@ class DataFetcher:
                         schema=self.app_config.database.datum_schema,
                         service_name=self.app_config.database.datum_service_name,
                     )
-                self._total_count = response.data[0]["cnt"] if response.data else 0
+                self._total_count = int(response.data[0]["cnt"]) if response.data else 0
                 
                 # Get columns
                 with tracker.track_sql("fetch_metadata.columns", columns_query):
@@ -414,7 +414,7 @@ class DataFetcher:
                     schema=self.app_config.database.datum_schema,
                     service_name=self.app_config.database.datum_service_name,
                 )
-                self._total_count = response.data[0]["cnt"] if response.data else 0
+                self._total_count = int(response.data[0]["cnt"]) if response.data else 0
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
@@ -1116,7 +1116,7 @@ class DataFetcher:
                         schema=self.app_config.database.datum_schema,
                         service_name=self.app_config.database.datum_service_name,
                     )
-                return response.data[0]["cnt"] if response.data else 0
+                return int(response.data[0]["cnt"]) if response.data else 0
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
