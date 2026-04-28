@@ -564,6 +564,41 @@ class DataFetcher:
         """Return the set of column names that have date/timestamp types."""
         return {c for c, t in self._column_types.items() if t.lower() in self._DATE_TYPES}
 
+    def _coerce_date_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Convert known date/timestamp columns to pandas datetime dtype.
+
+        The Datum API returns JSON where date/timestamp values may arrive
+        as epoch milliseconds (numbers) rather than ISO strings.  Without
+        this coercion ``_format_cell_value`` sees them as ints/floats and
+        displays the raw number instead of a human-readable date.
+        """
+        if not getattr(self, "_column_types", None):
+            return df
+        for col in self.date_columns:
+            if col not in df.columns:
+                continue
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                continue  # already datetime
+            try:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    # Whole column is numeric → epoch milliseconds from the API
+                    df[col] = pd.to_datetime(df[col], unit="ms", errors="coerce", utc=True)
+                else:
+                    # Object/string column — coerce to numeric first; if most
+                    # values convert, treat as epoch-ms, otherwise ISO-parse.
+                    numeric = pd.to_numeric(df[col], errors="coerce")
+                    non_null = df[col].dropna()
+                    if non_null.empty:
+                        continue
+                    numeric_ratio = numeric.notna().sum() / max(non_null.shape[0], 1)
+                    if numeric_ratio > 0.5:
+                        df[col] = pd.to_datetime(numeric, unit="ms", errors="coerce", utc=True)
+                    else:
+                        df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+            except Exception:
+                pass  # leave as-is if conversion fails
+        return df
+
     def _col_expr(self, col_ident: SqlIdentifier, column: str) -> str:
         """Return the SQL expression for *column* in a WHERE condition.
 
@@ -1197,6 +1232,7 @@ class DataFetcher:
                         service_name=self.app_config.database.datum_service_name,
                     )
                 df = pd.DataFrame(response.data)
+                df = self._coerce_date_columns(df)
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
@@ -1278,6 +1314,7 @@ class DataFetcher:
                         service_name=self.app_config.database.datum_service_name,
                     )
                 df = pd.DataFrame(response.data)
+                df = self._coerce_date_columns(df)
             else:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
@@ -2208,6 +2245,10 @@ class ConfigInstance:
             )
             
             df = pd.DataFrame(response.data)
+
+            # Coerce date/timestamp columns from epoch-ms to datetime
+            if self._data_fetcher:
+                df = self._data_fetcher._coerce_date_columns(df)
             
             if not self._skip_mods:
                 # Clean up any corrupted modifications before applying
