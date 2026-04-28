@@ -1,34 +1,36 @@
 /* Log Container */
 .log-section {
-    margin-top: 15px;
+    margin-top: 16px;
 }
 .log-section h3 {
-    font-size: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
     margin-bottom: 10px;
 }
 .log-container {
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     padding: 10px;
-    background: #fafafa;
+    background: #f8fafc;
 }
 .log-entry {
-    padding: 8px;
+    padding: 10px 12px;
     margin-bottom: 8px;
-    border-left: 3px solid #2196F3;
-    background-color: #f0f7ff;
-    border-radius: 3px;
+    border-left: 3px solid #6366f1;
+    background-color: #eef2ff;
+    border-radius: 6px;
     font-size: 12px;
 }
 .log-entry .timestamp {
-    font-weight: bold;
-    color: #1565c0;
+    font-weight: 600;
+    color: #4f46e5;
 }
 .log-entry .change-detail {
-    color: #666;
+    color: #64748b;
     margin-top: 4px;
-    font-family: monospace;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
     font-size: 11px;
 }

@@ -1,17 +1,18 @@
 /* Pagination Controls */
 .pagination-controls-section {
-    margin-top: 8px;
+    margin-top: 10px;
     flex-shrink: 0;
 }
 .pagination-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 10px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
+    padding: 6px 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     gap: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 .rows-per-page-control {
     display: flex;
@@ -19,14 +20,21 @@
     gap: 4px;
 }
 .rows-per-page-control select {
-    padding: 2px 4px;
+    padding: 3px 6px;
     font-size: 11px;
-    border: 1px solid #dee2e6;
-    border-radius: 3px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #475569;
+    transition: border-color 0.15s ease;
+}
+.rows-per-page-control select:focus {
+    outline: none;
+    border-color: #6366f1;
 }
 .pagination-info {
     font-size: 11px;
-    color: #495057;
+    color: #64748b;
 }
 .pagination-buttons {
     display: flex;
@@ -34,25 +42,29 @@
     align-items: center;
 }
 .pagination-buttons button {
-    padding: 3px 8px;
+    padding: 4px 10px;
     font-size: 11px;
-    border: 1px solid #dee2e6;
+    border: 1px solid #e2e8f0;
     background: white;
-    border-radius: 3px;
+    border-radius: 6px;
     cursor: pointer;
+    color: #475569;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
 .pagination-buttons button:hover:not(:disabled) {
-    background: #e9ecef;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
 }
 .pagination-buttons button:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
 }
 .pagination-buttons .page-indicator {
-    padding: 3px 8px;
+    padding: 4px 10px;
     font-size: 11px;
     font-weight: 600;
-    color: #495057;
+    color: #4f46e5;
 }
 .page-jump {
     display: flex;
@@ -61,13 +73,19 @@
 }
 .page-jump input {
     width: 45px;
-    padding: 3px;
-    border: 1px solid #dee2e6;
-    border-radius: 3px;
+    padding: 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
     text-align: center;
     font-size: 11px;
+    transition: border-color 0.15s ease;
+}
+.page-jump input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.1);
 }
 .page-jump button {
-    padding: 3px 6px;
+    padding: 4px 8px;
     font-size: 10px;
 }

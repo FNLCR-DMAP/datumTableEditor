@@ -4,13 +4,15 @@
 /* ── Toolbar button ───────────────────────────────────────────────── */
 .synthesis-btn {
   font-weight: 600;
-  border-color: #e0a800;
-  color: #856404;
+  border-color: #f59e0b;
+  color: #92400e;
+  border-radius: 8px;
+  transition: all 0.15s ease;
 }
 .synthesis-btn:hover {
-  background-color: #ffc107;
+  background-color: #f59e0b;
   color: #fff;
-  border-color: #e0a800;
+  border-color: #f59e0b;
 }
 
 /* ── Query preview ────────────────────────────────────────────────── */
@@ -18,17 +20,18 @@
   margin-bottom: 16px;
 }
 .synthesis-query-code {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
   max-height: 260px;
   overflow-y: auto;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #212529;
+  color: #1e293b;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
 }
 
 /* ── Status / progress area ───────────────────────────────────────── */
@@ -42,8 +45,8 @@
   display: inline-block;
   width: 40px;
   height: 40px;
-  border: 4px solid #dee2e6;
-  border-top-color: #ffc107;
+  border: 4px solid #f1f5f9;
+  border-top-color: #f59e0b;
   border-radius: 50%;
   animation: synthesis-spin 0.8s linear infinite;
 }
@@ -53,12 +56,13 @@
 
 /* ── Synthesis-mode banner (shown above the table) ────────────────── */
 .synthesis-mode-banner {
-  background: #fff3cd;
-  border: 1px solid #ffc107;
-  border-radius: 6px;
-  padding: 10px 16px;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  padding: 12px 18px;
   margin-bottom: 12px;
   font-size: 13px;
-  color: #856404;
+  color: #92400e;
   line-height: 1.5;
+  font-weight: 500;
 }

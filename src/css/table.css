@@ -2,11 +2,12 @@
 .table-container-frame {
     flex: 1;
     min-height: 200px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
     background: white;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 }
 .table-scroll-wrapper {
     height: 100%;
@@ -30,17 +31,22 @@
     z-index: 10;
 }
 .edit-table th {
-    background-color: #495057;
-    color: white;
-    padding: 10px 8px;
+    background-color: #1e293b;
+    color: #f1f5f9;
+    padding: 11px 10px;
     text-align: left;
     font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.02em;
     white-space: nowrap;
     user-select: none;
-    border-bottom: 2px solid #343a40;
-    border-right: 1px solid #6c757d;
+    border-bottom: none;
+    border-right: 1px solid #334155;
     position: relative;
     overflow: visible;
+}
+.edit-table th:last-child {
+    border-right: none;
 }
 .edit-table th.draggable-header {
     cursor: grab;
@@ -52,8 +58,8 @@
     cursor: grabbing;
 }
 .edit-table th.draggable-header.drag-over {
-    background-color: #343a40;
-    box-shadow: inset 0 0 0 2px #3498db;
+    background-color: #334155;
+    box-shadow: inset 0 0 0 2px #6366f1;
 }
 
 /* Column resize handle */
@@ -67,7 +73,7 @@
     background: transparent;
 }
 .resize-handle:hover {
-    background: #3498db;
+    background: #6366f1;
 }
 
 /* Header text */
@@ -87,16 +93,17 @@
 .header-action-btn {
     background: transparent;
     border: none;
-    color: white;
+    color: #94a3b8;
     cursor: pointer;
     font-size: 16px;
     font-weight: bold;
     padding: 2px 6px;
     line-height: 1;
-    border-radius: 3px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
 }
 .header-action-btn:hover {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.12);
     color: white;
 }
 .header-dropdown {
@@ -106,11 +113,12 @@
     right: 0;
     margin-top: 4px;
     background: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.06);
     z-index: 1000;
-    min-width: 150px;
+    min-width: 160px;
+    padding: 4px;
 }
 .header-dropdown.show {
     display: block;
@@ -124,124 +132,134 @@
     text-align: left;
     cursor: pointer;
     font-size: 13px;
-    color: #333;
+    color: #334155;
     white-space: nowrap;
+    border-radius: 6px;
+    transition: background 0.1s ease;
 }
 .header-dropdown .dropdown-item:hover {
-    background: #f0f0f0;
+    background: #f1f5f9;
 }
 .header-dropdown .dropdown-item:first-child {
-    border-radius: 4px 4px 0 0;
+    border-radius: 6px;
 }
 .header-dropdown .dropdown-item:last-child {
-    border-radius: 0 0 4px 4px;
+    border-radius: 6px;
 }
 .header-dropdown .dropdown-item.remove-col-btn {
-    color: #dc3545;
-    border-top: 1px solid #eee;
+    color: #ef4444;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 2px;
+    padding-top: 8px;
 }
 .header-dropdown .dropdown-item.remove-col-btn:hover {
-    background: #fff5f5;
+    background: #fef2f2;
 }
 /* Zebra striping using explicit classes - high specificity */
 table.edit-table > tbody > tr.row-even,
 .table-scroll-wrapper table.edit-table > tbody > tr.row-even,
 .table-container-frame table.edit-table > tbody > tr.row-even {
-    --bs-table-bg: #c4d4e3;
-    --bs-table-accent-bg: #c4d4e3;
-    background-color: #c4d4e3 !important;
-    background: #c4d4e3 !important;
+    --bs-table-bg: #f8fafc;
+    --bs-table-accent-bg: #f8fafc;
+    background-color: #f8fafc !important;
+    background: #f8fafc !important;
 }
 table.edit-table > tbody > tr.row-even > td {
-    --bs-table-bg: #c4d4e3;
-    background-color: #c4d4e3 !important;
+    --bs-table-bg: #f8fafc;
+    background-color: #f8fafc !important;
 }
 table.edit-table > tbody > tr.row-odd,
 .table-scroll-wrapper table.edit-table > tbody > tr.row-odd,
 .table-container-frame table.edit-table > tbody > tr.row-odd {
-    --bs-table-bg: #f5f7f9;
-    --bs-table-accent-bg: #f5f7f9;
-    background-color: #f5f7f9 !important;
-    background: #f5f7f9 !important;
+    --bs-table-bg: #ffffff;
+    --bs-table-accent-bg: #ffffff;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
 }
 table.edit-table > tbody > tr.row-odd > td {
-    --bs-table-bg: #f5f7f9;
-    background-color: #f5f7f9 !important;
+    --bs-table-bg: #ffffff;
+    background-color: #ffffff !important;
 }
 /* Fallback nth-child for static rendering */
 table.edit-table > tbody > tr:nth-child(even) {
-    background-color: #c4d4e3;
+    background-color: #f8fafc;
 }
 table.edit-table > tbody > tr:nth-child(odd) {
-    background-color: #f5f7f9;
+    background-color: #ffffff;
 }
 table.edit-table > tbody > tr:hover {
-    --bs-table-bg: #d0e8f0;
-    --bs-table-accent-bg: #d0e8f0;
-    background-color: #d0e8f0 !important;
-    background: #d0e8f0 !important;
+    --bs-table-bg: #eef2ff;
+    --bs-table-accent-bg: #eef2ff;
+    background-color: #eef2ff !important;
+    background: #eef2ff !important;
 }
 table.edit-table > tbody > tr:hover > td {
-    --bs-table-bg: #d0e8f0;
-    background-color: #d0e8f0 !important;
+    --bs-table-bg: #eef2ff;
+    background-color: #eef2ff !important;
 }
 .edit-table tbody tr.row-selected {
-    background-color: #cce5ff !important;
+    background-color: #e0e7ff !important;
 }
 .edit-table tbody tr.row-selected:hover {
-    background-color: #b8daff !important;
+    background-color: #c7d2fe !important;
 }
 .edit-table td {
-    padding: 6px 8px;
-    border: 1px solid #ddd;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    border-right: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 0;
+    color: #334155;
+    transition: background-color 0.1s ease;
 }
 .row-number {
-    font-weight: bold;
+    font-weight: 600;
     text-align: center;
     width: 10px;
+    color: #94a3b8;
+    font-size: 12px;
 }
 
 /* Status Badges */
 .row-status-badge {
     display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
+    padding: 3px 10px;
+    border-radius: 99px;
     font-size: 11px;
-    font-weight: bold;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
-.status-edited { background-color: #8B4513; color: white; }
-.status-approved { background-color: #28a745; color: white; }
-.status-rejected { background-color: #dc3545; color: white; }
-.status-unprocessed { background-color: #e2e3e5; color: #383d41; }
+.status-edited { background-color: #fef3c7; color: #92400e; }
+.status-approved { background-color: #d1fae5; color: #065f46; }
+.status-rejected { background-color: #fee2e2; color: #991b1b; }
+.status-unprocessed { background-color: #f1f5f9; color: #64748b; }
 
 /* Histogram label colors */
-.status-label-edited { color: #8B4513; font-weight: 600; }
-.status-label-approved { color: #28a745; font-weight: 600; }
-.status-label-rejected { color: #dc3545; font-weight: 600; }
-.status-label-unprocessed { color: #6c757d; }
+.status-label-edited { color: #b45309; font-weight: 600; }
+.status-label-approved { color: #059669; font-weight: 600; }
+.status-label-rejected { color: #dc2626; font-weight: 600; }
+.status-label-unprocessed { color: #64748b; }
 
 /* Approval Status Banners */
 .status-approved-banner {
-    background-color: #e8f5e9;
-    border: 2px solid #4caf50;
-    color: #2e7d32;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 5px;
+    background-color: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    color: #065f46;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-radius: 10px;
     text-align: center;
     margin: 10px 0;
 }
 .status-rejected-banner {
-    background-color: #ffebee;
-    border: 2px solid #f44336;
-    color: #c62828;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 5px;
+    background-color: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-radius: 10px;
     text-align: center;
     margin: 10px 0;
 }
@@ -252,17 +270,17 @@ table.edit-table > tbody > tr:hover > td {
     position: relative;
 }
 .editable-cell:hover {
-    background-color: #e3f2fd !important;
+    background-color: #eef2ff !important;
 }
 
 /* Clickable Cell Styles (cell_click_columns) */
 .clickable-cell {
     cursor: pointer;
     position: relative;
-    color: #0d6efd;
+    color: #4f46e5;
 }
 .clickable-cell:hover {
-    background-color: #e8f0fe !important;
+    background-color: #eef2ff !important;
     text-decoration: underline;
 }
 .clickable-cell .cell-value {
@@ -273,25 +291,25 @@ table.edit-table > tbody > tr:hover > td {
 .readonly-cell {
     cursor: default;
     position: relative;
-    background-color: #f8f9fa;
+    background-color: #fafafa;
 }
 .readonly-cell:hover {
-    background-color: #f0f0f0 !important;
+    background-color: #f5f5f5 !important;
 }
 
-/* Edited Cell - Brown Border */
+/* Edited Cell - Amber accent */
 .editable-cell.cell-edited {
-    border: 2px solid #8B4513 !important;
-    background-color: #FFF8DC;
+    border: 2px solid #d97706 !important;
+    background-color: #fffbeb;
 }
 .editable-cell.cell-edited:hover {
-    background-color: #F5DEB3 !important;
+    background-color: #fef3c7 !important;
 }
 
 /* Readonly edited cell */
 .readonly-cell.cell-edited {
-    border: 2px solid #8B4513 !important;
-    background-color: #FFF8DC;
+    border: 2px solid #d97706 !important;
+    background-color: #fffbeb;
 }
 
 .cell-value {
@@ -307,11 +325,11 @@ table.edit-table > tbody > tr:hover > td {
     position: fixed;
     z-index: 3000;
     background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-    padding: 15px;
-    min-width: 300px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.06);
+    padding: 18px;
+    min-width: 320px;
     max-width: 500px;
 }
 .cell-edit-popup.show {
@@ -321,47 +339,50 @@ table.edit-table > tbody > tr:hover > td {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
 }
 .cell-edit-popup .popup-header h4 {
     margin: 0;
     font-size: 14px;
-    color: #495057;
+    color: #1e293b;
+    font-weight: 600;
 }
 .cell-edit-popup .popup-close {
     background: none;
     border: none;
     font-size: 18px;
     cursor: pointer;
-    color: #6c757d;
+    color: #94a3b8;
     padding: 0;
     line-height: 1;
+    transition: color 0.15s ease;
 }
 .cell-edit-popup .popup-close:hover {
-    color: #343a40;
+    color: #334155;
 }
 .cell-edit-popup .original-value-row {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
-    padding: 8px 10px;
-    background: #FFF8DC;
-    border: 1px solid #8B4513;
-    border-radius: 4px;
+    padding: 10px 12px;
+    background: #fffbeb;
+    border: 1px solid #fbbf24;
+    border-radius: 8px;
 }
 .cell-edit-popup .original-value-label {
     font-size: 11px;
-    color: #8B4513;
+    color: #b45309;
     font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 .cell-edit-popup .original-value-text {
     flex: 1;
     font-size: 13px;
-    color: #5D3A1A;
+    color: #92400e;
     font-style: italic;
 }
 .cell-edit-popup .current-value-row {
@@ -369,60 +390,62 @@ table.edit-table > tbody > tr:hover > td {
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
-    padding: 8px 10px;
-    background: #f8f9fa;
-    border-radius: 4px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border-radius: 8px;
 }
 .cell-edit-popup .current-value-label {
     font-size: 11px;
-    color: #6c757d;
+    color: #64748b;
     font-weight: 600;
     min-width: 50px;
 }
 .cell-edit-popup .current-value-text {
     flex: 1;
     font-size: 13px;
-    color: #212529;
+    color: #1e293b;
     word-break: break-all;
 }
 .cell-edit-popup .copy-btn {
-    padding: 4px 8px;
+    padding: 4px 10px;
     font-size: 11px;
-    border: 1px solid #ced4da;
+    border: 1px solid #e2e8f0;
     background: white;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
+    transition: all 0.15s ease;
 }
 .cell-edit-popup .copy-btn:hover {
-    background: #e9ecef;
+    background: #f1f5f9;
 }
 .cell-edit-popup .copy-btn.copied {
-    background: #28a745;
+    background: #059669;
     color: white;
-    border-color: #28a745;
+    border-color: #059669;
 }
 .cell-edit-popup .new-value-section {
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 .cell-edit-popup .new-value-section label {
     display: block;
     font-size: 11px;
-    color: #6c757d;
+    color: #64748b;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 .cell-edit-popup .new-value-section input {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+    padding: 9px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
     font-size: 13px;
     box-sizing: border-box;
+    transition: all 0.15s ease;
 }
 .cell-edit-popup .new-value-section input:focus {
     outline: none;
-    border-color: #2196F3;
-    box-shadow: 0 0 0 2px rgba(33,150,243,0.2);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
 .cell-edit-popup .popup-actions {
     display: flex;
@@ -430,32 +453,35 @@ table.edit-table > tbody > tr:hover > td {
     gap: 8px;
 }
 .cell-edit-popup .popup-actions button {
-    padding: 6px 14px;
+    padding: 7px 16px;
     font-size: 13px;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
 .cell-edit-popup .btn-cancel {
-    background: #f8f9fa;
-    border: 1px solid #ced4da;
-    color: #495057;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
 }
 .cell-edit-popup .btn-cancel:hover {
-    background: #e9ecef;
+    background: #f1f5f9;
+    color: #334155;
 }
 .cell-edit-popup .btn-save {
-    background: #28a745;
-    border: 1px solid #28a745;
+    background: #4f46e5;
+    border: 1px solid #4f46e5;
     color: white;
 }
 .cell-edit-popup .btn-save:hover {
-    background: #218838;
+    background: #4338ca;
 }
 .cell-edit-popup .btn-reset {
-    background: #dc3545;
-    border: 1px solid #dc3545;
+    background: #ef4444;
+    border: 1px solid #ef4444;
     color: white;
 }
 .cell-edit-popup .btn-reset:hover {
-    background: #c82333;
+    background: #dc2626;
 }
