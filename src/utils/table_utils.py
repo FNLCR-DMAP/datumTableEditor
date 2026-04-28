@@ -29,6 +29,8 @@ def _format_cell_value(value: Any, dtype, no_tz_display: bool = False) -> str:
         if no_tz_display:
             # Convert to string without timezone
             if hasattr(value, 'strftime'):
+                if value.hour == 0 and value.minute == 0 and value.second == 0:
+                    return value.strftime("%Y-%m-%d")
                 return value.strftime("%Y-%m-%d %H:%M:%S")
             # Fallback: strip timezone from string representation
             str_val = str(value)

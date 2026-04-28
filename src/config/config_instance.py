@@ -580,9 +580,14 @@ class DataFetcher:
             if pd.api.types.is_datetime64_any_dtype(df[col]):
                 continue  # already datetime
             try:
+                # date-only columns should not carry UTC timezone
+                col_type = self._column_types.get(col, "").lower()
+                is_date_only = (col_type == "date")
                 if pd.api.types.is_numeric_dtype(df[col]):
                     # Whole column is numeric → epoch milliseconds from the API
-                    df[col] = pd.to_datetime(df[col], unit="ms", errors="coerce", utc=True)
+                    df[col] = pd.to_datetime(df[col], unit="ms", errors="coerce", utc=not is_date_only)
+                    if is_date_only:
+                        df[col] = df[col].dt.normalize()
                 else:
                     # Object/string column — coerce to numeric first; if most
                     # values convert, treat as epoch-ms, otherwise ISO-parse.
@@ -592,9 +597,11 @@ class DataFetcher:
                         continue
                     numeric_ratio = numeric.notna().sum() / max(non_null.shape[0], 1)
                     if numeric_ratio > 0.5:
-                        df[col] = pd.to_datetime(numeric, unit="ms", errors="coerce", utc=True)
+                        df[col] = pd.to_datetime(numeric, unit="ms", errors="coerce", utc=not is_date_only)
+                        if is_date_only:
+                            df[col] = df[col].dt.normalize()
                     else:
-                        df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+                        df[col] = pd.to_datetime(df[col], errors="coerce", utc=not is_date_only)
             except Exception:
                 pass  # leave as-is if conversion fails
         return df
