@@ -7,6 +7,16 @@ bash tooling/sop_qc.sh            # full 8-step pipeline
 bash tooling/sop_qc.sh --step 5   # single step only
 ```
 
+## Configuration
+
+All tools read from `tooling/qc_config.json`. To port to a new repo:
+
+1. Copy the `tooling/` folder
+2. Edit `tooling/qc_config.json` — update `paths`, `python.source_dirs`, `python.source_files`, `qc_targets`, and `golden_sql` fields
+3. Run `bash tooling/sop_qc.sh`
+
+No hardcoded paths in any tool script — everything is config-driven.
+
 ## Pipeline Steps
 
 | Step | Script | What it does | Fails on |

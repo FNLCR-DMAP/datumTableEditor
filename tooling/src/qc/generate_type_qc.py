@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Set, Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 
 def get_type_annotations(filepath: Path) -> Dict[str, Any]:
     """Extract type annotation coverage from a Python file."""
@@ -135,12 +137,14 @@ def run_mypy(project_root: Path) -> Dict[str, List[Dict]]:
         return {"_error": [{"message": str(e)}]}
 
 
-def generate_type_qc(project_root: Path) -> dict:
+def generate_type_qc(project_root: Path, config: dict = None) -> dict:
     """Generate the complete type QC report."""
-    utils_dir = project_root / "src" / "utils"
-    server_path = project_root / "server.py"
-    ui_path = project_root / "ui.py"
-    app_path = project_root / "app.py"
+    if config is None:
+        from config_loader import load_qc_config, resolve_source_files
+        config = load_qc_config()
+
+    from config_loader import resolve_source_files
+    files_to_check = resolve_source_files(project_root, config)
     
     report = {
         "_description": "Type annotation coverage and mypy type checking results",
@@ -157,8 +161,6 @@ def generate_type_qc(project_root: Path) -> dict:
     total_missing = 0
     
     # Analyze each Python file
-    files_to_check = [server_path, ui_path, app_path] + list(utils_dir.glob("*.py"))
-    
     for py_file in files_to_check:
         if py_file.name.startswith("_"):
             continue
@@ -218,15 +220,15 @@ def generate_type_qc(project_root: Path) -> dict:
 
 
 def main():
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent.parent
-    output_path = project_root / "qcmetric" / "server_variable_type_qc.json"
-    
-    # Ensure output directory exists
-    output_path.parent.mkdir(exist_ok=True)
+    from config_loader import load_qc_config, get_project_root, get_output_dir
+
+    root = get_project_root()
+    config = load_qc_config()
+    output_dir = get_output_dir(root, config)
+    output_path = output_dir / config["type_qc"]["output"]
     
     # Generate type QC report
-    report = generate_type_qc(project_root)
+    report = generate_type_qc(root, config)
     
     # Write to JSON
     with open(output_path, 'w') as f:

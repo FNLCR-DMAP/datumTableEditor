@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 
 def check_js_syntax(content: str, filepath: str) -> list[dict[str, Any]]:
     """Check JavaScript for common syntax issues."""
@@ -296,15 +298,21 @@ def run_frontend_qc(src_dir: Path) -> dict[str, Any]:
 
 def main() -> int:
     """Main entry point."""
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
-    src_dir = project_root / "src"
-    output_dir = project_root / "qcmetric"
-    output_dir.mkdir(exist_ok=True)
-    
-    results = run_frontend_qc(src_dir)
-    
+    from config_loader import load_qc_config, get_project_root, get_output_dir
+
+    root = get_project_root()
+    config = load_qc_config()
+    paths = config["paths"]
+
+    src_dir = root / paths.get("js_dir", "src/js")
+    # For frontend QC, scan the parent of js_dir (src/) to find both js/ and css/
+    scan_dir = root / paths["src_root"]
+    output_dir = get_output_dir(root, config)
+
+    results = run_frontend_qc(scan_dir)
+
     # Write results
-    output_file = output_dir / "frontend_qc.json"
+    output_file = output_dir / config["frontend"]["output"]
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
     

@@ -280,12 +280,23 @@ def extract_all() -> dict[str, Any]:
 def main():
     parser = argparse.ArgumentParser(description="Extract golden SQL strings")
     parser.add_argument("--print", action="store_true", help="Print to stdout as well")
-    parser.add_argument("--output", default=None, help="Output JSON path (default: qcmetric/sql_golden.json)")
+    parser.add_argument("--output", default=None, help="Output JSON path (default: from qc_config.json)")
     args = parser.parse_args()
 
     golden = extract_all()
 
-    output_path = Path(args.output) if args.output else PROJECT_ROOT / "qcmetric" / "sql_golden.json"
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        # Read from universal config
+        qc_config_path = PROJECT_ROOT / "tooling" / "qc_config.json"
+        if qc_config_path.exists():
+            with open(qc_config_path) as f:
+                cfg = json.load(f)
+            output_path = PROJECT_ROOT / cfg["paths"]["output_dir"] / cfg["golden_sql"]["output"]
+        else:
+            output_path = PROJECT_ROOT / "qcmetric" / "sql_golden.json"
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as fh:
         json.dump(golden, fh, indent=2)

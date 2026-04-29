@@ -6,8 +6,11 @@ Detects unused functions across the entire codebase.
 
 import ast
 import json
+import sys
 from pathlib import Path
 from typing import Set, Dict, List, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 def get_functions_from_file(filepath: Path) -> List[str]:
@@ -104,89 +107,68 @@ def get_decorated_functions(filepath: Path) -> Set[str]:
         return set()
 
 
-def analyze_codebase(project_root: Path) -> Tuple[Dict, Dict, Set, Set]:
+def analyze_codebase(project_root: Path, config: dict = None) -> Tuple[Dict, Dict, Set, Set]:
     """
     Analyze the entire codebase for function definitions and calls.
     
     Returns:
         (all_definitions, all_calls_by_file, all_calls, decorated_funcs)
     """
-    utils_dir = project_root / "src" / "utils"
-    server_path = project_root / "server.py"
-    
+    if config is None:
+        from config_loader import load_qc_config
+        config = load_qc_config()
+
+    from config_loader import resolve_source_files, resolve_all_python_files
+
     # Collect all function definitions by module
     all_definitions = {}
-    
-    # Scan utils modules
-    for py_file in sorted(utils_dir.glob("*.py")):
-        if py_file.name.startswith("_"):
-            continue
+
+    for py_file in resolve_source_files(project_root, config):
         functions = get_functions_from_file(py_file)
         if functions:
-            all_definitions[py_file.name] = {
+            key = py_file.name
+            all_definitions[key] = {
                 "path": str(py_file.relative_to(project_root)),
                 "functions": functions,
                 "description": get_docstring(py_file)
             }
     
-    # Add server.py
-    server_functions = get_functions_from_file(server_path)
-    if server_functions:
-        all_definitions["server.py"] = {
-            "path": "server.py",
-            "functions": server_functions,
-            "description": get_docstring(server_path)
-        }
-    
-    # Add ui.py
-    ui_path = project_root / "ui.py"
-    ui_functions = get_functions_from_file(ui_path)
-    if ui_functions:
-        all_definitions["ui.py"] = {
-            "path": "ui.py",
-            "functions": ui_functions,
-            "description": get_docstring(ui_path)
-        }
-    
-    # Add app.py
-    app_path = project_root / "app.py"
-    app_functions = get_functions_from_file(app_path)
-    if app_functions:
-        all_definitions["app.py"] = {
-            "path": "app.py",
-            "functions": app_functions,
-            "description": get_docstring(app_path)
-        }
-    
     # Collect all function calls AND all name references across all Python files
     all_calls = set()
     all_calls_by_file = {}
     
-    # Scan all Python files
-    for py_file in project_root.rglob("*.py"):
-        if "__pycache__" in str(py_file) or "tooling" in str(py_file):
-            continue
+    for py_file in resolve_all_python_files(project_root, config):
         calls = get_function_calls_from_file(py_file)
-        names = get_all_names_used(py_file)  # Also get name references (for imports used as values)
+        names = get_all_names_used(py_file)
         combined = calls | names
         all_calls.update(combined)
         all_calls_by_file[str(py_file.relative_to(project_root))] = combined
     
-    # Get decorated functions from server.py (these are framework-managed)
-    decorated_funcs = get_decorated_functions(server_path)
+    # Get decorated functions from server file (framework-managed)
+    decorated_funcs = set()
+    for f in config["python"]["source_files"]:
+        fp = project_root / f
+        if fp.exists():
+            decorated_funcs.update(get_decorated_functions(fp))
     
     return all_definitions, all_calls_by_file, all_calls, decorated_funcs
 
 
-def generate_qc_report(project_root: Path) -> dict:
+def generate_qc_report(project_root: Path, config: dict = None) -> dict:
     """Generate the complete QC report."""
-    server_path = project_root / "server.py"
-    
+    if config is None:
+        from config_loader import load_qc_config
+        config = load_qc_config()
+
     # Analyze codebase
-    all_definitions, all_calls_by_file, all_calls, decorated_funcs = analyze_codebase(project_root)
+    all_definitions, all_calls_by_file, all_calls, decorated_funcs = analyze_codebase(project_root, config)
     
     # Get server imports from utils
-    server_imports = get_imports_from_file(server_path, "src.utils")
+    server_imports = set()
+    for f in config["python"]["source_files"]:
+        fp = project_root / f
+        if fp.exists():
+            server_imports.update(get_imports_from_file(fp, "src.utils"))
     
     report = {
         "_description": "QC report: function definitions, usage, and unused function detection",
@@ -279,16 +261,15 @@ def generate_qc_report(project_root: Path) -> dict:
 
 
 def main():
-    # Determine paths
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent.parent
-    output_path = project_root / "qcmetric" / "server_function_qc.json"
-    
-    # Ensure output directory exists
-    output_path.parent.mkdir(exist_ok=True)
+    from config_loader import load_qc_config, get_project_root, get_output_dir
+
+    root = get_project_root()
+    config = load_qc_config()
+    output_dir = get_output_dir(root, config)
+    output_path = output_dir / config["mapping"]["output"]
     
     # Generate QC report
-    report = generate_qc_report(project_root)
+    report = generate_qc_report(root, config)
     
     # Write to JSON
     with open(output_path, 'w') as f:

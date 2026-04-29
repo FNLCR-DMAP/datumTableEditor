@@ -3,35 +3,20 @@
 
 import ast
 import re
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config_loader import load_qc_config, get_project_root, resolve_source_files, resolve_test_files
 
 
-def collect_src_functions():
+def collect_src_functions(root: Path, config: dict):
     """Collect all public functions/methods from src/ modules."""
-    src_dirs = ["src/utils", "src/db", "src/config", "src/processing", "src/data", "src/adapter"]
-    src_files_extra = ["src/server.py", "src/ui.py"]
     src_funcs = {}
-
-    for d in src_dirs:
-        p = ROOT / d
-        if not p.exists():
-            continue
-        for f in sorted(p.glob("*.py")):
-            if f.name == "__init__.py":
-                continue
-            funcs = _extract_functions(f)
-            if funcs:
-                src_funcs[str(f.relative_to(ROOT))] = funcs
-
-    for fp in src_files_extra:
-        f = ROOT / fp
-        if f.exists():
-            funcs = _extract_functions(f)
-            if funcs:
-                src_funcs[str(f.relative_to(ROOT))] = funcs
-
+    for f in resolve_source_files(root, config):
+        funcs = _extract_functions(f)
+        if funcs:
+            src_funcs[str(f.relative_to(root))] = funcs
     return src_funcs
 
 
@@ -52,11 +37,10 @@ def _extract_functions(filepath):
     return funcs
 
 
-def collect_test_identifiers():
+def collect_test_identifiers(root: Path, config: dict):
     """Collect all identifiers referenced in test files."""
     test_names = set()
-    tests_dir = ROOT / "tests"
-    for f in sorted(tests_dir.glob("test_*.py")):
+    for f in resolve_test_files(root, config):
         content = f.read_text()
         tokens = re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", content)
         test_names.update(tokens)
@@ -64,8 +48,10 @@ def collect_test_identifiers():
 
 
 def main():
-    src_funcs = collect_src_functions()
-    test_names = collect_test_identifiers()
+    root = get_project_root()
+    config = load_qc_config()
+    src_funcs = collect_src_functions(root, config)
+    test_names = collect_test_identifiers(root, config)
 
     total = 0
     untested = 0

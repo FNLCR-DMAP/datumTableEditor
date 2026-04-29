@@ -2,15 +2,312 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 4,
-    "unused_functions": 0,
-    "fully_annotated_functions": 4,
-    "function_coverage_percent": 100.0,
-    "parameter_coverage_percent": 100.0,
+    "total_functions": 157,
+    "unused_functions": 1,
+    "fully_annotated_functions": 111,
+    "function_coverage_percent": 70.7,
+    "parameter_coverage_percent": 81.9,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
+    "src/config/config.py": {
+      "total": 24,
+      "functions": [
+        "_aggregate_approval_rejection_entries",
+        "_execute_sql_via_datum",
+        "_format_table_name",
+        "_get_datum_client",
+        "_get_display_columns",
+        "_get_modifications_log_path",
+        "_load_from_database",
+        "_load_from_datum",
+        "_load_initial_data",
+        "_load_modifications_from_datum",
+        "_load_modifications_from_db",
+        "_mark_modification_undone_in_datum",
+        "_save_modification_to_datum",
+        "_update_data_via_datum",
+        "ensure_data_dir",
+        "get_all_modification_statuses",
+        "get_modification_status",
+        "load_data_from_source",
+        "load_modifications_log",
+        "load_ui_state",
+        "mark_modification_undone_in_db",
+        "save_modification_to_db",
+        "save_ui_state",
+        "update_data_in_db"
+      ],
+      "used": [
+        "_aggregate_approval_rejection_entries",
+        "_execute_sql_via_datum",
+        "_format_table_name",
+        "_get_datum_client",
+        "_get_display_columns",
+        "_get_modifications_log_path",
+        "_load_from_database",
+        "_load_from_datum",
+        "_load_initial_data",
+        "_load_modifications_from_datum",
+        "_load_modifications_from_db",
+        "_mark_modification_undone_in_datum",
+        "_save_modification_to_datum",
+        "_update_data_via_datum",
+        "ensure_data_dir",
+        "get_all_modification_statuses",
+        "get_modification_status",
+        "load_data_from_source",
+        "load_modifications_log",
+        "load_ui_state",
+        "mark_modification_undone_in_db",
+        "save_modification_to_db",
+        "save_ui_state",
+        "update_data_in_db"
+      ]
+    },
+    "src/config/config_instance.py": {
+      "total": 113,
+      "functions": [
+        "__post_init__",
+        "__post_init__",
+        "_aggregate_approval_rejection_entries",
+        "_app_cache_get",
+        "_app_cache_invalidate",
+        "_app_cache_set",
+        "_apply_field_modifications",
+        "_apply_field_modifications",
+        "_apply_field_modifications_datum",
+        "_build_mod_cte_and_join",
+        "_build_mod_status_expr",
+        "_build_order_clause",
+        "_build_status_filter_clause",
+        "_build_where_clause",
+        "_cleanup_corrupted_modifications_datum",
+        "_coerce_date_columns",
+        "_col_expr",
+        "_delete_preset_datum",
+        "_effective_status_column",
+        "_effective_status_column",
+        "_effective_table",
+        "_ensure_data_table_exists",
+        "_ensure_data_table_exists_datum",
+        "_ensure_mods_table_exists",
+        "_ensure_mods_table_exists_datum",
+        "_ensure_preset_table_exists",
+        "_ensure_preset_table_exists_datum",
+        "_ensure_state_table_exists",
+        "_ensure_state_table_exists_datum",
+        "_escape_identifier",
+        "_escape_literal",
+        "_escape_sql_value",
+        "_fetch_metadata",
+        "_fix_mod_disagreements",
+        "_fix_mod_disagreements",
+        "_fix_mod_disagreements_datum",
+        "_format_table_name",
+        "_get_column_types_from_schema",
+        "_get_columns_from_schema_datum",
+        "_get_display_columns",
+        "_get_engine",
+        "_get_preset_table_name",
+        "_get_presets_datum",
+        "_get_synthesis_age_minutes",
+        "_has_status_filter",
+        "_init_connection",
+        "_is_text_column",
+        "_load_all",
+        "_load_data",
+        "_load_from_database",
+        "_load_from_datum",
+        "_load_modifications_from_datum",
+        "_load_modifications_from_db",
+        "_load_ui_state_datum",
+        "_mark_modification_undone_datum",
+        "_normalize_mod_status",
+        "_read_synthesis_table",
+        "_reconcile_status_column",
+        "_reconcile_status_column",
+        "_reconcile_status_df",
+        "_refresh_count",
+        "_refresh_synthesis",
+        "_run_synthesis_datum",
+        "_run_synthesis_direct",
+        "_save_modification_to_datum",
+        "_save_preset_datum",
+        "_save_ui_state_datum",
+        "_select_columns",
+        "_skip_mods",
+        "_skip_mods",
+        "_stamp_synthesis_comment",
+        "_update_data_in_datum",
+        "_update_status_in_db",
+        "activate_synthesis_fetcher",
+        "check_synthesis_table_exists",
+        "cleanup_corrupted_modifications",
+        "clear_table_override",
+        "columns",
+        "data_fetcher",
+        "date_columns",
+        "deactivate_synthesis_fetcher",
+        "delete_preset",
+        "ensure_data_dir",
+        "fetch_all_filtered",
+        "fetch_page",
+        "get_default_preset",
+        "get_edited_cells",
+        "get_filtered_count",
+        "get_original_value",
+        "get_presets",
+        "get_status_counts",
+        "get_synthesis_table_name",
+        "get_unique_values",
+        "get_value_counts",
+        "invalidate_data_cache",
+        "invalidate_mods_cache",
+        "is_cell_edited",
+        "is_date_column",
+        "is_lazy_loading",
+        "load_config_instance",
+        "load_config_only",
+        "load_modifications_log",
+        "load_ui_state",
+        "mark_modification_undone_in_db",
+        "reload_data",
+        "run_synthesis",
+        "save_modification_to_db",
+        "save_preset",
+        "save_ui_state",
+        "set_table_override",
+        "total_count",
+        "total_row_count",
+        "update_data_in_db"
+      ],
+      "used": [
+        "__post_init__",
+        "__post_init__",
+        "_aggregate_approval_rejection_entries",
+        "_app_cache_get",
+        "_app_cache_invalidate",
+        "_app_cache_set",
+        "_apply_field_modifications",
+        "_apply_field_modifications",
+        "_apply_field_modifications_datum",
+        "_build_mod_cte_and_join",
+        "_build_mod_status_expr",
+        "_build_order_clause",
+        "_build_status_filter_clause",
+        "_build_where_clause",
+        "_cleanup_corrupted_modifications_datum",
+        "_coerce_date_columns",
+        "_col_expr",
+        "_delete_preset_datum",
+        "_ensure_data_table_exists",
+        "_ensure_data_table_exists_datum",
+        "_ensure_mods_table_exists",
+        "_ensure_mods_table_exists_datum",
+        "_ensure_preset_table_exists",
+        "_ensure_preset_table_exists_datum",
+        "_ensure_state_table_exists",
+        "_ensure_state_table_exists_datum",
+        "_escape_identifier",
+        "_escape_literal",
+        "_escape_sql_value",
+        "_fetch_metadata",
+        "_fix_mod_disagreements",
+        "_fix_mod_disagreements",
+        "_fix_mod_disagreements_datum",
+        "_format_table_name",
+        "_get_column_types_from_schema",
+        "_get_columns_from_schema_datum",
+        "_get_display_columns",
+        "_get_engine",
+        "_get_preset_table_name",
+        "_get_presets_datum",
+        "_get_synthesis_age_minutes",
+        "_has_status_filter",
+        "_init_connection",
+        "_is_text_column",
+        "_load_all",
+        "_load_data",
+        "_load_from_database",
+        "_load_from_datum",
+        "_load_modifications_from_datum",
+        "_load_modifications_from_db",
+        "_load_ui_state_datum",
+        "_mark_modification_undone_datum",
+        "_normalize_mod_status",
+        "_read_synthesis_table",
+        "_reconcile_status_column",
+        "_reconcile_status_column",
+        "_reconcile_status_df",
+        "_refresh_count",
+        "_refresh_synthesis",
+        "_run_synthesis_datum",
+        "_run_synthesis_direct",
+        "_save_modification_to_datum",
+        "_save_preset_datum",
+        "_save_ui_state_datum",
+        "_stamp_synthesis_comment",
+        "_update_data_in_datum",
+        "activate_synthesis_fetcher",
+        "check_synthesis_table_exists",
+        "cleanup_corrupted_modifications",
+        "clear_table_override",
+        "columns",
+        "date_columns",
+        "deactivate_synthesis_fetcher",
+        "delete_preset",
+        "ensure_data_dir",
+        "fetch_all_filtered",
+        "fetch_page",
+        "get_default_preset",
+        "get_edited_cells",
+        "get_filtered_count",
+        "get_original_value",
+        "get_presets",
+        "get_status_counts",
+        "get_synthesis_table_name",
+        "get_unique_values",
+        "get_value_counts",
+        "invalidate_data_cache",
+        "invalidate_mods_cache",
+        "is_cell_edited",
+        "is_date_column",
+        "is_lazy_loading",
+        "load_config_instance",
+        "load_config_only",
+        "load_modifications_log",
+        "load_ui_state",
+        "mark_modification_undone_in_db",
+        "reload_data",
+        "run_synthesis",
+        "save_modification_to_db",
+        "save_preset",
+        "save_ui_state",
+        "set_table_override",
+        "total_count",
+        "total_row_count",
+        "update_data_in_db"
+      ],
+      "unused": [
+        "_update_status_in_db"
+      ],
+      "framework_managed": [
+        "_effective_status_column",
+        "_effective_status_column",
+        "_effective_table",
+        "_select_columns",
+        "_skip_mods",
+        "_skip_mods",
+        "columns",
+        "data_fetcher",
+        "date_columns",
+        "is_lazy_loading",
+        "total_count",
+        "total_row_count"
+      ]
+    },
     "src/config/app_config_schema.py": {
       "total": 4,
       "functions": [
@@ -25,9 +322,187 @@
         "export_config_schema",
         "load_config"
       ]
+    },
+    "src/config/sql_types.py": {
+      "total": 16,
+      "functions": [
+        "__init__",
+        "__init__",
+        "__init__",
+        "__repr__",
+        "__repr__",
+        "__repr__",
+        "__str__",
+        "__str__",
+        "__str__",
+        "_escape",
+        "as_literal_key",
+        "build_pk_array",
+        "build_pk_json_expr",
+        "escaped",
+        "raw",
+        "raw"
+      ],
+      "used": [
+        "__init__",
+        "__init__",
+        "__init__",
+        "__repr__",
+        "__repr__",
+        "__repr__",
+        "__str__",
+        "__str__",
+        "__str__",
+        "_escape",
+        "as_literal_key",
+        "build_pk_array",
+        "build_pk_json_expr",
+        "raw",
+        "raw"
+      ],
+      "framework_managed": [
+        "_escape",
+        "escaped",
+        "raw",
+        "raw"
+      ]
     }
   },
   "type_coverage": {
+    "src/config/config.py": {
+      "functions": {
+        "total": 24,
+        "with_return_type": 12,
+        "fully_annotated": 12
+      },
+      "parameters": {
+        "total": 28,
+        "annotated": 21
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "_get_datum_client",
+          "line": 78
+        },
+        {
+          "type": "return",
+          "function": "load_modifications_log",
+          "line": 301
+        },
+        {
+          "type": "return",
+          "function": "_load_modifications_from_datum",
+          "line": 368
+        },
+        {
+          "type": "return",
+          "function": "_load_modifications_from_db",
+          "line": 417
+        },
+        {
+          "type": "parameter",
+          "function": "save_modification_to_db",
+          "name": "old_value",
+          "line": 468
+        },
+        {
+          "type": "parameter",
+          "function": "save_modification_to_db",
+          "name": "new_value",
+          "line": 468
+        },
+        {
+          "type": "return",
+          "function": "save_modification_to_db",
+          "line": 468
+        },
+        {
+          "type": "parameter",
+          "function": "_save_modification_to_datum",
+          "name": "old_value",
+          "line": 511
+        },
+        {
+          "type": "parameter",
+          "function": "_save_modification_to_datum",
+          "name": "new_value",
+          "line": 511
+        },
+        {
+          "type": "return",
+          "function": "_save_modification_to_datum",
+          "line": 511
+        }
+      ]
+    },
+    "src/config/config_instance.py": {
+      "functions": {
+        "total": 113,
+        "with_return_type": 83,
+        "fully_annotated": 79
+      },
+      "parameters": {
+        "total": 119,
+        "annotated": 97
+      },
+      "missing": [
+        {
+          "type": "parameter",
+          "function": "_escape_literal",
+          "name": "value",
+          "line": 78
+        },
+        {
+          "type": "parameter",
+          "function": "_reconcile_status_df",
+          "name": "df",
+          "line": 106
+        },
+        {
+          "type": "parameter",
+          "function": "_reconcile_status_df",
+          "name": "update_fn",
+          "line": 106
+        },
+        {
+          "type": "parameter",
+          "function": "_build_mod_cte_and_join",
+          "name": "mods_table_sql",
+          "line": 198
+        },
+        {
+          "type": "return",
+          "function": "_build_mod_cte_and_join",
+          "line": 198
+        },
+        {
+          "type": "return",
+          "function": "__post_init__",
+          "line": 282
+        },
+        {
+          "type": "return",
+          "function": "_init_connection",
+          "line": 287
+        },
+        {
+          "type": "return",
+          "function": "set_table_override",
+          "line": 306
+        },
+        {
+          "type": "return",
+          "function": "clear_table_override",
+          "line": 316
+        },
+        {
+          "type": "return",
+          "function": "_fetch_metadata",
+          "line": 336
+        }
+      ]
+    },
     "src/config/app_config_schema.py": {
       "functions": {
         "total": 4,
@@ -37,6 +512,17 @@
       "parameters": {
         "total": 7,
         "annotated": 7
+      }
+    },
+    "src/config/sql_types.py": {
+      "functions": {
+        "total": 16,
+        "with_return_type": 16,
+        "fully_annotated": 16
+      },
+      "parameters": {
+        "total": 6,
+        "annotated": 6
       }
     }
   },

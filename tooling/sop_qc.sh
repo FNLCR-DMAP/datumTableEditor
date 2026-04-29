@@ -20,6 +20,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# Read config
+QC_CONFIG="$SCRIPT_DIR/qc_config.json"
+if [[ ! -f "$QC_CONFIG" ]]; then
+    echo "ERROR: $QC_CONFIG not found"
+    exit 1
+fi
+
+# Extract configurable values
+GOLDEN_SQL_SCRIPT=$(python3 -c "import json; c=json.load(open('$QC_CONFIG')); print(c['golden_sql']['script'])")
+GOLDEN_SQL_TEST=$(python3 -c "import json; c=json.load(open('$QC_CONFIG')); print(c['golden_sql']['test_file'])")
+COVERAGE_CMD=$(python3 -c "import json; c=json.load(open('$QC_CONFIG')); print(c['coverage']['test_command'])")
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -61,15 +73,15 @@ run_step 2 "Function Coverage (public funcs vs tests)" \
 
 # Step 3: Golden SQL Extraction
 run_step 3 "Golden SQL Extraction" \
-    python tooling/src/sql/extract_golden_sql.py
+    python "$GOLDEN_SQL_SCRIPT"
 
 # Step 4: SQL Golden Snapshot Test
 run_step 4 "SQL Golden Snapshot Test" \
-    python -m pytest tests/test_sql_golden.py -x -q
+    python -m pytest "$GOLDEN_SQL_TEST" -x -q
 
 # Step 5: Full Pytest with Coverage
 run_step 5 "Pytest Suite + Line Coverage" \
-    python -m pytest tests/ -x -q --cov=src --cov-report=term-missing
+    bash -c "$COVERAGE_CMD"
 
 # Step 6: Frontend QC (JS/CSS validation)
 run_step 6 "Frontend QC (JS + CSS checks)" \
