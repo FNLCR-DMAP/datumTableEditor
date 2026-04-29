@@ -2,17 +2,17 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 86,
+    "total_functions": 87,
     "unused_functions": 0,
     "fully_annotated_functions": 5,
-    "function_coverage_percent": 5.8,
+    "function_coverage_percent": 5.7,
     "parameter_coverage_percent": 50.0,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
     "src/server.py": {
-      "total": 86,
+      "total": 87,
       "functions": [
         "_add_all_columns",
         "_add_column",
@@ -46,6 +46,7 @@
         "_handle_search",
         "_handle_undo",
         "_last_page",
+        "_lazy_filtered_count",
         "_load_preset",
         "_namespace_holder",
         "_next_page",
@@ -113,6 +114,7 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_lazy_filtered_count",
         "_require_editor",
         "_save_active_preset",
         "_save_presets",
@@ -146,6 +148,7 @@
         "_handle_search",
         "_handle_undo",
         "_last_page",
+        "_lazy_filtered_count",
         "_load_preset",
         "_namespace_holder",
         "_next_page",
@@ -196,7 +199,7 @@
   "type_coverage": {
     "src/server.py": {
       "functions": {
-        "total": 86,
+        "total": 87,
         "with_return_type": 5,
         "fully_annotated": 5
       },
@@ -257,7 +260,7 @@
           "type": "parameter",
           "function": "_get_selected_pks",
           "name": "row_indices",
-          "line": 426
+          "line": 431
         }
       ]
     }

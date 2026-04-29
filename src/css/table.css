@@ -2,12 +2,12 @@
 .table-container-frame {
     flex: 1;
     min-height: 200px;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    background: white;
+    border: 1px solid var(--table-border);
+    border-radius: var(--table-radius);
+    background: var(--table-bg);
     position: relative;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: var(--table-shadow);
 }
 .table-scroll-wrapper {
     height: 100%;
@@ -16,7 +16,7 @@
 }
 .edit-table {
     width: 100%;
-    font-size: 13px;
+    font-size: var(--font-size-md);
     border-collapse: separate;
     border-spacing: 0;
     table-layout: fixed;
@@ -31,17 +31,17 @@
     z-index: 10;
 }
 .edit-table th {
-    background-color: #1e293b;
-    color: #f1f5f9;
+    background-color: var(--table-header-bg);
+    color: var(--table-header-color);
     padding: 11px 10px;
     text-align: left;
     font-weight: 600;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     letter-spacing: 0.02em;
     white-space: nowrap;
     user-select: none;
     border-bottom: none;
-    border-right: 1px solid #334155;
+    border-right: 1px solid var(--table-header-border);
     position: relative;
     overflow: visible;
 }
@@ -58,8 +58,8 @@
     cursor: grabbing;
 }
 .edit-table th.draggable-header.drag-over {
-    background-color: #334155;
-    box-shadow: inset 0 0 0 2px #6366f1;
+    background-color: var(--table-header-border);
+    box-shadow: inset 0 0 0 2px var(--btn-primary-bg);
 }
 
 /* Column resize handle */
@@ -112,8 +112,8 @@
     top: 100%;
     right: 0;
     margin-top: 4px;
-    background: white;
-    border: 1px solid #e2e8f0;
+    background: var(--modal-bg);
+    border: 1px solid var(--table-border);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.06);
     z-index: 1000;
@@ -131,14 +131,14 @@
     border: none;
     text-align: left;
     cursor: pointer;
-    font-size: 13px;
-    color: #334155;
+    font-size: var(--font-size-md);
+    color: var(--table-cell-color);
     white-space: nowrap;
     border-radius: 6px;
     transition: background 0.1s ease;
 }
 .header-dropdown .dropdown-item:hover {
-    background: #f1f5f9;
+    background: var(--table-row-hover-bg);
 }
 .header-dropdown .dropdown-item:first-child {
     border-radius: 6px;
@@ -159,43 +159,43 @@
 table.edit-table > tbody > tr.row-even,
 .table-scroll-wrapper table.edit-table > tbody > tr.row-even,
 .table-container-frame table.edit-table > tbody > tr.row-even {
-    --bs-table-bg: #f8fafc;
-    --bs-table-accent-bg: #f8fafc;
-    background-color: #f8fafc !important;
-    background: #f8fafc !important;
+    --bs-table-bg: var(--table-row-alt-bg);
+    --bs-table-accent-bg: var(--table-row-alt-bg);
+    background-color: var(--table-row-alt-bg) !important;
+    background: var(--table-row-alt-bg) !important;
 }
 table.edit-table > tbody > tr.row-even > td {
-    --bs-table-bg: #f8fafc;
-    background-color: #f8fafc !important;
+    --bs-table-bg: var(--table-row-alt-bg);
+    background-color: var(--table-row-alt-bg) !important;
 }
 table.edit-table > tbody > tr.row-odd,
 .table-scroll-wrapper table.edit-table > tbody > tr.row-odd,
 .table-container-frame table.edit-table > tbody > tr.row-odd {
-    --bs-table-bg: #ffffff;
-    --bs-table-accent-bg: #ffffff;
-    background-color: #ffffff !important;
-    background: #ffffff !important;
+    --bs-table-bg: var(--table-row-bg);
+    --bs-table-accent-bg: var(--table-row-bg);
+    background-color: var(--table-row-bg) !important;
+    background: var(--table-row-bg) !important;
 }
 table.edit-table > tbody > tr.row-odd > td {
-    --bs-table-bg: #ffffff;
-    background-color: #ffffff !important;
+    --bs-table-bg: var(--table-row-bg);
+    background-color: var(--table-row-bg) !important;
 }
 /* Fallback nth-child for static rendering */
 table.edit-table > tbody > tr:nth-child(even) {
-    background-color: #f8fafc;
+    background-color: var(--table-row-alt-bg);
 }
 table.edit-table > tbody > tr:nth-child(odd) {
-    background-color: #ffffff;
+    background-color: var(--table-row-bg);
 }
 table.edit-table > tbody > tr:hover {
-    --bs-table-bg: #eef2ff;
-    --bs-table-accent-bg: #eef2ff;
-    background-color: #eef2ff !important;
-    background: #eef2ff !important;
+    --bs-table-bg: var(--table-row-hover-bg);
+    --bs-table-accent-bg: var(--table-row-hover-bg);
+    background-color: var(--table-row-hover-bg) !important;
+    background: var(--table-row-hover-bg) !important;
 }
 table.edit-table > tbody > tr:hover > td {
-    --bs-table-bg: #eef2ff;
-    background-color: #eef2ff !important;
+    --bs-table-bg: var(--table-row-hover-bg);
+    background-color: var(--table-row-hover-bg) !important;
 }
 .edit-table tbody tr.row-selected {
     background-color: #e0e7ff !important;
@@ -205,13 +205,13 @@ table.edit-table > tbody > tr:hover > td {
 }
 .edit-table td {
     padding: 8px 10px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--table-cell-border);
     border-right: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 0;
-    color: #334155;
+    color: var(--table-cell-color);
     transition: background-color 0.1s ease;
 }
 .row-number {

@@ -20,10 +20,10 @@
     gap: 15px;
     margin-bottom: 16px;
     padding: 10px 14px;
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    background: var(--toolbar-bg);
+    border-radius: var(--table-radius);
+    border: 1px solid var(--toolbar-border);
+    box-shadow: var(--toolbar-shadow);
 }
 .toolbar-left {
     display: flex;

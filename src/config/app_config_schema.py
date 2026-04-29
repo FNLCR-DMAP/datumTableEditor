@@ -299,6 +299,10 @@ class AppConfig:
     read_only: bool = False  # Global read-only mode: sets all columns as readonly
     fix_filter: bool = False  # Lock filters to only the default_filters from config
     tracker_mode: bool = False  # Force-flush log every SQL query and render with elapsed time
+    clean_slate: bool = False  # Show only the table — no sidebar, no toolbar, no modals
+    
+    # Theme: modern | classic | eye-protection | dark
+    theme: str = "modern"
     
     # Configurable status labels: internal_key -> display_label
     # Internal keys: unprocessed, edited, approved, rejected
@@ -372,6 +376,8 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.app_title = file_config["app_title"]
     if "app_version" in file_config:
         config.app_version = file_config["app_version"]
+    if "theme" in file_config:
+        config.theme = file_config["theme"]
     
     # Data source
     if "data_source" in file_config:
@@ -481,6 +487,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.read_only = file_config.get("read_only", config.read_only)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
     config.tracker_mode = file_config.get("tracker_mode", config.tracker_mode)
+    config.clean_slate = file_config.get("clean_slate", config.clean_slate)
     
     # Synthesis
     if "synthesis" in file_config:

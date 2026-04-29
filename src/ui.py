@@ -8,8 +8,18 @@ from pathlib import Path
 
 
 def _load_css_files() -> str:
-    """Load all CSS files from src/css directory"""
+    """Load all CSS files from src/css directory including theme variables"""
     css_dir = Path(__file__).parent / "css"
+    
+    # Load theme variables first (defines :root defaults)
+    theme_files = [
+        "themes/variables.css",
+        "themes/modern/theme.css",
+        "themes/classic/theme.css",
+        "themes/eye-protection/theme.css",
+        "themes/dark/theme.css",
+    ]
+    
     css_files = [
         "layout.css",
         "sidebar.css",
@@ -22,7 +32,7 @@ def _load_css_files() -> str:
     ]
     
     combined_css = []
-    for css_file in css_files:
+    for css_file in theme_files + css_files:
         css_path = css_dir / css_file
         if css_path.exists():
             combined_css.append(f"/* === {css_file} === */")
@@ -87,6 +97,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     review_detail_label = app_config.review_detail_label or "Review Detail"
     synthesis_label = app_config.synthesis.label or "Synthesis"
     presets_enabled = app_config.table.presets_enabled
+    theme = app_config.theme or "modern"
+    clean_slate = app_config.clean_slate
     
     # Status labels from config
     status_labels = app_config.status_labels
@@ -104,6 +116,32 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             ui.tags.title(app_title),
             ui.tags.style(_load_css_files()),
             ui.tags.script(_load_js_files()),
+            # Apply theme to document root
+            ui.tags.script(f"""
+                document.documentElement.setAttribute('data-theme', '{theme}');
+                window._currentTheme = '{theme}';
+                window.setTheme = function(name) {{
+                    document.documentElement.setAttribute('data-theme', name);
+                    window._currentTheme = name;
+                    localStorage.setItem('dmap-theme', name);
+                    // Update theme selector if present
+                    var sel = document.getElementById('theme-selector');
+                    if (sel) sel.value = name;
+                }};
+                // Restore user preference from localStorage
+                (function() {{
+                    var saved = localStorage.getItem('dmap-theme');
+                    if (saved) {{
+                        document.documentElement.setAttribute('data-theme', saved);
+                        window._currentTheme = saved;
+                    }}
+                }})();
+                // Sync dropdown on DOM ready
+                document.addEventListener('DOMContentLoaded', function() {{
+                    var sel = document.getElementById('theme-selector');
+                    if (sel) sel.value = window._currentTheme;
+                }});
+            """),
             # Namespace helper script - must be after the main JS files
             ui.tags.script("""
                 // Helper function to set Shiny input with namespace support
@@ -177,6 +215,14 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             
             # Selection mode CSS injection (hides select-all for single-select)
             ui.output_ui("selection_mode_ui"),
+            
+            # Clean slate mode: hide sidebar, toolbar, modals — show only table + pagination
+            ui.tags.style("""
+                .left-panel { display: none !important; }
+                .top-toolbar { display: none !important; }
+                .modal-overlay { display: none !important; }
+                .right-panel { padding: 12px !important; }
+            """) if clean_slate else None,
             
             # Left Panel - Sidebar
             ui.div(
@@ -319,6 +365,17 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.tags.button("Manage Layout", class_="add-col-btn", onclick="openAddColumnModal(event)"),
                         # Modifications Log Button
                         ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal(event)"),
+                        # Theme selector
+                        ui.tags.select(
+                            ui.tags.option("Modern", value="modern"),
+                            ui.tags.option("Classic", value="classic"),
+                            ui.tags.option("Eye Protection", value="eye-protection"),
+                            ui.tags.option("Dark", value="dark"),
+                            id="theme-selector",
+                            onchange="setTheme(this.value)",
+                            style="padding: 4px 8px; font-size: 11px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--input-color); cursor: pointer;",
+                            title="Color Theme"
+                        ),
                         class_="toolbar-right"
                     ),
                     class_="top-toolbar"
