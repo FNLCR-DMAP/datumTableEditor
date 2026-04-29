@@ -4,6 +4,7 @@ Pytest configuration and shared fixtures for dmapTableEditor tests.
 Provides mock database connections, sample data, and common test utilities.
 """
 
+import sys
 import pytest
 import pandas as pd
 import json
@@ -11,6 +12,22 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Dict, Any
+
+
+# =============================================================================
+# Ensure sqlalchemy is importable (mock if not installed)
+# =============================================================================
+
+if "sqlalchemy" not in sys.modules:
+    _mock_sa = MagicMock()
+    _mock_sa.text = MagicMock(side_effect=lambda s: s)
+    _mock_sa.create_engine = MagicMock()
+    _mock_sa.inspect = MagicMock()
+    _mock_engine_mod = MagicMock()
+    _mock_engine_mod.Engine = MagicMock
+    sys.modules.setdefault("sqlalchemy", _mock_sa)
+    sys.modules.setdefault("sqlalchemy.engine", _mock_engine_mod)
+    sys.modules.setdefault("sqlalchemy.pool", MagicMock())
 
 
 # =============================================================================

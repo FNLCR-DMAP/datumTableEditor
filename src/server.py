@@ -439,7 +439,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Helper function to save approval/rejection status to database
     def _save_status_to_db(selected_pks, mod_type: str, row_data_map: dict = None):
-        """Save approval/rejection entries to database with PKs using config instance.
+        """Save approval/rejection entries to database with PKs using batch transaction.
         
         Uses app_config.status_values to determine what value is written to the
         status column.  mod_type is the internal log type ("approval"/"rejection").
@@ -447,69 +447,44 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         When mod_type is "approval" and approval_assignment is configured,
         also copies source column values to target columns for each row.
         
+        All DB operations are batched into a single transaction for performance.
+        
         Args:
             selected_pks: List of PK dicts for the selected rows.
             mod_type: "approval" or "rejection".
             row_data_map: Optional dict mapping PK tuple -> row Series for
                           column value lookups (needed for approval_assignment).
         """
-        # Resolve the value to write from status_values config
         internal_key = "approved" if mod_type == "approval" else "rejected"
         status_value = app_config.status_values.get(internal_key, internal_key)
         assignment = app_config.approval_assignment if mod_type == "approval" else {}
-        # Also write to the actual status_column so _apply_field_modifications
-        # propagates the value into the dataset.
-        status_col = getattr(app_config.database, "status_column", None)
+
+        # Build batch entries
+        entries = []
         for row_pk in selected_pks:
-            try:
-                result = config.save_modification_to_db(
-                    row_pk=row_pk,
-                    column="_status",
-                    old_value=None,
-                    new_value=status_value,
-                    mod_type=mod_type
-                )
-                print(f"DEBUG: Saved {mod_type} ({status_value}) for PK {row_pk}, result: {result}")
-            except Exception as e:
-                print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
-            # Write a field_modification for the real status column so the
-            # value is applied to the dataset by _apply_field_modifications.
-            # Also UPDATE the data table directly to keep it in sync.
-            if status_col:
-                try:
-                    config.update_data_in_db(row_pk, status_col, status_value)
-                    config.save_modification_to_db(
-                        row_pk=row_pk,
-                        column=status_col,
-                        old_value=None,
-                        new_value=status_value,
-                        mod_type="field_modification"
-                    )
-                    print(f"DEBUG: Status column '{status_col}' set to '{status_value}' for PK {row_pk}")
-                except Exception as e:
-                    print(f"Warning: Could not update status column '{status_col}' for PK {row_pk}: {e}")
-            
+            entry = {
+                "row_pk": row_pk,
+                "status_value": status_value,
+                "mod_type": mod_type,
+                "assignments": []
+            }
             # Approval assignment: copy source col → target col
             if assignment and row_data_map:
                 pk_key = tuple(sorted(row_pk.items()))
                 row = row_data_map.get(pk_key)
-                if row is None:
-                    continue
-                for src_col, tgt_col in assignment.items():
-                    try:
+                if row is not None:
+                    for src_col, tgt_col in assignment.items():
                         src_val = row[src_col] if src_col in row.index else None
                         new_val = str(src_val) if src_val is not None else None
-                        config.update_data_in_db(row_pk, tgt_col, new_val)
-                        config.save_modification_to_db(
-                            row_pk=row_pk,
-                            column=tgt_col,
-                            old_value=None,
-                            new_value=new_val,
-                            mod_type="field_modification"
-                        )
-                        print(f"DEBUG: Assignment {src_col} → {tgt_col} = {src_val} for PK {row_pk}")
-                    except Exception as e:
-                        print(f"Warning: Assignment {src_col} → {tgt_col} failed for PK {row_pk}: {e}")
+                        entry["assignments"].append((tgt_col, new_val))
+            entries.append(entry)
+
+        # Execute all in one transaction
+        try:
+            config.batch_save_status(entries)
+            print(f"DEBUG: Batch {mod_type} saved {len(entries)} rows")
+        except Exception as e:
+            print(f"Warning: Batch {mod_type} save failed: {e}")
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):

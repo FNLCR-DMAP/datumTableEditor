@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 488,
+    "total_functions": 491,
     "total_unused": 38,
-    "unused_percentage": 7.8
+    "unused_percentage": 7.7
   },
   "modules": {
     "clipboard_utils.py": {
@@ -634,7 +634,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 113,
+      "total_functions": 116,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -645,6 +645,8 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_batch_save_status_datum",
+        "_batch_save_status_sqlalchemy",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -710,6 +712,7 @@
         "_update_data_in_datum",
         "_update_status_in_db",
         "activate_synthesis_fetcher",
+        "batch_save_status",
         "check_synthesis_table_exists",
         "cleanup_corrupted_modifications",
         "clear_table_override",
@@ -758,6 +761,8 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_batch_save_status_datum",
+        "_batch_save_status_sqlalchemy",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -816,6 +821,7 @@
         "_stamp_synthesis_comment",
         "_update_data_in_datum",
         "activate_synthesis_fetcher",
+        "batch_save_status",
         "check_synthesis_table_exists",
         "cleanup_corrupted_modifications",
         "clear_table_override",

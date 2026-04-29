@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 488,
+    "total_functions": 491,
     "fully_annotated_functions": 318,
-    "function_coverage_percent": 65.2,
-    "total_parameters": 655,
-    "annotated_parameters": 587,
-    "parameter_coverage_percent": 89.6,
+    "function_coverage_percent": 64.8,
+    "total_parameters": 658,
+    "annotated_parameters": 590,
+    "parameter_coverage_percent": 89.7,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -297,7 +297,7 @@
         {
           "type": "return",
           "function": "__init__",
-          "line": 96
+          "line": 98
         }
       ]
     },
@@ -316,12 +316,12 @@
           "type": "parameter",
           "function": "__init__",
           "name": "connection_string_or_engine",
-          "line": 58
+          "line": 60
         },
         {
           "type": "return",
           "function": "__init__",
-          "line": 58
+          "line": 60
         }
       ]
     },
@@ -381,47 +381,47 @@
           "type": "parameter",
           "function": "create_user_preset_table",
           "name": "engine",
-          "line": 339
+          "line": 341
         },
         {
           "type": "parameter",
           "function": "save_user_preset",
           "name": "engine",
-          "line": 345
+          "line": 347
         },
         {
           "type": "parameter",
           "function": "load_user_presets",
           "name": "engine",
-          "line": 352
+          "line": 354
         },
         {
           "type": "parameter",
           "function": "get_default_preset",
           "name": "engine",
-          "line": 358
+          "line": 360
         },
         {
           "type": "parameter",
           "function": "delete_user_preset",
           "name": "engine",
-          "line": 364
+          "line": 366
         },
         {
           "type": "parameter",
           "function": "list_user_preset_tables",
           "name": "engine",
-          "line": 370
+          "line": 372
         },
         {
           "type": "return",
           "function": "main",
-          "line": 387
+          "line": 389
         },
         {
           "type": "return",
           "function": "__init__",
-          "line": 50
+          "line": 52
         }
       ]
     },
@@ -506,13 +506,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 113,
+        "total": 116,
         "with_return_type": 83,
         "fully_annotated": 79
       },
       "parameters": {
-        "total": 119,
-        "annotated": 97
+        "total": 122,
+        "annotated": 100
       },
       "missing_annotations": [
         {
@@ -570,7 +570,7 @@
           "line": 336
         }
       ],
-      "missing_annotations_truncated": 42
+      "missing_annotations_truncated": 45
     },
     "src/config/sql_types.py": {
       "functions": {

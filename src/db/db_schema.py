@@ -7,6 +7,8 @@ Auto-detects schema from PostgreSQL:
 - Creates mods_table and state_table if not exist
 """
 
+from __future__ import annotations
+
 import json
 import os
 from dataclasses import dataclass, field
