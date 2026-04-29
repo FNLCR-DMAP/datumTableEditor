@@ -98,8 +98,13 @@ def check_js_syntax(content: str, filepath: str) -> list[dict[str, Any]]:
                         "message": f"Possible missing semicolon"
                     })
         
-        # Count brackets for balance check (simplified)
-        for char in line:
+        # Count brackets for balance check — strip strings/regex/comments first
+        cleaned = re.sub(r'//[^\n]*', '', line)              # single-line comments
+        cleaned = re.sub(r'"(?:[^"\\]|\\.)*"', '', cleaned)  # double-quoted strings
+        cleaned = re.sub(r"'(?:[^'\\]|\\.)*'", '', cleaned)  # single-quoted strings
+        cleaned = re.sub(r'`(?:[^`\\]|\\.)*`', '', cleaned)  # template literals
+        cleaned = re.sub(r'(?<=[=(:,;!&|?~^])\s*/(?:[^/\\]|\\.)+/', '', cleaned)  # regex literals
+        for char in cleaned:
             if char == '{':
                 brace_count += 1
             elif char == '}':

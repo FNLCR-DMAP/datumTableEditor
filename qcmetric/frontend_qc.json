@@ -958,12 +958,6 @@
       "message": "Using 'var' (consider using 'let' or 'const')"
     },
     {
-      "file": "modal.js",
-      "line": 0,
-      "type": "error",
-      "message": "Unbalanced parentheses: +1"
-    },
-    {
       "file": "panel-toggle.js",
       "line": 5,
       "type": "info",
@@ -1346,54 +1340,48 @@
       "line": 311,
       "type": "info",
       "message": "Using 'var' (consider using 'let' or 'const')"
-    },
-    {
-      "file": "table-drag.js",
-      "line": 0,
-      "type": "error",
-      "message": "Unbalanced parentheses: +1"
     }
   ],
   "css_issues": [
     {
+      "file": "layout.css",
+      "line": 7,
+      "type": "info",
+      "message": "Vendor prefix found (ensure standard property is also present)"
+    },
+    {
+      "file": "layout.css",
+      "line": 8,
+      "type": "info",
+      "message": "Vendor prefix found (ensure standard property is also present)"
+    },
+    {
       "file": "modal.css",
-      "line": 74,
+      "line": 12,
+      "type": "info",
+      "message": "Vendor prefix found (ensure standard property is also present)"
+    },
+    {
+      "file": "modal.css",
+      "line": 79,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "modal.css",
-      "line": 77,
+      "line": 82,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "sidebar.css",
-      "line": 139,
-      "type": "warning",
-      "message": "!important usage (consider specificity instead)"
-    },
-    {
-      "file": "sidebar.css",
-      "line": 159,
-      "type": "warning",
-      "message": "!important usage (consider specificity instead)"
-    },
-    {
-      "file": "table.css",
       "line": 152,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
-      "file": "table.css",
-      "line": 153,
-      "type": "warning",
-      "message": "!important usage (consider specificity instead)"
-    },
-    {
-      "file": "table.css",
-      "line": 157,
+      "file": "sidebar.css",
+      "line": 172,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
@@ -1417,67 +1405,85 @@
     },
     {
       "file": "table.css",
+      "line": 176,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 177,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
       "line": 181,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 182,
+      "line": 193,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 186,
+      "line": 194,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 189,
+      "line": 198,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 192,
+      "line": 201,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 255,
+      "line": 204,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 265,
+      "line": 273,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 279,
+      "line": 283,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 284,
+      "line": 297,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 288,
+      "line": 302,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 293,
+      "line": 306,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 311,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     }
@@ -1811,7 +1817,7 @@
   "_summary": {
     "js_file_count": 9,
     "css_file_count": 8,
-    "js_errors": 2,
+    "js_errors": 0,
     "js_warnings": 1,
     "css_errors": 0,
     "css_warnings": 21,
