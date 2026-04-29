@@ -246,6 +246,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             class_="filter-header"
                         ),
                         ui.output_ui("dynamic_filters"),
+                        ui.output_ui("apply_filters_ui"),
                         class_="column-filter-section"
                     ),
                     

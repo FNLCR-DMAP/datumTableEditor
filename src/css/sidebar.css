@@ -266,3 +266,42 @@
     color: #4f46e5;
     text-decoration: underline;
 }
+
+/* ---- Apply / Reset Filters Bar ---- */
+.apply-filters-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 0 4px;
+    margin-top: 8px;
+    border-top: 1px solid #e2e8f0;
+}
+.apply-filters-btn {
+    flex: 1;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.apply-filters-btn:hover {
+    background: #4f46e5;
+}
+.reset-filters-btn {
+    background: #fff;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.reset-filters-btn:hover {
+    background: #f1f5f9;
+    color: #334155;
+}

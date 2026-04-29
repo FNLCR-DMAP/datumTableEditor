@@ -351,6 +351,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Dynamic column filters - stores active filters as {column_name: "value1\nvalue2\n..."}
     active_filters = reactive.Value(initial_filters)
+    # Pending filters — edited in the sidebar without triggering table reload.
+    # Copied to active_filters when the user clicks "Apply Filters".
+    pending_filters = reactive.Value(initial_filters.copy())
     
     # Search state - updated only when search button is clicked
     search_state = reactive.Value({"term": "", "column": "all"})
@@ -1045,8 +1048,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not _facet_columns:
             return ui.div()
 
-        # Depend on active_filters so the UI refreshes when selections change
-        filters = active_filters.get()
+        # Depend on pending_filters so the UI refreshes when selections change
+        filters = pending_filters.get()
 
         with tracker.track_render("facet_panels_ui"):
             # Build value counts map — lazy loading uses DB, traditional uses in‑memory
@@ -1082,7 +1085,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.facet_filter_change)
     def _handle_facet_filter():
-        """Apply facet checkbox selection to active_filters."""
+        """Apply facet checkbox selection to pending_filters."""
         val = input.facet_filter_change()
         if not val:
             return
@@ -1090,18 +1093,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         fv = val.get("value")  # newline‑delimited string or None
         if not col:
             return
-        filters = active_filters.get().copy()
+        filters = pending_filters.get().copy()
         if fv is None:
             filters.pop(col, None)
         else:
             filters[col] = fv
-        active_filters.set(filters)
-        current_page.set(1)
+        pending_filters.set(filters)
 
     # Output: Dynamic filters UI
     @render.ui
     def dynamic_filters():
-        """Render active dynamic filters"""
+        """Render active dynamic filters from pending state"""
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
         _date_cols = set()
         if is_lazy_loading() and hasattr(config, 'data_fetcher'):
@@ -1116,14 +1118,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # In lazy mode, data.get() may be empty; pass all known columns
             # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
-                active_filters.get(), data.get(),
+                pending_filters.get(), data.get(),
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
                 get_unique_values_func=config.data_fetcher.get_unique_values,
                 column_masks=column_masks,
                 date_columns=_date_cols
             )
-        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
+        return build_dynamic_filters_panel(pending_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui
@@ -1142,7 +1144,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def available_filter_columns():
         """Render list of columns that can be added as filters"""
-        filters = active_filters.get()
+        filters = pending_filters.get()
         # In lazy mode, data.get() may have no columns; use config.all_columns
         if is_lazy_loading():
             all_cols = config.all_columns
@@ -1160,8 +1162,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             return
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:
-            active_filters.set(add_filter(active_filters.get(), col_name))
-            current_page.set(1)
+            pending_filters.set(add_filter(pending_filters.get(), col_name))
     
     # Handle removing a filter
     @reactive.Effect
@@ -1171,8 +1172,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             return  # Filters are locked by config
         col_name = parse_filter_column(input.remove_filter_column())
         if col_name:
-            active_filters.set(remove_filter(active_filters.get(), col_name))
-            current_page.set(1)
+            pending_filters.set(remove_filter(pending_filters.get(), col_name))
     
     # Handle changing a filter's operator
     @reactive.Effect
@@ -1187,7 +1187,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         op = val.get("op", "in")
         if not col_name:
             return
-        filters = active_filters.get().copy()
+        filters = pending_filters.get().copy()
         old = filters.get(col_name)
         
         # Read live textarea value first — the user may have edited values
@@ -1221,8 +1221,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Store as interactive operator dict
             filters[col_name] = {"op": op, "value": existing_values, "interactive": True}
         
-        active_filters.set(filters)
-        current_page.set(1)
+        pending_filters.set(filters)
     
     # Apply filter value on blur (user clicked away from textarea)
     @reactive.Effect
@@ -1238,7 +1237,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not col_name:
             return
         
-        filters = active_filters.get().copy()
+        filters = pending_filters.get().copy()
         old = filters.get(col_name)
         
         # Determine if this is a between-type operator filter
@@ -1264,16 +1263,41 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 old_values = [old_values] if old_values is not None else []
             if values != old_values:
                 filters[col_name] = {"op": op, "value": values, "interactive": True}
-                active_filters.set(filters)
-                current_page.set(1)
+                pending_filters.set(filters)
         else:
             # Simple string filter
             new_val = "\n".join(values) if values else "all"
             if new_val != old:
                 filters[col_name] = new_val
-                active_filters.set(filters)
-                current_page.set(1)
+                pending_filters.set(filters)
     
+    # ---- Apply / Reset Filters (unified action) ----
+    @render.ui
+    def apply_filters_ui():
+        """Show Apply/Reset buttons only when pending filters differ from active."""
+        pending = pending_filters.get()
+        active = active_filters.get()
+        if pending == active:
+            return ui.div()
+        return ui.div(
+            ui.input_action_button("apply_filters_btn", "Apply Filters", class_="apply-filters-btn"),
+            ui.input_action_button("reset_filters_btn", "Reset", class_="reset-filters-btn"),
+            class_="apply-filters-bar"
+        )
+
+    @reactive.Effect
+    @reactive.event(input.apply_filters_btn)
+    def _apply_filters():
+        """Copy pending filters to active filters and reload the table."""
+        active_filters.set(pending_filters.get().copy())
+        current_page.set(1)
+
+    @reactive.Effect
+    @reactive.event(input.reset_filters_btn)
+    def _reset_pending_filters():
+        """Revert pending filters back to current active filters."""
+        pending_filters.set(active_filters.get().copy())
+
     # Output: Pagination controls
     @render.ui
     def pagination_controls():
