@@ -1493,33 +1493,33 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             column_preset=active_preset.get()
         )
 
+    # Cached page data — only re-fetches when data actually changes
+    # (reload trigger, page, filters, sort), NOT on column layout changes.
+    @reactive.Calc
+    def _cached_page_data():
+        """Fetch and cache current page data. Reacts to data-changing triggers only."""
+        _ = _table_reload_trigger.get()
+        if is_lazy_loading():
+            current_df, filt_count, tot_count = _fetch_page_data()
+            paginated_indices = list(current_df.index)
+            return current_df, paginated_indices, filt_count, tot_count
+        else:
+            current_df = data.get()
+            filtered_indices = _get_filtered_rows()
+            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+            return current_df, paginated_indices, len(filtered_indices), len(current_df)
+
     # Output: Data table
     @render.ui
     def table_container():
         """Render the editable data table with pagination"""
-        _ = _table_reload_trigger.get()  # force re-render after synthesis/approve/reject/edit
+        # Depend on layout trigger for column reorder/add/remove/preset
+        _ = _columns_layout_trigger.get()
         
         with tracker.track_render("table_container"):
-            if is_lazy_loading():
-                # Lazy loading mode: fetch data from database
-                current_df, filt_count, tot_count = _fetch_page_data()
-                # In lazy mode, all returned rows are the "paginated" data
-                paginated_indices = list(current_df.index)
-                filtered_count = filt_count
-                total_count = tot_count
-            else:
-                # Traditional mode: slice in-memory data
-                current_df = data.get()
-                filtered_indices = _get_filtered_rows()
-                paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
-                filtered_count = len(filtered_indices)
-                total_count = len(current_df)
+            # Use cached page data (no re-fetch on layout-only changes)
+            current_df, paginated_indices, filtered_count, total_count = _cached_page_data()
             
-            # Depend on layout trigger for add/remove/preset changes.
-            # Column reorder from header drag skips the trigger (JS already
-            # rearranged the DOM), but the latest order is still read here
-            # via isolate so the next render (pagination, filter, etc.) is correct.
-            _ = _columns_layout_trigger.get()
             with reactive.isolate():
                 _cols = active_columns.get()
                 _widths = column_widths.get()

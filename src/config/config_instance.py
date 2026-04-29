@@ -335,6 +335,7 @@ class DataFetcher:
 
     def _fetch_metadata(self):
         """Fetch table row count, column names, and column types."""
+        import time as _tm
         try:
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
@@ -344,6 +345,7 @@ class DataFetcher:
             
             if self.app_config.database.mode == "datum" and self._datum_client:
                 # Datum mode
+                _t0 = _tm.time()
                 with tracker.track_sql("fetch_metadata.count", count_query):
                     response = self._datum_client.execute_sql(
                         sql=count_query,
@@ -352,8 +354,10 @@ class DataFetcher:
                         service_name=self.app_config.database.datum_service_name,
                     )
                 self._total_count = int(response.data[0]["cnt"]) if response.data else 0
+                print(f"[Timing] fetch_metadata.count: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Get columns
+                _t0 = _tm.time()
                 with tracker.track_sql("fetch_metadata.columns", columns_query):
                     response = self._datum_client.execute_sql(
                         sql=columns_query,
@@ -367,12 +371,16 @@ class DataFetcher:
                 # Fallback: try information_schema
                 if not self._columns:
                     self._columns = self._get_columns_from_schema_datum()
+                print(f"[Timing] fetch_metadata.columns: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Fetch column types from information_schema
+                _t0 = _tm.time()
                 self._column_types = self._get_column_types_from_schema()
+                print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             else:
                 # Direct SQLAlchemy mode
                 from sqlalchemy import text
+                _t0 = _tm.time()
                 with self._engine.connect() as conn:
                     with tracker.track_sql("fetch_metadata.count", count_query):
                         result = conn.execute(text(count_query))
@@ -383,9 +391,12 @@ class DataFetcher:
                     with tracker.track_sql("fetch_metadata.columns", columns_query):
                         result = conn.execute(text(columns_query))
                         self._columns = list(result.keys())
+                print(f"[Timing] fetch_metadata.sql: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Fetch column types from information_schema
+                _t0 = _tm.time()
                 self._column_types = self._get_column_types_from_schema()
+                print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             
             text_cols = [c for c, t in self._column_types.items() if t in self._TEXT_TYPES]
             print(f"DataFetcher: Table has {self._total_count} rows, {len(self._columns)} columns ({len(text_cols)} text)")
