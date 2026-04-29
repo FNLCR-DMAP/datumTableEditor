@@ -860,10 +860,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 active_columns.set(list(new_order))
                 _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
                 return
-        # Header drag — JS already rearranged the DOM, skip re-render
+        # Header drag — update state and re-render body to match new order
         new_order = parse_column_order(val)
         if new_order:
             active_columns.set(list(new_order))
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle adding a column
     @reactive.Effect
