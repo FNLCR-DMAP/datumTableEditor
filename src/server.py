@@ -298,6 +298,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Column widths storage
     column_widths = reactive.Value(dict(initial_widths))
     
+    # Trigger for column layout changes that need a table re-render.
+    # Header drag-reorder and resize update state silently (JS already shows it);
+    # add/remove/preset/synthesis bump this to force a server-side re-render.
+    _columns_layout_trigger = reactive.Value(0)
+    
     # Pagination state - always start on page 1; restore rows-per-page preference
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
     current_page = reactive.Value(1)
@@ -662,24 +667,33 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             status_filters=status_filters
         )
     
+    @reactive.Calc
+    def _lazy_filtered_count():
+        """Cached filtered count for lazy-loading mode.
+        Reacts to the same inputs as _build_query_params so it invalidates
+        when filters/search/sort change, but is computed only once per cycle."""
+        if not is_lazy_loading():
+            return 0
+        params = _build_query_params()
+        return config.data_fetcher.get_filtered_count(params)
+    
     def _fetch_page_data() -> tuple:
         """
         Fetch current page data. Returns (df, filtered_count, total_count).
         
         In lazy loading mode: queries database
         In traditional mode: slices in-memory data
+        
+        NOTE: This is a pure function with no side effects (no .set() calls).
+        The caller is responsible for using the returned counts as needed.
         """
         if is_lazy_loading():
             # Build query params and fetch from DB
             params = _build_query_params()
             fetched_df = config.data_fetcher.fetch_page(params)
             
-            # Update filtered count
-            new_filtered_count = config.data_fetcher.get_filtered_count(params)
-            filtered_row_count.set(new_filtered_count)
-            
-            # Update the data reactive value with fetched data
-            data.set(fetched_df)
+            # Use cached filtered count
+            new_filtered_count = _lazy_filtered_count()
             
             return fetched_df, new_filtered_count, total_rows.get()
         else:
@@ -813,6 +827,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if isinstance(preset_data, dict):
                 active_columns.set(list(preset_data.get("columns", display_columns)))
                 column_widths.set(dict(preset_data.get("widths", {})))
+                _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Output: Preset menu items
     @render.ui
@@ -839,10 +854,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _update_column_order():
         val = input.column_order()
         if isinstance(val, dict):
+            # Modal drag — user expects to see result, bump trigger
             new_order = val.get('order')
             if new_order is not None:
                 active_columns.set(list(new_order))
+                _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
                 return
+        # Header drag — JS already rearranged the DOM, skip re-render
         new_order = parse_column_order(val)
         if new_order:
             active_columns.set(list(new_order))
@@ -854,6 +872,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col = parse_column_value(input.add_column())
         if col:
             active_columns.set(add_column_to_list(active_columns.get(), col))
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle removing a column
     @reactive.Effect
@@ -862,18 +881,21 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col = parse_column_value(input.remove_column())
         if col:
             active_columns.set(remove_column_from_list(active_columns.get(), col))
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle removing all columns
     @reactive.Effect
     @reactive.event(input.clear_all_columns)
     def _clear_all_columns():
         active_columns.set([])
+        _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle adding all remaining columns
     @reactive.Effect
     @reactive.event(input.add_all_columns)
     def _add_all_columns():
         active_columns.set(list(all_columns))
+        _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle sorting a column
     @reactive.Effect
@@ -884,7 +906,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             col = val.get('col')
             direction = val.get('direction', 'asc')
             ascending = (direction == 'asc')
-            data.set(sort_dataframe(data.get(), col, direction))
+            # In lazy mode the DB handles sorting — skip in-memory sort
+            if not is_lazy_loading():
+                data.set(sort_dataframe(data.get(), col, direction))
             current_sort.set({"column": col, "ascending": ascending})
             # Reset to first page when sorting
             current_page.set(1)
@@ -905,6 +929,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         column_widths.set({})
         active_preset.set("Default")
         _save_active_preset("Default")
+        _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle column widths from JS
     @reactive.Effect
@@ -925,6 +950,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             column_widths.set(widths)
             active_preset.set(preset_name)
             _save_active_preset(preset_name)
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
             # Also save preset to UI state
             sort_state = current_sort.get()
             save_ui_state(
@@ -984,6 +1010,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     )
                     active_columns.set(cols)
                     column_widths.set(widths)
+                    _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
                 ui.notification_show(f"Preset '{name}' deleted!", type="message", duration=2)
     
     # Output: Copy column list for copy modal
@@ -1279,8 +1306,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         """Render pagination controls with rows per page selector"""
         with tracker.track_render("pagination_controls"):
             if is_lazy_loading():
-                # In lazy loading mode, use the filtered count from the fetcher
-                total_filtered = filtered_row_count.get()
+                # In lazy loading mode, use cached filtered count
+                total_filtered = _lazy_filtered_count()
             else:
                 # Traditional mode: count filtered indices
                 filtered_indices = _get_filtered_rows()
@@ -1301,11 +1328,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _sync_rows_per_page():
         try:
             val = input.rows_per_page()
-            if val and val != rows_per_page_value.get():
-                rows_per_page_value.set(val)
-                # Skip page reset on first sync (initial load)
-                if _first_rows_per_page_sync["done"]:
-                    current_page.set(1)  # Reset to first page when changing rows per page
+            with reactive.isolate():
+                if val and val != rows_per_page_value.get():
+                    rows_per_page_value.set(val)
+                    # Skip page reset on first sync (initial load)
+                    if _first_rows_per_page_sync["done"]:
+                        current_page.set(1)  # Reset to first page when changing rows per page
             # Mark first sync as done
             if not _first_rows_per_page_sync["done"]:
                 _first_rows_per_page_sync["done"] = True
@@ -1349,7 +1377,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _next_page():
         # Get filtered count based on mode
         if is_lazy_loading():
-            total_filtered = filtered_row_count.get()
+            total_filtered = _lazy_filtered_count()
         else:
             filtered_indices = _get_filtered_rows()
             total_filtered = len(filtered_indices)
@@ -1377,7 +1405,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _last_page():
         # Get filtered count based on mode
         if is_lazy_loading():
-            total_filtered = filtered_row_count.get()
+            total_filtered = _lazy_filtered_count()
         else:
             filtered_indices = _get_filtered_rows()
             total_filtered = len(filtered_indices)
@@ -1402,7 +1430,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _page_jump():
         # Get filtered count based on mode
         if is_lazy_loading():
-            total_filtered = filtered_row_count.get()
+            total_filtered = _lazy_filtered_count()
         else:
             filtered_indices = _get_filtered_rows()
             total_filtered = len(filtered_indices)
@@ -1468,9 +1496,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def table_container():
         """Render the editable data table with pagination"""
-        _ = mods_log.get()
-        _ = approval_status.get()
-        _ = _table_reload_trigger.get()  # force re-render after synthesis completes
+        _ = _table_reload_trigger.get()  # force re-render after synthesis/approve/reject/edit
         
         with tracker.track_render("table_container"):
             if is_lazy_loading():
@@ -1488,15 +1514,24 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 filtered_count = len(filtered_indices)
                 total_count = len(current_df)
             
+            # Depend on layout trigger for add/remove/preset changes.
+            # Column reorder from header drag skips the trigger (JS already
+            # rearranged the DOM), but the latest order is still read here
+            # via isolate so the next render (pagination, filter, etc.) is correct.
+            _ = _columns_layout_trigger.get()
+            with reactive.isolate():
+                _cols = active_columns.get()
+                _widths = column_widths.get()
+                _edited = edited_cells.get()
             result = build_table_container(
                 paginated_indices=paginated_indices,
                 current_df=current_df,
-                cols=active_columns.get(),
-                widths=column_widths.get(),
+                cols=_cols,
+                widths=_widths,
                 filtered_count=filtered_count,
                 total_rows=total_count,
                 get_row_status_func=_get_row_status,
-                edited_cells=edited_cells.get(),
+                edited_cells=_edited,
                 pk_columns=app_config.table.primary_key,
                 editable_columns=[] if is_viewer else app_config.table.editable_columns,
                 readonly_columns=list(all_columns) if is_viewer else app_config.table.readonly_columns,
@@ -1593,6 +1628,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Auto-save log and data state to file
             save_log_to_file(updated_log, modifications_log_path)
             updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)
     
@@ -1897,6 +1933,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         data.set(updated_df)
         
         mods_log.set(log)
+        _table_reload_trigger.set(_table_reload_trigger.get() + 1)
         ui.notification_show(f"{len(selected_pks)} row(s) APPROVED!", type="message", duration=2)
     
     # Event: Reject rows
@@ -1940,6 +1977,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         data.set(updated_df)
         
         mods_log.set(log)
+        _table_reload_trigger.set(_table_reload_trigger.get() + 1)
         ui.notification_show(f"{len(selected_pks)} row(s) REJECTED!", type="message", duration=2)
     
     # Event: Clear approval
