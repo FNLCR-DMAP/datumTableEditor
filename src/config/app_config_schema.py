@@ -297,6 +297,7 @@ class AppConfig:
     review_detail_label: str = "Review Detail"  # Label text for the Review Detail button
     review_detail_multi_select: bool = False  # Allow multiple rows in review_detail event
     read_only: bool = False  # Global read-only mode: sets all columns as readonly
+    enable_row_select: bool = True  # Show row selection checkboxes
     fix_filter: bool = False  # Lock filters to only the default_filters from config
     tracker_mode: bool = False  # Force-flush log every SQL query and render with elapsed time
     clean_slate: bool = False  # Show only the table — no sidebar, no toolbar, no modals
@@ -485,6 +486,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     config.review_detail_label = file_config.get("review_detail_label", config.review_detail_label)
     config.review_detail_multi_select = file_config.get("review_detail_multi_select", config.review_detail_multi_select)
     config.read_only = file_config.get("read_only", config.read_only)
+    config.enable_row_select = file_config.get("enable_row_select", config.enable_row_select)
     config.fix_filter = file_config.get("fix_filter", config.fix_filter)
     config.tracker_mode = file_config.get("tracker_mode", config.tracker_mode)
     config.clean_slate = file_config.get("clean_slate", config.clean_slate)

@@ -198,6 +198,8 @@
   "_approval_assignment_comment": "Column-to-column copy on approval. For each {source: target} pair, the source column value is written to the target column when a row is approved. Example: {\"Draft_Value\": \"Final_Value\", \"Notes\": \"Approved_Notes\"}.",
   "read_only": false,
   "_read_only_comment": "When true, all columns are set as read-only and editing controls are hidden for all users regardless of role.",
+  "enable_row_select": true,
+  "_enable_row_select_comment": "When false, hides row selection checkboxes. Disables approve/reject/export-selected since they require selection.",
   "theme": "modern",
   "_theme_comment": "Color scheme: modern | classic | eye-protection | dark. Users can also switch at runtime via the toolbar selector.",
   "clean_slate": false,
