@@ -1399,6 +1399,36 @@
     },
     {
       "file": "table.css",
+      "line": 37,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 41,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 42,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 50,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 51,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
       "line": 173,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
@@ -1836,7 +1866,7 @@
     "js_errors": 0,
     "js_warnings": 1,
     "css_errors": 0,
-    "css_warnings": 21,
+    "css_warnings": 26,
     "total_js_functions": 82
   }
 }

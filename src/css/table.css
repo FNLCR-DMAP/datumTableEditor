@@ -34,12 +34,16 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    background-color: var(--table-header-bg) !important;
+    background: var(--table-header-bg, #1e293b) !important;
+    --bs-table-bg: var(--table-header-bg, #1e293b);
+    --bs-table-accent-bg: var(--table-header-bg, #1e293b);
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 1px 0 var(--table-header-border);
 }
 .edit-table th {
-    background-color: var(--table-header-bg) !important;
-    color: var(--table-header-color) !important;
+    background: var(--table-header-bg, #1e293b) !important;
+    --bs-table-bg: var(--table-header-bg, #1e293b);
+    --bs-table-accent-bg: var(--table-header-bg, #1e293b);
+    color: var(--table-header-color, #f1f5f9) !important;
     padding: 11px 10px;
     text-align: left;
     font-weight: 600;
