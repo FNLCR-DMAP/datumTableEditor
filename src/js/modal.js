@@ -595,6 +595,46 @@ window.initFilterReadonly = function(containerId) {
     // No-op: filters are now directly editable; blur triggers apply_filter_value
 };
 
+// Auto-attach change handlers to filter date inputs via MutationObserver
+(function() {
+    function attachDateChange(input) {
+        if (input._dateChangeAttached) return;
+        input._dateChangeAttached = true;
+        input.addEventListener('change', function() {
+            var columnName = this.getAttribute('data-column');
+            if (!columnName) return;
+            applyDateFilter(columnName, {currentTarget: this});
+        });
+    }
+
+    function scanForDateInputs(root) {
+        var inputs = root.querySelectorAll ? root.querySelectorAll('.filter-group .filter-date-input') : [];
+        inputs.forEach(attachDateChange);
+    }
+
+    var dateObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+                if (node.nodeType !== 1) return;
+                scanForDateInputs(node);
+                if (node.matches && node.matches('.filter-group .filter-date-input')) {
+                    attachDateChange(node);
+                }
+            });
+        });
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            dateObserver.observe(document.body, {childList: true, subtree: true});
+            scanForDateInputs(document);
+        });
+    } else {
+        dateObserver.observe(document.body, {childList: true, subtree: true});
+        scanForDateInputs(document);
+    }
+})();
+
 // Auto-submit filter textarea value on blur (user clicked away)
 (function() {
     function attachFilterBlur(textarea) {

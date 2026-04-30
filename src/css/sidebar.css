@@ -10,6 +10,10 @@
     color: var(--sidebar-heading);
     margin: 0;
     letter-spacing: -0.01em;
+    padding-right: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .table-subtitle {
     font-size: var(--font-size-sm);

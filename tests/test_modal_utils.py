@@ -604,7 +604,6 @@ class TestFixFilterLocking:
         html = str(result)
 
         assert "disabled" in html
-        assert "applyDateFilter" not in html
 
     def test_date_filter_enabled_when_unlocked(self):
         """Date filter inputs should NOT be disabled when fix_filter=False."""
@@ -616,7 +615,7 @@ class TestFixFilterLocking:
         )
         html = str(result)
 
-        assert "applyDateFilter" in html
+        assert 'data-column="DateCol"' in html
 
 
 # =====================================================================
@@ -696,7 +695,7 @@ class TestDatePickerUI:
         assert 'type="date"' in html
         assert "From" in html
         assert "To" in html
-        assert "applyDateFilter" in html
+        assert 'data-column="DateCol"' in html
 
     def test_between_pre_fills_dates(self):
         """Existing between values should pre-fill from/to inputs."""
@@ -721,7 +720,7 @@ class TestDatePickerUI:
         html = str(result)
 
         assert 'type="date"' in html
-        assert "applyDateFilter" in html
+        assert 'data-column="DateCol"' in html
         # Should NOT have From/To labels
         assert "From" not in html
 

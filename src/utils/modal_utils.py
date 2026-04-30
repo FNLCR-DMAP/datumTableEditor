@@ -314,9 +314,6 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     ),
                     style="display: flex; align-items: center;"
                 ),
-                *([ui.tags.script(
-                    f"(function(){{var g=document.currentScript.closest('.filter-group');if(g){{g.querySelectorAll('.filter-date-input').forEach(function(i){{i.addEventListener('change',function(){{applyDateFilter('{safe_col_name}',{{currentTarget:i}})}})}})}}}})();"
-                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         elif current_op == "last_n_days":
@@ -341,9 +338,6 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     ui.tags.span(" days", style="font-size: 12px; color: #6c757d; margin-left: 4px;"),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
                 ),
-                *([ui.tags.script(
-                    f"(function(){{var g=document.currentScript.closest('.filter-group');if(g){{g.querySelectorAll('.filter-date-input').forEach(function(i){{i.addEventListener('change',function(){{applyDateFilter('{safe_col_name}',{{currentTarget:i}})}})}})}}}})();"
-                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         elif current_op in ("gt", "gte", "lt", "lte"):
@@ -356,9 +350,6 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     style="font-size: 12px;",
                     **{"data-column": col_name, "data-role": "single", **_date_disabled}
                 ),
-                *([ui.tags.script(
-                    f"(function(){{var g=document.currentScript.closest('.filter-group');if(g){{g.querySelectorAll('.filter-date-input').forEach(function(i){{i.addEventListener('change',function(){{applyDateFilter('{safe_col_name}',{{currentTarget:i}})}})}})}}}})();"
-                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         else:
