@@ -8,6 +8,8 @@ High-level database operations that integrate:
 - State persistence
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from contextlib import contextmanager

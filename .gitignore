@@ -10,3 +10,4 @@ tools/
 *.egg-info
 .coverage
 commit_and_deploy.sh
+demos/

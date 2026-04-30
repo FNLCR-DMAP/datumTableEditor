@@ -2,84 +2,26 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 95,
-    "fully_annotated_functions": 81,
-    "function_coverage_percent": 85.3,
-    "total_parameters": 289,
-    "annotated_parameters": 277,
-    "parameter_coverage_percent": 95.8,
+    "total_functions": 494,
+    "fully_annotated_functions": 318,
+    "function_coverage_percent": 64.4,
+    "total_parameters": 663,
+    "annotated_parameters": 595,
+    "parameter_coverage_percent": 89.7,
     "mypy_errors": 0,
     "mypy_available": true
   },
   "annotation_coverage": {
-    "server.py": {
-      "error": "[Errno 2] No such file or directory: '/Users/her2/Desktop/projects/datumTableEditor/server.py'"
-    },
-    "ui.py": {
-      "error": "[Errno 2] No such file or directory: '/Users/her2/Desktop/projects/datumTableEditor/ui.py'"
-    },
-    "app.py": {
-      "error": "[Errno 2] No such file or directory: '/Users/her2/Desktop/projects/datumTableEditor/app.py'"
-    },
-    "src/utils/pagination_utils.py": {
+    "src/utils/clipboard_utils.py": {
       "functions": {
-        "total": 3,
-        "with_return_type": 3,
-        "fully_annotated": 3
-      },
-      "parameters": {
-        "total": 12,
-        "annotated": 12
-      }
-    },
-    "src/utils/table_utils.py": {
-      "functions": {
-        "total": 10,
-        "with_return_type": 10,
-        "fully_annotated": 9
-      },
-      "parameters": {
-        "total": 72,
-        "annotated": 71
-      },
-      "missing_annotations": [
-        {
-          "type": "parameter",
-          "function": "_format_cell_value",
-          "name": "dtype",
-          "line": 17
-        }
-      ]
-    },
-    "src/utils/filter_handlers.py": {
-      "functions": {
-        "total": 4,
-        "with_return_type": 4,
-        "fully_annotated": 4
-      },
-      "parameters": {
-        "total": 7,
-        "annotated": 7
-      }
-    },
-    "src/utils/filter_utils.py": {
-      "functions": {
-        "total": 3,
-        "with_return_type": 3,
+        "total": 2,
+        "with_return_type": 2,
         "fully_annotated": 2
       },
       "parameters": {
-        "total": 10,
-        "annotated": 9
-      },
-      "missing_annotations": [
-        {
-          "type": "parameter",
-          "function": "_is_operator_filter",
-          "name": "filter_value",
-          "line": 37
-        }
-      ]
+        "total": 8,
+        "annotated": 8
+      }
     },
     "src/utils/column_utils.py": {
       "functions": {
@@ -106,27 +48,30 @@
         }
       ]
     },
-    "src/utils/event_handlers.py": {
+    "src/utils/data_operations.py": {
       "functions": {
-        "total": 4,
-        "with_return_type": 4,
-        "fully_annotated": 4
+        "total": 14,
+        "with_return_type": 14,
+        "fully_annotated": 12
       },
       "parameters": {
-        "total": 16,
-        "annotated": 16
-      }
-    },
-    "src/utils/clipboard_utils.py": {
-      "functions": {
-        "total": 2,
-        "with_return_type": 2,
-        "fully_annotated": 2
+        "total": 44,
+        "annotated": 42
       },
-      "parameters": {
-        "total": 8,
-        "annotated": 8
-      }
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "perform_undo",
+          "name": "config_instance",
+          "line": 66
+        },
+        {
+          "type": "parameter",
+          "function": "perform_cell_edit",
+          "name": "config_instance",
+          "line": 245
+        }
+      ]
     },
     "src/utils/data_utils.py": {
       "functions": {
@@ -174,6 +119,47 @@
         }
       ]
     },
+    "src/utils/event_handlers.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 4
+      },
+      "parameters": {
+        "total": 16,
+        "annotated": 16
+      }
+    },
+    "src/utils/filter_handlers.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 4
+      },
+      "parameters": {
+        "total": 7,
+        "annotated": 7
+      }
+    },
+    "src/utils/filter_utils.py": {
+      "functions": {
+        "total": 3,
+        "with_return_type": 3,
+        "fully_annotated": 2
+      },
+      "parameters": {
+        "total": 10,
+        "annotated": 9
+      },
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "_is_operator_filter",
+          "name": "filter_value",
+          "line": 38
+        }
+      ]
+    },
     "src/utils/modal_utils.py": {
       "functions": {
         "total": 11,
@@ -189,7 +175,48 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 444
+          "line": 426
+        }
+      ]
+    },
+    "src/utils/pagination_utils.py": {
+      "functions": {
+        "total": 3,
+        "with_return_type": 3,
+        "fully_annotated": 3
+      },
+      "parameters": {
+        "total": 12,
+        "annotated": 12
+      }
+    },
+    "src/utils/preset_utils.py": {
+      "functions": {
+        "total": 5,
+        "with_return_type": 5,
+        "fully_annotated": 5
+      },
+      "parameters": {
+        "total": 9,
+        "annotated": 9
+      }
+    },
+    "src/utils/table_utils.py": {
+      "functions": {
+        "total": 10,
+        "with_return_type": 10,
+        "fully_annotated": 9
+      },
+      "parameters": {
+        "total": 82,
+        "annotated": 81
+      },
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "_format_cell_value",
+          "name": "dtype",
+          "line": 17
         }
       ]
     },
@@ -218,42 +245,6 @@
           "type": "return",
           "function": "render_timer",
           "line": 96
-        }
-      ]
-    },
-    "src/utils/preset_utils.py": {
-      "functions": {
-        "total": 5,
-        "with_return_type": 5,
-        "fully_annotated": 5
-      },
-      "parameters": {
-        "total": 9,
-        "annotated": 9
-      }
-    },
-    "src/utils/data_operations.py": {
-      "functions": {
-        "total": 14,
-        "with_return_type": 14,
-        "fully_annotated": 12
-      },
-      "parameters": {
-        "total": 44,
-        "annotated": 42
-      },
-      "missing_annotations": [
-        {
-          "type": "parameter",
-          "function": "perform_undo",
-          "name": "config_instance",
-          "line": 66
-        },
-        {
-          "type": "parameter",
-          "function": "perform_cell_edit",
-          "name": "config_instance",
-          "line": 245
         }
       ]
     },
@@ -291,6 +282,526 @@
           "line": 70
         }
       ]
+    },
+    "src/db/db_operations.py": {
+      "functions": {
+        "total": 17,
+        "with_return_type": 16,
+        "fully_annotated": 16
+      },
+      "parameters": {
+        "total": 35,
+        "annotated": 35
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 98
+        }
+      ]
+    },
+    "src/db/db_schema.py": {
+      "functions": {
+        "total": 15,
+        "with_return_type": 14,
+        "fully_annotated": 14
+      },
+      "parameters": {
+        "total": 17,
+        "annotated": 16
+      },
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "__init__",
+          "name": "connection_string_or_engine",
+          "line": 60
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 60
+        }
+      ]
+    },
+    "src/db/query_builder.py": {
+      "functions": {
+        "total": 17,
+        "with_return_type": 16,
+        "fully_annotated": 16
+      },
+      "parameters": {
+        "total": 21,
+        "annotated": 21
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 107
+        }
+      ]
+    },
+    "src/db/session_book.py": {
+      "functions": {
+        "total": 23,
+        "with_return_type": 21,
+        "fully_annotated": 21
+      },
+      "parameters": {
+        "total": 13,
+        "annotated": 13
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 59
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 279
+        }
+      ]
+    },
+    "src/db/user_presets.py": {
+      "functions": {
+        "total": 21,
+        "with_return_type": 19,
+        "fully_annotated": 13
+      },
+      "parameters": {
+        "total": 41,
+        "annotated": 35
+      },
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "create_user_preset_table",
+          "name": "engine",
+          "line": 341
+        },
+        {
+          "type": "parameter",
+          "function": "save_user_preset",
+          "name": "engine",
+          "line": 347
+        },
+        {
+          "type": "parameter",
+          "function": "load_user_presets",
+          "name": "engine",
+          "line": 354
+        },
+        {
+          "type": "parameter",
+          "function": "get_default_preset",
+          "name": "engine",
+          "line": 360
+        },
+        {
+          "type": "parameter",
+          "function": "delete_user_preset",
+          "name": "engine",
+          "line": 366
+        },
+        {
+          "type": "parameter",
+          "function": "list_user_preset_tables",
+          "name": "engine",
+          "line": 372
+        },
+        {
+          "type": "return",
+          "function": "main",
+          "line": 389
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 52
+        }
+      ]
+    },
+    "src/config/app_config_schema.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 4
+      },
+      "parameters": {
+        "total": 7,
+        "annotated": 7
+      }
+    },
+    "src/config/config.py": {
+      "functions": {
+        "total": 24,
+        "with_return_type": 12,
+        "fully_annotated": 12
+      },
+      "parameters": {
+        "total": 28,
+        "annotated": 21
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "_get_datum_client",
+          "line": 78
+        },
+        {
+          "type": "return",
+          "function": "load_modifications_log",
+          "line": 301
+        },
+        {
+          "type": "return",
+          "function": "_load_modifications_from_datum",
+          "line": 368
+        },
+        {
+          "type": "return",
+          "function": "_load_modifications_from_db",
+          "line": 417
+        },
+        {
+          "type": "parameter",
+          "function": "save_modification_to_db",
+          "name": "old_value",
+          "line": 468
+        },
+        {
+          "type": "parameter",
+          "function": "save_modification_to_db",
+          "name": "new_value",
+          "line": 468
+        },
+        {
+          "type": "return",
+          "function": "save_modification_to_db",
+          "line": 468
+        },
+        {
+          "type": "parameter",
+          "function": "_save_modification_to_datum",
+          "name": "old_value",
+          "line": 511
+        },
+        {
+          "type": "parameter",
+          "function": "_save_modification_to_datum",
+          "name": "new_value",
+          "line": 511
+        },
+        {
+          "type": "return",
+          "function": "_save_modification_to_datum",
+          "line": 511
+        }
+      ],
+      "missing_annotations_truncated": 9
+    },
+    "src/config/config_instance.py": {
+      "functions": {
+        "total": 116,
+        "with_return_type": 83,
+        "fully_annotated": 79
+      },
+      "parameters": {
+        "total": 122,
+        "annotated": 100
+      },
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "_escape_literal",
+          "name": "value",
+          "line": 78
+        },
+        {
+          "type": "parameter",
+          "function": "_reconcile_status_df",
+          "name": "df",
+          "line": 106
+        },
+        {
+          "type": "parameter",
+          "function": "_reconcile_status_df",
+          "name": "update_fn",
+          "line": 106
+        },
+        {
+          "type": "parameter",
+          "function": "_build_mod_cte_and_join",
+          "name": "mods_table_sql",
+          "line": 198
+        },
+        {
+          "type": "return",
+          "function": "_build_mod_cte_and_join",
+          "line": 198
+        },
+        {
+          "type": "return",
+          "function": "__post_init__",
+          "line": 282
+        },
+        {
+          "type": "return",
+          "function": "_init_connection",
+          "line": 287
+        },
+        {
+          "type": "return",
+          "function": "set_table_override",
+          "line": 306
+        },
+        {
+          "type": "return",
+          "function": "clear_table_override",
+          "line": 316
+        },
+        {
+          "type": "return",
+          "function": "_fetch_metadata",
+          "line": 336
+        }
+      ],
+      "missing_annotations_truncated": 45
+    },
+    "src/config/sql_types.py": {
+      "functions": {
+        "total": 16,
+        "with_return_type": 16,
+        "fully_annotated": 16
+      },
+      "parameters": {
+        "total": 6,
+        "annotated": 6
+      }
+    },
+    "src/processing/process_modifications.py": {
+      "functions": {
+        "total": 11,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 9,
+        "annotated": 0
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "main",
+          "line": 228
+        },
+        {
+          "type": "parameter",
+          "function": "__init__",
+          "name": "data_dir",
+          "line": 15
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 15
+        },
+        {
+          "type": "return",
+          "function": "load_original_data",
+          "line": 25
+        },
+        {
+          "type": "return",
+          "function": "load_modifications",
+          "line": 29
+        },
+        {
+          "type": "parameter",
+          "function": "apply_modifications",
+          "name": "df",
+          "line": 36
+        },
+        {
+          "type": "parameter",
+          "function": "apply_modifications",
+          "name": "modifications",
+          "line": 36
+        },
+        {
+          "type": "return",
+          "function": "apply_modifications",
+          "line": 36
+        },
+        {
+          "type": "parameter",
+          "function": "get_change_summary",
+          "name": "modifications",
+          "line": 66
+        },
+        {
+          "type": "return",
+          "function": "get_change_summary",
+          "line": 66
+        }
+      ],
+      "missing_annotations_truncated": 10
+    },
+    "src/data/data_loader.py": {
+      "functions": {
+        "total": 32,
+        "with_return_type": 28,
+        "fully_annotated": 28
+      },
+      "parameters": {
+        "total": 30,
+        "annotated": 28
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 24
+        },
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 150
+        },
+        {
+          "type": "parameter",
+          "function": "replace_env",
+          "name": "match",
+          "line": 135
+        },
+        {
+          "type": "return",
+          "function": "replace_env",
+          "line": 135
+        },
+        {
+          "type": "parameter",
+          "function": "replace_env",
+          "name": "match",
+          "line": 300
+        },
+        {
+          "type": "return",
+          "function": "replace_env",
+          "line": 300
+        }
+      ]
+    },
+    "src/adapter/datum.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 3,
+        "fully_annotated": 3
+      },
+      "parameters": {
+        "total": 13,
+        "annotated": 13
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 191
+        }
+      ]
+    },
+    "src/commute/emitter.py": {
+      "functions": {
+        "total": 7,
+        "with_return_type": 7,
+        "fully_annotated": 7
+      },
+      "parameters": {
+        "total": 3,
+        "annotated": 3
+      }
+    },
+    "src/server.py": {
+      "functions": {
+        "total": 89,
+        "with_return_type": 5,
+        "fully_annotated": 5
+      },
+      "parameters": {
+        "total": 18,
+        "annotated": 9
+      },
+      "missing_annotations": [
+        {
+          "type": "parameter",
+          "function": "create_server",
+          "name": "input",
+          "line": 73
+        },
+        {
+          "type": "parameter",
+          "function": "create_server",
+          "name": "output",
+          "line": 73
+        },
+        {
+          "type": "parameter",
+          "function": "create_server",
+          "name": "session",
+          "line": 73
+        },
+        {
+          "type": "return",
+          "function": "create_server",
+          "line": 73
+        },
+        {
+          "type": "return",
+          "function": "load_modifications_log",
+          "line": 134
+        },
+        {
+          "type": "return",
+          "function": "load_data_from_source",
+          "line": 137
+        },
+        {
+          "type": "return",
+          "function": "save_ui_state",
+          "line": 140
+        },
+        {
+          "type": "return",
+          "function": "load_ui_state",
+          "line": 146
+        },
+        {
+          "type": "return",
+          "function": "is_lazy_loading",
+          "line": 169
+        },
+        {
+          "type": "return",
+          "function": "_get_page_selection",
+          "line": 434
+        }
+      ],
+      "missing_annotations_truncated": 83
+    },
+    "src/ui.py": {
+      "functions": {
+        "total": 3,
+        "with_return_type": 3,
+        "fully_annotated": 3
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      }
     }
   },
   "mypy_errors": {}

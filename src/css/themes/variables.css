@@ -1,0 +1,120 @@
+/* === Theme Variables (Base) ===
+   All color/style tokens used across the app.
+   Default values match the classic/main-branch look.
+   Theme overrides redefine these under [data-theme="<name>"] */
+
+:root {
+    /* Typography */
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-size-xs: 11px;
+    --font-size-sm: 12px;
+    --font-size-md: 13px;
+    --font-size-lg: 16px;
+    --font-size-xl: 17px;
+
+    /* Page background */
+    --page-bg: white;
+
+    /* Sidebar / Left Panel */
+    --sidebar-bg: #c5ccd3;
+    --sidebar-color: #343a40;
+    --sidebar-border: #adb5bd;
+    --sidebar-shadow: none;
+    --sidebar-heading: #2c3e50;
+    --sidebar-subtext: #6c757d;
+    --sidebar-text: #495057;
+
+    /* Toolbar */
+    --toolbar-bg: #f8f9fa;
+    --toolbar-border: #dee2e6;
+    --toolbar-shadow: none;
+    --toolbar-btn-bg: #ffffff;
+    --toolbar-btn-border: #ced4da;
+    --toolbar-btn-color: #495057;
+    --toolbar-btn-hover-bg: #e9ecef;
+
+    /* Table */
+    --table-bg: white;
+    --table-border: #ddd;
+    --table-radius: 5px;
+    --table-shadow: none;
+    --table-header-bg: #495057;
+    --table-header-color: #ffffff;
+    --table-header-border: #343a40;
+    --table-row-bg: #f5f7f9;
+    --table-row-alt-bg: #c4d4e3;
+    --table-row-hover-bg: #d0e8f0;
+    --table-cell-border: #ddd;
+    --table-cell-color: #212529;
+    --table-cell-edited-bg: #FFF8DC;
+    --table-cell-edited-border: #8B4513;
+
+    /* Status badges */
+    --status-unprocessed: #6c757d;
+    --status-edited: #8B4513;
+    --status-approved: #28a745;
+    --status-rejected: #dc3545;
+
+    /* Pagination */
+    --pagination-bg: #f8f9fa;
+    --pagination-border: #dee2e6;
+    --pagination-btn-bg: #ffffff;
+    --pagination-btn-border: #dee2e6;
+    --pagination-btn-color: #495057;
+    --pagination-btn-hover-bg: #e9ecef;
+    --pagination-btn-active-bg: #495057;
+    --pagination-btn-active-color: #ffffff;
+    --pagination-info-color: #495057;
+
+    /* Modal — solid dark, no transparency */
+    --modal-overlay-bg: #000000;
+    --modal-bg: #ffffff;
+    --modal-radius: 8px;
+    --modal-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    --modal-header-border: #dee2e6;
+    --modal-header-color: #212529;
+
+    /* Inputs / Controls */
+    --input-bg: #ffffff;
+    --input-border: #ced4da;
+    --input-color: #495057;
+    --input-focus-border: #80bdff;
+    --input-placeholder: #6c757d;
+
+    /* Buttons - Primary */
+    --btn-primary-bg: #007bff;
+    --btn-primary-color: #ffffff;
+    --btn-primary-hover-bg: #0069d9;
+
+    /* Buttons - Success */
+    --btn-success-bg: #28a745;
+    --btn-success-color: #ffffff;
+
+    /* Buttons - Danger */
+    --btn-danger-bg: #dc3545;
+    --btn-danger-color: #ffffff;
+
+    /* Toggle / Misc */
+    --toggle-btn-bg: #ffffff;
+    --toggle-btn-border: #ced4da;
+    --toggle-btn-color: #495057;
+    --toggle-btn-hover-bg: #e9ecef;
+
+    /* Scrollbar */
+    --scrollbar-track: #f1f1f1;
+    --scrollbar-thumb: #adb5bd;
+    --scrollbar-thumb-hover: #6c757d;
+
+    /* Histogram */
+    --histogram-track: #d0d5db;
+
+    /* Filter section */
+    --filter-badge-bg: #e9ecef;
+    --filter-badge-color: #495057;
+
+    /* Log */
+    --log-bg: #ffffff;
+    --log-border: #dee2e6;
+    --log-item-border: #f1f1f1;
+    --log-text: #212529;
+}

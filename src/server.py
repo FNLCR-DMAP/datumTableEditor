@@ -298,6 +298,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Column widths storage
     column_widths = reactive.Value(dict(initial_widths))
     
+    # Trigger for column layout changes that need a table re-render.
+    # Header drag-reorder and resize update state silently (JS already shows it);
+    # add/remove/preset/synthesis bump this to force a server-side re-render.
+    _columns_layout_trigger = reactive.Value(0)
+    
     # Pagination state - always start on page 1; restore rows-per-page preference
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
     current_page = reactive.Value(1)
@@ -320,6 +325,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "<": "lt", "≤": "lte", "<=": "lte",
         "matches regex": "regex", "matches": "regex",
         "is not empty": "not_empty",
+        "is null": "is_null",
         "within last n days": "last_n_days",
     }
 
@@ -351,6 +357,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Dynamic column filters - stores active filters as {column_name: "value1\nvalue2\n..."}
     active_filters = reactive.Value(initial_filters)
+    # Pending filters — edited in the sidebar without triggering table reload.
+    # Copied to active_filters when the user clicks "Apply Filters".
+    pending_filters = reactive.Value(initial_filters.copy())
+    # Trigger for filter panel re-render (bumped on structural changes: add/remove filter, change operator)
+    _filter_panel_trigger = reactive.Value(0)
     
     # Search state - updated only when search button is clicked
     search_state = reactive.Value({"term": "", "column": "all"})
@@ -419,6 +430,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         finally:
             synthesis_running.set(False)
     
+    # Helper: get the currently displayed page DataFrame and selected indices
+    def _get_page_selection():
+        """Return (page_df, selected_indices) using the currently displayed page data.
+        
+        In lazy-loading mode, data.get() may be empty; the actual displayed rows
+        come from _cached_page_data(). This helper ensures selection checks use
+        the correct DataFrame regardless of mode.
+        """
+        page_df, paginated_indices, _, _ = _cached_page_data()
+        # Checkbox IDs correspond to DataFrame index labels in paginated_indices
+        max_idx = max(paginated_indices) + 1 if paginated_indices else 0
+        # Also check against data.get() length in case of non-lazy mode
+        check_range = max(max_idx, len(data.get()) if not is_lazy_loading() else max_idx)
+        selected = get_selected_row_indices(input, check_range)
+        return page_df, selected
+
     # Helper function to get PKs for selected row indices
     def _get_selected_pks(row_indices, current_df):
         """Convert row indices (DataFrame labels) to list of PK dicts"""
@@ -436,7 +463,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     
     # Helper function to save approval/rejection status to database
     def _save_status_to_db(selected_pks, mod_type: str, row_data_map: dict = None):
-        """Save approval/rejection entries to database with PKs using config instance.
+        """Save approval/rejection entries to database with PKs using batch transaction.
         
         Uses app_config.status_values to determine what value is written to the
         status column.  mod_type is the internal log type ("approval"/"rejection").
@@ -444,69 +471,44 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         When mod_type is "approval" and approval_assignment is configured,
         also copies source column values to target columns for each row.
         
+        All DB operations are batched into a single transaction for performance.
+        
         Args:
             selected_pks: List of PK dicts for the selected rows.
             mod_type: "approval" or "rejection".
             row_data_map: Optional dict mapping PK tuple -> row Series for
                           column value lookups (needed for approval_assignment).
         """
-        # Resolve the value to write from status_values config
         internal_key = "approved" if mod_type == "approval" else "rejected"
         status_value = app_config.status_values.get(internal_key, internal_key)
         assignment = app_config.approval_assignment if mod_type == "approval" else {}
-        # Also write to the actual status_column so _apply_field_modifications
-        # propagates the value into the dataset.
-        status_col = getattr(app_config.database, "status_column", None)
+
+        # Build batch entries
+        entries = []
         for row_pk in selected_pks:
-            try:
-                result = config.save_modification_to_db(
-                    row_pk=row_pk,
-                    column="_status",
-                    old_value=None,
-                    new_value=status_value,
-                    mod_type=mod_type
-                )
-                print(f"DEBUG: Saved {mod_type} ({status_value}) for PK {row_pk}, result: {result}")
-            except Exception as e:
-                print(f"Warning: Could not save {mod_type} for PK {row_pk}: {e}")
-            # Write a field_modification for the real status column so the
-            # value is applied to the dataset by _apply_field_modifications.
-            # Also UPDATE the data table directly to keep it in sync.
-            if status_col:
-                try:
-                    config.update_data_in_db(row_pk, status_col, status_value)
-                    config.save_modification_to_db(
-                        row_pk=row_pk,
-                        column=status_col,
-                        old_value=None,
-                        new_value=status_value,
-                        mod_type="field_modification"
-                    )
-                    print(f"DEBUG: Status column '{status_col}' set to '{status_value}' for PK {row_pk}")
-                except Exception as e:
-                    print(f"Warning: Could not update status column '{status_col}' for PK {row_pk}: {e}")
-            
+            entry = {
+                "row_pk": row_pk,
+                "status_value": status_value,
+                "mod_type": mod_type,
+                "assignments": []
+            }
             # Approval assignment: copy source col → target col
             if assignment and row_data_map:
                 pk_key = tuple(sorted(row_pk.items()))
                 row = row_data_map.get(pk_key)
-                if row is None:
-                    continue
-                for src_col, tgt_col in assignment.items():
-                    try:
+                if row is not None:
+                    for src_col, tgt_col in assignment.items():
                         src_val = row[src_col] if src_col in row.index else None
                         new_val = str(src_val) if src_val is not None else None
-                        config.update_data_in_db(row_pk, tgt_col, new_val)
-                        config.save_modification_to_db(
-                            row_pk=row_pk,
-                            column=tgt_col,
-                            old_value=None,
-                            new_value=new_val,
-                            mod_type="field_modification"
-                        )
-                        print(f"DEBUG: Assignment {src_col} → {tgt_col} = {src_val} for PK {row_pk}")
-                    except Exception as e:
-                        print(f"Warning: Assignment {src_col} → {tgt_col} failed for PK {row_pk}: {e}")
+                        entry["assignments"].append((tgt_col, new_val))
+            entries.append(entry)
+
+        # Execute all in one transaction
+        try:
+            config.batch_save_status(entries)
+            print(f"DEBUG: Batch {mod_type} saved {len(entries)} rows")
+        except Exception as e:
+            print(f"Warning: Batch {mod_type} save failed: {e}")
     
     # Helper functions that wrap utilities with reactive values
     def _get_row_status(row_idx):
@@ -684,24 +686,33 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             status_filters=status_filters
         )
     
+    @reactive.Calc
+    def _lazy_filtered_count():
+        """Cached filtered count for lazy-loading mode.
+        Reacts to the same inputs as _build_query_params so it invalidates
+        when filters/search/sort change, but is computed only once per cycle."""
+        if not is_lazy_loading():
+            return 0
+        params = _build_query_params()
+        return config.data_fetcher.get_filtered_count(params)
+    
     def _fetch_page_data() -> tuple:
         """
         Fetch current page data. Returns (df, filtered_count, total_count).
         
         In lazy loading mode: queries database
         In traditional mode: slices in-memory data
+        
+        NOTE: This is a pure function with no side effects (no .set() calls).
+        The caller is responsible for using the returned counts as needed.
         """
         if is_lazy_loading():
             # Build query params and fetch from DB
             params = _build_query_params()
             fetched_df = config.data_fetcher.fetch_page(params)
             
-            # Update filtered count
-            new_filtered_count = config.data_fetcher.get_filtered_count(params)
-            filtered_row_count.set(new_filtered_count)
-            
-            # Update the data reactive value with fetched data
-            data.set(fetched_df)
+            # Use cached filtered count
+            new_filtered_count = _lazy_filtered_count()
             
             return fetched_df, new_filtered_count, total_rows.get()
         else:
@@ -835,6 +846,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if isinstance(preset_data, dict):
                 active_columns.set(list(preset_data.get("columns", display_columns)))
                 column_widths.set(dict(preset_data.get("widths", {})))
+                _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Output: Preset menu items
     @render.ui
@@ -861,13 +873,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _update_column_order():
         val = input.column_order()
         if isinstance(val, dict):
+            # Modal drag — user expects to see result, bump trigger
             new_order = val.get('order')
             if new_order is not None:
                 active_columns.set(list(new_order))
+                _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
                 return
+        # Header drag — update state and re-render body to match new order
         new_order = parse_column_order(val)
         if new_order:
             active_columns.set(list(new_order))
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle adding a column
     @reactive.Effect
@@ -876,6 +892,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col = parse_column_value(input.add_column())
         if col:
             active_columns.set(add_column_to_list(active_columns.get(), col))
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle removing a column
     @reactive.Effect
@@ -884,18 +901,21 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col = parse_column_value(input.remove_column())
         if col:
             active_columns.set(remove_column_from_list(active_columns.get(), col))
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle removing all columns
     @reactive.Effect
     @reactive.event(input.clear_all_columns)
     def _clear_all_columns():
         active_columns.set([])
+        _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle adding all remaining columns
     @reactive.Effect
     @reactive.event(input.add_all_columns)
     def _add_all_columns():
         active_columns.set(list(all_columns))
+        _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle sorting a column
     @reactive.Effect
@@ -906,7 +926,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             col = val.get('col')
             direction = val.get('direction', 'asc')
             ascending = (direction == 'asc')
-            data.set(sort_dataframe(data.get(), col, direction))
+            # In lazy mode the DB handles sorting — skip in-memory sort
+            if not is_lazy_loading():
+                data.set(sort_dataframe(data.get(), col, direction))
             current_sort.set({"column": col, "ascending": ascending})
             # Reset to first page when sorting
             current_page.set(1)
@@ -927,6 +949,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         column_widths.set({})
         active_preset.set("Default")
         _save_active_preset("Default")
+        _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
     
     # Handle column widths from JS
     @reactive.Effect
@@ -947,6 +970,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             column_widths.set(widths)
             active_preset.set(preset_name)
             _save_active_preset(preset_name)
+            _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
             # Also save preset to UI state
             sort_state = current_sort.get()
             save_ui_state(
@@ -1006,6 +1030,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     )
                     active_columns.set(cols)
                     column_widths.set(widths)
+                    _columns_layout_trigger.set(_columns_layout_trigger.get() + 1)
                 ui.notification_show(f"Preset '{name}' deleted!", type="message", duration=2)
     
     # Output: Copy column list for copy modal
@@ -1045,8 +1070,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not _facet_columns:
             return ui.div()
 
-        # Depend on active_filters so the UI refreshes when selections change
-        filters = active_filters.get()
+        # Depend on pending_filters so the UI refreshes when selections change
+        filters = pending_filters.get()
 
         with tracker.track_render("facet_panels_ui"):
             # Build value counts map — lazy loading uses DB, traditional uses in‑memory
@@ -1082,7 +1107,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.facet_filter_change)
     def _handle_facet_filter():
-        """Apply facet checkbox selection to active_filters."""
+        """Apply facet checkbox selection to pending_filters."""
         val = input.facet_filter_change()
         if not val:
             return
@@ -1090,18 +1115,21 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         fv = val.get("value")  # newline‑delimited string or None
         if not col:
             return
-        filters = active_filters.get().copy()
+        filters = pending_filters.get().copy()
         if fv is None:
             filters.pop(col, None)
         else:
             filters[col] = fv
-        active_filters.set(filters)
-        current_page.set(1)
+        pending_filters.set(filters)
+        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     # Output: Dynamic filters UI
     @render.ui
     def dynamic_filters():
-        """Render active dynamic filters"""
+        """Render active dynamic filters from pending state"""
+        # Only re-render on structural changes (add/remove filter, operator change)
+        _filter_panel_trigger.get()
+        
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
         _date_cols = set()
         if is_lazy_loading() and hasattr(config, 'data_fetcher'):
@@ -1112,18 +1140,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 if pd.api.types.is_datetime64_any_dtype(df[col]):
                     _date_cols.add(col)
         
+        # Read pending_filters without creating a reactive dependency
+        with reactive.isolate():
+            current_filters = pending_filters.get()
+        
         if is_lazy_loading():
             # In lazy mode, data.get() may be empty; pass all known columns
             # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
-                active_filters.get(), data.get(),
+                current_filters, data.get(),
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
                 get_unique_values_func=config.data_fetcher.get_unique_values,
                 column_masks=column_masks,
                 date_columns=_date_cols
             )
-        return build_dynamic_filters_panel(active_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
+        return build_dynamic_filters_panel(current_filters, data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui
@@ -1142,7 +1174,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @render.ui
     def available_filter_columns():
         """Render list of columns that can be added as filters"""
-        filters = active_filters.get()
+        filters = pending_filters.get()
         # In lazy mode, data.get() may have no columns; use config.all_columns
         if is_lazy_loading():
             all_cols = config.all_columns
@@ -1160,8 +1192,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             return
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:
-            active_filters.set(add_filter(active_filters.get(), col_name))
-            current_page.set(1)
+            pending_filters.set(add_filter(pending_filters.get(), col_name))
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
     
     # Handle removing a filter
     @reactive.Effect
@@ -1171,8 +1203,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             return  # Filters are locked by config
         col_name = parse_filter_column(input.remove_filter_column())
         if col_name:
-            active_filters.set(remove_filter(active_filters.get(), col_name))
-            current_page.set(1)
+            pending_filters.set(remove_filter(pending_filters.get(), col_name))
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
     
     # Handle changing a filter's operator
     @reactive.Effect
@@ -1187,7 +1219,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         op = val.get("op", "in")
         if not col_name:
             return
-        filters = active_filters.get().copy()
+        filters = pending_filters.get().copy()
         old = filters.get(col_name)
         
         # Read live textarea value first — the user may have edited values
@@ -1221,8 +1253,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Store as interactive operator dict
             filters[col_name] = {"op": op, "value": existing_values, "interactive": True}
         
-        active_filters.set(filters)
-        current_page.set(1)
+        pending_filters.set(filters)
+        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
     
     # Apply filter value on blur (user clicked away from textarea)
     @reactive.Effect
@@ -1238,7 +1270,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not col_name:
             return
         
-        filters = active_filters.get().copy()
+        print(f"[_apply_filter_value] col={col_name}, raw_value={repr(raw_value)}")
+        
+        filters = pending_filters.get().copy()
         old = filters.get(col_name)
         
         # Determine if this is a between-type operator filter
@@ -1264,24 +1298,49 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 old_values = [old_values] if old_values is not None else []
             if values != old_values:
                 filters[col_name] = {"op": op, "value": values, "interactive": True}
-                active_filters.set(filters)
-                current_page.set(1)
+                pending_filters.set(filters)
         else:
             # Simple string filter
             new_val = "\n".join(values) if values else "all"
             if new_val != old:
                 filters[col_name] = new_val
-                active_filters.set(filters)
-                current_page.set(1)
+                pending_filters.set(filters)
     
+    # ---- Apply / Reset Filters (unified action) ----
+    @render.ui
+    def apply_filters_ui():
+        """Always show Apply/Reset buttons."""
+        pending = pending_filters.get()
+        active = active_filters.get()
+        has_changes = pending != active
+        return ui.div(
+            ui.input_action_button("apply_filters_btn", "Apply Filters", class_="apply-filters-btn" + (" btn-pending" if has_changes else "")),
+            ui.input_action_button("reset_filters_btn", "Reset", class_="reset-filters-btn"),
+            class_="apply-filters-bar"
+        )
+
+    @reactive.Effect
+    @reactive.event(input.apply_filters_btn)
+    def _apply_filters():
+        """Copy pending filters to active filters and reload the table."""
+        active_filters.set(pending_filters.get().copy())
+        current_page.set(1)
+
+    @reactive.Effect
+    @reactive.event(input.reset_filters_btn)
+    def _reset_pending_filters():
+        """Revert pending filters back to current active filters."""
+        pending_filters.set(active_filters.get().copy())
+        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+
     # Output: Pagination controls
     @render.ui
     def pagination_controls():
         """Render pagination controls with rows per page selector"""
         with tracker.track_render("pagination_controls"):
             if is_lazy_loading():
-                # In lazy loading mode, use the filtered count from the fetcher
-                total_filtered = filtered_row_count.get()
+                # In lazy loading mode, use cached filtered count
+                total_filtered = _lazy_filtered_count()
             else:
                 # Traditional mode: count filtered indices
                 filtered_indices = _get_filtered_rows()
@@ -1302,11 +1361,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _sync_rows_per_page():
         try:
             val = input.rows_per_page()
-            if val and val != rows_per_page_value.get():
-                rows_per_page_value.set(val)
-                # Skip page reset on first sync (initial load)
-                if _first_rows_per_page_sync["done"]:
-                    current_page.set(1)  # Reset to first page when changing rows per page
+            with reactive.isolate():
+                if val and val != rows_per_page_value.get():
+                    rows_per_page_value.set(val)
+                    # Skip page reset on first sync (initial load)
+                    if _first_rows_per_page_sync["done"]:
+                        current_page.set(1)  # Reset to first page when changing rows per page
             # Mark first sync as done
             if not _first_rows_per_page_sync["done"]:
                 _first_rows_per_page_sync["done"] = True
@@ -1350,7 +1410,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _next_page():
         # Get filtered count based on mode
         if is_lazy_loading():
-            total_filtered = filtered_row_count.get()
+            total_filtered = _lazy_filtered_count()
         else:
             filtered_indices = _get_filtered_rows()
             total_filtered = len(filtered_indices)
@@ -1378,7 +1438,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _last_page():
         # Get filtered count based on mode
         if is_lazy_loading():
-            total_filtered = filtered_row_count.get()
+            total_filtered = _lazy_filtered_count()
         else:
             filtered_indices = _get_filtered_rows()
             total_filtered = len(filtered_indices)
@@ -1403,7 +1463,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _page_jump():
         # Get filtered count based on mode
         if is_lazy_loading():
-            total_filtered = filtered_row_count.get()
+            total_filtered = _lazy_filtered_count()
         else:
             filtered_indices = _get_filtered_rows()
             total_filtered = len(filtered_indices)
@@ -1465,39 +1525,46 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             column_preset=active_preset.get()
         )
 
+    # Cached page data — only re-fetches when data actually changes
+    # (reload trigger, page, filters, sort), NOT on column layout changes.
+    @reactive.Calc
+    def _cached_page_data():
+        """Fetch and cache current page data. Reacts to data-changing triggers only."""
+        _ = _table_reload_trigger.get()
+        if is_lazy_loading():
+            current_df, filt_count, tot_count = _fetch_page_data()
+            paginated_indices = list(current_df.index)
+            return current_df, paginated_indices, filt_count, tot_count
+        else:
+            current_df = data.get()
+            filtered_indices = _get_filtered_rows()
+            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+            return current_df, paginated_indices, len(filtered_indices), len(current_df)
+
     # Output: Data table
     @render.ui
     def table_container():
         """Render the editable data table with pagination"""
-        _ = mods_log.get()
-        _ = approval_status.get()
-        _ = _table_reload_trigger.get()  # force re-render after synthesis completes
+        # Depend on layout trigger for column reorder/add/remove/preset
+        _ = _columns_layout_trigger.get()
         
         with tracker.track_render("table_container"):
-            if is_lazy_loading():
-                # Lazy loading mode: fetch data from database
-                current_df, filt_count, tot_count = _fetch_page_data()
-                # In lazy mode, all returned rows are the "paginated" data
-                paginated_indices = list(current_df.index)
-                filtered_count = filt_count
-                total_count = tot_count
-            else:
-                # Traditional mode: slice in-memory data
-                current_df = data.get()
-                filtered_indices = _get_filtered_rows()
-                paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
-                filtered_count = len(filtered_indices)
-                total_count = len(current_df)
+            # Use cached page data (no re-fetch on layout-only changes)
+            current_df, paginated_indices, filtered_count, total_count = _cached_page_data()
             
+            with reactive.isolate():
+                _cols = active_columns.get()
+                _widths = column_widths.get()
+                _edited = edited_cells.get()
             result = build_table_container(
                 paginated_indices=paginated_indices,
                 current_df=current_df,
-                cols=active_columns.get(),
-                widths=column_widths.get(),
+                cols=_cols,
+                widths=_widths,
                 filtered_count=filtered_count,
                 total_rows=total_count,
                 get_row_status_func=_get_row_status,
-                edited_cells=edited_cells.get(),
+                edited_cells=_edited,
                 pk_columns=app_config.table.primary_key,
                 editable_columns=[] if is_viewer else app_config.table.editable_columns,
                 readonly_columns=list(all_columns) if is_viewer else app_config.table.readonly_columns,
@@ -1506,7 +1573,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 column_masks=column_masks,
                 cell_click_columns=app_config.table.cell_click_columns,
                 status_col_name=getattr(app_config.database, "status_column", None),
-                no_tz_display=app_config.table.no_tz_display
+                no_tz_display=app_config.table.no_tz_display,
+                show_select=app_config.enable_row_select
             )
         return result
     
@@ -1594,6 +1662,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Auto-save log and data state to file
             save_log_to_file(updated_log, modifications_log_path)
             updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)
     
@@ -1692,15 +1761,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         try:
             if etype == "selected":
                 # Export selected rows
-                current_df = data.get()
-                selected_indices = get_selected_row_indices(input, len(current_df))
+                page_df, selected_indices = _get_page_selection()
                 
                 if not selected_indices:
                     ui.notification_show("Please select rows to export", type="warning", duration=3)
                     export_state.set("idle")
                     return
                 
-                result_df = current_df.iloc[selected_indices]
+                result_df = page_df.loc[page_df.index.isin(selected_indices)]
             else:
                 # Export all filtered/sorted rows
                 if is_lazy_loading():
@@ -1851,8 +1919,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not _require_editor("Approval"):
             return
         # Debug: Check what rows are selected
-        current_df = data.get()
-        selected_indices = get_selected_row_indices(input, len(current_df))
+        current_df, selected_indices = _get_page_selection()
         
         if not selected_indices:
             ui.notification_show("Please select rows to approve", type="warning", duration=3)
@@ -1888,16 +1955,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Force-sync in-memory DataFrame so the status column reflects the change immediately
         internal_key = "approved"
         status_value = app_config.status_values.get(internal_key, internal_key)
-        updated_df = current_df.copy()
-        status_col = getattr(app_config.database, "status_column", None)
-        for idx in selected_indices:
-            if status_col and status_col in updated_df.columns:
-                updated_df.at[updated_df.index[idx], status_col] = status_value
-            if "_mod_status" in updated_df.columns:
-                updated_df.at[updated_df.index[idx], "_mod_status"] = internal_key
-        data.set(updated_df)
+        if not is_lazy_loading():
+            full_df = data.get().copy()
+            status_col = getattr(app_config.database, "status_column", None)
+            for idx in selected_indices:
+                if status_col and status_col in full_df.columns:
+                    full_df.at[idx, status_col] = status_value
+                if "_mod_status" in full_df.columns:
+                    full_df.at[idx, "_mod_status"] = internal_key
+            data.set(full_df)
         
         mods_log.set(log)
+        _table_reload_trigger.set(_table_reload_trigger.get() + 1)
         ui.notification_show(f"{len(selected_pks)} row(s) APPROVED!", type="message", duration=2)
     
     # Event: Reject rows
@@ -1906,8 +1975,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _reject_data():
         if not _require_editor("Rejection"):
             return
-        current_df = data.get()
-        selected_indices = get_selected_row_indices(input, len(current_df))
+        current_df, selected_indices = _get_page_selection()
         
         if not selected_indices:
             ui.notification_show("Please select rows to reject", type="warning", duration=3)
@@ -1931,16 +1999,18 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Force-sync in-memory DataFrame so the status column reflects the change immediately
         internal_key = "rejected"
         status_value = app_config.status_values.get(internal_key, internal_key)
-        updated_df = current_df.copy()
-        status_col = getattr(app_config.database, "status_column", None)
-        for idx in selected_indices:
-            if status_col and status_col in updated_df.columns:
-                updated_df.at[updated_df.index[idx], status_col] = status_value
-            if "_mod_status" in updated_df.columns:
-                updated_df.at[updated_df.index[idx], "_mod_status"] = internal_key
-        data.set(updated_df)
+        if not is_lazy_loading():
+            full_df = data.get().copy()
+            status_col = getattr(app_config.database, "status_column", None)
+            for idx in selected_indices:
+                if status_col and status_col in full_df.columns:
+                    full_df.at[idx, status_col] = status_value
+                if "_mod_status" in full_df.columns:
+                    full_df.at[idx, "_mod_status"] = internal_key
+            data.set(full_df)
         
         mods_log.set(log)
+        _table_reload_trigger.set(_table_reload_trigger.get() + 1)
         ui.notification_show(f"{len(selected_pks)} row(s) REJECTED!", type="message", duration=2)
     
     # Event: Clear approval
@@ -2241,8 +2311,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.review_detail_btn)
     def _review_detail():
         """Emit review_detail event with selected row PK(s)."""
-        current_df = data.get()
-        indices = get_selected_row_indices(input, len(current_df))
+        current_df, indices = _get_page_selection()
         if not indices:
             ui.notification_show("Select a row first", type="warning", duration=3)
             return

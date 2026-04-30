@@ -106,7 +106,7 @@ def build_draggable_header_cell(col: str, width_style: str = "", column_masks: d
     )
 
 
-def build_table_header(cols: list, widths: dict, default_width: int = 130, show_status_column: bool = True, column_masks: dict | None = None) -> ui.tags.thead:
+def build_table_header(cols: list, widths: dict, default_width: int = 130, show_status_column: bool = True, column_masks: dict | None = None, show_select: bool = True) -> ui.tags.thead:
     """Build the complete table header."""
     select_all_checkbox = ui.tags.input(
         type="checkbox",
@@ -115,10 +115,10 @@ def build_table_header(cols: list, widths: dict, default_width: int = 130, show_
         onclick="toggleSelectAllPage(this)"
     )
     
-    header_cells = [
-        ui.tags.th(select_all_checkbox, style="width: 40px; text-align: center;"),
-        ui.tags.th("Row", style="width: 50px;"),
-    ]
+    header_cells = []
+    if show_select:
+        header_cells.append(ui.tags.th(select_all_checkbox, style="width: 40px; text-align: center;"))
+    header_cells.append(ui.tags.th("Row", style="width: 50px;"))
     
     if show_status_column:
         header_cells.append(ui.tags.th("Mod", style="width: 70px;", title="Modification Status"))
@@ -153,7 +153,7 @@ def build_status_badge(status: str, status_labels: dict = None, raw_value: str =
     return ui.tags.span(status_text, class_=f"row-status-badge status-{status}")
 
 
-def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False) -> ui.tags.tr:
+def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFrame, get_row_status_func: Callable[[int], str], row_class: str = "", edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False, show_select: bool = True) -> ui.tags.tr:
     """Build a single table row with all cells."""
     cells = []
     edited_cells = edited_cells or {}
@@ -167,12 +167,13 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
     pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk.items()))
     
     # Select checkbox
-    cells.append(
-        ui.tags.td(
-            ui.input_checkbox(f"select_{idx}", label="", value=False, width="30px"),
-            style="text-align: center; width: 10px;",
+    if show_select:
+        cells.append(
+            ui.tags.td(
+                ui.input_checkbox(f"select_{idx}", label="", value=False, width="30px"),
+                style="text-align: center; width: 10px;",
+            )
         )
-    )
     
     # Row number
     cells.append(ui.tags.td(str(idx + 1), class_="row-number"))
@@ -247,7 +248,7 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
     return ui.tags.tr(*cells, class_=row_class)
 
 
-def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False) -> ui.tags.tbody:
+def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: list, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False, show_select: bool = True) -> ui.tags.tbody:
     """Build the table body with all rows."""
     table_rows = []
     edited_cells = edited_cells or {}
@@ -257,14 +258,14 @@ def build_table_body(paginated_indices: list, current_df: pd.DataFrame, cols: li
         row = current_df.loc[idx]
         # Add zebra striping class based on visual position
         row_class = "row-even" if i % 2 == 0 else "row-odd"
-        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display))
+        table_rows.append(build_table_row(idx, row, cols, current_df, get_row_status_func, row_class, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display, show_select=show_select))
     return ui.tags.tbody(*table_rows)
 
 
-def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False) -> ui.tags.table:
+def build_data_table(paginated_indices: list, current_df: pd.DataFrame, cols: list, widths: dict, get_row_status_func: Callable[[int], str], edited_cells: dict = None, pk_columns: list = None, editable_columns: list = None, readonly_columns: list = None, show_status_column: bool = True, status_labels: dict = None, column_masks: dict | None = None, cell_click_columns: list = None, status_col_name: str = None, no_tz_display: bool = False, show_select: bool = True) -> ui.tags.table:
     """Build the complete data table."""
-    header = build_table_header(cols, widths, show_status_column=show_status_column, column_masks=column_masks)
-    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display)
+    header = build_table_header(cols, widths, show_status_column=show_status_column, column_masks=column_masks, show_select=show_select)
+    body = build_table_body(paginated_indices, current_df, cols, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display, show_select=show_select)
     return ui.tags.table(header, body, class_="edit-table")
 
 
@@ -285,7 +286,8 @@ def build_table_container(
     column_masks: dict | None = None,
     cell_click_columns: list = None,
     status_col_name: str = None,
-    no_tz_display: bool = False
+    no_tz_display: bool = False,
+    show_select: bool = True
 ) -> ui.div:
     """Build the complete table container with summary and table."""
     displayed_count = len(paginated_indices)
@@ -295,7 +297,7 @@ def build_table_container(
     else:
         rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
     
-    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display)
+    table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display, show_select=show_select)
     
     return ui.div(
         ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),

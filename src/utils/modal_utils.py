@@ -185,7 +185,7 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     op_label = OPERATOR_LABELS.get(op, op)
     
     # Format value display
-    if op in ("not_empty",):
+    if op in ("not_empty", "is_null"):
         value_display = ""  # no-value operator
     elif op == "last_n_days":
         value_display = f"{value} days"  # show "7 days"
@@ -258,6 +258,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         ("between", "between"),
         ("regex", "matches regex"),
         ("not_empty", "is not empty"),
+        ("is_null", "is null"),
         ("last_n_days", "within last N days"),
     ]
     
@@ -278,13 +279,13 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         **op_select_attrs
     )
     
-    # For 'not_empty' operator, hide the value area (no value needed)
-    textarea_style = "position: relative;" if current_op != "not_empty" else "position: relative; display: none;"
+    # For 'not_empty' / 'is_null' operators, hide the value area (no value needed)
+    textarea_style = "position: relative;" if current_op not in ("not_empty", "is_null") else "position: relative; display: none;"
     
     # Shared attributes for date inputs when locked
     _date_disabled = {"disabled": "disabled"} if fix_filter else {}
 
-    if is_date and current_op != "not_empty":
+    if is_date and current_op not in ("not_empty", "is_null"):
         # Parse existing date values
         date_vals = [v.strip()[:10] for v in display_value.split('\n') if v.strip()] if display_value else []
         
@@ -299,6 +300,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         type="date", value=date_from,
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px;",
+                        onchange=f"applyDateFilter('{safe_col_name}', event)",
                         **{"data-column": col_name, "data-role": "from", **_date_disabled}
                     ),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
@@ -309,15 +311,11 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         type="date", value=date_to,
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px;",
+                        onchange=f"applyDateFilter('{safe_col_name}', event)",
                         **{"data-column": col_name, "data-role": "to", **_date_disabled}
                     ),
                     style="display: flex; align-items: center;"
                 ),
-                *([ui.tags.button(
-                    "Apply", class_="btn btn-sm btn-primary mt-1",
-                    onclick=f"applyDateFilter('{safe_col_name}', event)",
-                    style="font-size: 11px; padding: 2px 10px;"
-                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         elif current_op == "last_n_days":
@@ -337,16 +335,12 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px; width: 80px; display: inline-block;",
                         id=f"filter_{col_name}",
+                        onchange=f"applyDateFilter('{safe_col_name}', event)",
                         **_date_disabled
                     ),
                     ui.tags.span(" days", style="font-size: 12px; color: #6c757d; margin-left: 4px;"),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
                 ),
-                *([ui.tags.button(
-                    "Apply", class_="btn btn-sm btn-primary mt-1",
-                    onclick=f"applyDateFilter('{safe_col_name}', event)",
-                    style="font-size: 11px; padding: 2px 10px;"
-                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         elif current_op in ("gt", "gte", "lt", "lte"):
@@ -357,20 +351,16 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     type="date", value=date_val,
                     class_="form-control form-control-sm filter-date-input",
                     style="font-size: 12px;",
+                    onchange=f"applyDateFilter('{safe_col_name}', event)",
                     **{"data-column": col_name, "data-role": "single", **_date_disabled}
                 ),
-                *([ui.tags.button(
-                    "Apply", class_="btn btn-sm btn-primary mt-1",
-                    onclick=f"applyDateFilter('{safe_col_name}', event)",
-                    style="font-size: 11px; padding: 2px 10px;"
-                )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
         else:
             # in / not_in / contains / etc → fall through to textarea
             is_date = False
     
-    if not is_date or current_op == "not_empty":
+    if not is_date or current_op in ("not_empty", "is_null"):
         # Standard textarea with edit/confirm and ⋮ buttons
         if fix_filter:
             # Locked mode: read-only textarea, no edit/values buttons
@@ -398,27 +388,19 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     rows=3
                 ),
                 ui.tags.button(
-                    "\u270E",
-                    class_="btn btn-sm btn-outline-secondary filter-edit-btn",
-                    onclick=f"toggleFilterEdit('{safe_col_name}', event)",
-                    title="Edit filter values",
-                    style="position: absolute; right: 5px; top: 15%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px; z-index: 2;"
-                ),
-                ui.tags.button(
                     "\u22ee",
                     class_="btn btn-sm btn-outline-secondary filter-values-btn",
                     onclick=f"openFilterValuesModal('{safe_col_name}', event)",
                     title="Select from available values",
-                    style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
+                    style="position: absolute; right: 5px; top: 35%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
                 ),
                 ui.tags.button(
                     "\u2715",
                     class_="btn btn-sm btn-outline-danger filter-clear-btn",
                     onclick=f"clearFilterContent('{col_name}', event)",
                     title="Clear filter content",
-                    style="position: absolute; right: 5px; top: 85%; transform: translateY(-50%); padding: 2px 6px; font-size: 12px; z-index: 2;"
+                    style="position: absolute; right: 5px; top: 70%; transform: translateY(-50%); padding: 2px 6px; font-size: 12px; z-index: 2;"
                 ),
-                ui.tags.script(f"initFilterReadonly('filter_{col_name}')"),
                 style=textarea_style
             )
     
@@ -484,7 +466,7 @@ def build_dynamic_filters_panel(
             # Extract display value from the operator dict
             raw_val = filter_value.get("value")
             if isinstance(raw_val, list):
-                display_val = "\n".join(str(v) for v in raw_val)
+                display_val = "\n".join(str(v) if v is not None else "" for v in raw_val)
             elif raw_val is not None:
                 display_val = str(raw_val)
             else:

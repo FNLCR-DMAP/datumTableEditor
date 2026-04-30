@@ -565,13 +565,13 @@ class TestFixFilterLocking:
         assert "readOnly=true" in html
 
     def test_edit_button_present_when_unlocked(self):
-        """Edit button should appear when fix_filter=False."""
+        """Filter values button should appear when fix_filter=False."""
         from src.utils.modal_utils import build_dynamic_filter_element
 
         result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=False)
         html = str(result)
 
-        assert "toggleFilterEdit" in html
+        assert "openFilterValuesModal" in html
 
     def test_remove_button_hidden_on_dynamic_when_fixed(self):
         """Remove button should be hidden on dynamic filter when fix_filter=True."""
@@ -604,7 +604,6 @@ class TestFixFilterLocking:
         html = str(result)
 
         assert "disabled" in html
-        assert "applyDateFilter" not in html
 
     def test_date_filter_enabled_when_unlocked(self):
         """Date filter inputs should NOT be disabled when fix_filter=False."""
@@ -616,7 +615,7 @@ class TestFixFilterLocking:
         )
         html = str(result)
 
-        assert "applyDateFilter" in html
+        assert 'data-column="DateCol"' in html
 
 
 # =====================================================================
@@ -696,7 +695,7 @@ class TestDatePickerUI:
         assert 'type="date"' in html
         assert "From" in html
         assert "To" in html
-        assert "applyDateFilter" in html
+        assert 'data-column="DateCol"' in html
 
     def test_between_pre_fills_dates(self):
         """Existing between values should pre-fill from/to inputs."""
@@ -721,7 +720,7 @@ class TestDatePickerUI:
         html = str(result)
 
         assert 'type="date"' in html
-        assert "applyDateFilter" in html
+        assert 'data-column="DateCol"' in html
         # Should NOT have From/To labels
         assert "From" not in html
 
@@ -776,7 +775,7 @@ class TestDatePickerUI:
         html = str(result)
 
         assert "<textarea" in html
-        assert "initFilterReadonly" in html
+        assert "openFilterValuesModal" in html
 
     def test_not_in_falls_through_to_textarea(self):
         """'not_in' on date column should render textarea."""

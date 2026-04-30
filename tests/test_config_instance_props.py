@@ -870,3 +870,92 @@ class TestLoadConfigOnly:
         # It should have been called with an absolute path
         called_path = mock_load.call_args[0][0]
         assert "/" in called_path or "\\" in called_path  # Absolute path
+
+
+# =============================================================================
+# batch_save_status tests
+# =============================================================================
+
+class TestBatchSaveStatus:
+    """Tests for ConfigInstance.batch_save_status method."""
+
+    def test_batch_save_status_direct_mode(self):
+        """In direct mode, batch_save_status executes all in one transaction."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "direct"
+        ci.app_config.database.mods_table = "test_mods"
+        ci.app_config.database.data_table = "test_data"
+        ci.app_config.table.primary_key = ["id"]
+        ci.app_config.database.status_column = "status"
+        ci.username = "tester"
+
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_engine.connect.return_value = mock_conn
+        ci._get_engine = MagicMock(return_value=mock_engine)
+        ci._ensure_mods_table_exists = MagicMock()
+        ci.invalidate_mods_cache = MagicMock()
+
+        entries = [
+            {"row_pk": {"id": 1}, "status_value": "approved", "mod_type": "approval", "assignments": []},
+            {"row_pk": {"id": 2}, "status_value": "approved", "mod_type": "approval", "assignments": [("reviewer", "Alice")]},
+        ]
+
+        ci.batch_save_status(entries)
+
+        # Single commit for the whole batch
+        mock_conn.commit.assert_called_once()
+        ci.invalidate_mods_cache.assert_called_once()
+        # Multiple execute calls (INSERT mods + UPDATE data + assignments)
+        assert mock_conn.execute.call_count > 2
+
+    def test_batch_save_status_empty_entries(self):
+        """Empty entries list should be a no-op."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "direct"
+
+        ci.batch_save_status([])
+        # No crash, no calls
+
+    def test_batch_save_status_datum_mode(self):
+        """In datum mode, batch_save_status constructs multi-statement SQL."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "datum"
+        ci.app_config.database.datum_base_url = "http://test"
+        ci.app_config.database.datum_token = "token"
+        ci.app_config.database.datum_database = "testdb"
+        ci.app_config.database.datum_schema = "public"
+        ci.app_config.database.datum_service_name = "svc"
+        ci.app_config.database.mods_table = "test_mods"
+        ci.app_config.database.data_table = "test_data"
+        ci.app_config.table.primary_key = ["id"]
+        ci.app_config.database.status_column = "status"
+        ci.invalidate_mods_cache = MagicMock()
+
+        entries = [
+            {"row_pk": {"id": 1}, "status_value": "rejected", "mod_type": "rejection", "assignments": []},
+        ]
+
+        with patch("src.config.config_instance.os.environ", {"DATUM_BASE_URL": "", "DATUM_API_TOKEN": ""}):
+            with patch("src.adapter.datum.DatumClient") as MockClient:
+                mock_client = MagicMock()
+                MockClient.return_value = mock_client
+                ci.batch_save_status(entries)
+
+                mock_client.execute_sql.assert_called_once()
+                sql_arg = mock_client.execute_sql.call_args[1]["sql"]
+                assert "BEGIN;" in sql_arg
+                assert "COMMIT;" in sql_arg
+                assert "INSERT INTO" in sql_arg
+                ci.invalidate_mods_cache.assert_called_once()

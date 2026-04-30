@@ -2,15 +2,41 @@
   "_description": "QC report for ui",
   "_generated": true,
   "_summary": {
-    "total_functions": 0,
+    "total_functions": 3,
     "unused_functions": 0,
-    "fully_annotated_functions": 0,
-    "function_coverage_percent": 0,
-    "parameter_coverage_percent": 0,
+    "fully_annotated_functions": 3,
+    "function_coverage_percent": 100.0,
+    "parameter_coverage_percent": 100.0,
     "mypy_errors": 0
   },
   "files": {},
-  "function_mapping": {},
-  "type_coverage": {},
+  "function_mapping": {
+    "src/ui.py": {
+      "total": 3,
+      "functions": [
+        "_load_css_files",
+        "_load_js_files",
+        "create_app_ui"
+      ],
+      "used": [
+        "_load_css_files",
+        "_load_js_files",
+        "create_app_ui"
+      ]
+    }
+  },
+  "type_coverage": {
+    "src/ui.py": {
+      "functions": {
+        "total": 3,
+        "with_return_type": 3,
+        "fully_annotated": 3
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      }
+    }
+  },
   "mypy_errors": {}
 }

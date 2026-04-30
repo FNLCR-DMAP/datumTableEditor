@@ -24,6 +24,8 @@ Usage (Server/UI):
     default = presets_service.get_default_preset("john")
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path

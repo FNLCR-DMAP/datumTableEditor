@@ -2,11 +2,11 @@
   "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 86,
+    "total_functions": 95,
     "unused_functions": 1,
-    "fully_annotated_functions": 75,
-    "function_coverage_percent": 87.2,
-    "parameter_coverage_percent": 95.7,
+    "fully_annotated_functions": 81,
+    "function_coverage_percent": 85.3,
+    "parameter_coverage_percent": 96.0,
     "mypy_errors": 0
   },
   "files": {},
@@ -234,6 +234,36 @@
         "build_table_row"
       ]
     },
+    "src/utils/tracker.py": {
+      "total": 9,
+      "functions": [
+        "_log",
+        "decorator",
+        "init",
+        "is_enabled",
+        "log_sql",
+        "render_timer",
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ],
+      "used": [
+        "_log",
+        "decorator",
+        "init",
+        "is_enabled",
+        "log_sql",
+        "render_timer",
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ],
+      "framework_managed": [
+        "track_render",
+        "track_sql",
+        "wrapper"
+      ]
+    },
     "src/utils/ui_components.py": {
       "total": 14,
       "functions": [
@@ -415,7 +445,7 @@
           "type": "parameter",
           "function": "_is_operator_filter",
           "name": "filter_value",
-          "line": 37
+          "line": 38
         }
       ]
     },
@@ -434,7 +464,7 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 444
+          "line": 426
         }
       ]
     },
@@ -467,8 +497,8 @@
         "fully_annotated": 9
       },
       "parameters": {
-        "total": 72,
-        "annotated": 71
+        "total": 82,
+        "annotated": 81
       },
       "missing": [
         {
@@ -476,6 +506,34 @@
           "function": "_format_cell_value",
           "name": "dtype",
           "line": 17
+        }
+      ]
+    },
+    "src/utils/tracker.py": {
+      "functions": {
+        "total": 9,
+        "with_return_type": 6,
+        "fully_annotated": 6
+      },
+      "parameters": {
+        "total": 10,
+        "annotated": 10
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "track_sql",
+          "line": 42
+        },
+        {
+          "type": "return",
+          "function": "track_render",
+          "line": 75
+        },
+        {
+          "type": "return",
+          "function": "render_timer",
+          "line": 96
         }
       ]
     },

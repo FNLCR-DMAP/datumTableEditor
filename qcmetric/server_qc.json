@@ -2,573 +2,269 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 95,
-    "unused_functions": 1,
-    "fully_annotated_functions": 81,
-    "function_coverage_percent": 85.3,
-    "parameter_coverage_percent": 95.8,
+    "total_functions": 89,
+    "unused_functions": 0,
+    "fully_annotated_functions": 5,
+    "function_coverage_percent": 5.6,
+    "parameter_coverage_percent": 50.0,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
-    "src/utils/clipboard_utils.py": {
-      "total": 2,
+    "src/server.py": {
+      "total": 89,
       "functions": [
-        "generate_clipboard_js",
-        "process_copy_request"
+        "_add_all_columns",
+        "_add_column",
+        "_add_filter",
+        "_apply_filter_value",
+        "_apply_filters",
+        "_approve_data",
+        "_build_query_params",
+        "_cached_page_data",
+        "_cell_click",
+        "_clear_all_columns",
+        "_clear_approval",
+        "_convert_default_filters",
+        "_delete_preset",
+        "_emit",
+        "_exit_synthesis",
+        "_export_status_report",
+        "_fetch_all_filtered_data",
+        "_fetch_page_data",
+        "_first_page",
+        "_get_export_filename",
+        "_get_filtered_rows",
+        "_get_modification_summary",
+        "_get_page_selection",
+        "_get_row_status",
+        "_get_selected_pks",
+        "_get_status_counts",
+        "_handle_cell_edit",
+        "_handle_cell_reset",
+        "_handle_clear_search",
+        "_handle_copy_request",
+        "_handle_facet_filter",
+        "_handle_search",
+        "_handle_undo",
+        "_last_page",
+        "_lazy_filtered_count",
+        "_load_preset",
+        "_namespace_holder",
+        "_next_page",
+        "_page_jump",
+        "_prepare_export",
+        "_prev_page",
+        "_refresh_presets",
+        "_reject_data",
+        "_reload_data",
+        "_remove_column",
+        "_remove_filter",
+        "_require_editor",
+        "_reset_columns",
+        "_reset_page_on_filter_change",
+        "_reset_pending_filters",
+        "_review_detail",
+        "_save_active_preset",
+        "_save_current_layout",
+        "_save_modifications",
+        "_save_preset",
+        "_save_presets",
+        "_save_status_to_db",
+        "_set_filter_operator",
+        "_sort_column",
+        "_sync_rows_per_page",
+        "_update_column_order",
+        "_update_column_widths",
+        "add_filter_btn_ui",
+        "apply_filters_ui",
+        "approval_status_ui",
+        "available_columns_modal",
+        "available_filter_columns",
+        "copy_column_list",
+        "create_server",
+        "current_preset_name",
+        "data_summary",
+        "dynamic_filters",
+        "export_download_ui",
+        "facet_panels_ui",
+        "is_lazy_loading",
+        "load_data_from_source",
+        "load_modifications_log",
+        "load_ui_state",
+        "modifications_log_ui",
+        "pagination_controls",
+        "preset_menu_items",
+        "save_ui_state",
+        "selection_mode_ui",
+        "stats_histogram",
+        "synthesis_mode_banner",
+        "synthesis_query_preview",
+        "synthesis_status",
+        "table_container",
+        "viewer_mode_ui"
       ],
       "used": [
-        "generate_clipboard_js",
-        "process_copy_request"
-      ]
-    },
-    "src/utils/column_utils.py": {
-      "total": 8,
-      "functions": [
-        "add_column_to_list",
-        "create_preset_data",
-        "get_ordered_columns",
-        "get_preset_columns_and_widths",
-        "parse_column_order",
-        "parse_column_value",
-        "remove_column_from_list",
-        "sort_dataframe"
-      ],
-      "used": [
-        "add_column_to_list",
-        "create_preset_data",
-        "get_ordered_columns",
-        "get_preset_columns_and_widths",
-        "parse_column_order",
-        "parse_column_value",
-        "remove_column_from_list",
-        "sort_dataframe"
-      ]
-    },
-    "src/utils/data_operations.py": {
-      "total": 14,
-      "functions": [
-        "_get_row_pk",
-        "_pk_to_string",
-        "calculate_pagination",
-        "create_approval_entry",
-        "create_rejection_entry",
-        "export_csv",
-        "export_status_report",
-        "get_copy_column_values",
-        "get_paginated_indices",
-        "get_selected_row_indices",
-        "perform_cell_edit",
-        "perform_undo",
-        "save_log_to_file",
-        "save_modifications_to_file"
-      ],
-      "used": [
-        "_get_row_pk",
-        "_pk_to_string",
-        "calculate_pagination",
-        "create_approval_entry",
-        "create_rejection_entry",
-        "export_csv",
-        "export_status_report",
-        "get_copy_column_values",
-        "get_paginated_indices",
-        "get_selected_row_indices",
-        "perform_cell_edit",
-        "perform_undo",
-        "save_log_to_file",
-        "save_modifications_to_file"
-      ]
-    },
-    "src/utils/data_utils.py": {
-      "total": 8,
-      "functions": [
-        "get_latest_approval_status",
-        "get_modification_summary",
-        "get_row_modifications",
-        "get_row_status",
-        "get_status_counts",
-        "matches_row",
-        "matches_row_pk",
-        "pk_in_list"
-      ],
-      "used": [
-        "get_latest_approval_status",
-        "get_modification_summary",
-        "get_row_modifications",
-        "get_row_status",
-        "get_status_counts",
-        "matches_row",
-        "matches_row_pk",
-        "pk_in_list"
-      ]
-    },
-    "src/utils/event_handlers.py": {
-      "total": 4,
-      "functions": [
-        "process_approval_action",
-        "process_cell_edit_action",
-        "process_rejection_action",
-        "process_undo_action"
-      ],
-      "used": [
-        "process_approval_action",
-        "process_cell_edit_action",
-        "process_rejection_action",
-        "process_undo_action"
-      ]
-    },
-    "src/utils/filter_handlers.py": {
-      "total": 4,
-      "functions": [
-        "add_filter",
-        "parse_filter_column",
-        "remove_filter",
-        "update_filter_values"
-      ],
-      "used": [
-        "add_filter",
-        "parse_filter_column",
-        "remove_filter",
-        "update_filter_values"
-      ]
-    },
-    "src/utils/filter_utils.py": {
-      "total": 3,
-      "functions": [
-        "_is_operator_filter",
-        "_row_matches_operator",
-        "get_filtered_rows"
-      ],
-      "used": [
-        "_is_operator_filter",
-        "_row_matches_operator",
-        "get_filtered_rows"
-      ]
-    },
-    "src/utils/modal_utils.py": {
-      "total": 11,
-      "functions": [
-        "_looks_like_dates",
-        "_mask",
-        "build_available_column_tag",
-        "build_columns_modal_content",
-        "build_copy_column_buttons",
-        "build_current_column_tag",
-        "build_dynamic_filter_element",
-        "build_dynamic_filters_panel",
-        "build_filter_column_buttons",
-        "build_operator_filter_element",
-        "build_preset_menu_items"
-      ],
-      "used": [
-        "_looks_like_dates",
-        "_mask",
-        "build_available_column_tag",
-        "build_columns_modal_content",
-        "build_copy_column_buttons",
-        "build_current_column_tag",
-        "build_dynamic_filter_element",
-        "build_dynamic_filters_panel",
-        "build_filter_column_buttons",
-        "build_operator_filter_element",
-        "build_preset_menu_items"
-      ]
-    },
-    "src/utils/pagination_utils.py": {
-      "total": 3,
-      "functions": [
-        "build_pagination_controls_all",
-        "build_pagination_controls_paged",
-        "build_rows_per_page_selector"
-      ],
-      "used": [
-        "build_pagination_controls_all",
-        "build_pagination_controls_paged",
-        "build_rows_per_page_selector"
-      ]
-    },
-    "src/utils/preset_utils.py": {
-      "total": 5,
-      "functions": [
-        "_convert_presets_from_db",
-        "load_active_preset",
-        "load_presets",
-        "save_active_preset",
-        "save_presets"
-      ],
-      "used": [
-        "load_active_preset",
-        "load_presets",
-        "save_active_preset",
-        "save_presets"
-      ],
-      "unused": [
-        "_convert_presets_from_db"
-      ]
-    },
-    "src/utils/table_utils.py": {
-      "total": 10,
-      "functions": [
-        "_format_array_value",
-        "_format_cell_value",
-        "_mask",
-        "build_data_table",
-        "build_draggable_header_cell",
-        "build_status_badge",
-        "build_table_body",
-        "build_table_container",
-        "build_table_header",
-        "build_table_row"
-      ],
-      "used": [
-        "_format_array_value",
-        "_format_cell_value",
-        "_mask",
-        "build_data_table",
-        "build_draggable_header_cell",
-        "build_status_badge",
-        "build_table_body",
-        "build_table_container",
-        "build_table_header",
-        "build_table_row"
-      ]
-    },
-    "src/utils/tracker.py": {
-      "total": 9,
-      "functions": [
-        "_log",
-        "decorator",
-        "init",
-        "is_enabled",
-        "log_sql",
-        "render_timer",
-        "track_render",
-        "track_sql",
-        "wrapper"
-      ],
-      "used": [
-        "_log",
-        "decorator",
-        "init",
-        "is_enabled",
-        "log_sql",
-        "render_timer",
-        "track_render",
-        "track_sql",
-        "wrapper"
+        "_build_query_params",
+        "_cached_page_data",
+        "_convert_default_filters",
+        "_emit",
+        "_fetch_all_filtered_data",
+        "_fetch_page_data",
+        "_get_export_filename",
+        "_get_filtered_rows",
+        "_get_modification_summary",
+        "_get_page_selection",
+        "_get_row_status",
+        "_get_selected_pks",
+        "_get_status_counts",
+        "_lazy_filtered_count",
+        "_require_editor",
+        "_save_active_preset",
+        "_save_presets",
+        "_save_status_to_db",
+        "create_server",
+        "is_lazy_loading",
+        "load_data_from_source",
+        "load_modifications_log",
+        "load_ui_state",
+        "save_ui_state"
       ],
       "framework_managed": [
-        "track_render",
-        "track_sql",
-        "wrapper"
-      ]
-    },
-    "src/utils/ui_components.py": {
-      "total": 14,
-      "functions": [
-        "build_approval_status_banner",
-        "build_empty_log_message",
-        "build_facet_bar",
-        "build_facet_panel",
-        "build_facet_panels",
-        "build_log_entry_approval",
-        "build_log_entry_field_modification",
-        "build_log_entry_rejection",
-        "build_log_entry_undo",
-        "build_log_entry_undone",
-        "build_modifications_log",
-        "build_status_histogram_bar",
-        "format_row",
-        "format_row"
-      ],
-      "used": [
-        "build_approval_status_banner",
-        "build_empty_log_message",
-        "build_facet_bar",
-        "build_facet_panel",
-        "build_facet_panels",
-        "build_log_entry_approval",
-        "build_log_entry_field_modification",
-        "build_log_entry_rejection",
-        "build_log_entry_undo",
-        "build_log_entry_undone",
-        "build_modifications_log",
-        "build_status_histogram_bar",
-        "format_row",
-        "format_row"
+        "_add_all_columns",
+        "_add_column",
+        "_add_filter",
+        "_apply_filter_value",
+        "_apply_filters",
+        "_approve_data",
+        "_cached_page_data",
+        "_cell_click",
+        "_clear_all_columns",
+        "_clear_approval",
+        "_delete_preset",
+        "_exit_synthesis",
+        "_export_status_report",
+        "_first_page",
+        "_handle_cell_edit",
+        "_handle_cell_reset",
+        "_handle_clear_search",
+        "_handle_copy_request",
+        "_handle_facet_filter",
+        "_handle_search",
+        "_handle_undo",
+        "_last_page",
+        "_lazy_filtered_count",
+        "_load_preset",
+        "_namespace_holder",
+        "_next_page",
+        "_page_jump",
+        "_prepare_export",
+        "_prev_page",
+        "_refresh_presets",
+        "_reject_data",
+        "_reload_data",
+        "_remove_column",
+        "_remove_filter",
+        "_reset_columns",
+        "_reset_page_on_filter_change",
+        "_reset_pending_filters",
+        "_review_detail",
+        "_save_current_layout",
+        "_save_modifications",
+        "_save_preset",
+        "_set_filter_operator",
+        "_sort_column",
+        "_sync_rows_per_page",
+        "_update_column_order",
+        "_update_column_widths",
+        "add_filter_btn_ui",
+        "apply_filters_ui",
+        "approval_status_ui",
+        "available_columns_modal",
+        "available_filter_columns",
+        "copy_column_list",
+        "current_preset_name",
+        "data_summary",
+        "dynamic_filters",
+        "export_download_ui",
+        "facet_panels_ui",
+        "modifications_log_ui",
+        "pagination_controls",
+        "preset_menu_items",
+        "selection_mode_ui",
+        "stats_histogram",
+        "synthesis_mode_banner",
+        "synthesis_query_preview",
+        "synthesis_status",
+        "table_container",
+        "viewer_mode_ui"
       ]
     }
   },
   "type_coverage": {
-    "src/utils/clipboard_utils.py": {
+    "src/server.py": {
       "functions": {
-        "total": 2,
-        "with_return_type": 2,
-        "fully_annotated": 2
-      },
-      "parameters": {
-        "total": 8,
-        "annotated": 8
-      }
-    },
-    "src/utils/column_utils.py": {
-      "functions": {
-        "total": 8,
-        "with_return_type": 8,
-        "fully_annotated": 7
-      },
-      "parameters": {
-        "total": 15,
-        "annotated": 13
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "sort_dataframe",
-          "name": "column",
-          "line": 40
-        },
-        {
-          "type": "parameter",
-          "function": "sort_dataframe",
-          "name": "direction",
-          "line": 40
-        }
-      ]
-    },
-    "src/utils/data_operations.py": {
-      "functions": {
-        "total": 14,
-        "with_return_type": 14,
-        "fully_annotated": 12
-      },
-      "parameters": {
-        "total": 44,
-        "annotated": 42
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "perform_undo",
-          "name": "config_instance",
-          "line": 66
-        },
-        {
-          "type": "parameter",
-          "function": "perform_cell_edit",
-          "name": "config_instance",
-          "line": 245
-        }
-      ]
-    },
-    "src/utils/data_utils.py": {
-      "functions": {
-        "total": 8,
+        "total": 89,
         "with_return_type": 5,
         "fully_annotated": 5
       },
       "parameters": {
-        "total": 15,
-        "annotated": 12
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "matches_row_pk",
-          "name": "entry_details",
-          "line": 50
-        },
-        {
-          "type": "return",
-          "function": "matches_row_pk",
-          "line": 50
-        },
-        {
-          "type": "parameter",
-          "function": "matches_row",
-          "name": "entry_details",
-          "line": 60
-        },
-        {
-          "type": "return",
-          "function": "matches_row",
-          "line": 60
-        },
-        {
-          "type": "parameter",
-          "function": "pk_in_list",
-          "name": "pk_list",
-          "line": 75
-        },
-        {
-          "type": "return",
-          "function": "pk_in_list",
-          "line": 75
-        }
-      ]
-    },
-    "src/utils/event_handlers.py": {
-      "functions": {
-        "total": 4,
-        "with_return_type": 4,
-        "fully_annotated": 4
-      },
-      "parameters": {
-        "total": 16,
-        "annotated": 16
-      }
-    },
-    "src/utils/filter_handlers.py": {
-      "functions": {
-        "total": 4,
-        "with_return_type": 4,
-        "fully_annotated": 4
-      },
-      "parameters": {
-        "total": 7,
-        "annotated": 7
-      }
-    },
-    "src/utils/filter_utils.py": {
-      "functions": {
-        "total": 3,
-        "with_return_type": 3,
-        "fully_annotated": 2
-      },
-      "parameters": {
-        "total": 10,
+        "total": 18,
         "annotated": 9
       },
       "missing": [
         {
           "type": "parameter",
-          "function": "_is_operator_filter",
-          "name": "filter_value",
-          "line": 37
-        }
-      ]
-    },
-    "src/utils/modal_utils.py": {
-      "functions": {
-        "total": 11,
-        "with_return_type": 11,
-        "fully_annotated": 10
-      },
-      "parameters": {
-        "total": 35,
-        "annotated": 34
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "build_dynamic_filters_panel",
-          "name": "get_unique_values_func",
-          "line": 444
-        }
-      ]
-    },
-    "src/utils/pagination_utils.py": {
-      "functions": {
-        "total": 3,
-        "with_return_type": 3,
-        "fully_annotated": 3
-      },
-      "parameters": {
-        "total": 12,
-        "annotated": 12
-      }
-    },
-    "src/utils/preset_utils.py": {
-      "functions": {
-        "total": 5,
-        "with_return_type": 5,
-        "fully_annotated": 5
-      },
-      "parameters": {
-        "total": 9,
-        "annotated": 9
-      }
-    },
-    "src/utils/table_utils.py": {
-      "functions": {
-        "total": 10,
-        "with_return_type": 10,
-        "fully_annotated": 9
-      },
-      "parameters": {
-        "total": 72,
-        "annotated": 71
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "_format_cell_value",
-          "name": "dtype",
-          "line": 17
-        }
-      ]
-    },
-    "src/utils/tracker.py": {
-      "functions": {
-        "total": 9,
-        "with_return_type": 6,
-        "fully_annotated": 6
-      },
-      "parameters": {
-        "total": 10,
-        "annotated": 10
-      },
-      "missing": [
-        {
-          "type": "return",
-          "function": "track_sql",
-          "line": 42
-        },
-        {
-          "type": "return",
-          "function": "track_render",
-          "line": 75
-        },
-        {
-          "type": "return",
-          "function": "render_timer",
-          "line": 96
-        }
-      ]
-    },
-    "src/utils/ui_components.py": {
-      "functions": {
-        "total": 14,
-        "with_return_type": 12,
-        "fully_annotated": 12
-      },
-      "parameters": {
-        "total": 36,
-        "annotated": 34
-      },
-      "missing": [
-        {
-          "type": "parameter",
-          "function": "format_row",
-          "name": "r",
-          "line": 35
-        },
-        {
-          "type": "return",
-          "function": "format_row",
-          "line": 35
+          "function": "create_server",
+          "name": "input",
+          "line": 73
         },
         {
           "type": "parameter",
-          "function": "format_row",
-          "name": "r",
-          "line": 70
+          "function": "create_server",
+          "name": "output",
+          "line": 73
+        },
+        {
+          "type": "parameter",
+          "function": "create_server",
+          "name": "session",
+          "line": 73
         },
         {
           "type": "return",
-          "function": "format_row",
-          "line": 70
+          "function": "create_server",
+          "line": 73
+        },
+        {
+          "type": "return",
+          "function": "load_modifications_log",
+          "line": 134
+        },
+        {
+          "type": "return",
+          "function": "load_data_from_source",
+          "line": 137
+        },
+        {
+          "type": "return",
+          "function": "save_ui_state",
+          "line": 140
+        },
+        {
+          "type": "return",
+          "function": "load_ui_state",
+          "line": 146
+        },
+        {
+          "type": "return",
+          "function": "is_lazy_loading",
+          "line": 169
+        },
+        {
+          "type": "return",
+          "function": "_get_page_selection",
+          "line": 434
         }
       ]
     }

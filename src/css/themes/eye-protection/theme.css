@@ -1,0 +1,114 @@
+/* Eye Protection Theme
+   Warm tones, reduced blue light, low contrast, gentle on the eyes.
+   Beige/sepia-tinted backgrounds with muted accents. */
+
+[data-theme="eye-protection"] {
+    /* Typography */
+    --font-family: "Georgia", "Cambria", "Times New Roman", serif;
+
+    /* Page background — warm beige */
+    --page-bg: #f5f0e8;
+
+    /* Sidebar / Left Panel */
+    --sidebar-bg: #faf7f2;
+    --sidebar-color: #3d3328;
+    --sidebar-border: #e8e0d4;
+    --sidebar-shadow: 1px 0 6px rgba(80,60,30,0.05);
+    --sidebar-heading: #3d3328;
+    --sidebar-subtext: #8c7b68;
+    --sidebar-text: #5c4e3e;
+
+    /* Toolbar */
+    --toolbar-bg: #faf7f2;
+    --toolbar-border: #e8e0d4;
+    --toolbar-shadow: 0 1px 3px rgba(80,60,30,0.04);
+    --toolbar-btn-bg: #faf7f2;
+    --toolbar-btn-border: #e0d8cc;
+    --toolbar-btn-color: #5c4e3e;
+    --toolbar-btn-hover-bg: #f0ebe3;
+
+    /* Table */
+    --table-bg: #fefcf8;
+    --table-border: #e8e0d4;
+    --table-radius: 10px;
+    --table-shadow: 0 1px 3px rgba(80,60,30,0.05);
+    --table-header-bg: #5c4e3e;
+    --table-header-color: #faf7f2;
+    --table-header-border: #4a3f33;
+    --table-row-bg: #fefcf8;
+    --table-row-alt-bg: #f9f5ee;
+    --table-row-hover-bg: #f4ede3;
+    --table-cell-border: #f0ebe3;
+    --table-cell-color: #3d3328;
+    --table-cell-edited-bg: #fef9e7;
+    --table-cell-edited-border: #a08050;
+
+    /* Status badges — muted, warm tones */
+    --status-unprocessed: #a89880;
+    --status-edited: #c49030;
+    --status-approved: #5a9060;
+    --status-rejected: #b85040;
+
+    /* Pagination */
+    --pagination-bg: #faf7f2;
+    --pagination-border: #e8e0d4;
+    --pagination-btn-bg: #faf7f2;
+    --pagination-btn-border: #e0d8cc;
+    --pagination-btn-color: #5c4e3e;
+    --pagination-btn-hover-bg: #f0ebe3;
+    --pagination-btn-active-bg: #7a6b58;
+    --pagination-btn-active-color: #faf7f2;
+    --pagination-info-color: #8c7b68;
+
+    /* Modal */
+    --modal-overlay-bg: rgba(60,48,30,0.35);
+    --modal-bg: #faf7f2;
+    --modal-radius: 14px;
+    --modal-shadow: 0 16px 48px rgba(60,48,30,0.12);
+    --modal-header-border: #e8e0d4;
+    --modal-header-color: #3d3328;
+
+    /* Inputs / Controls */
+    --input-bg: #fefcf8;
+    --input-border: #e0d8cc;
+    --input-color: #3d3328;
+    --input-focus-border: #7a6b58;
+    --input-placeholder: #b0a090;
+
+    /* Buttons - Primary (warm olive) */
+    --btn-primary-bg: #7a6b58;
+    --btn-primary-color: #faf7f2;
+    --btn-primary-hover-bg: #655840;
+
+    /* Buttons - Success */
+    --btn-success-bg: #5a9060;
+    --btn-success-color: #faf7f2;
+
+    /* Buttons - Danger */
+    --btn-danger-bg: #b85040;
+    --btn-danger-color: #faf7f2;
+
+    /* Toggle / Misc */
+    --toggle-btn-bg: #faf7f2;
+    --toggle-btn-border: #e0d8cc;
+    --toggle-btn-color: #8c7b68;
+    --toggle-btn-hover-bg: #f0ebe3;
+
+    /* Scrollbar */
+    --scrollbar-track: #f0ebe3;
+    --scrollbar-thumb: #d0c4b4;
+    --scrollbar-thumb-hover: #a89880;
+
+    /* Histogram */
+    --histogram-track: #f0ebe3;
+
+    /* Filter section */
+    --filter-badge-bg: #f0ebe3;
+    --filter-badge-color: #5c4e3e;
+
+    /* Log */
+    --log-bg: #faf7f2;
+    --log-border: #e8e0d4;
+    --log-item-border: #f0ebe3;
+    --log-text: #5c4e3e;
+}

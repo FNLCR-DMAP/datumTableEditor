@@ -1099,7 +1099,7 @@ class TestDateFilterIntegration:
         assert 'type="date"' in html
         assert "From" in html
         assert "To" in html
-        assert "applyDateFilter" in html
+        assert 'data-column="created_at"' in html
 
     def test_date_gt_filter_and_render(self, date_df, status_func):
         """gt operator on date column filters correctly and renders single date input."""

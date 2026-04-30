@@ -335,6 +335,7 @@ class DataFetcher:
 
     def _fetch_metadata(self):
         """Fetch table row count, column names, and column types."""
+        import time as _tm
         try:
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
@@ -344,6 +345,7 @@ class DataFetcher:
             
             if self.app_config.database.mode == "datum" and self._datum_client:
                 # Datum mode
+                _t0 = _tm.time()
                 with tracker.track_sql("fetch_metadata.count", count_query):
                     response = self._datum_client.execute_sql(
                         sql=count_query,
@@ -352,8 +354,10 @@ class DataFetcher:
                         service_name=self.app_config.database.datum_service_name,
                     )
                 self._total_count = int(response.data[0]["cnt"]) if response.data else 0
+                print(f"[Timing] fetch_metadata.count: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Get columns
+                _t0 = _tm.time()
                 with tracker.track_sql("fetch_metadata.columns", columns_query):
                     response = self._datum_client.execute_sql(
                         sql=columns_query,
@@ -367,12 +371,16 @@ class DataFetcher:
                 # Fallback: try information_schema
                 if not self._columns:
                     self._columns = self._get_columns_from_schema_datum()
+                print(f"[Timing] fetch_metadata.columns: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Fetch column types from information_schema
+                _t0 = _tm.time()
                 self._column_types = self._get_column_types_from_schema()
+                print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             else:
                 # Direct SQLAlchemy mode
                 from sqlalchemy import text
+                _t0 = _tm.time()
                 with self._engine.connect() as conn:
                     with tracker.track_sql("fetch_metadata.count", count_query):
                         result = conn.execute(text(count_query))
@@ -383,9 +391,12 @@ class DataFetcher:
                     with tracker.track_sql("fetch_metadata.columns", columns_query):
                         result = conn.execute(text(columns_query))
                         self._columns = list(result.keys())
+                print(f"[Timing] fetch_metadata.sql: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Fetch column types from information_schema
+                _t0 = _tm.time()
                 self._column_types = self._get_column_types_from_schema()
+                print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             
             text_cols = [c for c, t in self._column_types.items() if t in self._TEXT_TYPES]
             print(f"DataFetcher: Table has {self._total_count} rows, {len(self._columns)} columns ({len(text_cols)} text)")
@@ -700,7 +711,7 @@ class DataFetcher:
         Filter values can be:
           - A string or list of strings: exact match (= / IN)
           - An operator dict {"op": "...", "value": ...}: rich operator
-            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, regex
+            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
         
         Args:
             params: Query parameters
@@ -726,7 +737,7 @@ class DataFetcher:
                 col_e = self._col_expr(col_ident, col)
                 
                 # Skip if value is empty/blank (no constraint)
-                if op not in ("not_empty",):
+                if op not in ("not_empty", "is_null"):
                     if fval is None or fval == "" or fval == []:
                         continue
                     if isinstance(fval, list) and all(
@@ -847,7 +858,15 @@ class DataFetcher:
                         sql_params[f"p{param_idx}"] = ""
                         param_idx += 1
                     else:
-                        conditions.append(f'({col_ident} IS NOT NULL AND {col_e} != \'\')') 
+                        conditions.append(f'({col_ident} IS NOT NULL AND {col_e} != \'\')')
+                
+                elif op == "is_null":
+                    if use_params:
+                        conditions.append(f'({col_ident} IS NULL OR {col_e} = :p{param_idx})')
+                        sql_params[f"p{param_idx}"] = ""
+                        param_idx += 1
+                    else:
+                        conditions.append(f'({col_ident} IS NULL OR {col_e} = \'\')') 
                 
                 elif op == "regex":
                     if use_params:
@@ -1548,6 +1567,7 @@ class ConfigInstance:
     data_dir: Path = field(default=None)
     modifications_log_path: Path = field(default=None)
     _state_table_checked: bool = field(default=False, repr=False)
+    _state_table_available: bool = field(default=False, repr=False)
     _mods_table_checked: bool = field(default=False, repr=False)
     _preset_table_checked: bool = field(default=False, repr=False)
     _engine: Any = field(default=None, repr=False)
@@ -3407,13 +3427,217 @@ class ConfigInstance:
             print(f"✗ Error updating data via Datum: {e}")
             return False
 
+    def batch_save_status(self, entries: list):
+        """Batch-save approval/rejection status changes in a single transaction.
+
+        Each entry is a dict with keys:
+            row_pk: dict of PK column → value
+            status_value: the value to write to the status column
+            mod_type: "approval" or "rejection"
+            assignments: optional list of (column, value) tuples for approval_assignment
+
+        This replaces N individual save_modification_to_db + update_data_in_db calls
+        with a single multi-statement transaction.
+        """
+        if not entries:
+            return
+
+        db_mode = self.app_config.database.mode
+        if db_mode == "datum":
+            return self._batch_save_status_datum(entries)
+        return self._batch_save_status_sqlalchemy(entries)
+
+    def _batch_save_status_sqlalchemy(self, entries: list):
+        """Execute batch status save via direct SQLAlchemy in a single transaction."""
+        from sqlalchemy import text
+
+        self._ensure_mods_table_exists()
+
+        engine = self._get_engine()
+        if engine is None:
+            return
+
+        mods_table = self.app_config.database.mods_table
+        data_table = self.app_config.database.data_table
+        pk_columns = self.app_config.table.primary_key
+        status_col = getattr(self.app_config.database, "status_column", None)
+        mods_table_sql = _format_table_name(mods_table)
+        data_table_sql = _format_table_name(data_table)
+
+        with engine.connect() as conn:
+            for entry in entries:
+                row_pk = entry["row_pk"]
+                status_value = entry["status_value"]
+                mod_type = entry["mod_type"]
+                assignments = entry.get("assignments", [])
+
+                # INSERT mod record for _status
+                conn.execute(
+                    text(f'''INSERT INTO {mods_table_sql}
+                        (row_pk, column_name, old_value, new_value, mod_type, created_by)
+                        VALUES (:row_pk, :col, NULL, :new_val, :mod_type, :user)'''),
+                    {"row_pk": json.dumps(row_pk), "col": "_status",
+                     "new_val": status_value, "mod_type": mod_type, "user": self.username}
+                )
+
+                # UPDATE data table status column
+                if status_col:
+                    where_parts = []
+                    params = {"new_value": status_value}
+                    for i, pk_col in enumerate(pk_columns):
+                        if pk_col in row_pk:
+                            where_parts.append(f'{SqlIdentifier(pk_col)} = :pk_{i}')
+                            params[f"pk_{i}"] = row_pk[pk_col]
+                    if where_parts:
+                        col_sql = SqlIdentifier(status_col)
+                        where_sql = " AND ".join(where_parts)
+                        conn.execute(
+                            text(f'UPDATE {data_table_sql} SET {col_sql} = :new_value WHERE {where_sql}'),
+                            params
+                        )
+                    # Also insert a field_modification record for status column
+                    conn.execute(
+                        text(f'''INSERT INTO {mods_table_sql}
+                            (row_pk, column_name, old_value, new_value, mod_type, created_by)
+                            VALUES (:row_pk, :col, NULL, :new_val, :mod_type, :user)'''),
+                        {"row_pk": json.dumps(row_pk), "col": status_col,
+                         "new_val": status_value, "mod_type": "field_modification", "user": self.username}
+                    )
+
+                # Approval assignments (source → target column copies)
+                for tgt_col, tgt_val in assignments:
+                    where_parts = []
+                    params = {"new_value": tgt_val}
+                    for i, pk_col in enumerate(pk_columns):
+                        if pk_col in row_pk:
+                            where_parts.append(f'{SqlIdentifier(pk_col)} = :pk_{i}')
+                            params[f"pk_{i}"] = row_pk[pk_col]
+                    if where_parts:
+                        col_sql = SqlIdentifier(tgt_col)
+                        where_sql = " AND ".join(where_parts)
+                        conn.execute(
+                            text(f'UPDATE {data_table_sql} SET {col_sql} = :new_value WHERE {where_sql}'),
+                            params
+                        )
+                    conn.execute(
+                        text(f'''INSERT INTO {mods_table_sql}
+                            (row_pk, column_name, old_value, new_value, mod_type, created_by)
+                            VALUES (:row_pk, :col, NULL, :new_val, :mod_type, :user)'''),
+                        {"row_pk": json.dumps(row_pk), "col": tgt_col,
+                         "new_val": tgt_val, "mod_type": "field_modification", "user": self.username}
+                    )
+
+            conn.commit()
+
+        self.invalidate_mods_cache()
+        print(f"[Batch] Saved {len(entries)} status changes in single transaction")
+
+    def _batch_save_status_datum(self, entries: list):
+        """Execute batch status save via Datum proxy in a single multi-statement SQL call."""
+        try:
+            from ..adapter.datum import DatumClient
+
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            if not base_url or not token:
+                print("⚠ Datum credentials not configured for batch save")
+                return
+
+            client = DatumClient(base_url=base_url, token=token)
+            mods_table = self.app_config.database.mods_table
+            data_table = self.app_config.database.data_table
+            pk_columns = self.app_config.table.primary_key
+            status_col = getattr(self.app_config.database, "status_column", None)
+            mods_table_sql = SqlTableName(mods_table)
+            data_table_sql = SqlTableName(data_table)
+
+            stmts = ["BEGIN;"]
+
+            for entry in entries:
+                row_pk = entry["row_pk"]
+                status_value = entry["status_value"]
+                mod_type = entry["mod_type"]
+                assignments = entry.get("assignments", [])
+
+                # Serialize PK for jsonb
+                serializable_pk = {}
+                for k, v in row_pk.items():
+                    if hasattr(v, 'item'):
+                        serializable_pk[k] = v.item()
+                    elif pd.isna(v):
+                        serializable_pk[k] = None
+                    else:
+                        serializable_pk[k] = v
+
+                pk_lit = SqlLiteral(json.dumps(serializable_pk, sort_keys=True))
+                status_lit = SqlLiteral(status_value)
+                allowed_mod_types = {"approval", "rejection", "field_modification"}
+                safe_mod_type = mod_type if mod_type in allowed_mod_types else "field_modification"
+
+                # INSERT mod record
+                stmts.append(
+                    f"INSERT INTO {mods_table_sql} (row_pk, column_name, old_value, new_value, mod_type)"
+                    f" VALUES ({pk_lit}::jsonb, {SqlLiteral('_status')}, NULL, {status_lit}, {SqlLiteral(safe_mod_type)});"
+                )
+
+                # UPDATE data table status column
+                if status_col:
+                    where_parts = []
+                    for pk_col in pk_columns:
+                        if pk_col in row_pk:
+                            where_parts.append(f'{SqlIdentifier(pk_col)} = {SqlLiteral(row_pk[pk_col])}')
+                    if where_parts:
+                        where_sql = " AND ".join(where_parts)
+                        stmts.append(
+                            f"UPDATE {data_table_sql} SET {SqlIdentifier(status_col)} = {status_lit} WHERE {where_sql};"
+                        )
+                    stmts.append(
+                        f"INSERT INTO {mods_table_sql} (row_pk, column_name, old_value, new_value, mod_type)"
+                        f" VALUES ({pk_lit}::jsonb, {SqlLiteral(status_col)}, NULL, {status_lit}, {SqlLiteral('field_modification')});"
+                    )
+
+                # Approval assignments
+                for tgt_col, tgt_val in assignments:
+                    tgt_val_lit = SqlLiteral(tgt_val)
+                    where_parts = []
+                    for pk_col in pk_columns:
+                        if pk_col in row_pk:
+                            where_parts.append(f'{SqlIdentifier(pk_col)} = {SqlLiteral(row_pk[pk_col])}')
+                    if where_parts:
+                        where_sql = " AND ".join(where_parts)
+                        stmts.append(
+                            f"UPDATE {data_table_sql} SET {SqlIdentifier(tgt_col)} = {tgt_val_lit} WHERE {where_sql};"
+                        )
+                    stmts.append(
+                        f"INSERT INTO {mods_table_sql} (row_pk, column_name, old_value, new_value, mod_type)"
+                        f" VALUES ({pk_lit}::jsonb, {SqlLiteral(tgt_col)}, NULL, {tgt_val_lit}, {SqlLiteral('field_modification')});"
+                    )
+
+            stmts.append("COMMIT;")
+            sql = "\n".join(stmts)
+
+            with tracker.track_sql("batch_save_status.datum", sql):
+                client.execute_sql(
+                    sql=sql,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+
+            self.invalidate_mods_cache()
+            print(f"[Batch] Saved {len(entries)} status changes via Datum in single transaction")
+        except Exception as e:
+            print(f"✗ Error in batch status save via Datum: {e}")
+            import traceback
+            traceback.print_exc()
+
     def _ensure_state_table_exists(self) -> bool:
         """Create the UI state table if it doesn't exist. Only runs once per instance."""
         if not self.app_config.state.persist_state:
             return True
-        # Skip if already checked this session
+        # Skip if already checked this session (success or failure)
         if self._state_table_checked:
-            return True
+            return self._state_table_available
         
         if self.app_config.database.mode == "datum":
             return self._ensure_state_table_exists_datum()
@@ -3461,9 +3685,12 @@ class ConfigInstance:
                 '''))
                 conn.commit()
             self._state_table_checked = True
+            self._state_table_available = True
             return True
         except Exception as e:
             print(f"⚠ Could not create state table: {e}")
+            self._state_table_checked = True
+            self._state_table_available = False
             return False
 
     def _ensure_state_table_exists_datum(self) -> bool:
@@ -3524,9 +3751,12 @@ class ConfigInstance:
             )
             
             self._state_table_checked = True
+            self._state_table_available = True
             return True
         except Exception as e:
             print(f"⚠ Could not create state table via Datum: {e}")
+            self._state_table_checked = True
+            self._state_table_available = False
             return False
 
     def save_ui_state(
@@ -3549,7 +3779,8 @@ class ConfigInstance:
             )
         
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return False
         
         try:
             from sqlalchemy import text
@@ -3614,7 +3845,8 @@ class ConfigInstance:
     ) -> bool:
         """Save UI state via Datum proxy."""
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return False
         
         try:
             from ..adapter.datum import DatumClient
@@ -3688,7 +3920,8 @@ class ConfigInstance:
             return self._load_ui_state_datum(default_state)
         
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return default_state
         
         try:
             from sqlalchemy import text
@@ -3737,7 +3970,8 @@ class ConfigInstance:
     def _load_ui_state_datum(self, default_state: Dict) -> Dict:
         """Load UI state via Datum proxy."""
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return default_state
         
         try:
             from ..adapter.datum import DatumClient

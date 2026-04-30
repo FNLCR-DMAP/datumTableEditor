@@ -6,7 +6,7 @@ Supports two filter value formats:
   - Operator dict: {"op": "not_contains", "value": "RT"} → rich operator
 
 Supported operators:
-  in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, regex
+  in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
 """
 
 import re
@@ -30,6 +30,7 @@ OPERATOR_LABELS = {
     "lte": "≤",
     "regex": "matches",
     "not_empty": "is not empty",
+    "is_null": "is null",
     "last_n_days": "within last N days",
 }
 
@@ -52,7 +53,7 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
     row_str = str(row_value_raw) if row_value_raw is not None else ""
     
     # Empty / blank value → no constraint (pass through) for value-based ops
-    if op not in ("not_empty",):
+    if op not in ("not_empty", "is_null"):
         if fval is None or fval == "" or fval == []:
             return True
         if isinstance(fval, list) and all(
@@ -135,6 +136,9 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
         if row_value_raw is None or pd.isna(row_value_raw):
             return False
         return row_str.strip() != ""
+    
+    elif op == "is_null":
+        return row_value_raw is None or pd.isna(row_value_raw) or row_str.strip() == ""
     
     elif op == "regex":
         try:

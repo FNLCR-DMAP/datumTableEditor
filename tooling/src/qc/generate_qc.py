@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Set, Any, Tuple, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 
 def load_config(config_path: Path) -> dict:
     """Load configuration from config.json."""
@@ -319,32 +321,37 @@ def generate_target_report(
 
 
 def main():
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent.parent
-    config_path = script_dir / "config.json"
-    
-    # Load config
-    config = load_config(config_path)
-    
-    # Ensure output directory exists
-    output_dir = project_root / config["output_dir"]
-    output_dir.mkdir(exist_ok=True)
-    
-    utils_dir = project_root / config["utils_dir"]
+    from config_loader import load_qc_config, get_project_root, get_output_dir, resolve_all_python_files
+
+    root = get_project_root()
+    config = load_qc_config()
+    output_dir = get_output_dir(root, config)
     
     # Collect all function calls across entire codebase
     all_calls: Set[str] = set()
-    for py_file in project_root.rglob("*.py"):
-        if "__pycache__" in str(py_file) or "tooling" in str(py_file):
-            continue
+    for py_file in resolve_all_python_files(root, config):
         all_calls.update(get_function_calls_from_file(py_file))
         all_calls.update(get_all_names_used(py_file))
     
     # Generate report for each target
-    for target in config["targets"]:
-        report = generate_target_report(project_root, target, utils_dir, all_calls)
+    for target in config["qc_targets"]:
+        # Resolve files from glob or explicit list
+        target_files = []
+        if "files_glob" in target:
+            target_files = [str(f.relative_to(root)) for f in sorted(root.glob(target["files_glob"])) if f.name != "__init__.py"]
+        elif "files" in target:
+            target_files = target["files"]
+
+        legacy_target = {
+            "name": target["name"],
+            "files": target_files,
+            "output": str(output_dir / target["output"]),
+            "include_utils": False
+        }
+        utils_dir = root / config["python"]["source_dirs"][0] if config["python"]["source_dirs"] else root / "src" / "utils"
+        report = generate_target_report(root, legacy_target, utils_dir, all_calls)
         
-        output_path = project_root / target["output"]
+        output_path = output_dir / target["output"]
         with open(output_path, 'w') as f:
             json.dump(report, f, indent=2)
         

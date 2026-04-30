@@ -1,0 +1,98 @@
+{
+  "_description": "Universal QC tooling configuration. All paths are relative to project root.",
+  "project": {
+    "name": "datumTableEditor",
+    "root_marker": "pyproject.toml"
+  },
+  "paths": {
+    "src_root": "src",
+    "tests_dir": "tests",
+    "output_dir": "qcmetric",
+    "js_dir": "src/js",
+    "css_dir": "src/css"
+  },
+  "python": {
+    "source_dirs": [
+      "src/utils",
+      "src/db",
+      "src/config",
+      "src/processing",
+      "src/data",
+      "src/adapter",
+      "src/commute"
+    ],
+    "source_files": [
+      "src/server.py",
+      "src/ui.py"
+    ],
+    "exclude_patterns": [
+      "__pycache__",
+      "tooling",
+      ".git",
+      "*.egg-info"
+    ],
+    "test_pattern": "test_*.py"
+  },
+  "qc_targets": [
+    {
+      "name": "server",
+      "files": ["src/server.py"],
+      "output": "server_qc.json"
+    },
+    {
+      "name": "ui",
+      "files": ["src/ui.py"],
+      "output": "ui_qc.json"
+    },
+    {
+      "name": "config",
+      "files": ["src/config/config.py", "src/config/config_instance.py", "src/config/app_config_schema.py", "src/config/sql_types.py"],
+      "output": "config_qc.json"
+    },
+    {
+      "name": "utils",
+      "files_glob": "src/utils/*.py",
+      "output": "utils_qc.json"
+    },
+    {
+      "name": "db",
+      "files_glob": "src/db/*.py",
+      "output": "db_qc.json"
+    },
+    {
+      "name": "data",
+      "files_glob": "src/data/*.py",
+      "output": "data_qc.json"
+    },
+    {
+      "name": "processing",
+      "files_glob": "src/processing/*.py",
+      "output": "processing_qc.json"
+    }
+  ],
+  "golden_sql": {
+    "enabled": true,
+    "script": "tooling/src/sql/extract_golden_sql.py",
+    "output": "sql_golden.json",
+    "test_file": "tests/test_sql_golden.py"
+  },
+  "frontend": {
+    "enabled": true,
+    "js_extensions": [".js"],
+    "css_extensions": [".css"],
+    "output": "frontend_qc.json"
+  },
+  "type_qc": {
+    "enabled": true,
+    "output": "server_variable_type_qc.json"
+  },
+  "mapping": {
+    "enabled": true,
+    "output": "server_function_qc.json",
+    "app_mapping_output": "app_mapping.json"
+  },
+  "coverage": {
+    "test_command": "python -m pytest tests/ -x -q --cov=src --cov-report=term-missing",
+    "fail_under": null
+  }
+}

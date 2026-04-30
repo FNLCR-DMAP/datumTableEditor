@@ -9,8 +9,17 @@ A reusable PyShiny table editor widget with PostgreSQL database support for data
 - **Session Book Management**: Efficient pagination with in-memory caching
 - **Modification History**: Full audit trail of all changes with undo support
 - **Column Presets**: Save and load custom column configurations per user
-- **Status Workflow**: Built-in approval/rejection workflow
+- **Status Workflow**: Built-in approval/rejection workflow with configurable status values
 - **Real-time Filtering & Sorting**: Database-level query optimization
+- **Faceted Filters**: Checkbox+count sidebar panels for any column
+- **Theming**: Built-in themes (modern, classic, eye-protection, dark) with runtime switching
+- **Read-Only & Clean Slate Modes**: Display-only mode and minimal UI mode
+- **Row Selection Toggle**: Configurable row checkboxes for approve/reject/export flows
+- **Review Detail**: Emit selected row PKs via commute layer for parent-app integration
+- **Approval Assignment**: Column-to-column value copy on row approval
+- **Tracker Mode**: Performance profiling with per-query and per-render elapsed times
+- **Batch Upload**: Bulk data import support
+- **Timezone Display Control**: Strip timezone from datetime values in table display
 
 ## Installation
 
@@ -100,12 +109,21 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `state_table` | string | `"epitopes_ui_state"` | UI state persistence table |
 | `status_column` | string | `"Status"` | Column holding row status |
 | `auto_detect_pk` | bool | `true` | Auto-detect primary key from DB schema |
+| `pool_size` | int | `5` | SQLAlchemy connection pool size |
+| `max_overflow` | int | `10` | Max connections above pool_size |
+| `pool_timeout` | int | `30` | Seconds to wait for a connection from pool |
 | `lazy_loading` | bool | `false` | DB-level pagination (fetch only current page) |
 | `page_buffer_size` | int | `300` | Rows per query when lazy loading |
 | `max_rows` | int\|null | `null` | Max rows to load (`null` = all) |
 | `max_rows_per_page` | int | `100` | Hard upper limit per page |
+| `default_rows_per_page` | int | `25` | Default rows shown per page |
 | `shared_cache_key` | string\|null | `null` | Share loaded data across sessions using this key |
 | `shared_cache_ttl` | int | `300` | Seconds to keep shared cache alive (5 min default) |
+| `datum_base_url` | string | `""` | Datum proxy base URL (mode=datum only) |
+| `datum_token` | string | `""` | Datum API token (mode=datum only) |
+| `datum_database` | string | `""` | Target database name (mode=datum only) |
+| `datum_schema` | string | `"public"` | Database schema (mode=datum only) |
+| `datum_service_name` | string | `"postgres_sql"` | Service name (mode=datum only) |
 
 ### Table Settings
 
@@ -116,9 +134,15 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `editable_columns` | list | `[]` | Columns users can edit (empty = all) |
 | `readonly_columns` | list | `[]` | Columns that cannot be edited |
 | `column_masks` | object | `{}` | Display-name overrides: `{"real_name": "Display Name"}` |
+| `default_column_width` | int | `130` | Default width (px) for columns not in `default_column_widths` |
+| `default_column_widths` | object | `{}` | Per-column width overrides: `{"col_name": 180}` |
 | `default_sort_column` | string | `null` | Initial sort column |
 | `default_sort_ascending` | bool | `true` | Initial sort direction |
-| `presets_enabled` | bool | `true` | Enable column presets. When `false`, hides preset UI and skips all preset DB calls (use for sub-table / detail-tab mode) |
+| `default_rows_per_page` | int | `25` | Default rows shown per page |
+| `rows_per_page_options` | list | `[10, 25, 50, 100, "all"]` | Available rows-per-page choices |
+| `presets_enabled` | bool | `true` | Enable column presets. When `false`, hides preset UI and skips all preset DB calls |
+| `default_preset` | string | `"Default"` | Name of the preset loaded on startup |
+| `no_tz_display` | bool | `false` | Strip timezone from datetime/timestamp values in table display |
 
 ### State Settings
 
@@ -140,8 +164,11 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `filter_columns` | object | `{}` | Column filter types: `"select"`, `"text"`, `"numeric"`, `"date"` |
 | `default_filters` | object | `{}` | Filters applied on load (see Filter Operators below) |
 | `status_filter_enabled` | bool | `true` | Show status filter in sidebar |
+| `enable_search` | bool | `true` | Show the search input |
 | `search_case_sensitive` | bool | `false` | Case-sensitive search |
 | `search_regex_enabled` | bool | `false` | Allow regex in search input |
+| `facet_columns` | list | `[]` | Columns shown as faceted checkbox+count panels in sidebar |
+| `facet_max_values` | int | `5` | Max distinct values to show per facet panel |
 
 ### Feature Flags
 
@@ -155,6 +182,12 @@ See **template/app_config.template.json** for a fully annotated example and **do
 | `enable_status_filter` | bool | `true` | Show status distribution in sidebar |
 | `enable_synthesis` | bool | `false` | Enable the synthesis transform feature |
 | `enable_review_detail` | bool | `false` | Show Review Detail button (emits event via commute layer) |
+| `review_detail_multi_select` | bool | `false` | When `true`, Review Detail emits all selected rows (pk is a list) |
+| `enable_row_select` | bool | `true` | Show row selection checkboxes. When `false`, disables approve/reject/export-selected |
+| `read_only` | bool | `false` | All columns read-only, editing controls hidden for all users |
+| `tracker_mode` | bool | `false` | Force-flush logs every SQL query and UI render with elapsed time (ms) |
+| `theme` | string | `"modern"` | Color scheme: `modern` \| `classic` \| `eye-protection` \| `dark`. Switchable at runtime |
+| `clean_slate` | bool | `false` | Display only data table and pagination. Hides sidebar, toolbar, and modals |
 | `fix_filter` | bool | `false` | Lock filters to only `default_filters` |
 
 ### Synthesis
@@ -180,6 +213,34 @@ See **template/app_config.template.json** for a fully annotated example and **do
 ```
 
 Internal keys (`unprocessed`, `edited`, `approved`, `rejected`) must not change. Values are displayed in the UI and also recognized in the database `status_column`.
+
+### Status Values
+
+Controls what value is written to the database status column when Approve/Reject buttons are clicked:
+
+```json
+{
+  "status_values": {
+    "approved": "approved",
+    "rejected": "rejected"
+  }
+}
+```
+
+Change to match your column's convention, e.g. `{"approved": "Accepted", "rejected": "Declined"}`.
+
+### Approval Assignment
+
+Column-to-column copy on approval. For each `{source: target}` pair, the source column value is written to the target column when a row is approved:
+
+```json
+{
+  "approval_assignment": {
+    "Draft_Value": "Final_Value",
+    "Notes": "Approved_Notes"
+  }
+}
+```
 
 ### Permissions
 
@@ -1148,7 +1209,7 @@ pytest tests/ --cov=src --cov-report=term-missing
 
 ### Current Test Coverage
 
-- **1277+ tests passing** (~1.5s runtime)
+- **1516+ tests passing** (~1.5s runtime)
 - **96.5% public function coverage** (222/230 functions)
 - Database modules: 90–100% coverage
 - Utility modules: 93–100% coverage

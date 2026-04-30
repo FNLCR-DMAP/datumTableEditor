@@ -567,7 +567,7 @@ window.clearFilterContent = function(columnName, event) {
 
 // Apply date filter — reads date input(s) from the filter group and sends to server
 window.applyDateFilter = function(columnName, event) {
-    var btn = event ? event.currentTarget : null;
+    var btn = event ? (event.currentTarget || event.target) : null;
     if (!btn) return;
     var filterGroup = btn.closest('.filter-group');
     if (!filterGroup) return;
@@ -581,6 +581,7 @@ window.applyDateFilter = function(columnName, event) {
     });
     
     var value = values.join('\n');
+    console.log('[applyDateFilter]', columnName, 'values:', JSON.stringify(values), 'joined:', JSON.stringify(value));
     if (typeof setShinyInput !== 'undefined') {
         setShinyInput('apply_filter_value', {
             column: columnName,
@@ -590,20 +591,95 @@ window.applyDateFilter = function(columnName, event) {
     }
 };
 
-// Initialize filter textareas as readonly after render
+// Initialize filter textareas as readonly after render (legacy — kept for backward compat)
 window.initFilterReadonly = function(containerId) {
-    setTimeout(function() {
-        var el = document.querySelector('[id$="' + containerId + '"]');
-        if (!el) return;
-        // el may be the textarea itself (Shiny puts the ID on it) or a wrapper
-        var textarea = el.tagName === 'TEXTAREA' ? el : el.querySelector('textarea');
-        if (textarea) {
-            textarea.readOnly = true;
-            textarea.style.opacity = '0.85';
-            textarea.style.cursor = 'default';
-        }
-    }, 50);
+    // No-op: filters are now directly editable; blur triggers apply_filter_value
 };
+
+// Auto-attach change handlers to filter date inputs via MutationObserver
+(function() {
+    function attachDateChange(input) {
+        if (input._dateChangeAttached) return;
+        input._dateChangeAttached = true;
+        input.addEventListener('change', function() {
+            var columnName = this.getAttribute('data-column');
+            if (!columnName) return;
+            applyDateFilter(columnName, {currentTarget: this});
+        });
+    }
+
+    function scanForDateInputs(root) {
+        var inputs = root.querySelectorAll ? root.querySelectorAll('.filter-group .filter-date-input') : [];
+        inputs.forEach(attachDateChange);
+    }
+
+    var dateObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+                if (node.nodeType !== 1) return;
+                scanForDateInputs(node);
+                if (node.matches && node.matches('.filter-group .filter-date-input')) {
+                    attachDateChange(node);
+                }
+            });
+        });
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            dateObserver.observe(document.body, {childList: true, subtree: true});
+            scanForDateInputs(document);
+        });
+    } else {
+        dateObserver.observe(document.body, {childList: true, subtree: true});
+        scanForDateInputs(document);
+    }
+})();
+
+// Auto-submit filter textarea value on blur (user clicked away)
+(function() {
+    function attachFilterBlur(textarea) {
+        if (textarea._filterBlurAttached) return;
+        textarea._filterBlurAttached = true;
+        textarea.addEventListener('blur', function() {
+            var colMatch = this.id.match(/filter_(.+)/);
+            if (!colMatch) return;
+            var columnName = colMatch[1];
+            if (typeof setShinyInput !== 'undefined') {
+                setShinyInput('apply_filter_value', {
+                    column: columnName,
+                    value: this.value || '',
+                    ts: Date.now()
+                }, {priority: 'event'}, this);
+            }
+        });
+    }
+
+    // Observe DOM for filter textareas appearing
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+                if (node.nodeType !== 1) return;
+                var textareas = node.querySelectorAll ? node.querySelectorAll('.filter-group textarea') : [];
+                textareas.forEach(attachFilterBlur);
+                if (node.matches && node.matches('.filter-group textarea')) {
+                    attachFilterBlur(node);
+                }
+            });
+        });
+    });
+
+    // Start observing once DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            observer.observe(document.body, {childList: true, subtree: true});
+            document.querySelectorAll('.filter-group textarea').forEach(attachFilterBlur);
+        });
+    } else {
+        observer.observe(document.body, {childList: true, subtree: true});
+        document.querySelectorAll('.filter-group textarea').forEach(attachFilterBlur);
+    }
+})();
 
 // Filter Values Modal state
 var currentFilterValuesColumn = null;
