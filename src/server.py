@@ -1280,13 +1280,25 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Determine if this is a between-type operator filter
         is_between = isinstance(old, dict) and old.get("op") == "between"
         
+        # Detect date columns for auto-promoting to "between" operator
+        _is_date_col = False
+        if is_lazy_loading() and hasattr(config, 'data_fetcher'):
+            _is_date_col = col_name in config.data_fetcher.date_columns
+        else:
+            df = data.get()
+            if col_name in df.columns:
+                _is_date_col = pd.api.types.is_datetime64_any_dtype(df[col_name])
+        
         # Parse textarea content into values list
-        if is_between:
-            # For between, preserve positional empty strings (from/to)
+        if is_between or (_is_date_col and not isinstance(old, dict)):
+            # For between (or date columns sending from/to), preserve positional values
             parts = str(raw_value).split('\n') if raw_value is not None else []
             values = [v.strip() for v in parts]
             # Normalize: convert empty strings to None for null-bound semantics
             values = [v if v else None for v in values]
+            # Auto-promote date columns to "between" operator dict
+            if _is_date_col and not is_between and len(values) == 2:
+                is_between = True
         elif raw_value and str(raw_value).strip():
             values = [v.strip() for v in str(raw_value).replace(',', '\n').split('\n') if v.strip()]
         else:
@@ -1301,6 +1313,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if values != old_values:
                 filters[col_name] = {"op": op, "value": values, "interactive": True}
                 pending_filters.set(filters)
+        elif is_between:
+            # Date column auto-promoted to between
+            filters[col_name] = {"op": "between", "value": values, "interactive": True}
+            pending_filters.set(filters)
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
         else:
             # Simple string filter
             new_val = "\n".join(values) if values else "all"
