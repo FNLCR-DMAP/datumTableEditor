@@ -32,14 +32,18 @@
   },
 
   "query": {
+    "_usage": "To enable filters, add column names from your LP LIMS data below",
     "searchable_columns": [],
     "filter_columns": {},
+    "_filter_columns_example": {"Status": "select", "Date": "date", "Count": "numeric"},
     "default_filters": {},
     "enable_search": true,
     "status_filter_enabled": false,
     "search_case_sensitive": false,
     "search_regex_enabled": false,
-    "facet_columns": []
+    "facet_columns": [],
+    "_facet_columns_example": ["Status", "Category", "Lab"],
+    "_facet_comment": "facet_columns show checkbox+count panels in sidebar; filter_columns add dropdown filters"
   },
 
   "state": {
@@ -78,6 +82,7 @@
     "no_tz_display": true
   },
 
+  "_feature_comment": "LP LIMS supports export and filters; set clean_slate=true to hide toolbar/sidebar",
   "enable_approval_workflow": false,
   "enable_save_button": false,
   "enable_export": true,

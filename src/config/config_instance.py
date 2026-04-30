@@ -689,6 +689,22 @@ class DataFetcher:
         Used by the filter UI to populate dropdown options in lazy loading mode.
         """
         try:
+            # LP LIMS mode: fetch a page of data and extract unique values
+            if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    page=1,
+                    page_size=min(limit, 10000),
+                )
+                values = set()
+                for row in response.data:
+                    val = row.get(column)
+                    if val is not None and str(val).strip():
+                        values.add(str(val))
+                return sorted(values)[:limit]
+
             data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
             query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
@@ -717,6 +733,23 @@ class DataFetcher:
         the string ``"No value"``.
         """
         try:
+            # LP LIMS mode: fetch data and compute value counts locally
+            if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    page=1,
+                    page_size=10000,
+                )
+                from collections import Counter
+                counter = Counter()
+                for row in response.data:
+                    val = row.get(column)
+                    key = str(val).strip() if val is not None and str(val).strip() else "No value"
+                    counter[key] += 1
+                return counter.most_common(limit)
+
             data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
             query = (
