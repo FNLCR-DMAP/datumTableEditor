@@ -501,17 +501,17 @@
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 313
+          "line": 315
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 323
+          "line": 325
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 343
+          "line": 345
         }
       ]
     },

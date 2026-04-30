@@ -463,6 +463,12 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.datum_service_name = db.get("datum_service_name", config.database.datum_service_name)
         config.database.datum_database = db.get("datum_database")
         config.database.datum_schema = db.get("datum_schema")
+        # LP LIMS mode fields
+        config.database.lp_lims_base_url = db.get("lp_lims_base_url")
+        config.database.lp_lims_token = db.get("lp_lims_token")
+        config.database.lp_lims_tab = db.get("lp_lims_tab", config.database.lp_lims_tab)
+        config.database.lp_lims_environment = db.get("lp_lims_environment", config.database.lp_lims_environment)
+        config.database.lp_lims_user = db.get("lp_lims_user")
         config.database.source_table = db.get("source_table")  # Optional source table
         config.database.data_table = db.get("data_table", config.database.data_table)
         config.database.mods_table = db.get("mods_table", config.database.mods_table)
