@@ -78,9 +78,11 @@ class GenericReadResponse(BaseModel):
 
     Returns tabular data with columns and rows suitable for table rendering.
     """
-    columns: List[str] = Field(..., description="List of column names in the result set.")
+    success: bool = Field(default=True, description="Whether the request succeeded.")
+    columns: Optional[List[str]] = Field(default=None, description="List of column names in the result set.")
     data: List[Dict[str, Any]] = Field(..., description="Result rows as an array of objects.")
-    row_count: int = Field(..., description="Total number of rows matching the query (for pagination).")
+    row_count: Optional[int] = Field(default=None, description="Total number of rows matching the query (for pagination).")
+    total_pages: Optional[int] = Field(default=None, description="Total number of pages.")
     page: int = Field(default=1, description="Current page number.")
     page_size: Optional[int] = Field(default=None, description="Page size used.")
 

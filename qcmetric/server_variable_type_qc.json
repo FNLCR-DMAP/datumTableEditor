@@ -5,8 +5,8 @@
     "total_functions": 501,
     "fully_annotated_functions": 324,
     "function_coverage_percent": 64.7,
-    "total_parameters": 677,
-    "annotated_parameters": 609,
+    "total_parameters": 678,
+    "annotated_parameters": 610,
     "parameter_coverage_percent": 90.0,
     "mypy_errors": 0,
     "mypy_available": true
@@ -511,8 +511,8 @@
         "fully_annotated": 84
       },
       "parameters": {
-        "total": 124,
-        "annotated": 102
+        "total": 125,
+        "annotated": 103
       },
       "missing_annotations": [
         {
@@ -547,27 +547,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 299
+          "line": 294
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 304
+          "line": 299
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 331
+          "line": 326
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 341
+          "line": 336
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 361
+          "line": 356
         }
       ],
       "missing_annotations_truncated": 45
@@ -780,32 +780,32 @@
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 134
+          "line": 136
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 137
+          "line": 139
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 140
+          "line": 142
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 146
+          "line": 148
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 169
+          "line": 171
         },
         {
           "type": "return",
           "function": "_get_page_selection",
-          "line": 434
+          "line": 436
         }
       ],
       "missing_annotations_truncated": 83

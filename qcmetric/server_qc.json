@@ -239,32 +239,32 @@
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 134
+          "line": 136
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 137
+          "line": 139
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 140
+          "line": 142
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 146
+          "line": 148
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 169
+          "line": 171
         },
         {
           "type": "return",
           "function": "_get_page_selection",
-          "line": 434
+          "line": 436
         }
       ]
     }

@@ -367,8 +367,15 @@ class DataFetcher:
                     page=1,
                     page_size=1,
                 )
-                self._total_count = response.row_count
-                self._columns = response.columns if response.columns else []
+                # row_count may be None; use total_pages as fallback (when page_size=1, total_pages=row_count)
+                self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
+                # columns may be None; derive from first data row keys
+                if response.columns:
+                    self._columns = list(response.columns)
+                elif response.data:
+                    self._columns = list(response.data[0].keys())
+                else:
+                    self._columns = []
                 self._column_types = {}  # LP LIMS doesn't expose column types
                 print(f"[Timing] fetch_metadata (lp_lims): {(_tm.time() - _t0)*1000:.0f}ms")
                 print(f"DataFetcher: LP LIMS has {self._total_count} rows, {len(self._columns)} columns")
@@ -459,7 +466,8 @@ class DataFetcher:
                     page=1,
                     page_size=1,
                 )
-                self._total_count = response.row_count
+                # row_count may be None; use total_pages as fallback (page_size=1)
+                self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
             elif self.app_config.database.mode == "datum" and self._datum_client:
                 data_table = self._effective_table
                 data_table_sql = SqlTableName(data_table)
@@ -1193,7 +1201,8 @@ class DataFetcher:
                     page=1,
                     page_size=1,
                 )
-                return response.row_count
+                # row_count may be None; use total_pages as fallback (page_size=1)
+                return response.row_count if response.row_count is not None else (response.total_pages or 0)
 
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)

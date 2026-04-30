@@ -6,7 +6,7 @@
     "unused_functions": 1,
     "fully_annotated_functions": 116,
     "function_coverage_percent": 70.3,
-    "parameter_coverage_percent": 82.4,
+    "parameter_coverage_percent": 82.5,
     "mypy_errors": 0
   },
   "files": {},
@@ -459,8 +459,8 @@
         "fully_annotated": 84
       },
       "parameters": {
-        "total": 124,
-        "annotated": 102
+        "total": 125,
+        "annotated": 103
       },
       "missing": [
         {
@@ -495,27 +495,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 299
+          "line": 294
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 304
+          "line": 299
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 331
+          "line": 326
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 341
+          "line": 336
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 361
+          "line": 356
         }
       ]
     },
