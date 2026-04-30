@@ -430,6 +430,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         finally:
             synthesis_running.set(False)
     
+    # Helper: get the currently displayed page DataFrame and selected indices
+    def _get_page_selection():
+        """Return (page_df, selected_indices) using the currently displayed page data.
+        
+        In lazy-loading mode, data.get() may be empty; the actual displayed rows
+        come from _cached_page_data(). This helper ensures selection checks use
+        the correct DataFrame regardless of mode.
+        """
+        page_df, paginated_indices, _, _ = _cached_page_data()
+        # Checkbox IDs correspond to DataFrame index labels in paginated_indices
+        max_idx = max(paginated_indices) + 1 if paginated_indices else 0
+        # Also check against data.get() length in case of non-lazy mode
+        check_range = max(max_idx, len(data.get()) if not is_lazy_loading() else max_idx)
+        selected = get_selected_row_indices(input, check_range)
+        return page_df, selected
+
     # Helper function to get PKs for selected row indices
     def _get_selected_pks(row_indices, current_df):
         """Convert row indices (DataFrame labels) to list of PK dicts"""
@@ -1745,15 +1761,14 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         try:
             if etype == "selected":
                 # Export selected rows
-                current_df = data.get()
-                selected_indices = get_selected_row_indices(input, len(current_df))
+                page_df, selected_indices = _get_page_selection()
                 
                 if not selected_indices:
                     ui.notification_show("Please select rows to export", type="warning", duration=3)
                     export_state.set("idle")
                     return
                 
-                result_df = current_df.iloc[selected_indices]
+                result_df = page_df.loc[page_df.index.isin(selected_indices)]
             else:
                 # Export all filtered/sorted rows
                 if is_lazy_loading():
@@ -1904,8 +1919,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not _require_editor("Approval"):
             return
         # Debug: Check what rows are selected
-        current_df = data.get()
-        selected_indices = get_selected_row_indices(input, len(current_df))
+        current_df, selected_indices = _get_page_selection()
         
         if not selected_indices:
             ui.notification_show("Please select rows to approve", type="warning", duration=3)
@@ -1941,14 +1955,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Force-sync in-memory DataFrame so the status column reflects the change immediately
         internal_key = "approved"
         status_value = app_config.status_values.get(internal_key, internal_key)
-        updated_df = current_df.copy()
-        status_col = getattr(app_config.database, "status_column", None)
-        for idx in selected_indices:
-            if status_col and status_col in updated_df.columns:
-                updated_df.at[updated_df.index[idx], status_col] = status_value
-            if "_mod_status" in updated_df.columns:
-                updated_df.at[updated_df.index[idx], "_mod_status"] = internal_key
-        data.set(updated_df)
+        if not is_lazy_loading():
+            full_df = data.get().copy()
+            status_col = getattr(app_config.database, "status_column", None)
+            for idx in selected_indices:
+                if status_col and status_col in full_df.columns:
+                    full_df.at[idx, status_col] = status_value
+                if "_mod_status" in full_df.columns:
+                    full_df.at[idx, "_mod_status"] = internal_key
+            data.set(full_df)
         
         mods_log.set(log)
         _table_reload_trigger.set(_table_reload_trigger.get() + 1)
@@ -1960,8 +1975,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _reject_data():
         if not _require_editor("Rejection"):
             return
-        current_df = data.get()
-        selected_indices = get_selected_row_indices(input, len(current_df))
+        current_df, selected_indices = _get_page_selection()
         
         if not selected_indices:
             ui.notification_show("Please select rows to reject", type="warning", duration=3)
@@ -1985,14 +1999,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Force-sync in-memory DataFrame so the status column reflects the change immediately
         internal_key = "rejected"
         status_value = app_config.status_values.get(internal_key, internal_key)
-        updated_df = current_df.copy()
-        status_col = getattr(app_config.database, "status_column", None)
-        for idx in selected_indices:
-            if status_col and status_col in updated_df.columns:
-                updated_df.at[updated_df.index[idx], status_col] = status_value
-            if "_mod_status" in updated_df.columns:
-                updated_df.at[updated_df.index[idx], "_mod_status"] = internal_key
-        data.set(updated_df)
+        if not is_lazy_loading():
+            full_df = data.get().copy()
+            status_col = getattr(app_config.database, "status_column", None)
+            for idx in selected_indices:
+                if status_col and status_col in full_df.columns:
+                    full_df.at[idx, status_col] = status_value
+                if "_mod_status" in full_df.columns:
+                    full_df.at[idx, "_mod_status"] = internal_key
+            data.set(full_df)
         
         mods_log.set(log)
         _table_reload_trigger.set(_table_reload_trigger.get() + 1)
@@ -2296,8 +2311,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.event(input.review_detail_btn)
     def _review_detail():
         """Emit review_detail event with selected row PK(s)."""
-        current_df = data.get()
-        indices = get_selected_row_indices(input, len(current_df))
+        current_df, indices = _get_page_selection()
         if not indices:
             ui.notification_show("Select a row first", type="warning", duration=3)
             return

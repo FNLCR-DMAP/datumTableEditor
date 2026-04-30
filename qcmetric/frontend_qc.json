@@ -1393,19 +1393,13 @@
     },
     {
       "file": "modal.css",
-      "line": 12,
-      "type": "info",
-      "message": "Vendor prefix found (ensure standard property is also present)"
-    },
-    {
-      "file": "modal.css",
-      "line": 79,
+      "line": 77,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "modal.css",
-      "line": 82,
+      "line": 80,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
