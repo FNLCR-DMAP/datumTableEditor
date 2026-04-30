@@ -35,9 +35,11 @@
     "searchable_columns": [],
     "filter_columns": {},
     "default_filters": {},
+    "enable_search": true,
     "status_filter_enabled": false,
     "search_case_sensitive": false,
-    "search_regex_enabled": false
+    "search_regex_enabled": false,
+    "facet_columns": []
   },
 
   "state": {
@@ -83,6 +85,7 @@
   "enable_copy_column": true,
   "enable_status_filter": false,
   "enable_synthesis": false,
+  "clean_slate": false,
 
   "read_only": true,
 

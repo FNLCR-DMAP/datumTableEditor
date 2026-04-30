@@ -728,7 +728,7 @@
         {
           "type": "return",
           "function": "__init__",
-          "line": 106
+          "line": 108
         }
       ]
     },
