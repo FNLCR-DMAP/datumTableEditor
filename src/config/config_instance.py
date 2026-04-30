@@ -1559,6 +1559,7 @@ class ConfigInstance:
     data_dir: Path = field(default=None)
     modifications_log_path: Path = field(default=None)
     _state_table_checked: bool = field(default=False, repr=False)
+    _state_table_available: bool = field(default=False, repr=False)
     _mods_table_checked: bool = field(default=False, repr=False)
     _preset_table_checked: bool = field(default=False, repr=False)
     _engine: Any = field(default=None, repr=False)
@@ -3626,9 +3627,9 @@ class ConfigInstance:
         """Create the UI state table if it doesn't exist. Only runs once per instance."""
         if not self.app_config.state.persist_state:
             return True
-        # Skip if already checked this session
+        # Skip if already checked this session (success or failure)
         if self._state_table_checked:
-            return True
+            return self._state_table_available
         
         if self.app_config.database.mode == "datum":
             return self._ensure_state_table_exists_datum()
@@ -3676,9 +3677,12 @@ class ConfigInstance:
                 '''))
                 conn.commit()
             self._state_table_checked = True
+            self._state_table_available = True
             return True
         except Exception as e:
             print(f"⚠ Could not create state table: {e}")
+            self._state_table_checked = True
+            self._state_table_available = False
             return False
 
     def _ensure_state_table_exists_datum(self) -> bool:
@@ -3739,9 +3743,12 @@ class ConfigInstance:
             )
             
             self._state_table_checked = True
+            self._state_table_available = True
             return True
         except Exception as e:
             print(f"⚠ Could not create state table via Datum: {e}")
+            self._state_table_checked = True
+            self._state_table_available = False
             return False
 
     def save_ui_state(
@@ -3764,7 +3771,8 @@ class ConfigInstance:
             )
         
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return False
         
         try:
             from sqlalchemy import text
@@ -3829,7 +3837,8 @@ class ConfigInstance:
     ) -> bool:
         """Save UI state via Datum proxy."""
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return False
         
         try:
             from ..adapter.datum import DatumClient
@@ -3903,7 +3912,8 @@ class ConfigInstance:
             return self._load_ui_state_datum(default_state)
         
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return default_state
         
         try:
             from sqlalchemy import text
@@ -3952,7 +3962,8 @@ class ConfigInstance:
     def _load_ui_state_datum(self, default_state: Dict) -> Dict:
         """Load UI state via Datum proxy."""
         # Ensure state table exists first
-        self._ensure_state_table_exists()
+        if not self._ensure_state_table_exists():
+            return default_state
         
         try:
             from ..adapter.datum import DatumClient
