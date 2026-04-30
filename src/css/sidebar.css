@@ -285,9 +285,19 @@
     cursor: pointer;
     transition: background 0.15s;
     white-space: nowrap;
+    opacity: 0.6;
+}
+.apply-filters-btn.btn-pending {
+    opacity: 1;
+    animation: pulse-apply 1.5s ease-in-out infinite;
+}
+@keyframes pulse-apply {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3); }
 }
 .apply-filters-btn:hover {
     background: #4f46e5;
+    opacity: 1;
 }
 .reset-filters-btn {
     background: #fff;

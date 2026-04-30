@@ -185,7 +185,7 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     op_label = OPERATOR_LABELS.get(op, op)
     
     # Format value display
-    if op in ("not_empty",):
+    if op in ("not_empty", "is_null"):
         value_display = ""  # no-value operator
     elif op == "last_n_days":
         value_display = f"{value} days"  # show "7 days"
@@ -258,6 +258,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         ("between", "between"),
         ("regex", "matches regex"),
         ("not_empty", "is not empty"),
+        ("is_null", "is null"),
         ("last_n_days", "within last N days"),
     ]
     
@@ -278,13 +279,13 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         **op_select_attrs
     )
     
-    # For 'not_empty' operator, hide the value area (no value needed)
-    textarea_style = "position: relative;" if current_op != "not_empty" else "position: relative; display: none;"
+    # For 'not_empty' / 'is_null' operators, hide the value area (no value needed)
+    textarea_style = "position: relative;" if current_op not in ("not_empty", "is_null") else "position: relative; display: none;"
     
     # Shared attributes for date inputs when locked
     _date_disabled = {"disabled": "disabled"} if fix_filter else {}
 
-    if is_date and current_op != "not_empty":
+    if is_date and current_op not in ("not_empty", "is_null"):
         # Parse existing date values
         date_vals = [v.strip()[:10] for v in display_value.split('\n') if v.strip()] if display_value else []
         
@@ -364,7 +365,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
             # in / not_in / contains / etc → fall through to textarea
             is_date = False
     
-    if not is_date or current_op == "not_empty":
+    if not is_date or current_op in ("not_empty", "is_null"):
         # Standard textarea with edit/confirm and ⋮ buttons
         if fix_filter:
             # Locked mode: read-only textarea, no edit/values buttons

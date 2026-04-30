@@ -711,7 +711,7 @@ class DataFetcher:
         Filter values can be:
           - A string or list of strings: exact match (= / IN)
           - An operator dict {"op": "...", "value": ...}: rich operator
-            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, regex
+            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
         
         Args:
             params: Query parameters
@@ -737,7 +737,7 @@ class DataFetcher:
                 col_e = self._col_expr(col_ident, col)
                 
                 # Skip if value is empty/blank (no constraint)
-                if op not in ("not_empty",):
+                if op not in ("not_empty", "is_null"):
                     if fval is None or fval == "" or fval == []:
                         continue
                     if isinstance(fval, list) and all(
@@ -858,7 +858,15 @@ class DataFetcher:
                         sql_params[f"p{param_idx}"] = ""
                         param_idx += 1
                     else:
-                        conditions.append(f'({col_ident} IS NOT NULL AND {col_e} != \'\')') 
+                        conditions.append(f'({col_ident} IS NOT NULL AND {col_e} != \'\')')
+                
+                elif op == "is_null":
+                    if use_params:
+                        conditions.append(f'({col_ident} IS NULL OR {col_e} = :p{param_idx})')
+                        sql_params[f"p{param_idx}"] = ""
+                        param_idx += 1
+                    else:
+                        conditions.append(f'({col_ident} IS NULL OR {col_e} = \'\')') 
                 
                 elif op == "regex":
                     if use_params:

@@ -341,7 +341,7 @@ class TestOperatorUnknown:
 class TestOperatorLabels:
     def test_all_operators_have_labels(self):
         expected = {"in", "not_in", "contains", "not_contains", "between",
-                    "gt", "gte", "lt", "lte", "regex", "not_empty", "last_n_days"}
+                    "gt", "gte", "lt", "lte", "regex", "not_empty", "is_null", "last_n_days"}
         assert expected == set(OPERATOR_LABELS.keys())
 
 

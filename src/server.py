@@ -325,6 +325,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "<": "lt", "≤": "lte", "<=": "lte",
         "matches regex": "regex", "matches": "regex",
         "is not empty": "not_empty",
+        "is null": "is_null",
         "within last n days": "last_n_days",
     }
 
@@ -1277,13 +1278,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # ---- Apply / Reset Filters (unified action) ----
     @render.ui
     def apply_filters_ui():
-        """Show Apply/Reset buttons only when pending filters differ from active."""
+        """Always show Apply/Reset buttons."""
         pending = pending_filters.get()
         active = active_filters.get()
-        if pending == active:
-            return ui.div()
+        has_changes = pending != active
         return ui.div(
-            ui.input_action_button("apply_filters_btn", "Apply Filters", class_="apply-filters-btn"),
+            ui.input_action_button("apply_filters_btn", "Apply Filters", class_="apply-filters-btn" + (" btn-pending" if has_changes else "")),
             ui.input_action_button("reset_filters_btn", "Reset", class_="reset-filters-btn"),
             class_="apply-filters-bar"
         )
