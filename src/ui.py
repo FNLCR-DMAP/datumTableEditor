@@ -120,6 +120,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             ui.tags.script(f"""
                 document.documentElement.setAttribute('data-theme', '{theme}');
                 window._currentTheme = '{theme}';
+                window._configTheme = '{theme}';
                 window.setTheme = function(name) {{
                     document.documentElement.setAttribute('data-theme', name);
                     window._currentTheme = name;
@@ -128,12 +129,19 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     var sel = document.getElementById('theme-selector');
                     if (sel) sel.value = name;
                 }};
-                // Restore user preference from localStorage
+                // Restore user preference only if config hasn't changed
                 (function() {{
                     var saved = localStorage.getItem('dmap-theme');
-                    if (saved) {{
+                    var configTheme = '{theme}';
+                    var lastConfig = localStorage.getItem('dmap-theme-config');
+                    // Only apply saved preference if config hasn't changed since last visit
+                    if (saved && lastConfig === configTheme) {{
                         document.documentElement.setAttribute('data-theme', saved);
                         window._currentTheme = saved;
+                    }} else {{
+                        // Config changed — clear stale preference, use new config
+                        localStorage.removeItem('dmap-theme');
+                        localStorage.setItem('dmap-theme-config', configTheme);
                     }}
                 }})();
                 // Sync dropdown on DOM ready
@@ -289,10 +297,10 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.div(
                             ui.h4("Column Filters", style="display: inline-block; margin: 0;"),
                             ui.output_ui("add_filter_btn_ui"),
+                            ui.output_ui("apply_filters_ui"),
                             class_="filter-header"
                         ),
                         ui.output_ui("dynamic_filters"),
-                        ui.output_ui("apply_filters_ui"),
                         class_="column-filter-section"
                     ),
                     

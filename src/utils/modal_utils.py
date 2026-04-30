@@ -313,10 +313,8 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     ),
                     style="display: flex; align-items: center;"
                 ),
-                *([ui.tags.button(
-                    "Apply", class_="btn btn-sm btn-primary mt-1",
-                    onclick=f"applyDateFilter('{safe_col_name}', event)",
-                    style="font-size: 11px; padding: 2px 10px;"
+                *([ui.tags.script(
+                    f"(function(){{var g=document.currentScript.closest('.filter-group');if(g){{g.querySelectorAll('.filter-date-input').forEach(function(i){{i.addEventListener('change',function(){{applyDateFilter('{safe_col_name}',{{currentTarget:i}})}})}})}}}})();"
                 )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
@@ -342,10 +340,8 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     ui.tags.span(" days", style="font-size: 12px; color: #6c757d; margin-left: 4px;"),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
                 ),
-                *([ui.tags.button(
-                    "Apply", class_="btn btn-sm btn-primary mt-1",
-                    onclick=f"applyDateFilter('{safe_col_name}', event)",
-                    style="font-size: 11px; padding: 2px 10px;"
+                *([ui.tags.script(
+                    f"(function(){{var g=document.currentScript.closest('.filter-group');if(g){{g.querySelectorAll('.filter-date-input').forEach(function(i){{i.addEventListener('change',function(){{applyDateFilter('{safe_col_name}',{{currentTarget:i}})}})}})}}}})();"
                 )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
@@ -359,10 +355,8 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     style="font-size: 12px;",
                     **{"data-column": col_name, "data-role": "single", **_date_disabled}
                 ),
-                *([ui.tags.button(
-                    "Apply", class_="btn btn-sm btn-primary mt-1",
-                    onclick=f"applyDateFilter('{safe_col_name}', event)",
-                    style="font-size: 11px; padding: 2px 10px;"
+                *([ui.tags.script(
+                    f"(function(){{var g=document.currentScript.closest('.filter-group');if(g){{g.querySelectorAll('.filter-date-input').forEach(function(i){{i.addEventListener('change',function(){{applyDateFilter('{safe_col_name}',{{currentTarget:i}})}})}})}}}})();"
                 )] if not fix_filter else []),
                 style="padding: 4px 0;"
             )
@@ -398,27 +392,19 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     rows=3
                 ),
                 ui.tags.button(
-                    "\u270E",
-                    class_="btn btn-sm btn-outline-secondary filter-edit-btn",
-                    onclick=f"toggleFilterEdit('{safe_col_name}', event)",
-                    title="Edit filter values",
-                    style="position: absolute; right: 5px; top: 15%; transform: translateY(-50%); padding: 2px 6px; font-size: 13px; z-index: 2;"
-                ),
-                ui.tags.button(
                     "\u22ee",
                     class_="btn btn-sm btn-outline-secondary filter-values-btn",
                     onclick=f"openFilterValuesModal('{safe_col_name}', event)",
                     title="Select from available values",
-                    style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
+                    style="position: absolute; right: 5px; top: 35%; transform: translateY(-50%); padding: 2px 8px; font-size: 14px; z-index: 2;"
                 ),
                 ui.tags.button(
                     "\u2715",
                     class_="btn btn-sm btn-outline-danger filter-clear-btn",
                     onclick=f"clearFilterContent('{col_name}', event)",
                     title="Clear filter content",
-                    style="position: absolute; right: 5px; top: 85%; transform: translateY(-50%); padding: 2px 6px; font-size: 12px; z-index: 2;"
+                    style="position: absolute; right: 5px; top: 70%; transform: translateY(-50%); padding: 2px 6px; font-size: 12px; z-index: 2;"
                 ),
-                ui.tags.script(f"initFilterReadonly('filter_{col_name}')"),
                 style=textarea_style
             )
     

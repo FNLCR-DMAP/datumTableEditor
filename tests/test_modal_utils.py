@@ -565,13 +565,13 @@ class TestFixFilterLocking:
         assert "readOnly=true" in html
 
     def test_edit_button_present_when_unlocked(self):
-        """Edit button should appear when fix_filter=False."""
+        """Filter values button should appear when fix_filter=False."""
         from src.utils.modal_utils import build_dynamic_filter_element
 
         result = build_dynamic_filter_element("Col", ["all", "A"], "A", fix_filter=False)
         html = str(result)
 
-        assert "toggleFilterEdit" in html
+        assert "openFilterValuesModal" in html
 
     def test_remove_button_hidden_on_dynamic_when_fixed(self):
         """Remove button should be hidden on dynamic filter when fix_filter=True."""
@@ -776,7 +776,7 @@ class TestDatePickerUI:
         html = str(result)
 
         assert "<textarea" in html
-        assert "initFilterReadonly" in html
+        assert "openFilterValuesModal" in html
 
     def test_not_in_falls_through_to_textarea(self):
         """'not_in' on date column should render textarea."""
