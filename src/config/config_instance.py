@@ -290,9 +290,11 @@ class DataFetcher:
         if self.app_config.database.mode == "lp_lims":
             from ..adapter.lp_lims import LpLimsClient
             base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
-            token = self.app_config.database.lp_lims_token or os.environ.get("LP_LIMS_API_TOKEN", "")
+            token = self.app_config.database.lp_lims_token or os.environ.get("LP_LIMS_API_TOKEN", "") or os.environ.get("DATUM_API_TOKEN", "")
             if base_url and token:
                 self._lp_lims_client = LpLimsClient(base_url=base_url, token=token)
+            else:
+                print(f"⚠ LP LIMS mode: missing base_url={bool(base_url)} or token={bool(token)}")
         elif self.app_config.database.mode == "datum":
             from ..adapter.datum import DatumClient
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
@@ -2450,10 +2452,10 @@ class ConfigInstance:
             from ..adapter.lp_lims import LpLimsClient
 
             base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
-            token = self.app_config.database.lp_lims_token or os.environ.get("LP_LIMS_API_TOKEN", "")
+            token = self.app_config.database.lp_lims_token or os.environ.get("LP_LIMS_API_TOKEN", "") or os.environ.get("DATUM_API_TOKEN", "")
 
             if not base_url or not token:
-                raise ValueError("LP LIMS mode requires lp_lims_base_url and lp_lims_token")
+                raise ValueError("LP LIMS mode requires lp_lims_base_url and token (LP_LIMS_API_TOKEN or DATUM_API_TOKEN)")
 
             client = LpLimsClient(base_url=base_url, token=token)
             max_rows = self.app_config.database.max_rows
