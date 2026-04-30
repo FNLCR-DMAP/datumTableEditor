@@ -464,7 +464,7 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 422
+          "line": 426
         }
       ]
     },

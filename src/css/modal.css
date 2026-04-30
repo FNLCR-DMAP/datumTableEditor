@@ -8,8 +8,6 @@
     width: 100%;
     height: 100%;
     background: var(--modal-overlay-bg);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     z-index: 2000;
     justify-content: center;
     align-items: center;
