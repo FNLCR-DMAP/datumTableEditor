@@ -38,6 +38,7 @@
     "_lp_lims_comment": "LP LIMS API settings (only used when mode=lp_lims)",
     "lp_lims_base_url": "",
     "lp_lims_token": "",
+    "_comment_lp_lims_token": "Read from LP_LIMS_API_TOKEN",
     "lp_lims_tab": "",
     "lp_lims_environment": "prod",
     "lp_lims_user": ""
