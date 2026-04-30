@@ -272,6 +272,7 @@ class DataFetcher:
     always use the original table.
     """
     app_config: AppConfig
+    username: str = ""  # Session username for LP LIMS user field
     _engine: Any = field(default=None, repr=False)
     _datum_client: Any = field(default=None, repr=False)
     _lp_lims_client: Any = field(default=None, repr=False)
@@ -350,7 +351,7 @@ class DataFetcher:
             if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
                 _t0 = _tm.time()
                 response = self._lp_lims_client.read(
-                    user=self.app_config.database.lp_lims_user or os.environ.get("LP_LIMS_USER", ""),
+                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     page=1,
@@ -442,7 +443,7 @@ class DataFetcher:
         try:
             if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
                 response = self._lp_lims_client.read(
-                    user=self.app_config.database.lp_lims_user or os.environ.get("LP_LIMS_USER", ""),
+                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     page=1,
@@ -1175,7 +1176,7 @@ class DataFetcher:
             if is_lp_lims:
                 filters = self._build_lp_lims_filters(params)
                 response = self._lp_lims_client.read(
-                    user=self.app_config.database.lp_lims_user or os.environ.get("LP_LIMS_USER", ""),
+                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     filters=filters if filters else None,
@@ -1359,7 +1360,7 @@ class DataFetcher:
                         asc = params.sort_ascending if isinstance(params.sort_ascending, bool) else True
                     order_direction = "asc" if asc else "desc"
                 response = self._lp_lims_client.read(
-                    user=self.app_config.database.lp_lims_user or os.environ.get("LP_LIMS_USER", ""),
+                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     filters=filters,
@@ -1496,7 +1497,7 @@ class DataFetcher:
             order_direction = "asc" if asc else "desc"
 
         response = self._lp_lims_client.read(
-            user=self.app_config.database.lp_lims_user or os.environ.get("LP_LIMS_USER", ""),
+            user=self.username or os.environ.get("LP_LIMS_USER", ""),
             tab=self.app_config.database.lp_lims_tab,
             environment=self.app_config.database.lp_lims_environment,
             filters=filters,
@@ -1824,7 +1825,7 @@ class ConfigInstance:
         # Check if lazy loading is enabled
         if self.app_config.database.lazy_loading:
             # Lazy loading mode: only get metadata, fetch data on demand
-            self._data_fetcher = DataFetcher(app_config=self.app_config)
+            self._data_fetcher = DataFetcher(app_config=self.app_config, username=self.username)
             self.all_columns = self._data_fetcher.columns
             # Create empty DataFrame with correct columns
             self.df = pd.DataFrame(columns=self.all_columns)
@@ -1870,8 +1871,10 @@ class ConfigInstance:
             # from the matview, not the (possibly non-existent) base table.
             fetcher = DataFetcher.__new__(DataFetcher)
             fetcher.app_config = self.app_config
+            fetcher.username = self.username
             fetcher._engine = None
             fetcher._datum_client = None
+            fetcher._lp_lims_client = None
             fetcher._total_count = 0
             fetcher._columns = []
             fetcher._column_types = {}
@@ -2461,7 +2464,7 @@ class ConfigInstance:
             max_rows = self.app_config.database.max_rows
 
             response = client.read(
-                user=self.app_config.database.lp_lims_user or self.username or os.environ.get("LP_LIMS_USER", ""),
+                user=self.username or os.environ.get("LP_LIMS_USER", ""),
                 tab=self.app_config.database.lp_lims_tab,
                 environment=self.app_config.database.lp_lims_environment,
                 page=1,

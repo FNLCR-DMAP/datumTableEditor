@@ -16,7 +16,7 @@
     "lp_lims_token": "",
     "lp_lims_tab": "",
     "lp_lims_environment": "prod",
-    "lp_lims_user": "",
+    "_lp_lims_user_comment": "User is taken from Posit Connect session.user",
 
     "lazy_loading": true,
     "max_rows": null,
