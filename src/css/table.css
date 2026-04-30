@@ -80,9 +80,11 @@
 
 /* Header text */
 .header-text {
-    flex: 1;
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100% - 25px);
 }
 
 /* Header action dropdown */

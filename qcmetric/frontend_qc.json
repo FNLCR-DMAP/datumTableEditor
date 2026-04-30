@@ -1387,25 +1387,19 @@
     },
     {
       "file": "table.css",
-      "line": 165,
-      "type": "warning",
-      "message": "!important usage (consider specificity instead)"
-    },
-    {
-      "file": "table.css",
       "line": 166,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 170,
+      "line": 167,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 177,
+      "line": 171,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
@@ -1417,13 +1411,13 @@
     },
     {
       "file": "table.css",
-      "line": 182,
+      "line": 179,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 194,
+      "line": 183,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
@@ -1435,55 +1429,61 @@
     },
     {
       "file": "table.css",
-      "line": 199,
+      "line": 196,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 202,
+      "line": 200,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 205,
+      "line": 203,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 274,
+      "line": 206,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 284,
+      "line": 275,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 298,
+      "line": 285,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 303,
+      "line": 299,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 307,
+      "line": 304,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 312,
+      "line": 308,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
+      "line": 313,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     }
