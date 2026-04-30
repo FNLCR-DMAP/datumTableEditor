@@ -300,6 +300,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         type="date", value=date_from,
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px;",
+                        onchange=f"applyDateFilter('{safe_col_name}', event)",
                         **{"data-column": col_name, "data-role": "from", **_date_disabled}
                     ),
                     style="display: flex; align-items: center; margin-bottom: 4px;"
@@ -310,6 +311,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         type="date", value=date_to,
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px;",
+                        onchange=f"applyDateFilter('{safe_col_name}', event)",
                         **{"data-column": col_name, "data-role": "to", **_date_disabled}
                     ),
                     style="display: flex; align-items: center;"
@@ -333,6 +335,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                         class_="form-control form-control-sm filter-date-input",
                         style="font-size: 12px; width: 80px; display: inline-block;",
                         id=f"filter_{col_name}",
+                        onchange=f"applyDateFilter('{safe_col_name}', event)",
                         **_date_disabled
                     ),
                     ui.tags.span(" days", style="font-size: 12px; color: #6c757d; margin-left: 4px;"),
@@ -348,6 +351,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
                     type="date", value=date_val,
                     class_="form-control form-control-sm filter-date-input",
                     style="font-size: 12px;",
+                    onchange=f"applyDateFilter('{safe_col_name}', event)",
                     **{"data-column": col_name, "data-role": "single", **_date_disabled}
                 ),
                 style="padding: 4px 0;"

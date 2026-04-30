@@ -567,7 +567,7 @@ window.clearFilterContent = function(columnName, event) {
 
 // Apply date filter — reads date input(s) from the filter group and sends to server
 window.applyDateFilter = function(columnName, event) {
-    var btn = event ? event.currentTarget : null;
+    var btn = event ? (event.currentTarget || event.target) : null;
     if (!btn) return;
     var filterGroup = btn.closest('.filter-group');
     if (!filterGroup) return;
@@ -581,6 +581,7 @@ window.applyDateFilter = function(columnName, event) {
     });
     
     var value = values.join('\n');
+    console.log('[applyDateFilter]', columnName, 'values:', JSON.stringify(values), 'joined:', JSON.stringify(value));
     if (typeof setShinyInput !== 'undefined') {
         setShinyInput('apply_filter_value', {
             column: columnName,

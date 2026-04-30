@@ -1254,6 +1254,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not col_name:
             return
         
+        print(f"[_apply_filter_value] col={col_name}, raw_value={repr(raw_value)}")
+        
         filters = pending_filters.get().copy()
         old = filters.get(col_name)
         
