@@ -547,27 +547,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 292
+          "line": 299
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 297
+          "line": 304
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 324
+          "line": 331
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 334
+          "line": 341
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 354
+          "line": 361
         }
       ],
       "missing_annotations_truncated": 45

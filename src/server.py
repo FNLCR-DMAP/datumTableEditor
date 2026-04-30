@@ -85,14 +85,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     posit_username = getattr(session, 'user', None) or os.environ.get('SHINY_USER') or 'default_user'
     # Sanitize username for use in table names
     safe_username = "".join(c if c.isalnum() else "_" for c in posit_username).lower()
-    print(f"[Session] User: {posit_username} (safe: {safe_username})")
+    # Get actual user email for LP LIMS API (use posit_username if it looks like email, else env var)
+    user_email = posit_username if '@' in posit_username else os.environ.get('LP_LIMS_USER', '')
+    print(f"[Session] User: {posit_username} (safe: {safe_username}, email: {user_email})")
     
     # Load config instance for this widget, passing the username for user-scoped tables
     import time as _t
     _server_t0 = _t.time()
     from .config.config_instance import load_config_instance, QueryParams
     print(f"[Config] Loading config from {config_path} for user: {safe_username}")
-    config = load_config_instance(config_path, username=safe_username)
+    config = load_config_instance(config_path, username=safe_username, user_email=user_email)
     _server_t1 = _t.time()
     print(f"[Timing] load_config_instance: {(_server_t1 - _server_t0)*1000:.0f}ms")
     

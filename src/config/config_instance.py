@@ -272,7 +272,8 @@ class DataFetcher:
     always use the original table.
     """
     app_config: AppConfig
-    username: str = ""  # Session username for LP LIMS user field
+    username: str = ""  # Session username (sanitized) for table names
+    user_email: str = ""  # Actual user email for LP LIMS API
     _engine: Any = field(default=None, repr=False)
     _datum_client: Any = field(default=None, repr=False)
     _lp_lims_client: Any = field(default=None, repr=False)
@@ -283,18 +284,12 @@ class DataFetcher:
 
     @property
     def _lp_lims_user_email(self) -> str:
-        """Return user email for LP LIMS API (username@nih.gov).
+        """Return user email for LP LIMS API.
         
-        Posit Connect usernames are sanitized emails like 'rui_he_nih_gov'.
-        We strip '_nih_gov' suffix and append '@nih.gov' to reconstruct email.
+        Uses user_email field directly (actual email from Posit Connect),
+        falls back to LP_LIMS_USER env var.
         """
-        user = self.username or os.environ.get("LP_LIMS_USER", "")
-        if user and "@" not in user:
-            # Strip _nih_gov suffix from Posit Connect sanitized username
-            if user.endswith("_nih_gov"):
-                user = user[:-8]  # Remove '_nih_gov' (8 chars)
-            user = f"{user}@nih.gov"
-        return user
+        return self.user_email or os.environ.get("LP_LIMS_USER", "")
     
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -1729,7 +1724,8 @@ class ConfigInstance:
     This allows multiple widgets to have independent configs and data.
     """
     config_path: str
-    username: str = "default_user"  # User identifier for user-scoped state
+    username: str = "default_user"  # User identifier (sanitized) for user-scoped state
+    user_email: str = ""  # Actual user email for LP LIMS API
     app_config: AppConfig = field(default=None)
     df: pd.DataFrame = field(default=None)
     all_columns: List[str] = field(default_factory=list)
@@ -1790,18 +1786,12 @@ class ConfigInstance:
 
     @property
     def _lp_lims_user_email(self) -> str:
-        """Return user email for LP LIMS API (username@nih.gov).
+        """Return user email for LP LIMS API.
         
-        Posit Connect usernames are sanitized emails like 'rui_he_nih_gov'.
-        We strip '_nih_gov' suffix and append '@nih.gov' to reconstruct email.
+        Uses user_email field directly (actual email from Posit Connect),
+        falls back to LP_LIMS_USER env var.
         """
-        user = self.username or os.environ.get("LP_LIMS_USER", "")
-        if user and "@" not in user:
-            # Strip _nih_gov suffix from Posit Connect sanitized username
-            if user.endswith("_nih_gov"):
-                user = user[:-8]  # Remove '_nih_gov' (8 chars)
-            user = f"{user}@nih.gov"
-        return user
+        return self.user_email or os.environ.get("LP_LIMS_USER", "")
 
     def __post_init__(self):
         """Load config and data after initialization."""
@@ -1855,7 +1845,7 @@ class ConfigInstance:
         # Check if lazy loading is enabled
         if self.app_config.database.lazy_loading:
             # Lazy loading mode: only get metadata, fetch data on demand
-            self._data_fetcher = DataFetcher(app_config=self.app_config, username=self.username)
+            self._data_fetcher = DataFetcher(app_config=self.app_config, username=self.username, user_email=self.user_email)
             self.all_columns = self._data_fetcher.columns
             # Create empty DataFrame with correct columns
             self.df = pd.DataFrame(columns=self.all_columns)
@@ -1902,6 +1892,7 @@ class ConfigInstance:
             fetcher = DataFetcher.__new__(DataFetcher)
             fetcher.app_config = self.app_config
             fetcher.username = self.username
+            fetcher.user_email = self.user_email
             fetcher._engine = None
             fetcher._datum_client = None
             fetcher._lp_lims_client = None
@@ -4601,18 +4592,19 @@ class ConfigInstance:
         return None
 
 
-def load_config_instance(config_path: str = "app_config.json", username: str = "default_user") -> ConfigInstance:
+def load_config_instance(config_path: str = "app_config.json", username: str = "default_user", user_email: str = "") -> ConfigInstance:
     """
     Load a configuration instance for a widget.
     
     Args:
         config_path: Path to the config JSON file
         username: Username for user-scoped state (from Posit Connect session.user)
+        user_email: Actual user email for LP LIMS API
         
     Returns:
         ConfigInstance with loaded config and data
     """
-    return ConfigInstance(config_path=config_path, username=username)
+    return ConfigInstance(config_path=config_path, username=username, user_email=user_email)
 
 
 def load_config_only(config_path: str = "app_config.json") -> 'AppConfig':
