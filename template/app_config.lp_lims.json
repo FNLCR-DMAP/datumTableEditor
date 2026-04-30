@@ -1,0 +1,93 @@
+{
+  "app_title": "LP LIMS Table",
+  "app_version": "1.0.0",
+
+  "data_source": {
+    "source_type": "database",
+    "table_name": "lp_lims"
+  },
+
+  "database": {
+    "mode": "lp_lims",
+    "_comment": "LP LIMS read-only API configuration",
+    "enabled": true,
+
+    "lp_lims_base_url": "",
+    "lp_lims_token": "",
+    "lp_lims_tab": "",
+    "lp_lims_environment": "prod",
+    "lp_lims_user": "",
+
+    "lazy_loading": true,
+    "max_rows": null,
+    "max_rows_per_page": 100,
+    "default_rows_per_page": 25
+  },
+
+  "persistence": {
+    "_comment": "LP LIMS is read-only; export only",
+    "persistence_type": "local",
+    "export_path": "data/exports",
+    "auto_save": false
+  },
+
+  "query": {
+    "searchable_columns": [],
+    "filter_columns": {},
+    "default_filters": {},
+    "status_filter_enabled": false,
+    "search_case_sensitive": false,
+    "search_regex_enabled": false
+  },
+
+  "state": {
+    "persist_state": false,
+    "state_storage": "session",
+    "persist_filters": true,
+    "persist_sort": true,
+    "persist_page": true,
+    "persist_column_selection": true,
+    "persist_column_widths": false,
+    "session_timeout_minutes": 30
+  },
+
+  "table": {
+    "title": "LP LIMS Table",
+    "primary_key": [],
+
+    "default_columns": [],
+
+    "default_column_width": 130,
+    "default_column_widths": {},
+
+    "default_sort_column": null,
+    "default_sort_ascending": true,
+
+    "default_rows_per_page": 25,
+    "rows_per_page_options": [10, 25, 50, 100],
+
+    "editable_columns": [],
+    "readonly_columns": [],
+
+    "column_masks": {},
+
+    "presets_enabled": false,
+    "default_preset": "Default",
+    "no_tz_display": true
+  },
+
+  "enable_approval_workflow": false,
+  "enable_save_button": false,
+  "enable_export": true,
+  "enable_undo": false,
+  "enable_copy_column": true,
+  "enable_status_filter": false,
+  "enable_synthesis": false,
+
+  "read_only": true,
+
+  "permissions": {
+    "default_role": "viewer",
+    "user_roles": {}
+  }
+}

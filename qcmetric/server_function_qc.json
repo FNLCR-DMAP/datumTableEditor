@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 494,
-    "total_unused": 38,
-    "unused_percentage": 7.7
+    "total_functions": 499,
+    "total_unused": 39,
+    "unused_percentage": 7.8
   },
   "modules": {
     "clipboard_utils.py": {
@@ -634,7 +634,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 116,
+      "total_functions": 119,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -647,6 +647,7 @@
         "_apply_field_modifications_datum",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
+        "_build_lp_lims_filters",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -671,6 +672,7 @@
         "_escape_literal",
         "_escape_sql_value",
         "_fetch_metadata",
+        "_fetch_page_lp_lims",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements_datum",
@@ -689,6 +691,7 @@
         "_load_data",
         "_load_from_database",
         "_load_from_datum",
+        "_load_from_lp_lims",
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
@@ -763,6 +766,7 @@
         "_apply_field_modifications_datum",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
+        "_build_lp_lims_filters",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -784,6 +788,7 @@
         "_escape_literal",
         "_escape_sql_value",
         "_fetch_metadata",
+        "_fetch_page_lp_lims",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements_datum",
@@ -802,6 +807,7 @@
         "_load_data",
         "_load_from_database",
         "_load_from_datum",
+        "_load_from_lp_lims",
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
@@ -1039,6 +1045,21 @@
         "_call_proxy",
         "execute_sql",
         "validate_sql_safety"
+      ],
+      "unused": [
+        "__init__"
+      ]
+    },
+    "lp_lims.py": {
+      "description": "",
+      "path": "src/adapter/lp_lims.py",
+      "total_functions": 2,
+      "functions": [
+        "__init__",
+        "read"
+      ],
+      "used_internally": [
+        "read"
       ],
       "unused": [
         "__init__"
@@ -1307,6 +1328,9 @@
       "dataframe"
     ],
     "datum.py": [
+      "__init__"
+    ],
+    "lp_lims.py": [
       "__init__"
     ],
     "emitter.py": [

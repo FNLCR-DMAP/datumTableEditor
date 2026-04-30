@@ -173,7 +173,7 @@ class DatabaseConfig:
     # Enable database mode (if False, uses local CSV mode)
     enabled: bool = False
     
-    # Mode: "direct" for SQLAlchemy, "datum" for Datum proxy service
+    # Mode: "direct" for SQLAlchemy, "datum" for Datum proxy service, "lp_lims" for LP LIMS read-only API
     mode: str = "direct"
     
     # Direct mode: SQLAlchemy connection settings
@@ -185,6 +185,14 @@ class DatabaseConfig:
     datum_service_name: str = "postgres_sql"
     datum_database: Optional[str] = None
     datum_schema: Optional[str] = None
+
+
+    # LP LIMS mode: Read-only API settings
+    lp_lims_base_url: Optional[str] = None
+    lp_lims_token: Optional[str] = None
+    lp_lims_tab: str = ""
+    lp_lims_environment: str = "prod"
+    lp_lims_user: Optional[str] = None  # Defaults to session username if not set
     
     # Table names
     source_table: Optional[str] = None  # Original read-only source table (optional)

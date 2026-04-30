@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 160,
+    "total_functions": 163,
     "unused_functions": 1,
-    "fully_annotated_functions": 111,
-    "function_coverage_percent": 69.4,
-    "parameter_coverage_percent": 82.2,
+    "fully_annotated_functions": 114,
+    "function_coverage_percent": 69.9,
+    "parameter_coverage_percent": 82.4,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 116,
+      "total": 119,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -80,6 +80,7 @@
         "_apply_field_modifications_datum",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
+        "_build_lp_lims_filters",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -104,6 +105,7 @@
         "_escape_literal",
         "_escape_sql_value",
         "_fetch_metadata",
+        "_fetch_page_lp_lims",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements_datum",
@@ -122,6 +124,7 @@
         "_load_data",
         "_load_from_database",
         "_load_from_datum",
+        "_load_from_lp_lims",
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
@@ -198,6 +201,7 @@
         "_apply_field_modifications_datum",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
+        "_build_lp_lims_filters",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -219,6 +223,7 @@
         "_escape_literal",
         "_escape_sql_value",
         "_fetch_metadata",
+        "_fetch_page_lp_lims",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements_datum",
@@ -237,6 +242,7 @@
         "_load_data",
         "_load_from_database",
         "_load_from_datum",
+        "_load_from_lp_lims",
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
@@ -444,13 +450,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 116,
-        "with_return_type": 83,
-        "fully_annotated": 79
+        "total": 119,
+        "with_return_type": 86,
+        "fully_annotated": 82
       },
       "parameters": {
-        "total": 122,
-        "annotated": 100
+        "total": 124,
+        "annotated": 102
       },
       "missing": [
         {
@@ -485,27 +491,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 282
+          "line": 283
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 287
+          "line": 288
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 306
+          "line": 313
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 316
+          "line": 323
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 336
+          "line": 343
         }
       ]
     },
