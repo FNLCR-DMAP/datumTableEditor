@@ -14,6 +14,11 @@
     overflow: auto;
     position: relative;
 }
+/* Ensure Shiny output wrapper doesn't break sticky positioning */
+.table-scroll-wrapper > .shiny-html-output,
+.table-scroll-wrapper > .shiny-html-output > div {
+    overflow: visible;
+}
 .edit-table {
     width: 100%;
     font-size: var(--font-size-md);
