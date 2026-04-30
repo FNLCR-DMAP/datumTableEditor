@@ -162,8 +162,8 @@ class TableConfig:
     # Clickable columns (emit cell_click event on click)
     cell_click_columns: list[str] = field(default_factory=list)
     
-    # Remove timezone from datetime/timestamp display (e.g., "2024-01-15 10:30:00+00" → "2024-01-15 10:30:00")
-    no_tz_display: bool = False
+    # Remove timezone from datetime/timestamp display (e.g., "2024-01-15 10:30:00+00" → "2024-01-15")
+    no_tz_display: bool = True
 
 
 @dataclass

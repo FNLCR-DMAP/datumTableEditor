@@ -1380,6 +1380,30 @@
   ],
   "css_issues": [
     {
+      "file": "layout.css",
+      "line": 9,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "layout.css",
+      "line": 10,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "layout.css",
+      "line": 11,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "layout.css",
+      "line": 12,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
       "file": "modal.css",
       "line": 74,
       "type": "warning",
@@ -1850,7 +1874,7 @@
     "js_errors": 0,
     "js_warnings": 2,
     "css_errors": 0,
-    "css_warnings": 21,
+    "css_warnings": 25,
     "total_js_functions": 84
   }
 }

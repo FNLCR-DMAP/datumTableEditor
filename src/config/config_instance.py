@@ -1506,35 +1506,58 @@ class DataFetcher:
     # LP LIMS helpers
     # ------------------------------------------------------------------
 
-    def _build_lp_lims_filters(self, params: QueryParams) -> Optional[Dict[str, List[str]]]:
-        """Convert QueryParams.filters to LP LIMS column→values dict.
+    def _build_lp_lims_filters(self, params: QueryParams) -> tuple:
+        """Convert QueryParams.filters to LP LIMS filter structures.
 
-        LP LIMS expects: {"column_name": ["value1", "value2"]}
-        QueryParams stores: {"column_name": value} where value can be
-        a string, a list, or a dict with 'op'/'value' keys.
+        Returns a tuple of (filters_dict, tab_filters) where:
+        - filters_dict: {"column_name": ["value1", "value2"]} for simple IN filters
+        - tab_filters: TabFilters object for date ranges, exclusions, etc.
+
+        LP LIMS expects date "between" as tab_filters.date_ranges with
+        start/end in YYYY-MM-DD format.
         """
+        from ..adapter.lp_lims import TabFilters, DateRangeFilter
+
         if not params.filters:
-            return None
+            return None, None
+
         result: Dict[str, List[str]] = {}
+        date_ranges = []
+
         for col, val in params.filters.items():
             if val is None:
                 continue
-            if isinstance(val, list):
-                result[col] = [str(v) for v in val]
-            elif isinstance(val, dict):
-                # Handle {"op": "in", "value": [...]} format
+            if isinstance(val, dict):
+                op = val.get("op", "in")
                 inner = val.get("value")
-                if isinstance(inner, list):
-                    result[col] = [str(v) for v in inner]
-                elif inner is not None:
-                    result[col] = [str(inner)]
+
+                if op == "between" and isinstance(inner, list):
+                    # Route to tab_filters.date_ranges
+                    start = inner[0] if len(inner) > 0 and inner[0] else None
+                    end = inner[1] if len(inner) > 1 and inner[1] else None
+                    date_ranges.append(DateRangeFilter(column=col, start=start, end=end))
+                elif op == "not_in" and isinstance(inner, list):
+                    # Exclusions could be routed to tab_filters.exclusions
+                    # For now, skip — LP LIMS generic filters don't support NOT IN
+                    pass
+                else:
+                    # Default: treat as IN filter
+                    if isinstance(inner, list):
+                        result[col] = [str(v) for v in inner if v is not None]
+                    elif inner is not None:
+                        result[col] = [str(inner)]
+            elif isinstance(val, list):
+                result[col] = [str(v) for v in val]
             else:
                 result[col] = [str(val)]
-        return result if result else None
+
+        filters_dict = result if result else None
+        tab_filters = TabFilters(date_ranges=date_ranges) if date_ranges else None
+        return filters_dict, tab_filters
 
     def _fetch_page_lp_lims(self, params: QueryParams) -> pd.DataFrame:
         """Fetch a page of data from LP LIMS API."""
-        filters = self._build_lp_lims_filters(params)
+        filters, tab_filters = self._build_lp_lims_filters(params)
 
         # Map sort params
         order_by = None
@@ -1553,6 +1576,7 @@ class DataFetcher:
             tab=self.app_config.database.lp_lims_tab,
             environment=self.app_config.database.lp_lims_environment,
             filters=filters,
+            tab_filters=tab_filters,
             page=params.page,
             page_size=params.page_size,
             order_by=order_by,

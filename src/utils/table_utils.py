@@ -24,29 +24,27 @@ def _format_cell_value(value: Any, dtype, no_tz_display: bool = False) -> str:
     """
     if pd.isna(value):
         return ""
-    # Handle datetime types - strip timezone if no_tz_display is enabled
+    # Handle datetime types - always display as YYYY-MM-DD when no_tz_display is enabled
     if pd.api.types.is_datetime64_any_dtype(dtype):
         if no_tz_display:
-            # Convert to string without timezone
             if hasattr(value, 'strftime'):
-                if value.hour == 0 and value.minute == 0 and value.second == 0:
-                    return value.strftime("%Y-%m-%d")
-                return value.strftime("%Y-%m-%d %H:%M:%S")
-            # Fallback: strip timezone from string representation
+                return value.strftime("%Y-%m-%d")
+            # Fallback: extract date portion from string representation
             str_val = str(value)
-            # Remove timezone patterns like "+00:00", "-05:00", " UTC", etc.
             import re
-            str_val = re.sub(r'[+-]\d{2}:?\d{2}$', '', str_val).strip()
+            # Extract YYYY-MM-DD from the beginning
+            m = re.match(r'(\d{4}-\d{2}-\d{2})', str_val)
+            if m:
+                return m.group(1)
             return str_val
         return str(value)
     # Handle string values that look like datetime with timezone (common from DB)
     if no_tz_display and isinstance(value, str):
         import re
-        # Match datetime-like strings with timezone: "2026-03-30 +00", "2026-03-30 10:00:00+00:00", etc.
-        if re.search(r'\d{4}-\d{2}-\d{2}.*[+-]\d{2}', value):
-            # Remove timezone patterns like " +00", "+00:00", "-05:00", etc.
-            cleaned = re.sub(r'\s*[+-]\d{2}:?\d{0,2}\s*$', '', value).strip()
-            return cleaned
+        # Match datetime-like strings: extract just YYYY-MM-DD
+        m = re.match(r'(\d{4}-\d{2}-\d{2})', value)
+        if m and re.search(r'\d{4}-\d{2}-\d{2}[\sT]', value):
+            return m.group(1)
     # Nullable integer types (Int8..Int64, UInt8..UInt64)
     if pd.api.types.is_integer_dtype(dtype):
         try:
