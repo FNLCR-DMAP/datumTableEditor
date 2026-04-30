@@ -34,12 +34,12 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    background-color: var(--table-header-bg);
+    background-color: var(--table-header-bg) !important;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 1px 0 var(--table-header-border);
 }
 .edit-table th {
-    background-color: var(--table-header-bg);
-    color: var(--table-header-color);
+    background-color: var(--table-header-bg) !important;
+    color: var(--table-header-color) !important;
     padding: 11px 10px;
     text-align: left;
     font-weight: 600;
@@ -47,8 +47,8 @@
     letter-spacing: 0.02em;
     white-space: nowrap;
     user-select: none;
-    border-bottom: 2px solid var(--table-header-border);
-    border-right: 1px solid var(--table-header-border);
+    border-bottom: 2px solid var(--table-header-border) !important;
+    border-right: 1px solid var(--table-header-border) !important;
     position: relative;
     overflow: visible;
 }
