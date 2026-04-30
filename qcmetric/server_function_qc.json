@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 499,
-    "total_unused": 39,
-    "unused_percentage": 7.8
+    "total_functions": 501,
+    "total_unused": 41,
+    "unused_percentage": 8.2
   },
   "modules": {
     "clipboard_utils.py": {
@@ -634,7 +634,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 119,
+      "total_functions": 121,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -695,6 +695,8 @@
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
+        "_lp_lims_user_email",
+        "_lp_lims_user_email",
         "_mark_modification_undone_datum",
         "_normalize_mod_status",
         "_read_synthesis_table",
@@ -873,6 +875,8 @@
         "_effective_status_column",
         "_effective_status_column",
         "_effective_table",
+        "_lp_lims_user_email",
+        "_lp_lims_user_email",
         "_select_columns",
         "_skip_mods",
         "_skip_mods",
@@ -1301,6 +1305,8 @@
       "_effective_status_column",
       "_effective_status_column",
       "_effective_table",
+      "_lp_lims_user_email",
+      "_lp_lims_user_email",
       "_select_columns",
       "_skip_mods",
       "_skip_mods",
