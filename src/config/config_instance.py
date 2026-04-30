@@ -280,6 +280,14 @@ class DataFetcher:
     _columns: List[str] = field(default_factory=list, repr=False)
     _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
     _table_override: Optional[str] = field(default=None, repr=False)
+
+    @property
+    def _lp_lims_user_email(self) -> str:
+        """Return user email for LP LIMS API (username@nih.gov)."""
+        user = self.username or os.environ.get("LP_LIMS_USER", "")
+        if user and "@" not in user:
+            user = f"{user}@nih.gov"
+        return user
     
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -351,7 +359,7 @@ class DataFetcher:
             if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
                 _t0 = _tm.time()
                 response = self._lp_lims_client.read(
-                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
+                    user=self._lp_lims_user_email,
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     page=1,
@@ -443,7 +451,7 @@ class DataFetcher:
         try:
             if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
                 response = self._lp_lims_client.read(
-                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
+                    user=self._lp_lims_user_email,
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     page=1,
@@ -1176,7 +1184,7 @@ class DataFetcher:
             if is_lp_lims:
                 filters = self._build_lp_lims_filters(params)
                 response = self._lp_lims_client.read(
-                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
+                    user=self._lp_lims_user_email,
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     filters=filters if filters else None,
@@ -1360,7 +1368,7 @@ class DataFetcher:
                         asc = params.sort_ascending if isinstance(params.sort_ascending, bool) else True
                     order_direction = "asc" if asc else "desc"
                 response = self._lp_lims_client.read(
-                    user=self.username or os.environ.get("LP_LIMS_USER", ""),
+                    user=self._lp_lims_user_email,
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     filters=filters,
@@ -1497,7 +1505,7 @@ class DataFetcher:
             order_direction = "asc" if asc else "desc"
 
         response = self._lp_lims_client.read(
-            user=self.username or os.environ.get("LP_LIMS_USER", ""),
+            user=self._lp_lims_user_email,
             tab=self.app_config.database.lp_lims_tab,
             environment=self.app_config.database.lp_lims_environment,
             filters=filters,
@@ -1772,6 +1780,14 @@ class ConfigInstance:
         if not getattr(self.app_config, "enable_approval_workflow", True):
             return True
         return not getattr(self.app_config, "enable_status_filter", True)
+
+    @property
+    def _lp_lims_user_email(self) -> str:
+        """Return user email for LP LIMS API (username@nih.gov)."""
+        user = self.username or os.environ.get("LP_LIMS_USER", "")
+        if user and "@" not in user:
+            user = f"{user}@nih.gov"
+        return user
 
     def __post_init__(self):
         """Load config and data after initialization."""
@@ -2464,7 +2480,7 @@ class ConfigInstance:
             max_rows = self.app_config.database.max_rows
 
             response = client.read(
-                user=self.username or os.environ.get("LP_LIMS_USER", ""),
+                user=self._lp_lims_user_email,
                 tab=self.app_config.database.lp_lims_tab,
                 environment=self.app_config.database.lp_lims_environment,
                 page=1,
