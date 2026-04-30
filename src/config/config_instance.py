@@ -283,9 +283,16 @@ class DataFetcher:
 
     @property
     def _lp_lims_user_email(self) -> str:
-        """Return user email for LP LIMS API (username@nih.gov)."""
+        """Return user email for LP LIMS API (username@nih.gov).
+        
+        Posit Connect usernames are sanitized emails like 'rui_he_nih_gov'.
+        We strip '_nih_gov' suffix and append '@nih.gov' to reconstruct email.
+        """
         user = self.username or os.environ.get("LP_LIMS_USER", "")
         if user and "@" not in user:
+            # Strip _nih_gov suffix from Posit Connect sanitized username
+            if user.endswith("_nih_gov"):
+                user = user[:-8]  # Remove '_nih_gov' (8 chars)
             user = f"{user}@nih.gov"
         return user
     
@@ -1783,9 +1790,16 @@ class ConfigInstance:
 
     @property
     def _lp_lims_user_email(self) -> str:
-        """Return user email for LP LIMS API (username@nih.gov)."""
+        """Return user email for LP LIMS API (username@nih.gov).
+        
+        Posit Connect usernames are sanitized emails like 'rui_he_nih_gov'.
+        We strip '_nih_gov' suffix and append '@nih.gov' to reconstruct email.
+        """
         user = self.username or os.environ.get("LP_LIMS_USER", "")
         if user and "@" not in user:
+            # Strip _nih_gov suffix from Posit Connect sanitized username
+            if user.endswith("_nih_gov"):
+                user = user[:-8]  # Remove '_nih_gov' (8 chars)
             user = f"{user}@nih.gov"
         return user
 
