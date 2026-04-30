@@ -224,13 +224,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             # Selection mode CSS injection (hides select-all for single-select)
             ui.output_ui("selection_mode_ui"),
             
-            # Clean slate mode: hide sidebar, toolbar, modals — show only table + pagination
-            ui.tags.style("""
-                .left-panel { display: none !important; }
-                .top-toolbar { display: none !important; }
-                .modal-overlay { display: none !important; }
-                .right-panel { padding: 12px !important; }
-            """) if clean_slate else None,
+            # Clean slate mode is applied via .clean-slate class on main-container
+            # (scoped so it doesn't leak into other tabs)
             
             # Left Panel - Sidebar
             ui.div(
@@ -627,7 +622,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                 class_="right-panel"
             ),
             
-            class_="main-container"
+            class_="main-container clean-slate" if clean_slate else "main-container"
         ),
     )
 
