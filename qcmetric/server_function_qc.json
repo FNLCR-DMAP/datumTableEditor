@@ -2,7 +2,7 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 492,
+    "total_functions": 493,
     "total_unused": 38,
     "unused_percentage": 7.7
   },
@@ -1087,7 +1087,7 @@
   },
   "server": {
     "path": "server.py",
-    "total_functions": 87,
+    "total_functions": 88,
     "functions": [
       "_add_all_columns",
       "_add_column",
@@ -1096,6 +1096,7 @@
       "_apply_filters",
       "_approve_data",
       "_build_query_params",
+      "_cached_page_data",
       "_cell_click",
       "_clear_all_columns",
       "_clear_approval",
@@ -1184,6 +1185,7 @@
       "_apply_filter_value",
       "_apply_filters",
       "_approve_data",
+      "_cached_page_data",
       "_cell_click",
       "_clear_all_columns",
       "_clear_approval",
