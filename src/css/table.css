@@ -145,7 +145,7 @@
     text-align: left;
     cursor: pointer;
     font-size: var(--font-size-md);
-    color: var(--table-cell-color);
+    color: var(--table-cell-color, #333) !important;
     white-space: nowrap;
     border-radius: 6px;
     transition: background 0.1s ease;
