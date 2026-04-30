@@ -156,11 +156,10 @@ class LpLimsClient:
             order_direction=order_direction,
         )
 
-        url = f"{self.base_url}/read"
         body = request.model_dump(exclude_none=True)
 
         t0 = time.perf_counter()
-        resp = self._session.post(url, json=body, timeout=self.timeout)
+        resp = self._session.post(self.base_url, json=body, timeout=self.timeout)
         elapsed_ms = (time.perf_counter() - t0) * 1000
         resp.raise_for_status()
 
