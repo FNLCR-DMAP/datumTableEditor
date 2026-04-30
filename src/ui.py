@@ -97,7 +97,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     review_detail_label = app_config.review_detail_label or "Review Detail"
     synthesis_label = app_config.synthesis.label or "Synthesis"
     presets_enabled = app_config.table.presets_enabled
-    theme = app_config.theme or "modern"
+    theme = app_config.theme or "classic"
     clean_slate = app_config.clean_slate
     
     # Status labels from config

@@ -1,122 +1,115 @@
-/* Classic Theme — Windows 98 / 2000 inspired
-   Flat beveled look, system fonts, grey backgrounds, sharp corners. */
+/* Classic Theme — Matches the original main branch styling.
+   Clean grey/white look with standard Bootstrap-inspired colors. */
 
 [data-theme="classic"] {
     /* Typography */
-    --font-family: "MS Sans Serif", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
     /* Page background */
-    --page-bg: #008080;
+    --page-bg: #ffffff;
 
     /* Sidebar / Left Panel */
-    --sidebar-bg: #c0c0c0;
-    --sidebar-color: #000000;
-    --sidebar-border: #808080;
-    --sidebar-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #ffffff;
-    --sidebar-heading: #000000;
-    --sidebar-subtext: #444444;
-    --sidebar-text: #000000;
+    --sidebar-bg: #c5ccd3;
+    --sidebar-color: #343a40;
+    --sidebar-border: #adb5bd;
+    --sidebar-shadow: none;
+    --sidebar-heading: #2c3e50;
+    --sidebar-subtext: #6c757d;
+    --sidebar-text: #495057;
 
     /* Toolbar */
-    --toolbar-bg: #c0c0c0;
-    --toolbar-border: #808080;
-    --toolbar-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #ffffff;
-    --toolbar-btn-bg: #c0c0c0;
-    --toolbar-btn-border: #808080;
-    --toolbar-btn-color: #000000;
-    --toolbar-btn-hover-bg: #d4d0c8;
+    --toolbar-bg: #f8f9fa;
+    --toolbar-border: #dee2e6;
+    --toolbar-shadow: none;
+    --toolbar-btn-bg: #ffffff;
+    --toolbar-btn-border: #ced4da;
+    --toolbar-btn-color: #495057;
+    --toolbar-btn-hover-bg: #e9ecef;
 
     /* Table */
     --table-bg: #ffffff;
-    --table-border: #808080;
-    --table-radius: 0px;
-    --table-shadow: inset -1px -1px 0 #ffffff, inset 1px 1px 0 #808080;
-    --table-header-bg: #000080;
+    --table-border: #dee2e6;
+    --table-radius: 5px;
+    --table-shadow: none;
+    --table-header-bg: #495057;
     --table-header-color: #ffffff;
-    --table-header-border: #000060;
+    --table-header-border: #343a40;
     --table-row-bg: #ffffff;
-    --table-row-alt-bg: #f0f0f0;
-    --table-row-hover-bg: #000080;
-    --table-cell-border: #c0c0c0;
-    --table-cell-color: #000000;
-    --table-cell-edited-bg: #ffffe0;
-    --table-cell-edited-border: #808000;
+    --table-row-alt-bg: #f8f9fa;
+    --table-row-hover-bg: #e9ecef;
+    --table-cell-border: #dee2e6;
+    --table-cell-color: #212529;
+    --table-cell-edited-bg: #fffbeb;
+    --table-cell-edited-border: #92400e;
 
     /* Status badges */
-    --status-unprocessed: #808080;
-    --status-edited: #808000;
-    --status-approved: #008000;
-    --status-rejected: #800000;
+    --status-unprocessed: #6c757d;
+    --status-edited: #8B4513;
+    --status-approved: #28a745;
+    --status-rejected: #dc3545;
 
     /* Pagination */
-    --pagination-bg: #c0c0c0;
-    --pagination-border: #808080;
-    --pagination-btn-bg: #c0c0c0;
-    --pagination-btn-border: #808080;
-    --pagination-btn-color: #000000;
-    --pagination-btn-hover-bg: #d4d0c8;
-    --pagination-btn-active-bg: #000080;
+    --pagination-bg: #f8f9fa;
+    --pagination-border: #dee2e6;
+    --pagination-btn-bg: #ffffff;
+    --pagination-btn-border: #dee2e6;
+    --pagination-btn-color: #495057;
+    --pagination-btn-hover-bg: #e9ecef;
+    --pagination-btn-active-bg: #495057;
     --pagination-btn-active-color: #ffffff;
-    --pagination-info-color: #000000;
+    --pagination-info-color: #495057;
 
     /* Modal */
     --modal-overlay-bg: rgba(0,0,0,0.5);
-    --modal-bg: #c0c0c0;
-    --modal-radius: 0px;
-    --modal-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #ffffff, 4px 4px 0 rgba(0,0,0,0.3);
-    --modal-header-border: #808080;
-    --modal-header-color: #000080;
+    --modal-bg: #ffffff;
+    --modal-radius: 8px;
+    --modal-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    --modal-header-border: #dee2e6;
+    --modal-header-color: #212529;
 
     /* Inputs / Controls */
     --input-bg: #ffffff;
-    --input-border: #808080;
-    --input-color: #000000;
-    --input-focus-border: #000080;
-    --input-placeholder: #808080;
+    --input-border: #ced4da;
+    --input-color: #495057;
+    --input-focus-border: #80bdff;
+    --input-placeholder: #6c757d;
 
     /* Buttons - Primary */
-    --btn-primary-bg: #c0c0c0;
-    --btn-primary-color: #000000;
-    --btn-primary-hover-bg: #d4d0c8;
+    --btn-primary-bg: #007bff;
+    --btn-primary-color: #ffffff;
+    --btn-primary-hover-bg: #0069d9;
 
     /* Buttons - Success */
-    --btn-success-bg: #c0c0c0;
-    --btn-success-color: #008000;
+    --btn-success-bg: #28a745;
+    --btn-success-color: #ffffff;
 
     /* Buttons - Danger */
-    --btn-danger-bg: #c0c0c0;
-    --btn-danger-color: #800000;
+    --btn-danger-bg: #dc3545;
+    --btn-danger-color: #ffffff;
 
     /* Toggle / Misc */
-    --toggle-btn-bg: #c0c0c0;
-    --toggle-btn-border: #808080;
-    --toggle-btn-color: #000000;
-    --toggle-btn-hover-bg: #d4d0c8;
+    --toggle-btn-bg: #ffffff;
+    --toggle-btn-border: #ced4da;
+    --toggle-btn-color: #495057;
+    --toggle-btn-hover-bg: #e9ecef;
 
     /* Scrollbar */
-    --scrollbar-track: #c0c0c0;
-    --scrollbar-thumb: #808080;
-    --scrollbar-thumb-hover: #606060;
+    --scrollbar-track: #f1f1f1;
+    --scrollbar-thumb: #adb5bd;
+    --scrollbar-thumb-hover: #6c757d;
 
     /* Histogram */
-    --histogram-track: #c0c0c0;
+    --histogram-track: #d0d5db;
 
     /* Filter section */
-    --filter-badge-bg: #d4d0c8;
-    --filter-badge-color: #000000;
+    --filter-badge-bg: #e9ecef;
+    --filter-badge-color: #495057;
 
     /* Log */
     --log-bg: #ffffff;
-    --log-border: #808080;
-    --log-item-border: #c0c0c0;
-    --log-text: #000000;
-}
-
-/* Classic overrides for buttons to get the beveled look */
-[data-theme="classic"] .btn,
-[data-theme="classic"] button {
-    border-radius: 0 !important;
-    box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #ffffff;
+    --log-border: #dee2e6;
+    --log-item-border: #f1f1f1;
+    --log-text: #212529;
 }
 [data-theme="classic"] .btn:active,
 [data-theme="classic"] button:active {
