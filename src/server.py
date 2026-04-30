@@ -1333,7 +1333,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         active = active_filters.get()
         has_changes = pending != active
         return ui.div(
-            ui.input_action_button("apply_filters_btn", "Apply Filters", class_="apply-filters-btn" + (" btn-pending" if has_changes else "")),
+            ui.input_action_button(
+                "apply_filters_btn",
+                "Apply Filters",
+                class_="apply-filters-btn" + (" btn-pending" if has_changes else ""),
+                onclick="this.classList.add('btn-loading'); this.textContent='Loading…'; this.disabled=true;"
+            ),
             ui.input_action_button("reset_filters_btn", "Reset", class_="reset-filters-btn"),
             class_="apply-filters-bar"
         )

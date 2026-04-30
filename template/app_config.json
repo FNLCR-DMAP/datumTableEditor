@@ -84,7 +84,7 @@
     "persist_page": true,
     "persist_column_selection": true,
     "persist_column_widths": true,
-    "session_timeout_minutes": 30
+    "session_timeout_minutes": 180
   },
   
   "table": {

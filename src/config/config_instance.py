@@ -1225,12 +1225,13 @@ class DataFetcher:
             # LP LIMS mode: use the API's row_count with filters
             is_lp_lims = self.app_config.database.mode == "lp_lims" and self._lp_lims_client
             if is_lp_lims:
-                filters = self._build_lp_lims_filters(params)
+                filters, tab_filters = self._build_lp_lims_filters(params)
                 response = self._lp_lims_client.read(
                     user=self._lp_lims_user_email,
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     filters=filters if filters else None,
+                    tab_filters=tab_filters,
                     page=1,
                     page_size=1,
                 )
@@ -1400,7 +1401,7 @@ class DataFetcher:
             # LP LIMS mode: fetch with max page_size (no true "all" endpoint)
             is_lp_lims = self.app_config.database.mode == "lp_lims" and self._lp_lims_client
             if is_lp_lims:
-                filters = self._build_lp_lims_filters(params)
+                filters, tab_filters = self._build_lp_lims_filters(params)
                 order_by = None
                 order_direction = None
                 if params.sort_column:
@@ -1416,6 +1417,7 @@ class DataFetcher:
                     tab=self.app_config.database.lp_lims_tab,
                     environment=self.app_config.database.lp_lims_environment,
                     filters=filters,
+                    tab_filters=tab_filters,
                     page=1,
                     page_size=10000,
                     order_by=order_by,

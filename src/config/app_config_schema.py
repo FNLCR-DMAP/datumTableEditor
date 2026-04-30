@@ -118,7 +118,7 @@ class StateConfig:
     persist_column_widths: bool = True
     
     # Session settings
-    session_timeout_minutes: int = 30
+    session_timeout_minutes: int = 180
 
 
 @dataclass

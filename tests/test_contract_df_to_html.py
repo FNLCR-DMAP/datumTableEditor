@@ -468,7 +468,7 @@ class TestContainerSummaryText:
             pk_columns=["pk"],
         )
         html = _render_html(container)
-        assert "Loaded 2 rows (filtered 2 of 100 total)" in html
+        assert "Showing 2 of 2 filtered rows (total: 100)" in html
 
     def test_filtered_equals_total_shows_loaded_text(self, simple_df, default_widths):
         container = build_table_container(
@@ -497,7 +497,7 @@ class TestContainerSummaryText:
             pk_columns=["pk"],
         )
         html = _render_html(container)
-        assert "Loaded 1 rows (filtered 3 of 100 total)" in html
+        assert "Showing 1 of 3 filtered rows (total: 100)" in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

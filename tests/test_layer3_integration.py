@@ -693,8 +693,8 @@ class TestFullTableContainerRender:
             get_row_status_func=status_func, pk_columns=pk_cols,
         )
         html = str(container)
-        # Shows "filtered X of Y total" when filtered_count < total
-        assert "filtered 4 of 5 total" in html
+        # Shows filtered indicator when filtered_count < total
+        assert "4 filtered rows (total: 5)" in html
 
 
 # =============================================================================

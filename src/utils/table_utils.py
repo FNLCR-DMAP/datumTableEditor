@@ -290,14 +290,21 @@ def build_table_container(
     """Build the complete table container with summary and table."""
     displayed_count = len(paginated_indices)
     
-    if filtered_count < total_rows:
-        rows_text = f"Loaded {displayed_count} rows (filtered {filtered_count} of {total_rows} total)"
+    is_filtered = filtered_count < total_rows
+    if is_filtered:
+        rows_text = f"Showing {displayed_count} of {filtered_count} filtered rows (total: {total_rows})"
+        summary_style = "margin-bottom: 10px; font-size: 12px; padding: 6px 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 3px; color: #664d03;"
     else:
-        rows_text = f"Loaded {displayed_count} of {filtered_count} rows"
+        rows_text = f"Loaded {displayed_count} of {total_rows} rows"
+        summary_style = "margin-bottom: 10px; color: #666; font-size: 12px;"
     
     table_html = build_data_table(paginated_indices, current_df, cols, widths, get_row_status_func, edited_cells, pk_columns, editable_columns, readonly_columns, show_status_column, status_labels, column_masks=column_masks, cell_click_columns=cell_click_columns, status_col_name=status_col_name, no_tz_display=no_tz_display, show_select=show_select)
     
     return ui.div(
-        ui.div(rows_text, style="margin-bottom: 10px; color: #666; font-size: 12px;"),
+        ui.div(
+            ui.span("⚠ FILTERED " if is_filtered else "", style="font-weight: bold;") if is_filtered else "",
+            rows_text,
+            style=summary_style
+        ),
         table_html,
     )
