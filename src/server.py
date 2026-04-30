@@ -360,6 +360,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Pending filters — edited in the sidebar without triggering table reload.
     # Copied to active_filters when the user clicks "Apply Filters".
     pending_filters = reactive.Value(initial_filters.copy())
+    # Trigger for filter panel re-render (bumped on structural changes: add/remove filter, change operator)
+    _filter_panel_trigger = reactive.Value(0)
     
     # Search state - updated only when search button is clicked
     search_state = reactive.Value({"term": "", "column": "all"})
@@ -1103,11 +1105,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         else:
             filters[col] = fv
         pending_filters.set(filters)
+        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     # Output: Dynamic filters UI
     @render.ui
     def dynamic_filters():
         """Render active dynamic filters from pending state"""
+        # Only re-render on structural changes (add/remove filter, operator change)
+        _filter_panel_trigger.get()
+        
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
         _date_cols = set()
         if is_lazy_loading() and hasattr(config, 'data_fetcher'):
@@ -1118,18 +1124,22 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 if pd.api.types.is_datetime64_any_dtype(df[col]):
                     _date_cols.add(col)
         
+        # Read pending_filters without creating a reactive dependency
+        with reactive.isolate():
+            current_filters = pending_filters.get()
+        
         if is_lazy_loading():
             # In lazy mode, data.get() may be empty; pass all known columns
             # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
-                pending_filters.get(), data.get(),
+                current_filters, data.get(),
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
                 get_unique_values_func=config.data_fetcher.get_unique_values,
                 column_masks=column_masks,
                 date_columns=_date_cols
             )
-        return build_dynamic_filters_panel(pending_filters.get(), data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
+        return build_dynamic_filters_panel(current_filters, data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui
@@ -1167,6 +1177,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:
             pending_filters.set(add_filter(pending_filters.get(), col_name))
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
     
     # Handle removing a filter
     @reactive.Effect
@@ -1177,6 +1188,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         col_name = parse_filter_column(input.remove_filter_column())
         if col_name:
             pending_filters.set(remove_filter(pending_filters.get(), col_name))
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
     
     # Handle changing a filter's operator
     @reactive.Effect
@@ -1226,6 +1238,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             filters[col_name] = {"op": op, "value": existing_values, "interactive": True}
         
         pending_filters.set(filters)
+        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
     
     # Apply filter value on blur (user clicked away from textarea)
     @reactive.Effect
@@ -1300,6 +1313,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _reset_pending_filters():
         """Revert pending filters back to current active filters."""
         pending_filters.set(active_filters.get().copy())
+        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     # Output: Pagination controls
     @render.ui
