@@ -2,17 +2,17 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 88,
+    "total_functions": 89,
     "unused_functions": 0,
     "fully_annotated_functions": 5,
-    "function_coverage_percent": 5.7,
+    "function_coverage_percent": 5.6,
     "parameter_coverage_percent": 50.0,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
     "src/server.py": {
-      "total": 88,
+      "total": 89,
       "functions": [
         "_add_all_columns",
         "_add_column",
@@ -36,6 +36,7 @@
         "_get_export_filename",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
@@ -113,6 +114,7 @@
         "_get_export_filename",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
@@ -202,7 +204,7 @@
   "type_coverage": {
     "src/server.py": {
       "functions": {
-        "total": 88,
+        "total": 89,
         "with_return_type": 5,
         "fully_annotated": 5
       },
@@ -260,9 +262,8 @@
           "line": 169
         },
         {
-          "type": "parameter",
-          "function": "_get_selected_pks",
-          "name": "row_indices",
+          "type": "return",
+          "function": "_get_page_selection",
           "line": 434
         }
       ]

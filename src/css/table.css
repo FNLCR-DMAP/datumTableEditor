@@ -304,10 +304,9 @@ table.edit-table > tbody > tr:hover > td {
 .readonly-cell {
     cursor: default;
     position: relative;
-    background-color: #fafafa;
 }
 .readonly-cell:hover {
-    background-color: #f5f5f5 !important;
+    background-color: inherit !important;
 }
 
 /* Edited Cell - Amber accent */
