@@ -471,7 +471,7 @@ def build_dynamic_filters_panel(
             # Extract display value from the operator dict
             raw_val = filter_value.get("value")
             if isinstance(raw_val, list):
-                display_val = "\n".join(str(v) for v in raw_val)
+                display_val = "\n".join(str(v) if v is not None else "" for v in raw_val)
             elif raw_val is not None:
                 display_val = str(raw_val)
             else:

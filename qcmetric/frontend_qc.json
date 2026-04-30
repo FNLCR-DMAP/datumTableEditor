@@ -1429,6 +1429,12 @@
     },
     {
       "file": "table.css",
+      "line": 148,
+      "type": "warning",
+      "message": "!important usage (consider specificity instead)"
+    },
+    {
+      "file": "table.css",
       "line": 177,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
@@ -1866,7 +1872,7 @@
     "js_errors": 0,
     "js_warnings": 1,
     "css_errors": 0,
-    "css_warnings": 26,
+    "css_warnings": 27,
     "total_js_functions": 82
   }
 }
