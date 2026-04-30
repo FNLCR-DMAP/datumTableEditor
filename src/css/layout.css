@@ -3,10 +3,6 @@
     display: flex;
     height: 100vh;
     gap: 0;
-    font-family: var(--font-family);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background: var(--page-bg);
 }
 
 /* Left Panel - Sidebar */
@@ -14,14 +10,13 @@
     width: 25%;
     min-width: 280px;
     max-width: 400px;
-    background: var(--sidebar-bg);
-    color: var(--sidebar-color);
-    border-right: 1px solid var(--sidebar-border);
-    padding: 20px 16px;
+    background: #c5ccd3;
+    color: #343a40;
+    border-right: 2px solid #adb5bd;
+    padding: 15px;
     overflow-y: auto;
-    transition: all 0.25s cubic-bezier(.4,0,.2,1);
+    transition: all 0.3s ease;
     position: relative;
-    box-shadow: var(--sidebar-shadow);
 }
 .left-panel.collapsed {
     width: 40px;
@@ -34,25 +29,19 @@
 }
 .toggle-btn {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    border: 1px solid var(--toggle-btn-border);
-    background: var(--toggle-btn-bg);
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: white;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
     z-index: 100;
-    transition: all 0.15s ease;
-    color: var(--toggle-btn-color);
-}
-.toggle-btn:hover {
-    background: var(--toggle-btn-hover-bg);
-    color: var(--sidebar-heading);
 }
 .left-panel.collapsed .toggle-btn {
     right: 6px;
@@ -61,9 +50,9 @@
 /* Right Panel - Main Content */
 .right-panel {
     flex: 1;
-    padding: 20px;
+    padding: 15px;
     overflow: hidden;
-    background: var(--page-bg);
+    background: white;
     display: flex;
     flex-direction: column;
 }

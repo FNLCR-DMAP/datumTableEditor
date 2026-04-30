@@ -7,7 +7,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--modal-overlay-bg);
+    background: rgba(0,0,0,0.9);
     z-index: 2000;
     justify-content: center;
     align-items: center;
@@ -19,14 +19,14 @@
     opacity: 1;
 }
 .modal-content {
-    background: var(--modal-bg);
-    border-radius: var(--modal-radius);
-    padding: 24px;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
     max-width: 700px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: var(--modal-shadow);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 .modal-body {
     min-height: 100px;
@@ -35,26 +35,23 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 18px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--modal-header-border);
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
 }
 .modal-header h3 {
     margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    color: var(--modal-header-color);
+    font-size: 16px;
 }
 .modal-close {
     background: none;
     border: none;
     font-size: 20px;
     cursor: pointer;
-    color: #94a3b8;
-    transition: color 0.15s ease;
+    color: #6c757d;
 }
 .modal-close:hover {
-    color: #334155;
+    color: #343a40;
 }
 .modal-body {
     margin-bottom: 15px;
@@ -70,26 +67,24 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .modal-draggable-col:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 .drag-over-modal {
     transform: scale(1.05);
-    box-shadow: 0 0 0 2px #6366f1 !important;
+    box-shadow: 0 0 0 2px #007bff !important;
 }
 .drag-handle-modal:hover {
     color: rgba(255,255,255,0.9) !important;
 }
 .add-col-tag {
     padding: 6px 12px;
-    background: #f1f5f9;
-    border-radius: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
     font-size: 12px;
     cursor: pointer;
-    color: #475569;
-    transition: all 0.15s ease;
 }
 .add-col-tag:hover {
-    background: #059669;
+    background: #28a745;
     color: white;
 }
 
@@ -98,39 +93,37 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 12px;
-    background: #f8fafc;
-    border-radius: 10px;
-    border: 2px dashed #e2e8f0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px dashed #ced4da;
 }
 .current-col-tag {
     display: inline-flex;
     align-items: center;
-    padding: 5px 12px;
-    background: #1e293b;
-    color: #f1f5f9;
-    border-radius: 8px;
+    padding: 5px 10px;
+    background: #2c3e50;
+    color: white;
+    border-radius: 4px;
     font-size: 12px;
-    font-weight: 500;
 }
 .current-col-tag .remove-modal-col {
     margin-left: 6px;
     cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.15s ease;
+    opacity: 0.7;
 }
 .current-col-tag .remove-modal-col:hover {
     opacity: 1;
-    color: #fca5a5;
+    color: #ff6b6b;
 }
 
 /* Column Customization */
 .column-config-section {
-    margin-bottom: 16px;
-    padding: 14px;
-    background: #f8fafc;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
 }
 .column-config-header {
     display: flex;
@@ -141,41 +134,37 @@
 .column-config-header h4 {
     margin: 0;
     font-size: 14px;
-    font-weight: 700;
-    color: #1e293b;
+    font-weight: 600;
 }
 .column-list {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     min-height: 40px;
-    padding: 10px;
+    padding: 8px;
     background: white;
-    border: 2px dashed #e2e8f0;
-    border-radius: 10px;
+    border: 1px dashed #ced4da;
+    border-radius: 4px;
 }
 .column-tag {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 5px 12px;
-    background: #1e293b;
-    color: #f1f5f9;
-    border-radius: 8px;
+    padding: 5px 10px;
+    background: #2c3e50;
+    color: white;
+    border-radius: 4px;
     font-size: 12px;
-    font-weight: 500;
     cursor: grab;
     user-select: none;
-    transition: all 0.15s ease;
 }
 .column-tag:active {
     cursor: grabbing;
 }
 .column-tag .remove-col {
     cursor: pointer;
-    opacity: 0.6;
+    opacity: 0.7;
     margin-left: 4px;
-    transition: opacity 0.15s ease;
 }
 .column-tag .remove-col:hover {
     opacity: 1;
@@ -188,24 +177,22 @@
 }
 .available-columns-label {
     font-size: 12px;
-    color: #94a3b8;
+    color: #6c757d;
     margin-bottom: 5px;
 }
 .available-column-tag {
     display: inline-flex;
     align-items: center;
-    padding: 4px 10px;
-    background: #f1f5f9;
-    color: #475569;
-    border-radius: 6px;
+    padding: 4px 8px;
+    background: #e9ecef;
+    color: #495057;
+    border-radius: 4px;
     font-size: 11px;
     cursor: pointer;
     margin: 2px;
-    transition: all 0.15s ease;
 }
 .available-column-tag:hover {
-    background: #e2e8f0;
-    color: #1e293b;
+    background: #dee2e6;
 }
 
 /* Copy Column Modal */
@@ -215,16 +202,14 @@
 
 .copy-col-btn {
     font-size: 13px;
-    border: 1px solid #6366f1;
-    color: #6366f1;
+    border: 1px solid #007bff;
+    color: #007bff;
     background: white;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .copy-col-btn:hover {
-    background: #6366f1;
+    background: #007bff;
     color: white;
 }
 
@@ -235,15 +220,13 @@
 
 #add-filter-modal .btn-outline-secondary {
     font-size: 12px;
-    border: 1px solid #e2e8f0;
-    color: #475569;
+    border: 1px solid #6c757d;
+    color: #495057;
     background: white;
-    border-radius: 8px;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 #add-filter-modal .btn-outline-secondary:hover {
-    background: #475569;
+    background: #6c757d;
     color: white;
-    border-color: #475569;
 }

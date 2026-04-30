@@ -1531,25 +1531,25 @@
     },
     {
       "file": "table.css",
-      "line": 310,
+      "line": 309,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 315,
+      "line": 314,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 319,
+      "line": 318,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 324,
+      "line": 323,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     }

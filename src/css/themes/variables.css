@@ -1,5 +1,6 @@
 /* === Theme Variables (Base) ===
    All color/style tokens used across the app.
+   Default values match the classic/main-branch look.
    Theme overrides redefine these under [data-theme="<name>"] */
 
 :root {
@@ -12,108 +13,108 @@
     --font-size-xl: 17px;
 
     /* Page background */
-    --page-bg: #f0f2f5;
+    --page-bg: white;
 
     /* Sidebar / Left Panel */
-    --sidebar-bg: #ffffff;
-    --sidebar-color: #1a1a2e;
-    --sidebar-border: #e2e8f0;
-    --sidebar-shadow: 1px 0 8px rgba(0,0,0,0.04);
-    --sidebar-heading: #1e293b;
-    --sidebar-subtext: #94a3b8;
-    --sidebar-text: #475569;
+    --sidebar-bg: #c5ccd3;
+    --sidebar-color: #343a40;
+    --sidebar-border: #adb5bd;
+    --sidebar-shadow: none;
+    --sidebar-heading: #2c3e50;
+    --sidebar-subtext: #6c757d;
+    --sidebar-text: #495057;
 
     /* Toolbar */
-    --toolbar-bg: #ffffff;
-    --toolbar-border: #e2e8f0;
-    --toolbar-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    --toolbar-btn-bg: white;
-    --toolbar-btn-border: #e2e8f0;
-    --toolbar-btn-color: #475569;
-    --toolbar-btn-hover-bg: #f1f5f9;
+    --toolbar-bg: #f8f9fa;
+    --toolbar-border: #dee2e6;
+    --toolbar-shadow: none;
+    --toolbar-btn-bg: #ffffff;
+    --toolbar-btn-border: #ced4da;
+    --toolbar-btn-color: #495057;
+    --toolbar-btn-hover-bg: #e9ecef;
 
     /* Table */
     --table-bg: white;
-    --table-border: #e2e8f0;
-    --table-radius: 12px;
-    --table-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-    --table-header-bg: #1e293b;
-    --table-header-color: #f1f5f9;
-    --table-header-border: #334155;
-    --table-row-bg: #ffffff;
-    --table-row-alt-bg: #f8fafc;
-    --table-row-hover-bg: #f1f5f9;
-    --table-cell-border: #f1f5f9;
-    --table-cell-color: #334155;
-    --table-cell-edited-bg: #fffbeb;
-    --table-cell-edited-border: #92400e;
+    --table-border: #ddd;
+    --table-radius: 5px;
+    --table-shadow: none;
+    --table-header-bg: #495057;
+    --table-header-color: #ffffff;
+    --table-header-border: #343a40;
+    --table-row-bg: #f5f7f9;
+    --table-row-alt-bg: #c4d4e3;
+    --table-row-hover-bg: #d0e8f0;
+    --table-cell-border: #ddd;
+    --table-cell-color: #212529;
+    --table-cell-edited-bg: #FFF8DC;
+    --table-cell-edited-border: #8B4513;
 
     /* Status badges */
-    --status-unprocessed: #94a3b8;
-    --status-edited: #f59e0b;
-    --status-approved: #10b981;
-    --status-rejected: #ef4444;
+    --status-unprocessed: #6c757d;
+    --status-edited: #8B4513;
+    --status-approved: #28a745;
+    --status-rejected: #dc3545;
 
     /* Pagination */
-    --pagination-bg: #ffffff;
-    --pagination-border: #e2e8f0;
-    --pagination-btn-bg: white;
-    --pagination-btn-border: #e2e8f0;
-    --pagination-btn-color: #475569;
-    --pagination-btn-hover-bg: #f1f5f9;
-    --pagination-btn-active-bg: #6366f1;
-    --pagination-btn-active-color: white;
-    --pagination-info-color: #64748b;
+    --pagination-bg: #f8f9fa;
+    --pagination-border: #dee2e6;
+    --pagination-btn-bg: #ffffff;
+    --pagination-btn-border: #dee2e6;
+    --pagination-btn-color: #495057;
+    --pagination-btn-hover-bg: #e9ecef;
+    --pagination-btn-active-bg: #495057;
+    --pagination-btn-active-color: #ffffff;
+    --pagination-info-color: #495057;
 
-    /* Modal */
-    --modal-overlay-bg: rgba(15,23,42,0.85);
-    --modal-bg: white;
-    --modal-radius: 16px;
-    --modal-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 8px 20px rgba(0,0,0,0.15);
-    --modal-header-border: #f1f5f9;
-    --modal-header-color: #1e293b;
+    /* Modal — solid dark, no transparency */
+    --modal-overlay-bg: #000000;
+    --modal-bg: #ffffff;
+    --modal-radius: 8px;
+    --modal-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    --modal-header-border: #dee2e6;
+    --modal-header-color: #212529;
 
     /* Inputs / Controls */
-    --input-bg: #f8fafc;
-    --input-border: #e2e8f0;
-    --input-color: #334155;
-    --input-focus-border: #6366f1;
-    --input-placeholder: #94a3b8;
+    --input-bg: #ffffff;
+    --input-border: #ced4da;
+    --input-color: #495057;
+    --input-focus-border: #80bdff;
+    --input-placeholder: #6c757d;
 
     /* Buttons - Primary */
-    --btn-primary-bg: #6366f1;
-    --btn-primary-color: white;
-    --btn-primary-hover-bg: #4f46e5;
+    --btn-primary-bg: #007bff;
+    --btn-primary-color: #ffffff;
+    --btn-primary-hover-bg: #0069d9;
 
     /* Buttons - Success */
-    --btn-success-bg: #10b981;
-    --btn-success-color: white;
+    --btn-success-bg: #28a745;
+    --btn-success-color: #ffffff;
 
     /* Buttons - Danger */
-    --btn-danger-bg: #ef4444;
-    --btn-danger-color: white;
+    --btn-danger-bg: #dc3545;
+    --btn-danger-color: #ffffff;
 
     /* Toggle / Misc */
-    --toggle-btn-bg: #f8fafc;
-    --toggle-btn-border: #e2e8f0;
-    --toggle-btn-color: #64748b;
-    --toggle-btn-hover-bg: #e2e8f0;
+    --toggle-btn-bg: #ffffff;
+    --toggle-btn-border: #ced4da;
+    --toggle-btn-color: #495057;
+    --toggle-btn-hover-bg: #e9ecef;
 
     /* Scrollbar */
-    --scrollbar-track: #f1f5f9;
-    --scrollbar-thumb: #cbd5e1;
-    --scrollbar-thumb-hover: #94a3b8;
+    --scrollbar-track: #f1f1f1;
+    --scrollbar-thumb: #adb5bd;
+    --scrollbar-thumb-hover: #6c757d;
 
     /* Histogram */
-    --histogram-track: #f1f5f9;
+    --histogram-track: #d0d5db;
 
     /* Filter section */
-    --filter-badge-bg: #f1f5f9;
-    --filter-badge-color: #475569;
+    --filter-badge-bg: #e9ecef;
+    --filter-badge-color: #495057;
 
     /* Log */
-    --log-bg: #f8fafc;
-    --log-border: #e2e8f0;
-    --log-item-border: #f1f5f9;
-    --log-text: #475569;
+    --log-bg: #ffffff;
+    --log-border: #dee2e6;
+    --log-item-border: #f1f1f1;
+    --log-text: #212529;
 }

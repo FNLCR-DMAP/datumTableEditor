@@ -1,37 +1,30 @@
 /* Table Name Section */
 .table-name-section {
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--table-cell-border);
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
 }
 .table-name {
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    color: var(--sidebar-heading);
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
     margin: 0;
-    letter-spacing: -0.01em;
-    padding-right: 40px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 .table-subtitle {
-    font-size: var(--font-size-sm);
-    color: var(--sidebar-subtext);
-    margin-top: 4px;
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 5px;
 }
 
 /* Stats Histogram */
 .stats-section {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .stats-section h4 {
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    color: var(--sidebar-subtext);
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
 }
 .histogram-bar {
     display: flex;
@@ -40,32 +33,31 @@
 }
 .histogram-label {
     width: 90px;
-    font-size: var(--font-size-sm);
-    color: var(--sidebar-text);
+    font-size: 12px;
+    color: #495057;
 }
 .histogram-track {
     flex: 1;
-    height: 8px;
-    background: var(--histogram-track);
-    border-radius: 99px;
+    height: 20px;
+    background: #d0d5db;
+    border-radius: 4px;
     overflow: hidden;
     margin-right: 8px;
 }
 .histogram-fill {
     height: 100%;
-    border-radius: 99px;
-    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+    border-radius: 4px;
+    transition: width 0.3s ease;
 }
-.histogram-fill.unprocessed { background: var(--status-unprocessed); }
-.histogram-fill.edited { background: var(--status-edited); }
-.histogram-fill.approved { background: var(--status-approved); }
-.histogram-fill.rejected { background: var(--status-rejected); }
+.histogram-fill.unprocessed { background: #6c757d; }
+.histogram-fill.edited { background: #8B4513; }
+.histogram-fill.approved { background: #28a745; }
+.histogram-fill.rejected { background: #dc3545; }
 .histogram-count {
     width: 35px;
     font-size: 12px;
     font-weight: 600;
     text-align: right;
-    color: #475569;
 }
 
 /* Histogram checkbox styling */
@@ -78,10 +70,8 @@
 }
 .histogram-checkbox-label input[type="checkbox"] {
     cursor: pointer;
-    width: 15px;
-    height: 15px;
-    border-radius: 4px;
-    accent-color: #6366f1;
+    width: 14px;
+    height: 14px;
 }
 .histogram-checkbox-label .histogram-label {
     width: auto;
@@ -94,55 +84,48 @@
 
 /* Filter Section */
 .filter-section {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .filter-section h4 {
-    font-size: 11px;
-    font-weight: 700;
-    color: #94a3b8;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
 }
 .filter-group {
-    margin-bottom: 14px;
+    margin-bottom: 15px;
 }
 .filter-group label {
     display: block;
     font-size: 12px;
     font-weight: 500;
-    color: #475569;
+    color: #495057;
     margin-bottom: 5px;
 }
 .filter-group input,
 .filter-group select {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
     font-size: 13px;
-    background: #f8fafc;
-    transition: all 0.15s ease;
 }
 .filter-group input:focus,
 .filter-group select:focus {
-    border-color: #6366f1;
+    border-color: #2196F3;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-    background: white;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
 }
 
 /* Column Filter Section */
 .column-filter-section {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .column-filter-section h4 {
-    font-size: 11px;
-    font-weight: 700;
-    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
     margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 .filter-header {
     display: flex;
@@ -153,7 +136,7 @@
     line-height: 1;
 }
 .remove-filter-btn:hover {
-    color: #dc2626 !important;
+    color: #a71d2a !important;
 }
 
 /* Filter group with multi-select button */
@@ -176,24 +159,24 @@
     border-bottom: none !important;
 }
 .filter-value-item:hover {
-    background-color: #f8fafc;
+    background-color: #f8f9fa;
 }
 
 /* ── Facet Filter Panels ────────────────────────────────────────────── */
 .facet-panels {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .facet-section {
     margin-bottom: 18px;
     padding-bottom: 14px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid #dee2e6;
 }
 .facet-title {
     font-size: 11px;
-    font-weight: 700;
-    color: #94a3b8;
+    font-weight: 600;
+    color: #6c757d;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.5px;
     margin: 0 0 8px 0;
 }
 .facet-bar {
@@ -212,15 +195,13 @@
 }
 .facet-checkbox-label input[type="checkbox"] {
     cursor: pointer;
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    accent-color: #6366f1;
-    border-radius: 4px;
 }
 .facet-label {
     font-size: 13px;
-    color: #334155;
+    color: #343a40;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -229,29 +210,29 @@
 /* Italicise "No value" placeholder */
 .facet-label[title="No value"] {
     font-style: italic;
-    color: #94a3b8;
+    color: #6c757d;
 }
 .facet-count {
     font-size: 12px;
     font-weight: 600;
-    color: #475569;
+    color: #495057;
     min-width: 40px;
     text-align: right;
     flex-shrink: 0;
 }
 .facet-track {
     width: 60px;
-    height: 6px;
-    background: #f1f5f9;
-    border-radius: 99px;
+    height: 14px;
+    background: #e9ecef;
+    border-radius: 3px;
     overflow: hidden;
     flex-shrink: 0;
 }
 .facet-fill {
     height: 100%;
-    background: #6366f1;
-    border-radius: 99px;
-    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+    background: #4a7dbd;
+    border-radius: 3px;
+    transition: width 0.3s ease;
 }
 .facet-overflow {
     /* toggled via JS */
@@ -259,19 +240,18 @@
 .facet-toggle-btn {
     background: none;
     border: none;
-    color: #6366f1;
+    color: #6c757d;
     font-size: 12px;
     cursor: pointer;
     padding: 4px 0;
     margin-top: 2px;
-    font-weight: 500;
 }
 .facet-toggle-btn:hover {
-    color: #4f46e5;
+    color: #495057;
     text-decoration: underline;
 }
 
-/* ---- Apply / Reset Filters Bar ---- */
+/* Apply / Reset Filters Bar */
 .apply-filters-bar {
     display: flex;
     gap: 4px;
@@ -282,7 +262,7 @@
     background: #28a745;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 4px 10px;
     font-size: 11px;
     font-weight: 600;
@@ -305,17 +285,17 @@
 }
 .reset-filters-btn {
     background: #fff;
-    color: #64748b;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
     padding: 4px 8px;
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s;
     white-space: nowrap;
 }
 .reset-filters-btn:hover {
-    background: #f1f5f9;
-    color: #334155;
+    background: #e9ecef;
+    color: #495057;
 }

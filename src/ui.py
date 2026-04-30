@@ -381,7 +381,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             ui.tags.option("Dark", value="dark"),
                             id="theme-selector",
                             onchange="setTheme(this.value)",
-                            style="padding: 4px 8px; font-size: 11px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--input-color); cursor: pointer;",
+                            style="padding: 4px 8px; font-size: 11px; border: 1px solid #ced4da; border-radius: 4px; background: #ffffff; color: #495057; cursor: pointer;",
                             title="Color Theme"
                         ),
                         class_="toolbar-right"

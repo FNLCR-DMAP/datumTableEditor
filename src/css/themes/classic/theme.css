@@ -1,12 +1,14 @@
 /* Classic Theme — Matches the original main branch styling.
-   Clean grey/white look with standard Bootstrap-inspired colors. */
+   The base CSS files already use classic hardcoded colors.
+   This file only provides CSS variable values for any component
+   that may reference them, and applies minor classic-specific tweaks. */
 
 [data-theme="classic"] {
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
     /* Page background */
-    --page-bg: #f0f2f5;
+    --page-bg: white;
 
     /* Sidebar / Left Panel */
     --sidebar-bg: #c5ccd3;
@@ -28,19 +30,19 @@
 
     /* Table */
     --table-bg: #ffffff;
-    --table-border: #dee2e6;
+    --table-border: #ddd;
     --table-radius: 5px;
     --table-shadow: none;
     --table-header-bg: #495057;
     --table-header-color: #ffffff;
     --table-header-border: #343a40;
-    --table-row-bg: #ffffff;
-    --table-row-alt-bg: #e8ecf2;
-    --table-row-hover-bg: #dce1e8;
-    --table-cell-border: #dee2e6;
+    --table-row-bg: #f5f7f9;
+    --table-row-alt-bg: #c4d4e3;
+    --table-row-hover-bg: #d0e8f0;
+    --table-cell-border: #ddd;
     --table-cell-color: #212529;
-    --table-cell-edited-bg: #fffbeb;
-    --table-cell-edited-border: #92400e;
+    --table-cell-edited-bg: #FFF8DC;
+    --table-cell-edited-border: #8B4513;
 
     /* Status badges */
     --status-unprocessed: #6c757d;
@@ -59,8 +61,8 @@
     --pagination-btn-active-color: #ffffff;
     --pagination-info-color: #495057;
 
-    /* Modal */
-    --modal-overlay-bg: rgba(0,0,0,0.85);
+    /* Modal — solid dark background, no transparency */
+    --modal-overlay-bg: #000000;
     --modal-bg: #ffffff;
     --modal-radius: 8px;
     --modal-shadow: 0 4px 20px rgba(0,0,0,0.4);
@@ -110,30 +112,4 @@
     --log-border: #dee2e6;
     --log-item-border: #f1f1f1;
     --log-text: #212529;
-}
-[data-theme="classic"] .btn:active,
-[data-theme="classic"] button:active {
-    box-shadow: inset 1px 1px 0 #808080, inset -1px -1px 0 #ffffff;
-}
-[data-theme="classic"] .table-container-frame {
-    border-radius: 0;
-}
-[data-theme="classic"] .top-toolbar {
-    border-radius: 0;
-}
-[data-theme="classic"] .pagination-bar {
-    border-radius: 0;
-}
-[data-theme="classic"] .modal-content {
-    border: 2px outset #c0c0c0;
-}
-/* Win98 title bar style for table header */
-[data-theme="classic"] .edit-table th {
-    font-weight: 700;
-    letter-spacing: 0;
-    text-transform: none;
-}
-/* Win98 row hover = selection highlight */
-[data-theme="classic"] .edit-table tbody tr:hover td {
-    color: #ffffff;
 }
