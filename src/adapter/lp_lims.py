@@ -157,15 +157,19 @@ class LpLimsClient:
         )
 
         body = request.model_dump(exclude_none=True)
+        print(f"[LpLims] Request body: {body}")
 
         t0 = time.perf_counter()
         resp = self._session.post(self.base_url, json=body, timeout=self.timeout)
         elapsed_ms = (time.perf_counter() - t0) * 1000
+        
+        if resp.status_code >= 400:
+            print(f"[LpLims] Error {resp.status_code}: {resp.text[:500]}")
         resp.raise_for_status()
 
         result = GenericReadResponse.model_validate(resp.json())
         print(
-            f"[LpLims] POST /read (tab={tab}, page={page}) "
+            f"[LpLims] POST (tab={tab}, page={page}) "
             f"→ {resp.status_code} in {elapsed_ms:.0f}ms | {result.row_count} rows"
         )
         return result
