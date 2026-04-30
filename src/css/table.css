@@ -29,7 +29,8 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: var(--table-header-bg);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 1px 0 var(--table-header-border);
 }
 .edit-table th {
     background-color: var(--table-header-bg);
