@@ -52,7 +52,7 @@ jobs:
           echo "============================================"
           echo "  Function Mapping & Type Analysis"
           echo "============================================"
-          python tooling/generate_qc.py
+          python tooling/src/qc/generate_qc.py
 
       - name: Display Server QC Report
         run: |

@@ -366,7 +366,14 @@ dmapTableEditor/
 │   └── table_utils.py     # Table rendering
 ├── widgets/          # Shiny widget modules
 ├── css/              # Stylesheets
-└── js/               # JavaScript utilities
+│   └── themes/       # Theme system
+│       ├── variables.css        # Base CSS variable defaults (classic)
+│       ├── classic/theme.css    # Classic overrides
+│       ├── modern/theme.css     # Modern overrides
+│       ├── dark/theme.css       # Dark overrides
+│       └── eye-protection/theme.css  # Eye-protection overrides
+├── js/               # JavaScript utilities
+└── commute/          # Event emitter for parent-app integration
 ```
 
 ## Database Schema
@@ -1197,6 +1204,18 @@ Every user-facing interaction mapped from trigger → server → data flow.
             └──────────────────────────┘
 ```
 
+### QC Tooling
+
+The `tooling/` directory contains quality-control scripts that run in CI:
+
+```bash
+# Generate function mapping & type analysis report (outputs to qcmetric/)
+python tooling/src/qc/generate_qc.py
+
+# Full QC SOP (lint + mapping + golden-SQL checks)
+bash tooling/sop_qc.sh
+```
+
 ### Running Tests
 
 ```bash
@@ -1209,7 +1228,7 @@ pytest tests/ --cov=src --cov-report=term-missing
 
 ### Current Test Coverage
 
-- **1516+ tests passing** (~1.5s runtime)
+- **1482+ tests passing** (~1.5s runtime)
 - **96.5% public function coverage** (222/230 functions)
 - Database modules: 90–100% coverage
 - Utility modules: 93–100% coverage
