@@ -2,105 +2,55 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 89,
-    "unused_functions": 0,
-    "fully_annotated_functions": 5,
-    "function_coverage_percent": 5.6,
+    "total_functions": 99,
+    "unused_functions": 1,
+    "fully_annotated_functions": 4,
+    "function_coverage_percent": 4.0,
     "parameter_coverage_percent": 50.0,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
-    "src/server.py": {
-      "total": 89,
+    "src/server/context.py": {
+      "total": 1,
       "functions": [
-        "_add_all_columns",
-        "_add_column",
-        "_add_filter",
-        "_apply_filter_value",
-        "_apply_filters",
-        "_approve_data",
+        "validate_ns"
+      ],
+      "used": [],
+      "unused": [
+        "validate_ns"
+      ]
+    },
+    "src/server/core.py": {
+      "total": 29,
+      "functions": [
         "_build_query_params",
         "_cached_page_data",
         "_cell_click",
-        "_clear_all_columns",
-        "_clear_approval",
         "_convert_default_filters",
-        "_delete_preset",
         "_emit",
-        "_exit_synthesis",
-        "_export_status_report",
         "_fetch_all_filtered_data",
         "_fetch_page_data",
-        "_first_page",
-        "_get_export_filename",
         "_get_filtered_rows",
         "_get_modification_summary",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
-        "_handle_cell_edit",
-        "_handle_cell_reset",
-        "_handle_clear_search",
-        "_handle_copy_request",
-        "_handle_facet_filter",
-        "_handle_search",
-        "_handle_undo",
-        "_last_page",
         "_lazy_filtered_count",
-        "_load_preset",
         "_namespace_holder",
-        "_next_page",
-        "_page_jump",
-        "_prepare_export",
-        "_prev_page",
-        "_refresh_presets",
-        "_reject_data",
-        "_reload_data",
-        "_remove_column",
-        "_remove_filter",
         "_require_editor",
-        "_reset_columns",
-        "_reset_page_on_filter_change",
-        "_reset_pending_filters",
         "_review_detail",
-        "_save_active_preset",
-        "_save_current_layout",
-        "_save_modifications",
-        "_save_preset",
-        "_save_presets",
         "_save_status_to_db",
-        "_set_filter_operator",
-        "_sort_column",
-        "_sync_rows_per_page",
-        "_update_column_order",
-        "_update_column_widths",
-        "add_filter_btn_ui",
-        "apply_filters_ui",
-        "approval_status_ui",
-        "available_columns_modal",
-        "available_filter_columns",
-        "copy_column_list",
         "create_server",
-        "current_preset_name",
         "data_summary",
-        "dynamic_filters",
-        "export_download_ui",
-        "facet_panels_ui",
         "is_lazy_loading",
         "load_data_from_source",
         "load_modifications_log",
         "load_ui_state",
-        "modifications_log_ui",
-        "pagination_controls",
-        "preset_menu_items",
         "save_ui_state",
         "selection_mode_ui",
         "stats_histogram",
-        "synthesis_mode_banner",
-        "synthesis_query_preview",
-        "synthesis_status",
         "table_container",
         "viewer_mode_ui"
       ],
@@ -111,7 +61,6 @@
         "_emit",
         "_fetch_all_filtered_data",
         "_fetch_page_data",
-        "_get_export_filename",
         "_get_filtered_rows",
         "_get_modification_summary",
         "_get_page_selection",
@@ -120,8 +69,6 @@
         "_get_status_counts",
         "_lazy_filtered_count",
         "_require_editor",
-        "_save_active_preset",
-        "_save_presets",
         "_save_status_to_db",
         "create_server",
         "is_lazy_loading",
@@ -131,140 +78,613 @@
         "save_ui_state"
       ],
       "framework_managed": [
-        "_add_all_columns",
-        "_add_column",
+        "_cached_page_data",
+        "_cell_click",
+        "_lazy_filtered_count",
+        "_namespace_holder",
+        "_review_detail",
+        "data_summary",
+        "selection_mode_ui",
+        "stats_histogram",
+        "table_container",
+        "viewer_mode_ui"
+      ]
+    },
+    "src/server/edits.py": {
+      "total": 12,
+      "functions": [
+        "_approve_data",
+        "_clear_approval",
+        "_export_status_report",
+        "_handle_cell_edit",
+        "_handle_cell_reset",
+        "_handle_undo",
+        "_reject_data",
+        "_reload_data",
+        "_save_modifications",
+        "approval_status_ui",
+        "modifications_log_ui",
+        "register_edits"
+      ],
+      "used": [
+        "register_edits"
+      ],
+      "framework_managed": [
+        "_approve_data",
+        "_clear_approval",
+        "_export_status_report",
+        "_handle_cell_edit",
+        "_handle_cell_reset",
+        "_handle_undo",
+        "_reject_data",
+        "_reload_data",
+        "_save_modifications",
+        "approval_status_ui",
+        "modifications_log_ui"
+      ]
+    },
+    "src/server/export.py": {
+      "total": 4,
+      "functions": [
+        "_get_export_filename",
+        "_prepare_export",
+        "export_download_ui",
+        "register_export"
+      ],
+      "used": [
+        "_get_export_filename",
+        "register_export"
+      ],
+      "framework_managed": [
+        "_prepare_export",
+        "export_download_ui"
+      ]
+    },
+    "src/server/filters.py": {
+      "total": 14,
+      "functions": [
         "_add_filter",
         "_apply_filter_value",
         "_apply_filters",
-        "_approve_data",
-        "_cached_page_data",
-        "_cell_click",
-        "_clear_all_columns",
-        "_clear_approval",
-        "_delete_preset",
-        "_exit_synthesis",
-        "_export_status_report",
-        "_first_page",
-        "_handle_cell_edit",
-        "_handle_cell_reset",
-        "_handle_clear_search",
-        "_handle_copy_request",
+        "_fetch_filter_values",
         "_handle_facet_filter",
-        "_handle_search",
-        "_handle_undo",
-        "_last_page",
-        "_lazy_filtered_count",
-        "_load_preset",
-        "_namespace_holder",
-        "_next_page",
-        "_page_jump",
-        "_prepare_export",
-        "_prev_page",
-        "_refresh_presets",
-        "_reject_data",
-        "_reload_data",
-        "_remove_column",
         "_remove_filter",
-        "_reset_columns",
-        "_reset_page_on_filter_change",
         "_reset_pending_filters",
-        "_review_detail",
-        "_save_current_layout",
-        "_save_modifications",
-        "_save_preset",
         "_set_filter_operator",
-        "_sort_column",
-        "_sync_rows_per_page",
-        "_update_column_order",
-        "_update_column_widths",
         "add_filter_btn_ui",
         "apply_filters_ui",
-        "approval_status_ui",
-        "available_columns_modal",
         "available_filter_columns",
+        "dynamic_filters",
+        "facet_panels_ui",
+        "register_filters"
+      ],
+      "used": [
+        "register_filters"
+      ],
+      "framework_managed": [
+        "_add_filter",
+        "_apply_filter_value",
+        "_apply_filters",
+        "_fetch_filter_values",
+        "_handle_facet_filter",
+        "_remove_filter",
+        "_reset_pending_filters",
+        "_set_filter_operator",
+        "add_filter_btn_ui",
+        "apply_filters_ui",
+        "available_filter_columns",
+        "dynamic_filters",
+        "facet_panels_ui"
+      ]
+    },
+    "src/server/pagination.py": {
+      "total": 13,
+      "functions": [
+        "_first_page",
+        "_handle_clear_search",
+        "_handle_search",
+        "_last_page",
+        "_next_page",
+        "_page_jump",
+        "_persist_page",
+        "_prev_page",
+        "_reset_page_on_filter_change",
+        "_sync_rows_per_page",
+        "_total_filtered",
+        "pagination_controls",
+        "register_pagination"
+      ],
+      "used": [
+        "_persist_page",
+        "_total_filtered",
+        "register_pagination"
+      ],
+      "framework_managed": [
+        "_first_page",
+        "_handle_clear_search",
+        "_handle_search",
+        "_last_page",
+        "_next_page",
+        "_page_jump",
+        "_prev_page",
+        "_reset_page_on_filter_change",
+        "_sync_rows_per_page",
+        "pagination_controls"
+      ]
+    },
+    "src/server/presets.py": {
+      "total": 21,
+      "functions": [
+        "_add_all_columns",
+        "_add_column",
+        "_clear_all_columns",
+        "_delete_preset",
+        "_handle_copy_request",
+        "_load_preset",
+        "_refresh_presets",
+        "_remove_column",
+        "_reset_columns",
+        "_save_active_preset_fn",
+        "_save_current_layout",
+        "_save_preset",
+        "_save_presets_fn",
+        "_sort_column",
+        "_update_column_order",
+        "_update_column_widths",
+        "available_columns_modal",
         "copy_column_list",
         "current_preset_name",
-        "data_summary",
-        "dynamic_filters",
-        "export_download_ui",
-        "facet_panels_ui",
-        "modifications_log_ui",
-        "pagination_controls",
         "preset_menu_items",
-        "selection_mode_ui",
-        "stats_histogram",
+        "register_presets"
+      ],
+      "used": [
+        "_save_active_preset_fn",
+        "_save_presets_fn",
+        "register_presets"
+      ],
+      "framework_managed": [
+        "_add_all_columns",
+        "_add_column",
+        "_clear_all_columns",
+        "_delete_preset",
+        "_handle_copy_request",
+        "_load_preset",
+        "_refresh_presets",
+        "_remove_column",
+        "_reset_columns",
+        "_save_current_layout",
+        "_save_preset",
+        "_sort_column",
+        "_update_column_order",
+        "_update_column_widths",
+        "available_columns_modal",
+        "copy_column_list",
+        "current_preset_name",
+        "preset_menu_items"
+      ]
+    },
+    "src/server/synthesis.py": {
+      "total": 5,
+      "functions": [
+        "_exit_synthesis",
+        "register_synthesis",
         "synthesis_mode_banner",
         "synthesis_query_preview",
-        "synthesis_status",
-        "table_container",
-        "viewer_mode_ui"
+        "synthesis_status"
+      ],
+      "used": [
+        "register_synthesis"
+      ],
+      "framework_managed": [
+        "_exit_synthesis",
+        "synthesis_mode_banner",
+        "synthesis_query_preview",
+        "synthesis_status"
       ]
     }
   },
   "type_coverage": {
-    "src/server.py": {
+    "src/server/context.py": {
       "functions": {
-        "total": 89,
-        "with_return_type": 5,
-        "fully_annotated": 5
+        "total": 1,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 18,
-        "annotated": 9
+        "total": 1,
+        "annotated": 1
+      }
+    },
+    "src/server/core.py": {
+      "functions": {
+        "total": 29,
+        "with_return_type": 3,
+        "fully_annotated": 3
+      },
+      "parameters": {
+        "total": 16,
+        "annotated": 6
       },
       "missing": [
         {
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 73
+          "line": 35
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 73
+          "line": 35
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 73
+          "line": 35
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 73
+          "line": 35
         },
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 134
+          "line": 91
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 137
+          "line": 94
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 140
+          "line": 97
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 146
+          "line": 102
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 169
+          "line": 122
+        },
+        {
+          "type": "parameter",
+          "function": "_get_row_status",
+          "name": "row_idx",
+          "line": 291
+        }
+      ]
+    },
+    "src/server/edits.py": {
+      "functions": {
+        "total": 12,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "register_edits",
+          "line": 24
         },
         {
           "type": "return",
-          "function": "_get_page_selection",
-          "line": 434
+          "function": "approval_status_ui",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "modifications_log_ui",
+          "line": 56
+        },
+        {
+          "type": "return",
+          "function": "_handle_undo",
+          "line": 63
+        },
+        {
+          "type": "return",
+          "function": "_handle_cell_edit",
+          "line": 81
+        },
+        {
+          "type": "return",
+          "function": "_handle_cell_reset",
+          "line": 124
+        },
+        {
+          "type": "return",
+          "function": "_save_modifications",
+          "line": 173
+        },
+        {
+          "type": "return",
+          "function": "_export_status_report",
+          "line": 184
+        },
+        {
+          "type": "return",
+          "function": "_reload_data",
+          "line": 191
+        },
+        {
+          "type": "return",
+          "function": "_approve_data",
+          "line": 205
+        }
+      ]
+    },
+    "src/server/export.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "register_export",
+          "line": 14
+        },
+        {
+          "type": "return",
+          "function": "_prepare_export",
+          "line": 35
+        },
+        {
+          "type": "return",
+          "function": "export_download_ui",
+          "line": 95
+        },
+        {
+          "type": "return",
+          "function": "_get_export_filename",
+          "line": 148
+        }
+      ]
+    },
+    "src/server/filters.py": {
+      "functions": {
+        "total": 14,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "register_filters",
+          "line": 19
+        },
+        {
+          "type": "return",
+          "function": "facet_panels_ui",
+          "line": 38
+        },
+        {
+          "type": "return",
+          "function": "_handle_facet_filter",
+          "line": 76
+        },
+        {
+          "type": "return",
+          "function": "dynamic_filters",
+          "line": 97
+        },
+        {
+          "type": "return",
+          "function": "add_filter_btn_ui",
+          "line": 127
+        },
+        {
+          "type": "return",
+          "function": "available_filter_columns",
+          "line": 139
+        },
+        {
+          "type": "return",
+          "function": "_add_filter",
+          "line": 153
+        },
+        {
+          "type": "return",
+          "function": "_remove_filter",
+          "line": 165
+        },
+        {
+          "type": "return",
+          "function": "_set_filter_operator",
+          "line": 176
+        },
+        {
+          "type": "return",
+          "function": "_apply_filter_value",
+          "line": 219
+        }
+      ]
+    },
+    "src/server/pagination.py": {
+      "functions": {
+        "total": 13,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 2,
+        "annotated": 1
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "register_pagination",
+          "line": 15
+        },
+        {
+          "type": "parameter",
+          "function": "_persist_page",
+          "name": "page_num",
+          "line": 31
+        },
+        {
+          "type": "return",
+          "function": "_persist_page",
+          "line": 31
+        },
+        {
+          "type": "return",
+          "function": "_total_filtered",
+          "line": 43
+        },
+        {
+          "type": "return",
+          "function": "pagination_controls",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "_sync_rows_per_page",
+          "line": 65
+        },
+        {
+          "type": "return",
+          "function": "_first_page",
+          "line": 80
+        },
+        {
+          "type": "return",
+          "function": "_prev_page",
+          "line": 86
+        },
+        {
+          "type": "return",
+          "function": "_next_page",
+          "line": 95
+        },
+        {
+          "type": "return",
+          "function": "_last_page",
+          "line": 109
+        }
+      ]
+    },
+    "src/server/presets.py": {
+      "functions": {
+        "total": 21,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 3,
+        "annotated": 1
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "register_presets",
+          "line": 29
+        },
+        {
+          "type": "parameter",
+          "function": "_save_presets_fn",
+          "name": "presets_dict",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "_save_presets_fn",
+          "line": 50
+        },
+        {
+          "type": "parameter",
+          "function": "_save_active_preset_fn",
+          "name": "preset_name",
+          "line": 53
+        },
+        {
+          "type": "return",
+          "function": "_save_active_preset_fn",
+          "line": 53
+        },
+        {
+          "type": "return",
+          "function": "current_preset_name",
+          "line": 57
+        },
+        {
+          "type": "return",
+          "function": "_refresh_presets",
+          "line": 62
+        },
+        {
+          "type": "return",
+          "function": "preset_menu_items",
+          "line": 77
+        },
+        {
+          "type": "return",
+          "function": "available_columns_modal",
+          "line": 85
+        },
+        {
+          "type": "return",
+          "function": "_update_column_order",
+          "line": 93
+        }
+      ]
+    },
+    "src/server/synthesis.py": {
+      "functions": {
+        "total": 5,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing": [
+        {
+          "type": "return",
+          "function": "register_synthesis",
+          "line": 13
+        },
+        {
+          "type": "return",
+          "function": "synthesis_query_preview",
+          "line": 80
+        },
+        {
+          "type": "return",
+          "function": "synthesis_mode_banner",
+          "line": 91
+        },
+        {
+          "type": "return",
+          "function": "synthesis_status",
+          "line": 105
+        },
+        {
+          "type": "return",
+          "function": "_exit_synthesis",
+          "line": 329
         }
       ]
     }

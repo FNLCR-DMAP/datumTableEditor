@@ -1,7 +1,7 @@
 """
 Table Editor Shiny Module
 
-Wrapper around src/ui.py and src/server.py to enable module pattern.
+Wrapper around src/ui.py and src/server/ package to enable module pattern.
 This allows the table editor to be used as a reusable widget.
 
 Usage:

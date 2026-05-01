@@ -468,7 +468,7 @@ class TestContainerSummaryText:
             pk_columns=["pk"],
         )
         html = _render_html(container)
-        assert "Loaded 2 rows (filtered 2 of 100 total)" in html
+        assert "Showing 2 of 2 filtered rows (total: 100)" in html
 
     def test_filtered_equals_total_shows_loaded_text(self, simple_df, default_widths):
         container = build_table_container(
@@ -497,7 +497,7 @@ class TestContainerSummaryText:
             pk_columns=["pk"],
         )
         html = _render_html(container)
-        assert "Loaded 1 rows (filtered 3 of 100 total)" in html
+        assert "Showing 1 of 3 filtered rows (total: 100)" in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -726,23 +726,22 @@ class TestNoTzDisplay:
         assert "+00:00" in result or "UTC" in result or result.endswith("+00")
 
     def test_datetime_without_tz_display(self, datetime_df):
-        """no_tz_display=True strips timezone from datetime."""
+        """no_tz_display=True shows date-only format."""
         from src.utils.table_utils import _format_cell_value
         val = datetime_df["timestamp"].iloc[0]
         result = _format_cell_value(val, datetime_df["timestamp"].dtype, no_tz_display=True)
         # Should NOT contain timezone info
         assert "+00" not in result
         assert "UTC" not in result
-        # Should still contain date and time
-        assert "2024-01-15" in result
-        assert "10:30:00" in result
+        # Should show date-only format
+        assert result == "2024-01-15"
 
     def test_datetime_format_structure(self, datetime_df):
-        """no_tz_display produces YYYY-MM-DD HH:MM:SS format."""
+        """no_tz_display produces YYYY-MM-DD format."""
         from src.utils.table_utils import _format_cell_value
         val = datetime_df["timestamp"].iloc[0]
         result = _format_cell_value(val, datetime_df["timestamp"].dtype, no_tz_display=True)
-        assert result == "2024-01-15 10:30:00"
+        assert result == "2024-01-15"
 
     def test_naive_datetime_unaffected(self):
         """Naive datetime (no tz) works with no_tz_display=True."""
@@ -750,7 +749,7 @@ class TestNoTzDisplay:
         df = pd.DataFrame({"ts": pd.to_datetime(["2024-01-15 10:30:00"])})
         val = df["ts"].iloc[0]
         result = _format_cell_value(val, df["ts"].dtype, no_tz_display=True)
-        assert result == "2024-01-15 10:30:00"
+        assert result == "2024-01-15"
 
     def test_build_table_row_with_no_tz_display(self, datetime_df):
         """build_table_row passes no_tz_display to cell formatting."""
@@ -764,8 +763,8 @@ class TestNoTzDisplay:
             no_tz_display=True,
         )
         html = _render_html(tr)
-        # Should have stripped timezone
-        assert "2024-01-15 10:30:00" in html
+        # Should show date-only format
+        assert "2024-01-15" in html
         assert "+00:00" not in html
 
     def test_build_table_container_with_no_tz_display(self, datetime_df):
@@ -782,10 +781,11 @@ class TestNoTzDisplay:
             no_tz_display=True,
         )
         html = _render_html(container)
-        # Both timestamps should be without timezone
-        assert "2024-01-15 10:30:00" in html
-        assert "2024-06-20 14:45:00" in html
+        # Both timestamps should show date-only format
+        assert "2024-01-15" in html
+        assert "2024-06-20" in html
         assert "+00:00" not in html
+        assert "10:30:00" not in html
 
     def test_non_datetime_unaffected_by_no_tz_display(self):
         """Non-datetime columns are unaffected by no_tz_display."""
@@ -798,14 +798,14 @@ class TestNoTzDisplay:
         assert _format_cell_value(3.14, pd.Series([3.14]).dtype, no_tz_display=True) == "3.14"
 
     def test_string_datetime_with_tz_stripped(self):
-        """String datetime values from DB have timezone stripped."""
+        """String datetime values from DB show date-only format."""
         from src.utils.table_utils import _format_cell_value
-        # Common formats from PostgreSQL
+        # Common formats from PostgreSQL — all should become YYYY-MM-DD
         test_cases = [
             ("2026-03-30 +00", "2026-03-30"),
-            ("2026-03-30 10:00:00+00:00", "2026-03-30 10:00:00"),
-            ("2026-03-30 10:00:00 +00", "2026-03-30 10:00:00"),
-            ("2024-01-15 14:30:00-05:00", "2024-01-15 14:30:00"),
+            ("2026-03-30 10:00:00+00:00", "2026-03-30"),
+            ("2026-03-30 10:00:00 +00", "2026-03-30"),
+            ("2024-01-15 14:30:00-05:00", "2024-01-15"),
         ]
         for input_val, expected in test_cases:
             result = _format_cell_value(input_val, pd.Series([input_val]).dtype, no_tz_display=True)

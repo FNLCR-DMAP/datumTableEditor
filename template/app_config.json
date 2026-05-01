@@ -12,7 +12,7 @@
     "mode": "direct",
     "_comment": "PostgreSQL database configuration",
     "enabled": true,
-    "_mode_options": "direct (SQLAlchemy) | datum (via Datum proxy)",
+    "_mode_options": "direct (SQLAlchemy) | datum (via Datum proxy) | lp_lims (LP LIMS read-only API)",
     "connection_string": "postgresql://her2@localhost/epitopes_db",
     "source_table": "",
     "_source_table_comment": "Optional: if data_table doesn't exist, it will be created as a copy of source_table",
@@ -34,7 +34,14 @@
     "datum_token": "",
     "datum_database": "",
     "datum_schema": "public",
-    "datum_service_name": "postgres_sql"
+    "datum_service_name": "postgres_sql",
+    "_lp_lims_comment": "LP LIMS API settings (only used when mode=lp_lims)",
+    "lp_lims_base_url": "",
+    "lp_lims_token": "",
+    "_comment_lp_lims_token": "Read from LP_LIMS_API_TOKEN",
+    "lp_lims_tab": "",
+    "lp_lims_environment": "prod",
+    "_lp_lims_user_comment": "User is taken from Posit Connect session.user"
   },
   
   "persistence": {
@@ -77,7 +84,7 @@
     "persist_page": true,
     "persist_column_selection": true,
     "persist_column_widths": true,
-    "session_timeout_minutes": 30
+    "session_timeout_minutes": 180
   },
   
   "table": {

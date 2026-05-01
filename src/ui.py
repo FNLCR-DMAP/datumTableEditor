@@ -152,57 +152,93 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             """),
             # Namespace helper script - must be after the main JS files
             ui.tags.script("""
-                // Helper function to set Shiny input with namespace support
-                // contextEl: optional element to find the correct namespace from (for multi-tab support)
-                window.setShinyInput = function(inputName, value, options, contextEl) {
-                    // Find the namespace from the data-shiny-ns attribute
-                    var ns = '';
+                // ── Centralized namespace extraction ───────────────────────────
+                // Returns the Shiny namespace prefix string for a given DOM element.
+                // Uses closest() first (fast), then walks up, then falls back to
+                // active-tab / first-in-document.  Never returns undefined.
+                window.getShinyNs = function(contextEl) {
                     var nsEl = null;
-                    
+
                     if (contextEl) {
-                        // Walk up DOM to find the namespace holder in the same module
-                        var parent = contextEl;
-                        while (parent && !nsEl) {
-                            // Check if this element contains a namespace holder
-                            nsEl = parent.querySelector('[data-shiny-ns]');
-                            parent = parent.parentElement;
-                        }
-                    }
-                    
-                    // Fallback: find the namespace holder in the currently active/shown tab
-                    if (!nsEl) {
-                        // Try Bootstrap nav-panel active state (Shiny's navset_tab uses this)
-                        var activePanel = document.querySelector('.tab-pane.active [data-shiny-ns]');
-                        if (!activePanel) {
-                            // Try bslib tab structure
-                            activePanel = document.querySelector('[role="tabpanel"]:not([hidden]) [data-shiny-ns]');
-                        }
-                        if (!activePanel) {
-                            // Try finding visible panel
-                            var panels = document.querySelectorAll('[data-shiny-ns]');
-                            for (var i = 0; i < panels.length; i++) {
-                                var panel = panels[i];
-                                var tabPane = panel.closest('.tab-pane, [role="tabpanel"]');
-                                if (tabPane && (tabPane.classList.contains('active') || tabPane.classList.contains('show') || !tabPane.hasAttribute('hidden'))) {
-                                    activePanel = panel;
-                                    break;
-                                }
+                        // Fast path: closest ancestor with namespace attribute
+                        nsEl = contextEl.closest ? contextEl.closest('[data-shiny-ns]') : null;
+
+                        // Walk-up fallback (covers shadow DOM / detached subtrees)
+                        if (!nsEl) {
+                            var parent = contextEl;
+                            while (parent && !nsEl) {
+                                nsEl = parent.querySelector ? parent.querySelector('[data-shiny-ns]') : null;
+                                parent = parent.parentElement;
                             }
                         }
-                        if (activePanel) {
-                            nsEl = activePanel;
+                    }
+
+                    // Fallback: active tab panel
+                    if (!nsEl) {
+                        nsEl = document.querySelector('.tab-pane.active [data-shiny-ns]')
+                            || document.querySelector('[role="tabpanel"]:not([hidden]) [data-shiny-ns]');
+                    }
+                    if (!nsEl) {
+                        // Visible panel scan
+                        var panels = document.querySelectorAll('[data-shiny-ns]');
+                        for (var i = 0; i < panels.length; i++) {
+                            var tabPane = panels[i].closest('.tab-pane, [role="tabpanel"]');
+                            if (tabPane && (tabPane.classList.contains('active') || tabPane.classList.contains('show') || !tabPane.hasAttribute('hidden'))) {
+                                nsEl = panels[i];
+                                break;
+                            }
                         }
                     }
-                    
-                    // Last resort: first namespace holder found
+
+                    // Last resort: first namespace holder in document
                     if (!nsEl) {
                         nsEl = document.querySelector('[data-shiny-ns]');
                     }
-                    
-                    if (nsEl) {
-                        ns = nsEl.getAttribute('data-shiny-ns') || '';
+
+                    return nsEl ? (nsEl.getAttribute('data-shiny-ns') || '') : '';
+                };
+
+                // ── Namespace validation helper ────────────────────────────────
+                // Call from browser console: validateNamespaces()
+                // Checks all [data-shiny-ns] elements and reports inconsistencies.
+                window.validateNamespaces = function() {
+                    var holders = document.querySelectorAll('[data-shiny-ns]');
+                    if (holders.length === 0) {
+                        console.warn('[NS-Validate] No [data-shiny-ns] elements found in DOM');
+                        return;
                     }
+                    var nsMap = {};
+                    holders.forEach(function(el) {
+                        var ns = el.getAttribute('data-shiny-ns');
+                        var tab = el.closest('.tab-pane, [role="tabpanel"]');
+                        var tabId = tab ? (tab.id || tab.getAttribute('data-value') || 'unknown') : 'root';
+                        if (!nsMap[ns]) nsMap[ns] = [];
+                        nsMap[ns].push({element: el, tab: tabId, validated: el.hasAttribute('data-ns-validated')});
+                    });
+                    var nsKeys = Object.keys(nsMap);
+                    console.log('[NS-Validate] Found ' + holders.length + ' namespace holder(s), ' + nsKeys.length + ' unique namespace(s):');
+                    nsKeys.forEach(function(ns) {
+                        var entries = nsMap[ns];
+                        console.log('  NS="' + ns + '" (' + entries.length + ' holder(s)):');
+                        entries.forEach(function(e) {
+                            console.log('    tab=' + e.tab + ', validated=' + e.validated);
+                        });
+                    });
+                    // Check for orphan inputs (Shiny inputs without matching namespace)
+                    if (typeof Shiny !== 'undefined' && Shiny.inputBindings) {
+                        console.log('[NS-Validate] ✓ Shiny bindings available. Use Shiny.shinyapp.$inputValues to inspect live inputs.');
+                    }
+                    return nsMap;
+                };
+
+                // ── setShinyInput (uses getShinyNs) ────────────────────────────
+                // contextEl: optional element to find the correct namespace from (for multi-tab support)
+                window.setShinyInput = function(inputName, value, options, contextEl) {
+                    var ns = getShinyNs(contextEl || null);
                     var fullName = ns + inputName;
+                    if (ns === '' && document.querySelectorAll('[data-shiny-ns]').length > 0) {
+                        console.warn('setShinyInput: resolved empty namespace for "' + inputName + '" despite namespace holders existing — possible global leakage. Pass a contextEl.');
+                    }
                     console.log('setShinyInput:', inputName, '-> fullName:', fullName, 'ns:', ns);
                     if (typeof Shiny !== 'undefined') {
                         Shiny.setInputValue(fullName, value, options || {priority: 'event'});
@@ -224,13 +260,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             # Selection mode CSS injection (hides select-all for single-select)
             ui.output_ui("selection_mode_ui"),
             
-            # Clean slate mode: hide sidebar, toolbar, modals — show only table + pagination
-            ui.tags.style("""
-                .left-panel { display: none !important; }
-                .top-toolbar { display: none !important; }
-                .modal-overlay { display: none !important; }
-                .right-panel { padding: 12px !important; }
-            """) if clean_slate else None,
+            # Clean slate mode is applied via .clean-slate class on main-container
+            # (scoped so it doesn't leak into other tabs)
             
             # Left Panel - Sidebar
             ui.div(
@@ -438,7 +469,13 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             class_="modal-header"
                         ),
                         ui.div(
-                            ui.p("Select a column to filter by:", style="margin-bottom: 15px;"),
+                            ui.tags.input(
+                                type="text",
+                                placeholder="Search columns...",
+                                class_="form-control form-control-sm filter-col-search",
+                                oninput="_filterColumnList(this.value)",
+                                style="margin-bottom: 10px; font-size: 12px;"
+                            ),
                             ui.output_ui("available_filter_columns"),
                             class_="modal-body"
                         ),
@@ -627,7 +664,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                 class_="right-panel"
             ),
             
-            class_="main-container"
+            class_="main-container clean-slate" if clean_slate else "main-container"
         ),
     )
 

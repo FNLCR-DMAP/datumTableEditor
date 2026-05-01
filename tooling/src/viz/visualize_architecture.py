@@ -46,7 +46,13 @@ def analyze_module(filepath: Path) -> dict:
 
 def main():
     modules = {
-        'server': 'src/server.py',
+        'server_core': 'src/server/core.py',
+        'server_filters': 'src/server/filters.py',
+        'server_pagination': 'src/server/pagination.py',
+        'server_presets': 'src/server/presets.py',
+        'server_edits': 'src/server/edits.py',
+        'server_export': 'src/server/export.py',
+        'server_synthesis': 'src/server/synthesis.py',
         'ui': 'src/ui.py',
         'config': 'src/config/config.py',
         'config_instance': 'src/config/config_instance.py',

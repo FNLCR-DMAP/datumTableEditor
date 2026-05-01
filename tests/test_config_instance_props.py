@@ -328,10 +328,10 @@ class TestLoadConfigInstance:
         with patch.object(ConfigInstance, '__init__', return_value=None) as mock_init:
             mock_init.return_value = None
             with patch.object(ConfigInstance, '__post_init__', return_value=None, create=True):
-                result = load_config_instance("test_config.json", "testuser")
+                result = load_config_instance("test_config.json", "testuser", "testuser@nih.gov")
 
                 assert isinstance(result, ConfigInstance)
-                mock_init.assert_called_once_with(config_path="test_config.json", username="testuser")
+                mock_init.assert_called_once_with(config_path="test_config.json", username="testuser", user_email="testuser@nih.gov")
 
 
 # =============================================================================

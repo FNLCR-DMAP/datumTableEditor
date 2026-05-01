@@ -272,12 +272,24 @@ class DataFetcher:
     always use the original table.
     """
     app_config: AppConfig
+    username: str = ""  # Session username (sanitized) for table names
+    user_email: str = ""  # Actual user email for LP LIMS API
     _engine: Any = field(default=None, repr=False)
     _datum_client: Any = field(default=None, repr=False)
+    _lp_lims_client: Any = field(default=None, repr=False)
     _total_count: int = field(default=0, repr=False)
     _columns: List[str] = field(default_factory=list, repr=False)
     _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
     _table_override: Optional[str] = field(default=None, repr=False)
+
+    @property
+    def _lp_lims_user_email(self) -> str:
+        """Return user email for LP LIMS API.
+        
+        Uses user_email field directly (actual email from Posit Connect),
+        falls back to LP_LIMS_USER env var.
+        """
+        return self.user_email or os.environ.get("LP_LIMS_USER", "")
     
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -286,7 +298,15 @@ class DataFetcher:
     
     def _init_connection(self):
         """Initialize database connection based on mode."""
-        if self.app_config.database.mode == "datum":
+        if self.app_config.database.mode == "lp_lims":
+            from ..adapter.lp_lims import LpLimsClient
+            base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
+            token = self.app_config.database.lp_lims_token or os.environ.get("LP_LIMS_API_TOKEN", "") or os.environ.get("DATUM_API_TOKEN", "")
+            if base_url and token:
+                self._lp_lims_client = LpLimsClient(base_url=base_url, token=token)
+            else:
+                print(f"⚠ LP LIMS mode: missing base_url={bool(base_url)} or token={bool(token)}")
+        elif self.app_config.database.mode == "datum":
             from ..adapter.datum import DatumClient
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
@@ -337,6 +357,30 @@ class DataFetcher:
         """Fetch table row count, column names, and column types."""
         import time as _tm
         try:
+            # LP LIMS mode: metadata comes from a single read call
+            if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
+                _t0 = _tm.time()
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    page=1,
+                    page_size=1,
+                )
+                # row_count may be None; use total_pages as fallback (when page_size=1, total_pages=row_count)
+                self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
+                # columns may be None; derive from first data row keys
+                if response.columns:
+                    self._columns = list(response.columns)
+                elif response.data:
+                    self._columns = list(response.data[0].keys())
+                else:
+                    self._columns = []
+                self._column_types = {}  # LP LIMS doesn't expose column types
+                print(f"[Timing] fetch_metadata (lp_lims): {(_tm.time() - _t0)*1000:.0f}ms")
+                print(f"DataFetcher: LP LIMS has {self._total_count} rows, {len(self._columns)} columns")
+                return
+
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
             
@@ -407,18 +451,27 @@ class DataFetcher:
             self._columns = []
             self._column_types = {}
 
-    def _refresh_count(self):
+    def refresh_count(self):
         """Refresh only the row count — skip column/type introspection.
 
         Used on manual reload where the schema hasn't changed but the
         row count might have.
         """
         try:
-            data_table = self._effective_table
-            data_table_sql = SqlTableName(data_table)
-            count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
-
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    page=1,
+                    page_size=1,
+                )
+                # row_count may be None; use total_pages as fallback (page_size=1)
+                self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
+            elif self.app_config.database.mode == "datum" and self._datum_client:
+                data_table = self._effective_table
+                data_table_sql = SqlTableName(data_table)
+                count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
                 response = self._datum_client.execute_sql(
                     sql=count_query,
                     database=self.app_config.database.datum_database,
@@ -427,6 +480,9 @@ class DataFetcher:
                 )
                 self._total_count = int(response.data[0]["cnt"]) if response.data else 0
             else:
+                data_table = self._effective_table
+                data_table_sql = SqlTableName(data_table)
+                count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
                     result = conn.execute(text(count_query))
@@ -435,6 +491,9 @@ class DataFetcher:
             print(f"DataFetcher: Refreshed count → {self._total_count} rows")
         except Exception as e:
             print(f"✗ Error refreshing count: {e}")
+
+    # Backward-compat alias
+    _refresh_count = refresh_count
 
     @property
     def _effective_status_column(self) -> Optional[str]:
@@ -633,6 +692,22 @@ class DataFetcher:
         Used by the filter UI to populate dropdown options in lazy loading mode.
         """
         try:
+            # LP LIMS mode: fetch a page of data and extract unique values
+            if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    page=1,
+                    page_size=min(limit, 10000),
+                )
+                values = set()
+                for row in response.data:
+                    val = row.get(column)
+                    if val is not None and str(val).strip():
+                        values.add(str(val))
+                return sorted(values)[:limit]
+
             data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
             query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
@@ -661,6 +736,23 @@ class DataFetcher:
         the string ``"No value"``.
         """
         try:
+            # LP LIMS mode: fetch data and compute value counts locally
+            if self.app_config.database.mode == "lp_lims" and self._lp_lims_client:
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    page=1,
+                    page_size=10000,
+                )
+                from collections import Counter
+                counter = Counter()
+                for row in response.data:
+                    val = row.get(column)
+                    key = str(val).strip() if val is not None and str(val).strip() else "No value"
+                    counter[key] += 1
+                return counter.most_common(limit)
+
             data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
             query = (
@@ -711,7 +803,7 @@ class DataFetcher:
         Filter values can be:
           - A string or list of strings: exact match (= / IN)
           - An operator dict {"op": "...", "value": ...}: rich operator
-            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
+            Supported ops: in, not_in, contains, not_contains, between, value_range, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
         
         Args:
             params: Query parameters
@@ -799,7 +891,7 @@ class DataFetcher:
                             parts = [f'{col_e} NOT ILIKE {SqlLiteral(f"%{t}%")}' for t in targets]
                             conditions.append(f'({" AND ".join(parts)})' if len(parts) > 1 else parts[0])
                 
-                elif op == "between":
+                elif op in ("between", "value_range"):
                     if isinstance(fval, list) and len(fval) == 2:
                         lo_raw, hi_raw = fval
                         lo_none = lo_raw is None or str(lo_raw).strip() == ""
@@ -1133,6 +1225,22 @@ class DataFetcher:
           3. Status filter active → CTE + LEFT JOIN (hash-join on tiny mods CTE)
         """
         try:
+            # LP LIMS mode: use the API's row_count with filters
+            is_lp_lims = self.app_config.database.mode == "lp_lims" and self._lp_lims_client
+            if is_lp_lims:
+                filters, tab_filters = self._build_lp_lims_filters(params)
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    filters=filters if filters else None,
+                    tab_filters=tab_filters,
+                    page=1,
+                    page_size=1,
+                )
+                # row_count may be None; use total_pages as fallback (page_size=1)
+                return response.row_count if response.row_count is not None else (response.total_pages or 0)
+
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
 
@@ -1197,6 +1305,11 @@ class DataFetcher:
         This is the main method called when displaying data.
         """
         try:
+            # LP LIMS mode: delegate filtering/pagination to the API
+            is_lp_lims = self.app_config.database.mode == "lp_lims" and self._lp_lims_client
+            if is_lp_lims:
+                return self._fetch_page_lp_lims(params)
+
             data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
@@ -1288,6 +1401,37 @@ class DataFetcher:
         Used for export functionality.
         """
         try:
+            # LP LIMS mode: fetch with max page_size (no true "all" endpoint)
+            is_lp_lims = self.app_config.database.mode == "lp_lims" and self._lp_lims_client
+            if is_lp_lims:
+                filters, tab_filters = self._build_lp_lims_filters(params)
+                order_by = None
+                order_direction = None
+                if params.sort_column:
+                    if isinstance(params.sort_column, list):
+                        order_by = params.sort_column[0]
+                        asc = params.sort_ascending[0] if isinstance(params.sort_ascending, list) else params.sort_ascending
+                    else:
+                        order_by = params.sort_column
+                        asc = params.sort_ascending if isinstance(params.sort_ascending, bool) else True
+                    order_direction = "asc" if asc else "desc"
+                response = self._lp_lims_client.read(
+                    user=self._lp_lims_user_email,
+                    tab=self.app_config.database.lp_lims_tab,
+                    environment=self.app_config.database.lp_lims_environment,
+                    filters=filters,
+                    tab_filters=tab_filters,
+                    page=1,
+                    page_size=10000,
+                    order_by=order_by,
+                    order_direction=order_direction,
+                )
+                df = pd.DataFrame(response.data)
+                if not df.empty:
+                    df["_mod_status"] = "unprocessed"
+                print(f"[DataFetcher] LP LIMS export fetched {len(df)} rows")
+                return df
+
             data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
@@ -1362,7 +1506,99 @@ class DataFetcher:
             import traceback
             traceback.print_exc()
             return pd.DataFrame()
-    
+
+    # ------------------------------------------------------------------
+    # LP LIMS helpers
+    # ------------------------------------------------------------------
+
+    def _build_lp_lims_filters(self, params: QueryParams) -> tuple:
+        """Convert QueryParams.filters to LP LIMS filter structures.
+
+        Returns a tuple of (filters_dict, tab_filters) where:
+        - filters_dict: {"column_name": ["value1", "value2"]} for simple IN filters
+        - tab_filters: TabFilters object for date ranges, exclusions, etc.
+
+        LP LIMS expects date "between" (or "value_range") as tab_filters.date_ranges with
+        start/end in YYYY-MM-DD format.
+        """
+        from ..adapter.lp_lims import TabFilters, DateRangeFilter
+
+        if not params.filters:
+            return None, None
+
+        result: Dict[str, List[str]] = {}
+        date_ranges = []
+
+        for col, val in params.filters.items():
+            if val is None:
+                continue
+            if isinstance(val, dict):
+                op = val.get("op", "in")
+                inner = val.get("value")
+
+                if op in ("between", "value_range") and isinstance(inner, list):
+                    # Route to tab_filters.date_ranges
+                    start = inner[0] if len(inner) > 0 and inner[0] else None
+                    end = inner[1] if len(inner) > 1 and inner[1] else None
+                    date_ranges.append(DateRangeFilter(column=col, start=start, end=end))
+                elif op == "not_in" and isinstance(inner, list):
+                    # Exclusions could be routed to tab_filters.exclusions
+                    # For now, skip — LP LIMS generic filters don't support NOT IN
+                    pass
+                else:
+                    # Default: treat as IN filter
+                    if isinstance(inner, list):
+                        result[col] = [str(v) for v in inner if v is not None]
+                    elif inner is not None:
+                        result[col] = [str(inner)]
+            elif isinstance(val, list):
+                result[col] = [str(v) for v in val]
+            else:
+                result[col] = [str(val)]
+
+        filters_dict = result if result else None
+        tab_filters = TabFilters(date_ranges=date_ranges) if date_ranges else None
+        return filters_dict, tab_filters
+
+    def _fetch_page_lp_lims(self, params: QueryParams) -> pd.DataFrame:
+        """Fetch a page of data from LP LIMS API."""
+        filters, tab_filters = self._build_lp_lims_filters(params)
+
+        # Map sort params
+        order_by = None
+        order_direction = None
+        if params.sort_column:
+            if isinstance(params.sort_column, list):
+                order_by = params.sort_column[0]
+                asc = params.sort_ascending[0] if isinstance(params.sort_ascending, list) else params.sort_ascending
+            else:
+                order_by = params.sort_column
+                asc = params.sort_ascending if isinstance(params.sort_ascending, bool) else True
+            order_direction = "asc" if asc else "desc"
+
+        response = self._lp_lims_client.read(
+            user=self._lp_lims_user_email,
+            tab=self.app_config.database.lp_lims_tab,
+            environment=self.app_config.database.lp_lims_environment,
+            filters=filters,
+            tab_filters=tab_filters,
+            page=params.page,
+            page_size=params.page_size,
+            order_by=order_by,
+            order_direction=order_direction,
+        )
+
+        df = pd.DataFrame(response.data)
+        if df.empty and response.columns:
+            df = pd.DataFrame(columns=response.columns)
+
+        # Add synthetic _mod_status column (LP LIMS is read-only)
+        if not df.empty:
+            df["_mod_status"] = "unprocessed"
+
+        print(f"[DataFetcher] LP LIMS fetched {len(df)} rows (page {params.page})")
+        return df
+
     def _reconcile_status_column(self, df: pd.DataFrame) -> pd.DataFrame:
         """Sync the status column with _mod_status for rows where they disagree."""
         status_col = self._effective_status_column
@@ -1559,7 +1795,8 @@ class ConfigInstance:
     This allows multiple widgets to have independent configs and data.
     """
     config_path: str
-    username: str = "default_user"  # User identifier for user-scoped state
+    username: str = "default_user"  # User identifier (sanitized) for user-scoped state
+    user_email: str = ""  # Actual user email for LP LIMS API
     app_config: AppConfig = field(default=None)
     df: pd.DataFrame = field(default=None)
     all_columns: List[str] = field(default_factory=list)
@@ -1575,7 +1812,7 @@ class ConfigInstance:
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
-    _data_fetcher: DataFetcher = field(default=None, repr=False)  # Lazy loading fetcher
+    _data_fetcher: Any = field(default=None, repr=False)  # DataProvider (lazy loading)
     _schemas_verified: set = field(default_factory=set, repr=False)  # Schemas already confirmed to exist
     _data_table_checked: bool = field(default=False, repr=False)  # Data table existence verified
     _synthesis_exists_cache: Optional[bool] = field(default=None, repr=False)  # Cached synthesis table existence
@@ -1617,6 +1854,15 @@ class ConfigInstance:
         if not getattr(self.app_config, "enable_approval_workflow", True):
             return True
         return not getattr(self.app_config, "enable_status_filter", True)
+
+    @property
+    def _lp_lims_user_email(self) -> str:
+        """Return user email for LP LIMS API.
+        
+        Uses user_email field directly (actual email from Posit Connect),
+        falls back to LP_LIMS_USER env var.
+        """
+        return self.user_email or os.environ.get("LP_LIMS_USER", "")
 
     def __post_init__(self):
         """Load config and data after initialization."""
@@ -1670,7 +1916,12 @@ class ConfigInstance:
         # Check if lazy loading is enabled
         if self.app_config.database.lazy_loading:
             # Lazy loading mode: only get metadata, fetch data on demand
-            self._data_fetcher = DataFetcher(app_config=self.app_config)
+            from ..adapter.factory import create_data_provider
+            self._data_fetcher = create_data_provider(
+                app_config=self.app_config,
+                username=self.username,
+                user_email=self.user_email,
+            )
             self.all_columns = self._data_fetcher.columns
             # Create empty DataFrame with correct columns
             self.df = pd.DataFrame(columns=self.all_columns)
@@ -1690,8 +1941,8 @@ class ConfigInstance:
         print(f"[Timing] _load_all total: {(_t.time() - _t0)*1000:.0f}ms")
     
     @property
-    def data_fetcher(self) -> Optional[DataFetcher]:
-        """Get the DataFetcher for lazy loading mode."""
+    def data_fetcher(self):
+        """Get the DataProvider for lazy loading mode."""
         return self._data_fetcher
     
     @property
@@ -1716,8 +1967,11 @@ class ConfigInstance:
             # from the matview, not the (possibly non-existent) base table.
             fetcher = DataFetcher.__new__(DataFetcher)
             fetcher.app_config = self.app_config
+            fetcher.username = self.username
+            fetcher.user_email = self.user_email
             fetcher._engine = None
             fetcher._datum_client = None
+            fetcher._lp_lims_client = None
             fetcher._total_count = 0
             fetcher._columns = []
             fetcher._column_types = {}
@@ -1795,7 +2049,9 @@ class ConfigInstance:
             return self._data_cache.copy()
 
         # ── Layer 3: fresh DB query ──
-        if self.app_config.database.mode == "datum":
+        if self.app_config.database.mode == "lp_lims":
+            df = self._load_from_lp_lims()
+        elif self.app_config.database.mode == "datum":
             df = self._load_from_datum()
         else:
             df = self._load_from_database()
@@ -2289,7 +2545,38 @@ class ConfigInstance:
         except Exception as e:
             print(f"✗ Error loading from Datum: {e}")
             return pd.DataFrame()
-    
+
+    def _load_from_lp_lims(self) -> pd.DataFrame:
+        """Load data via LP LIMS read-only API."""
+        try:
+            from ..adapter.lp_lims import LpLimsClient
+
+            base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
+            token = self.app_config.database.lp_lims_token or os.environ.get("LP_LIMS_API_TOKEN", "") or os.environ.get("DATUM_API_TOKEN", "")
+
+            if not base_url or not token:
+                raise ValueError("LP LIMS mode requires lp_lims_base_url and token (LP_LIMS_API_TOKEN or DATUM_API_TOKEN)")
+
+            client = LpLimsClient(base_url=base_url, token=token)
+            max_rows = self.app_config.database.max_rows
+
+            response = client.read(
+                user=self._lp_lims_user_email,
+                tab=self.app_config.database.lp_lims_tab,
+                environment=self.app_config.database.lp_lims_environment,
+                page=1,
+                page_size=max_rows or 10000,
+            )
+
+            df = pd.DataFrame(response.data)
+            if not df.empty:
+                df["_mod_status"] = "unprocessed"
+
+            return df
+        except Exception as e:
+            print(f"✗ Error loading from LP LIMS: {e}")
+            return pd.DataFrame()
+
     def _apply_field_modifications_datum(self, df: pd.DataFrame, client) -> pd.DataFrame:
         """Reconcile field modifications via Datum proxy: data table wins.
         
@@ -3635,6 +3922,8 @@ class ConfigInstance:
         """Create the UI state table if it doesn't exist. Only runs once per instance."""
         if not self.app_config.state.persist_state:
             return True
+        if self.app_config.read_only:
+            return False
         # Skip if already checked this session (success or failure)
         if self._state_table_checked:
             return self._state_table_available
@@ -3771,6 +4060,8 @@ class ConfigInstance:
     ) -> bool:
         """Save UI state to database for this config instance."""
         if not self.app_config.state.persist_state:
+            return False
+        if self.app_config.read_only:
             return False
         if self.app_config.database.mode == "datum":
             return self._save_ui_state_datum(
@@ -3914,6 +4205,9 @@ class ConfigInstance:
         }
         
         if not self.app_config.state.persist_state:
+            return default_state
+        
+        if self.app_config.read_only:
             return default_state
         
         if self.app_config.database.mode == "datum":
@@ -4381,18 +4675,19 @@ class ConfigInstance:
         return None
 
 
-def load_config_instance(config_path: str = "app_config.json", username: str = "default_user") -> ConfigInstance:
+def load_config_instance(config_path: str = "app_config.json", username: str = "default_user", user_email: str = "") -> ConfigInstance:
     """
     Load a configuration instance for a widget.
     
     Args:
         config_path: Path to the config JSON file
         username: Username for user-scoped state (from Posit Connect session.user)
+        user_email: Actual user email for LP LIMS API
         
     Returns:
         ConfigInstance with loaded config and data
     """
-    return ConfigInstance(config_path=config_path, username=username)
+    return ConfigInstance(config_path=config_path, username=username, user_email=user_email)
 
 
 def load_config_only(config_path: str = "app_config.json") -> 'AppConfig':

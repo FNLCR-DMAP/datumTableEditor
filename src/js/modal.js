@@ -453,7 +453,24 @@ let currentFilterModalContext = null;
 window.openAddFilterModal = function(event) {
     currentFilterModalContext = event ? event.target : document.activeElement;
     var modal = findModalInContext(currentFilterModalContext, 'add-filter-modal');
-    if (modal) modal.classList.add('show');
+    if (modal) {
+        modal.classList.add('show');
+        // Focus search box if present
+        var searchBox = modal.querySelector('.filter-col-search');
+        if (searchBox) {
+            setTimeout(function() { searchBox.focus(); searchBox.value = ''; _filterColumnList(''); }, 50);
+        }
+    }
+};
+
+window._filterColumnList = function(term) {
+    var modal = findModalInContext(currentFilterModalContext, 'add-filter-modal');
+    if (!modal) return;
+    var buttons = modal.querySelectorAll('.btn-block');
+    var lower = (term || '').toLowerCase();
+    buttons.forEach(function(btn) {
+        btn.style.display = btn.textContent.toLowerCase().indexOf(lower) !== -1 ? '' : 'none';
+    });
 };
 
 window.closeAddFilterModal = function() {
@@ -694,16 +711,14 @@ window.openFilterValuesModal = function(columnName, event) {
     if (!modal) return;
     
     // Get unique values from the hidden data element
-    // The hidden div is NOT Shiny-namespaced, so find it relative to the filter group
     var filterGroup = currentFilterValuesContext.closest('.filter-group');
     var valuesEl = filterGroup ? filterGroup.querySelector('[data-values]') : null;
-    // Fallback: try by raw ID (no namespace)
     if (!valuesEl) {
         valuesEl = document.getElementById('filter_values_' + columnName);
     }
     var values = valuesEl ? (valuesEl.getAttribute('data-values') || '').split(',').filter(function(v) { return v; }) : [];
     
-    // Get current filter value from textarea inside the Shiny input container
+    // Get current filter value from textarea
     var filterContainer = findElementInContext(currentFilterValuesContext, 'filter_' + columnName);
     var filterInput = filterContainer ? (filterContainer.tagName === 'TEXTAREA' ? filterContainer : filterContainer.querySelector('textarea')) : null;
     var currentValues = [];
@@ -711,7 +726,27 @@ window.openFilterValuesModal = function(columnName, event) {
         currentValues = filterInput.value.split('\n').map(function(v) { return v.trim(); }).filter(function(v) { return v; });
     }
     
-    // Build checkboxes
+    // If no pre-populated values, request from server (lazy loading mode)
+    if (values.length === 0) {
+        var checkboxContainer = modal.querySelector('#filter-values-checkboxes');
+        if (checkboxContainer) {
+            checkboxContainer.innerHTML = '<p style="color: #6c757d; margin: 0;"><span class="spinner-border spinner-border-sm" role="status" style="margin-right: 6px;"></span>Loading values…</p>';
+        }
+        // Show modal immediately with loading state
+        var title = modal.querySelector('.modal-header h3');
+        if (title) title.textContent = 'Select Values for: ' + columnName;
+        modal.classList.add('show');
+        // Request values from server via centralized namespace helper
+        setShinyInput('fetch_filter_values', {column: columnName, _ts: Date.now()}, {priority: 'event'}, currentFilterValuesContext);
+        return;
+    }
+    
+    _populateFilterValuesModal(modal, values, currentValues, columnName);
+    modal.classList.add('show');
+};
+
+// Populate filter values modal checkboxes (shared by sync and async paths)
+function _populateFilterValuesModal(modal, values, currentValues, columnName) {
     var checkboxContainer = modal.querySelector('#filter-values-checkboxes');
     if (checkboxContainer) {
         checkboxContainer.innerHTML = '';
@@ -746,8 +781,33 @@ window.openFilterValuesModal = function(columnName, event) {
     if (title) {
         title.textContent = 'Select Values for: ' + columnName;
     }
-    
-    modal.classList.add('show');
+};
+
+// Receive lazy-loaded filter values from server and populate the open modal
+window._receiveFilterValues = function(values) {
+    if (!currentFilterValuesColumn || !currentFilterValuesContext) return;
+    var modal = findModalInContext(currentFilterValuesContext, 'filter-values-modal');
+    if (!modal) return;
+
+    // Get current selections from textarea
+    var filterContainer = findElementInContext(currentFilterValuesContext, 'filter_' + currentFilterValuesColumn);
+    var filterInput = filterContainer ? (filterContainer.tagName === 'TEXTAREA' ? filterContainer : filterContainer.querySelector('textarea')) : null;
+    var currentValues = [];
+    if (filterInput && filterInput.value) {
+        currentValues = filterInput.value.split('\n').map(function(v) { return v.trim(); }).filter(function(v) { return v; });
+    }
+
+    // Also update the hidden data-values element so subsequent opens are instant
+    var filterGroup = currentFilterValuesContext.closest('.filter-group');
+    var valuesEl = filterGroup ? filterGroup.querySelector('[data-values]') : null;
+    if (!valuesEl) {
+        valuesEl = document.getElementById('filter_values_' + currentFilterValuesColumn);
+    }
+    if (valuesEl) {
+        valuesEl.setAttribute('data-values', values.join(','));
+    }
+
+    _populateFilterValuesModal(modal, values, currentValues, currentFilterValuesColumn);
 };
 
 window.closeFilterValuesModal = function() {
@@ -823,11 +883,10 @@ function escapeHtml(text) {
 
 // Helper to find element by ID within context
 function findElementInContext(contextEl, elementId) {
-    if (!contextEl) return document.getElementById(elementId);
-    var nsEl = contextEl.closest('[data-shiny-ns]');
-    if (nsEl) {
-        var ns = nsEl.getAttribute('data-shiny-ns');
-        return document.getElementById(ns + elementId);
+    var ns = getShinyNs(contextEl || null);
+    if (ns) {
+        var el = document.getElementById(ns + elementId);
+        if (el) return el;
     }
     return document.getElementById(elementId);
 }

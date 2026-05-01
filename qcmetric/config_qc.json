@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 160,
+    "total_functions": 165,
     "unused_functions": 1,
-    "fully_annotated_functions": 111,
-    "function_coverage_percent": 69.4,
-    "parameter_coverage_percent": 82.2,
+    "fully_annotated_functions": 115,
+    "function_coverage_percent": 69.7,
+    "parameter_coverage_percent": 82.5,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 116,
+      "total": 121,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -80,6 +80,7 @@
         "_apply_field_modifications_datum",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
+        "_build_lp_lims_filters",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -104,6 +105,7 @@
         "_escape_literal",
         "_escape_sql_value",
         "_fetch_metadata",
+        "_fetch_page_lp_lims",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements_datum",
@@ -122,16 +124,18 @@
         "_load_data",
         "_load_from_database",
         "_load_from_datum",
+        "_load_from_lp_lims",
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
+        "_lp_lims_user_email",
+        "_lp_lims_user_email",
         "_mark_modification_undone_datum",
         "_normalize_mod_status",
         "_read_synthesis_table",
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
-        "_refresh_count",
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
@@ -176,6 +180,7 @@
         "load_modifications_log",
         "load_ui_state",
         "mark_modification_undone_in_db",
+        "refresh_count",
         "reload_data",
         "run_synthesis",
         "save_modification_to_db",
@@ -198,6 +203,7 @@
         "_apply_field_modifications_datum",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
+        "_build_lp_lims_filters",
         "_build_mod_cte_and_join",
         "_build_mod_status_expr",
         "_build_order_clause",
@@ -219,6 +225,7 @@
         "_escape_literal",
         "_escape_sql_value",
         "_fetch_metadata",
+        "_fetch_page_lp_lims",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements",
         "_fix_mod_disagreements_datum",
@@ -237,6 +244,7 @@
         "_load_data",
         "_load_from_database",
         "_load_from_datum",
+        "_load_from_lp_lims",
         "_load_modifications_from_datum",
         "_load_modifications_from_db",
         "_load_ui_state_datum",
@@ -246,7 +254,6 @@
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
-        "_refresh_count",
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
@@ -286,6 +293,7 @@
         "load_modifications_log",
         "load_ui_state",
         "mark_modification_undone_in_db",
+        "refresh_count",
         "reload_data",
         "run_synthesis",
         "save_modification_to_db",
@@ -303,6 +311,8 @@
         "_effective_status_column",
         "_effective_status_column",
         "_effective_table",
+        "_lp_lims_user_email",
+        "_lp_lims_user_email",
         "_select_columns",
         "_skip_mods",
         "_skip_mods",
@@ -444,13 +454,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 116,
-        "with_return_type": 83,
-        "fully_annotated": 79
+        "total": 121,
+        "with_return_type": 87,
+        "fully_annotated": 83
       },
       "parameters": {
-        "total": 122,
-        "annotated": 100
+        "total": 125,
+        "annotated": 103
       },
       "missing": [
         {
@@ -485,27 +495,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 282
+          "line": 294
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 287
+          "line": 299
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 306
+          "line": 326
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 316
+          "line": 336
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 336
+          "line": 356
         }
       ]
     },

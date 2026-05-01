@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 494,
-    "fully_annotated_functions": 318,
-    "function_coverage_percent": 64.4,
-    "total_parameters": 663,
-    "annotated_parameters": 595,
-    "parameter_coverage_percent": 89.7,
+    "total_functions": 546,
+    "fully_annotated_functions": 348,
+    "function_coverage_percent": 63.7,
+    "total_parameters": 712,
+    "annotated_parameters": 633,
+    "parameter_coverage_percent": 88.9,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -156,7 +156,7 @@
           "type": "parameter",
           "function": "_is_operator_filter",
           "name": "filter_value",
-          "line": 38
+          "line": 39
         }
       ]
     },
@@ -175,7 +175,7 @@
           "type": "parameter",
           "function": "build_dynamic_filters_panel",
           "name": "get_unique_values_func",
-          "line": 426
+          "line": 461
         }
       ]
     },
@@ -506,13 +506,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 116,
-        "with_return_type": 83,
-        "fully_annotated": 79
+        "total": 121,
+        "with_return_type": 87,
+        "fully_annotated": 83
       },
       "parameters": {
-        "total": 122,
-        "annotated": 100
+        "total": 125,
+        "annotated": 103
       },
       "missing_annotations": [
         {
@@ -547,30 +547,30 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 282
+          "line": 294
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 287
+          "line": 299
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 306
+          "line": 326
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 316
+          "line": 336
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 336
+          "line": 356
         }
       ],
-      "missing_annotations_truncated": 45
+      "missing_annotations_truncated": 46
     },
     "src/config/sql_types.py": {
       "functions": {
@@ -714,6 +714,111 @@
         }
       ]
     },
+    "src/adapter/factory.py": {
+      "functions": {
+        "total": 1,
+        "with_return_type": 1,
+        "fully_annotated": 1
+      },
+      "parameters": {
+        "total": 3,
+        "annotated": 3
+      }
+    },
+    "src/adapter/lp_lims.py": {
+      "functions": {
+        "total": 2,
+        "with_return_type": 1,
+        "fully_annotated": 1
+      },
+      "parameters": {
+        "total": 12,
+        "annotated": 12
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 108
+        }
+      ]
+    },
+    "src/adapter/lp_lims_provider.py": {
+      "functions": {
+        "total": 21,
+        "with_return_type": 19,
+        "fully_annotated": 12
+      },
+      "parameters": {
+        "total": 13,
+        "annotated": 6
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__post_init__",
+          "line": 47
+        },
+        {
+          "type": "return",
+          "function": "_fetch_metadata",
+          "line": 88
+        },
+        {
+          "type": "parameter",
+          "function": "_build_filters",
+          "name": "params",
+          "line": 137
+        },
+        {
+          "type": "parameter",
+          "function": "_sort_params",
+          "name": "params",
+          "line": 176
+        },
+        {
+          "type": "parameter",
+          "function": "_params_hash",
+          "name": "params",
+          "line": 191
+        },
+        {
+          "type": "parameter",
+          "function": "fetch_page",
+          "name": "params",
+          "line": 200
+        },
+        {
+          "type": "parameter",
+          "function": "get_filtered_count",
+          "name": "params",
+          "line": 237
+        },
+        {
+          "type": "parameter",
+          "function": "fetch_all_filtered",
+          "name": "params",
+          "line": 263
+        },
+        {
+          "type": "parameter",
+          "function": "get_status_counts",
+          "name": "params",
+          "line": 348
+        }
+      ]
+    },
+    "src/adapter/provider.py": {
+      "functions": {
+        "total": 13,
+        "with_return_type": 13,
+        "fully_annotated": 13
+      },
+      "parameters": {
+        "total": 10,
+        "annotated": 10
+      }
+    },
     "src/commute/emitter.py": {
       "functions": {
         "total": 7,
@@ -725,72 +830,414 @@
         "annotated": 3
       }
     },
-    "src/server.py": {
+    "src/server/context.py": {
       "functions": {
-        "total": 89,
-        "with_return_type": 5,
-        "fully_annotated": 5
+        "total": 1,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 18,
-        "annotated": 9
+        "total": 1,
+        "annotated": 1
+      }
+    },
+    "src/server/core.py": {
+      "functions": {
+        "total": 29,
+        "with_return_type": 3,
+        "fully_annotated": 3
+      },
+      "parameters": {
+        "total": 16,
+        "annotated": 6
       },
       "missing_annotations": [
         {
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 73
+          "line": 35
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 73
+          "line": 35
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 73
+          "line": 35
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 73
+          "line": 35
         },
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 134
+          "line": 91
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 137
+          "line": 94
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 140
+          "line": 97
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 146
+          "line": 102
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 169
+          "line": 122
+        },
+        {
+          "type": "parameter",
+          "function": "_get_row_status",
+          "name": "row_idx",
+          "line": 291
+        }
+      ],
+      "missing_annotations_truncated": 26
+    },
+    "src/server/edits.py": {
+      "functions": {
+        "total": 12,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "register_edits",
+          "line": 24
         },
         {
           "type": "return",
-          "function": "_get_page_selection",
-          "line": 434
+          "function": "approval_status_ui",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "modifications_log_ui",
+          "line": 56
+        },
+        {
+          "type": "return",
+          "function": "_handle_undo",
+          "line": 63
+        },
+        {
+          "type": "return",
+          "function": "_handle_cell_edit",
+          "line": 81
+        },
+        {
+          "type": "return",
+          "function": "_handle_cell_reset",
+          "line": 124
+        },
+        {
+          "type": "return",
+          "function": "_save_modifications",
+          "line": 173
+        },
+        {
+          "type": "return",
+          "function": "_export_status_report",
+          "line": 184
+        },
+        {
+          "type": "return",
+          "function": "_reload_data",
+          "line": 191
+        },
+        {
+          "type": "return",
+          "function": "_approve_data",
+          "line": 205
         }
       ],
-      "missing_annotations_truncated": 83
+      "missing_annotations_truncated": 2
+    },
+    "src/server/export.py": {
+      "functions": {
+        "total": 4,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "register_export",
+          "line": 14
+        },
+        {
+          "type": "return",
+          "function": "_prepare_export",
+          "line": 35
+        },
+        {
+          "type": "return",
+          "function": "export_download_ui",
+          "line": 95
+        },
+        {
+          "type": "return",
+          "function": "_get_export_filename",
+          "line": 148
+        }
+      ]
+    },
+    "src/server/filters.py": {
+      "functions": {
+        "total": 14,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "register_filters",
+          "line": 19
+        },
+        {
+          "type": "return",
+          "function": "facet_panels_ui",
+          "line": 38
+        },
+        {
+          "type": "return",
+          "function": "_handle_facet_filter",
+          "line": 76
+        },
+        {
+          "type": "return",
+          "function": "dynamic_filters",
+          "line": 97
+        },
+        {
+          "type": "return",
+          "function": "add_filter_btn_ui",
+          "line": 127
+        },
+        {
+          "type": "return",
+          "function": "available_filter_columns",
+          "line": 139
+        },
+        {
+          "type": "return",
+          "function": "_add_filter",
+          "line": 153
+        },
+        {
+          "type": "return",
+          "function": "_remove_filter",
+          "line": 165
+        },
+        {
+          "type": "return",
+          "function": "_set_filter_operator",
+          "line": 176
+        },
+        {
+          "type": "return",
+          "function": "_apply_filter_value",
+          "line": 219
+        }
+      ],
+      "missing_annotations_truncated": 4
+    },
+    "src/server/pagination.py": {
+      "functions": {
+        "total": 13,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 2,
+        "annotated": 1
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "register_pagination",
+          "line": 15
+        },
+        {
+          "type": "parameter",
+          "function": "_persist_page",
+          "name": "page_num",
+          "line": 31
+        },
+        {
+          "type": "return",
+          "function": "_persist_page",
+          "line": 31
+        },
+        {
+          "type": "return",
+          "function": "_total_filtered",
+          "line": 43
+        },
+        {
+          "type": "return",
+          "function": "pagination_controls",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "_sync_rows_per_page",
+          "line": 65
+        },
+        {
+          "type": "return",
+          "function": "_first_page",
+          "line": 80
+        },
+        {
+          "type": "return",
+          "function": "_prev_page",
+          "line": 86
+        },
+        {
+          "type": "return",
+          "function": "_next_page",
+          "line": 95
+        },
+        {
+          "type": "return",
+          "function": "_last_page",
+          "line": 109
+        }
+      ],
+      "missing_annotations_truncated": 4
+    },
+    "src/server/presets.py": {
+      "functions": {
+        "total": 21,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 3,
+        "annotated": 1
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "register_presets",
+          "line": 29
+        },
+        {
+          "type": "parameter",
+          "function": "_save_presets_fn",
+          "name": "presets_dict",
+          "line": 50
+        },
+        {
+          "type": "return",
+          "function": "_save_presets_fn",
+          "line": 50
+        },
+        {
+          "type": "parameter",
+          "function": "_save_active_preset_fn",
+          "name": "preset_name",
+          "line": 53
+        },
+        {
+          "type": "return",
+          "function": "_save_active_preset_fn",
+          "line": 53
+        },
+        {
+          "type": "return",
+          "function": "current_preset_name",
+          "line": 57
+        },
+        {
+          "type": "return",
+          "function": "_refresh_presets",
+          "line": 62
+        },
+        {
+          "type": "return",
+          "function": "preset_menu_items",
+          "line": 77
+        },
+        {
+          "type": "return",
+          "function": "available_columns_modal",
+          "line": 85
+        },
+        {
+          "type": "return",
+          "function": "_update_column_order",
+          "line": 93
+        }
+      ],
+      "missing_annotations_truncated": 13
+    },
+    "src/server/synthesis.py": {
+      "functions": {
+        "total": 5,
+        "with_return_type": 0,
+        "fully_annotated": 0
+      },
+      "parameters": {
+        "total": 1,
+        "annotated": 1
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "register_synthesis",
+          "line": 13
+        },
+        {
+          "type": "return",
+          "function": "synthesis_query_preview",
+          "line": 80
+        },
+        {
+          "type": "return",
+          "function": "synthesis_mode_banner",
+          "line": 91
+        },
+        {
+          "type": "return",
+          "function": "synthesis_status",
+          "line": 105
+        },
+        {
+          "type": "return",
+          "function": "_exit_synthesis",
+          "line": 329
+        }
+      ]
     },
     "src/ui.py": {
       "functions": {

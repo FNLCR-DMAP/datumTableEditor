@@ -5,6 +5,12 @@
     gap: 0;
 }
 
+/* Clean slate mode — scoped to its own container so it doesn't leak into other tabs */
+.main-container.clean-slate .left-panel { display: none !important; }
+.main-container.clean-slate .top-toolbar { display: none !important; }
+.main-container.clean-slate .modal-overlay { display: none !important; }
+.main-container.clean-slate .right-panel { padding: 12px !important; }
+
 /* Left Panel - Sidebar */
 .left-panel {
     width: 25%;

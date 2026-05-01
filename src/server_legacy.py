@@ -85,14 +85,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     posit_username = getattr(session, 'user', None) or os.environ.get('SHINY_USER') or 'default_user'
     # Sanitize username for use in table names
     safe_username = "".join(c if c.isalnum() else "_" for c in posit_username).lower()
-    print(f"[Session] User: {posit_username} (safe: {safe_username})")
+    # Get actual user email for LP LIMS API (use posit_username if it looks like email, else env var)
+    user_email = posit_username if '@' in posit_username else os.environ.get('LP_LIMS_USER', '')
+    print(f"[Session] User: {posit_username} (safe: {safe_username}, email: {user_email})")
     
     # Load config instance for this widget, passing the username for user-scoped tables
     import time as _t
     _server_t0 = _t.time()
     from .config.config_instance import load_config_instance, QueryParams
     print(f"[Config] Loading config from {config_path} for user: {safe_username}")
-    config = load_config_instance(config_path, username=safe_username)
+    config = load_config_instance(config_path, username=safe_username, user_email=user_email)
     _server_t1 = _t.time()
     print(f"[Timing] load_config_instance: {(_server_t1 - _server_t0)*1000:.0f}ms")
     
@@ -321,6 +323,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "is": "in", "is not": "not_in",
         "contains": "contains", "does not contain": "not_contains",
         "between": "between",
+        "value range": "value_range", "value_range": "value_range",
         ">": "gt", "≥": "gte", ">=": "gte",
         "<": "lt", "≤": "lte", "<=": "lte",
         "matches regex": "regex", "matches": "regex",
@@ -1066,7 +1069,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     @render.ui
     def facet_panels_ui():
-        """Render sidebar facet panels (checkbox + value‑count bars)."""
+        """Render sidebar facet panels (checkbox + value-count bars)."""
         if not _facet_columns:
             return ui.div()
 
@@ -1074,27 +1077,26 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         filters = pending_filters.get()
 
         with tracker.track_render("facet_panels_ui"):
-            # Build value counts map — lazy loading uses DB, traditional uses in‑memory
+            with reactive.isolate():
+                df = data.get()
+
             vc_map = {}
             selected_map = {}
             for col in _facet_columns:
                 if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
                     vc_map[col] = config.data_fetcher.get_value_counts(col, limit=_facet_max * 10)
+                elif col in df.columns:
+                    counts = df[col].fillna("No value").astype(str).value_counts()
+                    vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
                 else:
-                    df = data.get()
-                    if col in df.columns:
-                        counts = df[col].fillna("No value").astype(str).value_counts()
-                        vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
-                    else:
-                        vc_map[col] = []
+                    vc_map[col] = []
 
-                # Derive selected from active_filters
+                # Derive selected from pending_filters
                 fv = filters.get(col)
                 if fv and isinstance(fv, str) and fv.strip() and fv != "all":
                     selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
                 elif isinstance(fv, dict) and fv.get("op") == "in":
                     selected_map[col] = [str(v) for v in fv.get("value", [])]
-                # else: None → all checked
 
             result = build_facet_panels(
                 _facet_columns, vc_map,
@@ -1126,36 +1128,35 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Dynamic filters UI
     @render.ui
     def dynamic_filters():
-        """Render active dynamic filters from pending state"""
+        """Render active dynamic filters from pending state."""
         # Only re-render on structural changes (add/remove filter, operator change)
         _filter_panel_trigger.get()
-        
+
+        with reactive.isolate():
+            current_filters = pending_filters.get()
+            _df = data.get()
+
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
-        _date_cols = set()
         if is_lazy_loading() and hasattr(config, 'data_fetcher'):
             _date_cols = config.data_fetcher.date_columns
         else:
-            df = data.get()
-            for col in df.columns:
-                if pd.api.types.is_datetime64_any_dtype(df[col]):
-                    _date_cols.add(col)
-        
-        # Read pending_filters without creating a reactive dependency
-        with reactive.isolate():
-            current_filters = pending_filters.get()
-        
+            _date_cols = {col for col in _df.columns if pd.api.types.is_datetime64_any_dtype(_df[col])}
+
         if is_lazy_loading():
-            # In lazy mode, data.get() may be empty; pass all known columns
-            # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
-                current_filters, data.get(),
+                current_filters, _df,
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
                 get_unique_values_func=config.data_fetcher.get_unique_values,
                 column_masks=column_masks,
-                date_columns=_date_cols
+                date_columns=_date_cols,
             )
-        return build_dynamic_filters_panel(current_filters, data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
+        return build_dynamic_filters_panel(
+            current_filters, _df,
+            fix_filter=app_config.fix_filter,
+            column_masks=column_masks,
+            date_columns=_date_cols,
+        )
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui
@@ -1276,15 +1277,27 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         old = filters.get(col_name)
         
         # Determine if this is a between-type operator filter
-        is_between = isinstance(old, dict) and old.get("op") == "between"
+        is_between = isinstance(old, dict) and old.get("op") in ("between", "value_range")
+        
+        # Detect date columns for auto-promoting to "between" operator
+        _is_date_col = False
+        if is_lazy_loading() and hasattr(config, 'data_fetcher'):
+            _is_date_col = col_name in config.data_fetcher.date_columns
+        else:
+            df = data.get()
+            if col_name in df.columns:
+                _is_date_col = pd.api.types.is_datetime64_any_dtype(df[col_name])
         
         # Parse textarea content into values list
-        if is_between:
-            # For between, preserve positional empty strings (from/to)
+        if is_between or (_is_date_col and not isinstance(old, dict)):
+            # For between (or date columns sending from/to), preserve positional values
             parts = str(raw_value).split('\n') if raw_value is not None else []
             values = [v.strip() for v in parts]
             # Normalize: convert empty strings to None for null-bound semantics
             values = [v if v else None for v in values]
+            # Auto-promote date columns to "between" operator dict
+            if _is_date_col and not is_between and len(values) == 2:
+                is_between = True
         elif raw_value and str(raw_value).strip():
             values = [v.strip() for v in str(raw_value).replace(',', '\n').split('\n') if v.strip()]
         else:
@@ -1299,6 +1312,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if values != old_values:
                 filters[col_name] = {"op": op, "value": values, "interactive": True}
                 pending_filters.set(filters)
+        elif is_between:
+            # Date column auto-promoted to between
+            filters[col_name] = {"op": "between", "value": values, "interactive": True}
+            pending_filters.set(filters)
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
         else:
             # Simple string filter
             new_val = "\n".join(values) if values else "all"
@@ -1314,7 +1332,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         active = active_filters.get()
         has_changes = pending != active
         return ui.div(
-            ui.input_action_button("apply_filters_btn", "Apply Filters", class_="apply-filters-btn" + (" btn-pending" if has_changes else "")),
+            ui.input_action_button(
+                "apply_filters_btn",
+                "Apply Filters",
+                class_="apply-filters-btn" + (" btn-pending" if has_changes else ""),
+                onclick="this.classList.add('btn-loading'); this.textContent='Loading…'; this.disabled=true;"
+            ),
             ui.input_action_button("reset_filters_btn", "Reset", class_="reset-filters-btn"),
             class_="apply-filters-bar"
         )
@@ -1902,7 +1925,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _reload_data():
         if is_lazy_loading():
             # In lazy loading mode, only refresh row count (schema doesn't change mid-session)
-            config._data_fetcher._refresh_count()
+            config.data_fetcher.refresh_count()
             total_rows.set(config.data_fetcher.total_count)
             # Data will be re-fetched on next table render
         else:

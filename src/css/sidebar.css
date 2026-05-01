@@ -275,6 +275,13 @@
     opacity: 1;
     animation: pulse-apply 1.5s ease-in-out infinite;
 }
+.apply-filters-btn.btn-loading {
+    opacity: 0.6;
+    background: #6c757d;
+    cursor: wait;
+    pointer-events: none;
+    animation: none;
+}
 @keyframes pulse-apply {
     0%, 100% { box-shadow: none; }
     50% { box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3); }
