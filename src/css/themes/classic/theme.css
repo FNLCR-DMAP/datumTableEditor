@@ -3,7 +3,7 @@
    This file only provides CSS variable values for any component
    that may reference them, and applies minor classic-specific tweaks. */
 
-[data-theme="classic"] {
+html[data-theme="classic"] {
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 

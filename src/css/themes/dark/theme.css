@@ -1,7 +1,7 @@
 /* Dark Mode Theme
    True dark surfaces, reduced brightness, softer accent colors. */
 
-[data-theme="dark"] {
+html[data-theme="dark"] {
     /* Page background */
     --page-bg: #0f1419;
 
@@ -110,22 +110,22 @@
 }
 
 /* Dark mode specific overrides for elements with hardcoded colors */
-[data-theme="dark"] .modal-draggable-col,
-[data-theme="dark"] .current-col-tag {
+html[data-theme="dark"] .modal-draggable-col,
+html[data-theme="dark"] .current-col-tag {
     background: #3d4760 !important;
     color: #e2e8f0 !important;
 }
-[data-theme="dark"] .add-col-tag {
+html[data-theme="dark"] .add-col-tag {
     background: #242b3d !important;
     color: #c4cdd8 !important;
 }
-[data-theme="dark"] .header-dropdown {
+html[data-theme="dark"] .header-dropdown {
     background: #242b3d;
     border-color: #3d4760;
 }
-[data-theme="dark"] .header-dropdown .dropdown-item {
+html[data-theme="dark"] .header-dropdown .dropdown-item {
     color: #c4cdd8;
 }
-[data-theme="dark"] .header-dropdown .dropdown-item:hover {
+html[data-theme="dark"] .header-dropdown .dropdown-item:hover {
     background: #2d3548;
 }

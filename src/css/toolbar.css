@@ -169,3 +169,14 @@
     background: #e69500;
     color: #000;
 }
+
+/* Theme Selector */
+.theme-selector {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid var(--toolbar-btn-border);
+    border-radius: 4px;
+    background: var(--toolbar-btn-bg);
+    color: var(--toolbar-btn-color);
+    cursor: pointer;
+}

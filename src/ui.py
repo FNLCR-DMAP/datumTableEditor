@@ -98,6 +98,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     synthesis_label = app_config.synthesis.label or "Synthesis"
     presets_enabled = app_config.table.presets_enabled
     theme = app_config.theme or "classic"
+    # Force classic for debugging theme switching
+    theme = "classic"
     clean_slate = app_config.clean_slate
     
     # Status labels from config
@@ -144,10 +146,15 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         localStorage.setItem('dmap-theme-config', configTheme);
                     }}
                 }})();
-                // Sync dropdown on DOM ready
+                // Sync dropdown on DOM ready and bind change event
                 document.addEventListener('DOMContentLoaded', function() {{
                     var sel = document.getElementById('theme-selector');
-                    if (sel) sel.value = window._currentTheme;
+                    if (sel) {{
+                        sel.value = window._currentTheme;
+                        sel.addEventListener('change', function() {{
+                            setTheme(this.value);
+                        }});
+                    }}
                 }});
             """),
             # Namespace helper script - must be after the main JS files
@@ -406,13 +413,13 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal(event)"),
                         # Theme selector
                         ui.tags.select(
-                            ui.tags.option("Modern", value="modern"),
-                            ui.tags.option("Classic", value="classic"),
-                            ui.tags.option("Eye Protection", value="eye-protection"),
-                            ui.tags.option("Dark", value="dark"),
+                            ui.tags.option("Modern", value="modern", selected="selected" if theme == "modern" else None),
+                            ui.tags.option("Classic", value="classic", selected="selected" if theme == "classic" else None),
+                            ui.tags.option("Eye Protection", value="eye-protection", selected="selected" if theme == "eye-protection" else None),
+                            ui.tags.option("Dark", value="dark", selected="selected" if theme == "dark" else None),
                             id="theme-selector",
                             onchange="setTheme(this.value)",
-                            style="padding: 4px 8px; font-size: 11px; border: 1px solid #ced4da; border-radius: 4px; background: #ffffff; color: #495057; cursor: pointer;",
+                            class_="theme-selector",
                             title="Color Theme"
                         ),
                         class_="toolbar-right"
