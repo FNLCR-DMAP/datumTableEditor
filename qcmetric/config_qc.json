@@ -4,8 +4,8 @@
   "_summary": {
     "total_functions": 165,
     "unused_functions": 1,
-    "fully_annotated_functions": 116,
-    "function_coverage_percent": 70.3,
+    "fully_annotated_functions": 115,
+    "function_coverage_percent": 69.7,
     "parameter_coverage_percent": 82.5,
     "mypy_errors": 0
   },
@@ -136,7 +136,6 @@
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
-        "_refresh_count",
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
@@ -181,6 +180,7 @@
         "load_modifications_log",
         "load_ui_state",
         "mark_modification_undone_in_db",
+        "refresh_count",
         "reload_data",
         "run_synthesis",
         "save_modification_to_db",
@@ -254,7 +254,6 @@
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
-        "_refresh_count",
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
@@ -294,6 +293,7 @@
         "load_modifications_log",
         "load_ui_state",
         "mark_modification_undone_in_db",
+        "refresh_count",
         "reload_data",
         "run_synthesis",
         "save_modification_to_db",
@@ -455,8 +455,8 @@
     "src/config/config_instance.py": {
       "functions": {
         "total": 121,
-        "with_return_type": 88,
-        "fully_annotated": 84
+        "with_return_type": 87,
+        "fully_annotated": 83
       },
       "parameters": {
         "total": 125,

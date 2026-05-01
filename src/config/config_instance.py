@@ -451,7 +451,7 @@ class DataFetcher:
             self._columns = []
             self._column_types = {}
 
-    def _refresh_count(self):
+    def refresh_count(self):
         """Refresh only the row count — skip column/type introspection.
 
         Used on manual reload where the schema hasn't changed but the
@@ -491,6 +491,9 @@ class DataFetcher:
             print(f"DataFetcher: Refreshed count → {self._total_count} rows")
         except Exception as e:
             print(f"✗ Error refreshing count: {e}")
+
+    # Backward-compat alias
+    _refresh_count = refresh_count
 
     @property
     def _effective_status_column(self) -> Optional[str]:
@@ -1809,7 +1812,7 @@ class ConfigInstance:
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
-    _data_fetcher: DataFetcher = field(default=None, repr=False)  # Lazy loading fetcher
+    _data_fetcher: Any = field(default=None, repr=False)  # DataProvider (lazy loading)
     _schemas_verified: set = field(default_factory=set, repr=False)  # Schemas already confirmed to exist
     _data_table_checked: bool = field(default=False, repr=False)  # Data table existence verified
     _synthesis_exists_cache: Optional[bool] = field(default=None, repr=False)  # Cached synthesis table existence
@@ -1913,7 +1916,12 @@ class ConfigInstance:
         # Check if lazy loading is enabled
         if self.app_config.database.lazy_loading:
             # Lazy loading mode: only get metadata, fetch data on demand
-            self._data_fetcher = DataFetcher(app_config=self.app_config, username=self.username, user_email=self.user_email)
+            from ..adapter.factory import create_data_provider
+            self._data_fetcher = create_data_provider(
+                app_config=self.app_config,
+                username=self.username,
+                user_email=self.user_email,
+            )
             self.all_columns = self._data_fetcher.columns
             # Create empty DataFrame with correct columns
             self.df = pd.DataFrame(columns=self.all_columns)
@@ -1933,8 +1941,8 @@ class ConfigInstance:
         print(f"[Timing] _load_all total: {(_t.time() - _t0)*1000:.0f}ms")
     
     @property
-    def data_fetcher(self) -> Optional[DataFetcher]:
-        """Get the DataFetcher for lazy loading mode."""
+    def data_fetcher(self):
+        """Get the DataProvider for lazy loading mode."""
         return self._data_fetcher
     
     @property

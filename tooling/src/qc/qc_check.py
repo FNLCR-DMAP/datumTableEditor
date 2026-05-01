@@ -58,7 +58,13 @@ def analyze_file(filepath: Path) -> Dict[str, Any]:
 def main():
     # Source files to analyze
     files_to_analyze = [
-        'src/server.py',
+        'src/server/core.py',
+        'src/server/filters.py',
+        'src/server/pagination.py',
+        'src/server/presets.py',
+        'src/server/edits.py',
+        'src/server/export.py',
+        'src/server/synthesis.py',
         'src/ui.py', 
         'src/config/config.py',
         'src/config/config_instance.py',

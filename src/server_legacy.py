@@ -1068,7 +1068,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     @render.ui
     def facet_panels_ui():
-        """Render sidebar facet panels (checkbox + value‑count bars)."""
+        """Render sidebar facet panels (checkbox + value-count bars)."""
         if not _facet_columns:
             return ui.div()
 
@@ -1076,27 +1076,26 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         filters = pending_filters.get()
 
         with tracker.track_render("facet_panels_ui"):
-            # Build value counts map — lazy loading uses DB, traditional uses in‑memory
+            with reactive.isolate():
+                df = data.get()
+
             vc_map = {}
             selected_map = {}
             for col in _facet_columns:
                 if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
                     vc_map[col] = config.data_fetcher.get_value_counts(col, limit=_facet_max * 10)
+                elif col in df.columns:
+                    counts = df[col].fillna("No value").astype(str).value_counts()
+                    vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
                 else:
-                    df = data.get()
-                    if col in df.columns:
-                        counts = df[col].fillna("No value").astype(str).value_counts()
-                        vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
-                    else:
-                        vc_map[col] = []
+                    vc_map[col] = []
 
-                # Derive selected from active_filters
+                # Derive selected from pending_filters
                 fv = filters.get(col)
                 if fv and isinstance(fv, str) and fv.strip() and fv != "all":
                     selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
                 elif isinstance(fv, dict) and fv.get("op") == "in":
                     selected_map[col] = [str(v) for v in fv.get("value", [])]
-                # else: None → all checked
 
             result = build_facet_panels(
                 _facet_columns, vc_map,
@@ -1128,36 +1127,35 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # Output: Dynamic filters UI
     @render.ui
     def dynamic_filters():
-        """Render active dynamic filters from pending state"""
+        """Render active dynamic filters from pending state."""
         # Only re-render on structural changes (add/remove filter, operator change)
         _filter_panel_trigger.get()
-        
+
+        with reactive.isolate():
+            current_filters = pending_filters.get()
+            _df = data.get()
+
         # Detect date columns from schema types (lazy loading) or DataFrame dtypes
-        _date_cols = set()
         if is_lazy_loading() and hasattr(config, 'data_fetcher'):
             _date_cols = config.data_fetcher.date_columns
         else:
-            df = data.get()
-            for col in df.columns:
-                if pd.api.types.is_datetime64_any_dtype(df[col]):
-                    _date_cols.add(col)
-        
-        # Read pending_filters without creating a reactive dependency
-        with reactive.isolate():
-            current_filters = pending_filters.get()
-        
+            _date_cols = {col for col in _df.columns if pd.api.types.is_datetime64_any_dtype(_df[col])}
+
         if is_lazy_loading():
-            # In lazy mode, data.get() may be empty; pass all known columns
-            # and a callback to fetch unique values from DB
             return build_dynamic_filters_panel(
-                current_filters, data.get(),
+                current_filters, _df,
                 fix_filter=app_config.fix_filter,
                 all_columns=config.all_columns,
                 get_unique_values_func=config.data_fetcher.get_unique_values,
                 column_masks=column_masks,
-                date_columns=_date_cols
+                date_columns=_date_cols,
             )
-        return build_dynamic_filters_panel(current_filters, data.get(), fix_filter=app_config.fix_filter, column_masks=column_masks, date_columns=_date_cols)
+        return build_dynamic_filters_panel(
+            current_filters, _df,
+            fix_filter=app_config.fix_filter,
+            column_masks=column_masks,
+            date_columns=_date_cols,
+        )
     
     # Output: Add filter button (hidden for Default preset)
     @render.ui
@@ -1926,7 +1924,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _reload_data():
         if is_lazy_loading():
             # In lazy loading mode, only refresh row count (schema doesn't change mid-session)
-            config._data_fetcher._refresh_count()
+            config.data_fetcher.refresh_count()
             total_rows.set(config.data_fetcher.total_count)
             # Data will be re-fetched on next table render
         else:

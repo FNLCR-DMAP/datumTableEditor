@@ -117,7 +117,13 @@ def analyze_functions(filepath: Path, module: str) -> list:
 
 def main():
     files = [
-        ('src/server.py', 'server'),
+        ('src/server/core.py', 'server_core'),
+        ('src/server/filters.py', 'server_filters'),
+        ('src/server/pagination.py', 'server_pagination'),
+        ('src/server/presets.py', 'server_presets'),
+        ('src/server/edits.py', 'server_edits'),
+        ('src/server/export.py', 'server_export'),
+        ('src/server/synthesis.py', 'server_synthesis'),
         ('src/ui.py', 'ui'),
         ('src/config/config.py', 'config'),
         ('src/config/config_instance.py', 'config_instance'),
