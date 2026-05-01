@@ -88,7 +88,8 @@ def register_filters(ctx: ServerContext):
         else:
             filters[col] = fv
         pending_filters.set(filters)
-        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+        with reactive.isolate():
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     # ── Dynamic filters UI ──────────────────────────────────────────────
 
@@ -101,12 +102,12 @@ def register_filters(ctx: ServerContext):
             current_filters = pending_filters.get()
             _df = data.get()
 
-        if is_lazy_loading() and hasattr(config, 'data_fetcher'):
+        if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
             _date_cols = config.data_fetcher.date_columns
         else:
             _date_cols = {col for col in _df.columns if pd.api.types.is_datetime64_any_dtype(_df[col])}
 
-        if is_lazy_loading():
+        if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
             return build_dynamic_filters_panel(
                 current_filters, _df,
                 fix_filter=app_config.fix_filter,
@@ -156,7 +157,8 @@ def register_filters(ctx: ServerContext):
         col_name = parse_filter_column(input.add_filter_column())
         if col_name:
             pending_filters.set(add_filter(pending_filters.get(), col_name))
-            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+            with reactive.isolate():
+                _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     @reactive.Effect
     @reactive.event(input.remove_filter_column)
@@ -166,7 +168,8 @@ def register_filters(ctx: ServerContext):
         col_name = parse_filter_column(input.remove_filter_column())
         if col_name:
             pending_filters.set(remove_filter(pending_filters.get(), col_name))
-            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+            with reactive.isolate():
+                _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     @reactive.Effect
     @reactive.event(input.set_filter_operator)
@@ -208,7 +211,8 @@ def register_filters(ctx: ServerContext):
             filters[col_name] = {"op": op, "value": existing_values, "interactive": True}
 
         pending_filters.set(filters)
-        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+        with reactive.isolate():
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     @reactive.Effect
     @reactive.event(input.apply_filter_value)
@@ -260,7 +264,8 @@ def register_filters(ctx: ServerContext):
         elif is_between:
             filters[col_name] = {"op": "between", "value": values, "interactive": True}
             pending_filters.set(filters)
-            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+            with reactive.isolate():
+                _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
         else:
             new_val = "\n".join(values) if values else "all"
             if new_val != old:
@@ -298,7 +303,8 @@ def register_filters(ctx: ServerContext):
     def _reset_pending_filters():
         """Revert pending filters back to current active filters."""
         pending_filters.set(active_filters.get().copy())
-        _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+        with reactive.isolate():
+            _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     # ── Lazy-load filter values on dropdown open ────────────────────────
 

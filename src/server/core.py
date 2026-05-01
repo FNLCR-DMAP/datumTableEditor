@@ -371,13 +371,19 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     def _lazy_filtered_count():
         if not is_lazy_loading():
             return 0
+        fetcher = config.data_fetcher
+        if fetcher is None:
+            return 0
         params = _build_query_params()
-        return config.data_fetcher.get_filtered_count(params)
+        return fetcher.get_filtered_count(params)
 
     def _fetch_page_data():
         if is_lazy_loading():
+            fetcher = config.data_fetcher
+            if fetcher is None:
+                return pd.DataFrame(), 0, 0
             params = _build_query_params()
-            fetched_df = config.data_fetcher.fetch_page(params)
+            fetched_df = fetcher.fetch_page(params)
             return fetched_df, _lazy_filtered_count(), total_rows.get()
         else:
             current_df = data.get()
@@ -386,8 +392,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     def _fetch_all_filtered_data():
         if is_lazy_loading():
+            fetcher = config.data_fetcher
+            if fetcher is None:
+                return pd.DataFrame()
             params = _build_query_params(for_export=True)
-            return config.data_fetcher.fetch_all_filtered(params)
+            return fetcher.fetch_all_filtered(params)
         else:
             current_df = data.get()
             filtered_indices = _get_filtered_rows()

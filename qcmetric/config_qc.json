@@ -495,27 +495,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 295
+          "line": 294
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 300
+          "line": 299
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 327
+          "line": 326
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 337
+          "line": 336
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 357
+          "line": 356
         }
       ]
     },

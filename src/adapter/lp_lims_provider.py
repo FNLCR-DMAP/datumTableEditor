@@ -42,8 +42,7 @@ class LpLimsDataProvider:
     _columns: List[str] = field(default_factory=list, repr=False)
     _unique_values_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
     _value_counts_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
-    _last_filtered_count: Optional[int] = field(default=None, repr=False)
-    _last_filtered_params_hash: Optional[str] = field(default=None, repr=False)
+    _filtered_count_cache: Optional[Tuple[str, int]] = field(default=None, repr=False)  # (params_hash, count) — atomic tuple
 
     def __post_init__(self):
         base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
@@ -219,8 +218,7 @@ class LpLimsDataProvider:
 
             # Cache the filtered row_count from this response to avoid a separate count request
             if response.row_count is not None:
-                self._last_filtered_count = response.row_count
-                self._last_filtered_params_hash = self._params_hash(params)
+                self._filtered_count_cache = (self._params_hash(params), response.row_count)
 
             df = pd.DataFrame(response.data)
             if df.empty and response.columns:
@@ -239,10 +237,11 @@ class LpLimsDataProvider:
     def get_filtered_count(self, params) -> int:
         if not self._client:
             return 0
-        # Use cached count from fetch_page if filters haven't changed
+        # Use cached count from fetch_page if filters haven't changed (atomic read)
         ph = self._params_hash(params)
-        if self._last_filtered_count is not None and self._last_filtered_params_hash == ph:
-            return self._last_filtered_count
+        cached = self._filtered_count_cache
+        if cached is not None and cached[0] == ph:
+            return cached[1]
         try:
             filters, tab_filters = self._build_filters(params)
             response = self._client.read(
@@ -255,8 +254,7 @@ class LpLimsDataProvider:
                 page_size=1,
             )
             count = response.row_count if response.row_count is not None else (response.total_pages or 0)
-            self._last_filtered_count = count
-            self._last_filtered_params_hash = ph
+            self._filtered_count_cache = (ph, count)
             return count
         except Exception as e:
             print(f"✗ LP LIMS get_filtered_count error: {e}")
