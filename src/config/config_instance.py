@@ -3922,6 +3922,8 @@ class ConfigInstance:
         """Create the UI state table if it doesn't exist. Only runs once per instance."""
         if not self.app_config.state.persist_state:
             return True
+        if self.app_config.read_only:
+            return False
         # Skip if already checked this session (success or failure)
         if self._state_table_checked:
             return self._state_table_available
@@ -4058,6 +4060,8 @@ class ConfigInstance:
     ) -> bool:
         """Save UI state to database for this config instance."""
         if not self.app_config.state.persist_state:
+            return False
+        if self.app_config.read_only:
             return False
         if self.app_config.database.mode == "datum":
             return self._save_ui_state_datum(
@@ -4201,6 +4205,9 @@ class ConfigInstance:
         }
         
         if not self.app_config.state.persist_state:
+            return default_state
+        
+        if self.app_config.read_only:
             return default_state
         
         if self.app_config.database.mode == "datum":
