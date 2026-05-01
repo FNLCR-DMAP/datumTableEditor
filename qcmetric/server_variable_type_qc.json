@@ -810,7 +810,7 @@
           "type": "parameter",
           "function": "get_filtered_count",
           "name": "params",
-          "line": 299
+          "line": 311
         }
       ],
       "missing_annotations_truncated": 2

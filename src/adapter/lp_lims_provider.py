@@ -45,8 +45,6 @@ class LpLimsDataProvider:
     _last_filtered_count: Optional[int] = field(default=None, repr=False)
     _last_filtered_params_hash: Optional[str] = field(default=None, repr=False)
     _prefetched_page: Optional[pd.DataFrame] = field(default=None, repr=False)
-    _cached_fetch_df: Optional[pd.DataFrame] = field(default=None, repr=False)
-    _cached_fetch_hash: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self):
         base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
@@ -221,31 +219,9 @@ class LpLimsDataProvider:
             params.status_filters if hasattr(params, 'status_filters') else None,
         )
 
-    def _full_params_hash(self, params) -> str:
-        """Hash including page/page_size/sort — for exact request dedup."""
-        import hashlib
-        sort_col = params.sort_column if hasattr(params, 'sort_column') else None
-        sort_asc = params.sort_ascending if hasattr(params, 'sort_ascending') else None
-        key = repr((
-            params.filters if params.filters else None,
-            getattr(params, 'status_filters', None),
-            params.page, params.page_size,
-            sort_col, sort_asc,
-        ))
-        return hashlib.sha256(key.encode()).hexdigest()[:16]
-
     def fetch_page(self, params) -> pd.DataFrame:
         if not self._client:
             return pd.DataFrame()
-
-        # Return cached data from get_filtered_count (if it fired first with same params)
-        fph = self._full_params_hash(params)
-        if self._cached_fetch_df is not None and self._cached_fetch_hash == fph:
-            df = self._cached_fetch_df
-            self._cached_fetch_df = None
-            self._cached_fetch_hash = None
-            print(f"[LpLimsDataProvider] Fetched {len(df)} rows (page {params.page}, from count-cache)")
-            return df
 
         # Return prefetched first page if it matches (no filters, page 1, same size)
         if (self._prefetched_page is not None
@@ -279,19 +255,7 @@ class LpLimsDataProvider:
 
             # Cache the filtered row_count from this response to avoid a separate count request
             if response.row_count is not None:
-                derived_count = response.row_count
-            elif response.total_pages is not None:
-                tp = response.total_pages
-                n_data = len(response.data) if response.data else 0
-                if tp <= 1:
-                    derived_count = n_data
-                else:
-                    derived_count = (tp - 1) * params.page_size + n_data
-            else:
-                derived_count = None
-
-            if derived_count is not None:
-                self._last_filtered_count = derived_count
+                self._last_filtered_count = response.row_count
                 self._last_filtered_params_hash = self._params_hash(params)
 
             df = pd.DataFrame(response.data)
@@ -316,46 +280,19 @@ class LpLimsDataProvider:
         if self._last_filtered_count is not None and self._last_filtered_params_hash == ph:
             return self._last_filtered_count
         try:
-            # Do a full-size fetch (not page_size=1) so we cache data for fetch_page too
             filters, tab_filters = self._build_filters(params)
-            order_by, order_direction = self._sort_params(params)
             response = self._client.read(
                 user=self._user,
                 tab=self._tab,
                 environment=self._environment,
                 filters=filters if filters else None,
                 tab_filters=tab_filters,
-                page=params.page,
-                page_size=params.page_size,
-                order_by=order_by,
-                order_direction=order_direction,
+                page=1,
+                page_size=1,
             )
-            # Derive count: prefer row_count, else compute from total_pages + data length
-            if response.row_count is not None:
-                count = response.row_count
-            elif response.total_pages is not None:
-                tp = response.total_pages
-                n_data = len(response.data) if response.data else 0
-                if tp <= 1:
-                    # Single page: data length IS the total
-                    count = n_data
-                else:
-                    # Last page may be partial; this page gives us a full page_size worth
-                    count = (tp - 1) * params.page_size + n_data
-            else:
-                count = len(response.data) if response.data else 0
+            count = response.row_count if response.row_count is not None else (response.total_pages or 0)
             self._last_filtered_count = count
             self._last_filtered_params_hash = ph
-
-            # Cache the fetched data so fetch_page doesn't repeat the request
-            df = pd.DataFrame(response.data)
-            if df.empty and response.columns:
-                df = pd.DataFrame(columns=response.columns)
-            if not df.empty:
-                df["_mod_status"] = "unprocessed"
-            self._cached_fetch_df = df
-            self._cached_fetch_hash = self._full_params_hash(params)
-
             return count
         except Exception as e:
             print(f"✗ LP LIMS get_filtered_count error: {e}")
