@@ -114,9 +114,11 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             style="display: none; visibility: hidden; position: absolute; left: -9999px;"
         ),
         
+        # Custom CSS injected in body to override Shiny/Bootstrap defaults
+        ui.tags.style(_load_css_files()),
+        
         ui.head_content(
             ui.tags.title(app_title),
-            ui.tags.style(_load_css_files()),
             ui.tags.script(_load_js_files()),
             # Apply theme to document root
             ui.tags.script(f"""
