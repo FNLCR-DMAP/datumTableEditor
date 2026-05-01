@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 547,
+    "total_functions": 548,
     "fully_annotated_functions": 348,
-    "function_coverage_percent": 63.6,
-    "total_parameters": 714,
+    "function_coverage_percent": 63.5,
+    "total_parameters": 715,
     "annotated_parameters": 633,
-    "parameter_coverage_percent": 88.7,
+    "parameter_coverage_percent": 88.5,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -547,27 +547,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 294
+          "line": 295
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 299
+          "line": 300
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 326
+          "line": 327
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 336
+          "line": 337
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 356
+          "line": 357
         }
       ],
       "missing_annotations_truncated": 46
@@ -745,75 +745,75 @@
     },
     "src/adapter/lp_lims_provider.py": {
       "functions": {
-        "total": 22,
-        "with_return_type": 20,
+        "total": 23,
+        "with_return_type": 21,
         "fully_annotated": 12
       },
       "parameters": {
-        "total": 15,
+        "total": 16,
         "annotated": 6
       },
       "missing_annotations": [
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 49
+          "line": 51
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 90
+          "line": 92
         },
         {
           "type": "parameter",
           "function": "_params_hash_raw",
           "name": "filters",
-          "line": 128
+          "line": 130
         },
         {
           "type": "parameter",
           "function": "_params_hash_raw",
           "name": "status_filters",
-          "line": 128
+          "line": 130
         },
         {
           "type": "parameter",
           "function": "_build_filters",
           "name": "params",
-          "line": 162
+          "line": 164
         },
         {
           "type": "parameter",
           "function": "_sort_params",
           "name": "params",
-          "line": 201
+          "line": 203
         },
         {
           "type": "parameter",
           "function": "_params_hash",
           "name": "params",
-          "line": 215
+          "line": 217
+        },
+        {
+          "type": "parameter",
+          "function": "_full_params_hash",
+          "name": "params",
+          "line": 224
         },
         {
           "type": "parameter",
           "function": "fetch_page",
           "name": "params",
-          "line": 222
+          "line": 237
         },
         {
           "type": "parameter",
           "function": "get_filtered_count",
           "name": "params",
-          "line": 275
-        },
-        {
-          "type": "parameter",
-          "function": "fetch_all_filtered",
-          "name": "params",
-          "line": 301
+          "line": 299
         }
       ],
-      "missing_annotations_truncated": 1
+      "missing_annotations_truncated": 2
     },
     "src/adapter/provider.py": {
       "functions": {

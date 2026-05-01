@@ -279,7 +279,19 @@ class LpLimsDataProvider:
 
             # Cache the filtered row_count from this response to avoid a separate count request
             if response.row_count is not None:
-                self._last_filtered_count = response.row_count
+                derived_count = response.row_count
+            elif response.total_pages is not None:
+                tp = response.total_pages
+                n_data = len(response.data) if response.data else 0
+                if tp <= 1:
+                    derived_count = n_data
+                else:
+                    derived_count = (tp - 1) * params.page_size + n_data
+            else:
+                derived_count = None
+
+            if derived_count is not None:
+                self._last_filtered_count = derived_count
                 self._last_filtered_params_hash = self._params_hash(params)
 
             df = pd.DataFrame(response.data)
@@ -318,7 +330,20 @@ class LpLimsDataProvider:
                 order_by=order_by,
                 order_direction=order_direction,
             )
-            count = response.row_count if response.row_count is not None else (response.total_pages or 0)
+            # Derive count: prefer row_count, else compute from total_pages + data length
+            if response.row_count is not None:
+                count = response.row_count
+            elif response.total_pages is not None:
+                tp = response.total_pages
+                n_data = len(response.data) if response.data else 0
+                if tp <= 1:
+                    # Single page: data length IS the total
+                    count = n_data
+                else:
+                    # Last page may be partial; this page gives us a full page_size worth
+                    count = (tp - 1) * params.page_size + n_data
+            else:
+                count = len(response.data) if response.data else 0
             self._last_filtered_count = count
             self._last_filtered_params_hash = ph
 
