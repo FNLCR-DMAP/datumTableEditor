@@ -1,9 +1,9 @@
 /* === Theme Variables (Base) ===
    All color/style tokens used across the app.
    Default values match the classic/main-branch look.
-   Theme overrides redefine these under [data-theme="<name>"] */
+   Theme overrides redefine these under body[data-theme="<name>"] */
 
-:root {
+body {
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-size-xs: 11px;
@@ -117,4 +117,14 @@
     --log-border: #dee2e6;
     --log-item-border: #f1f1f1;
     --log-text: #212529;
+
+    /* Synthesis */
+    --synthesis-bg: #ffc107;
+    --synthesis-border: #e0a800;
+    --synthesis-color: #856404;
+    --synthesis-banner-bg: #fff3cd;
+
+    /* Status banners */
+    --status-approved-banner-bg: #e8f5e9;
+    --status-rejected-banner-bg: #ffebee;
 }

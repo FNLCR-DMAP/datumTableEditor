@@ -2,17 +2,17 @@
 .table-name-section {
     margin-bottom: 20px;
     padding-bottom: 15px;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--sidebar-border);
 }
 .table-name {
     font-size: 18px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--sidebar-heading);
     margin: 0;
 }
 .table-subtitle {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--sidebar-subtext);
     margin-top: 5px;
 }
 
@@ -23,7 +23,7 @@
 .stats-section h4 {
     font-size: 14px;
     font-weight: 600;
-    color: #495057;
+    color: var(--sidebar-text);
     margin-bottom: 10px;
 }
 .histogram-bar {
@@ -34,12 +34,12 @@
 .histogram-label {
     width: 90px;
     font-size: 12px;
-    color: #495057;
+    color: var(--sidebar-text);
 }
 .histogram-track {
     flex: 1;
     height: 20px;
-    background: #d0d5db;
+    background: var(--histogram-track);
     border-radius: 4px;
     overflow: hidden;
     margin-right: 8px;
@@ -49,10 +49,10 @@
     border-radius: 4px;
     transition: width 0.3s ease;
 }
-.histogram-fill.unprocessed { background: #6c757d; }
-.histogram-fill.edited { background: #8B4513; }
-.histogram-fill.approved { background: #28a745; }
-.histogram-fill.rejected { background: #dc3545; }
+.histogram-fill.unprocessed { background: var(--status-unprocessed); }
+.histogram-fill.edited { background: var(--status-edited); }
+.histogram-fill.approved { background: var(--status-approved); }
+.histogram-fill.rejected { background: var(--status-rejected); }
 .histogram-count {
     width: 35px;
     font-size: 12px;
@@ -89,7 +89,7 @@
 .filter-section h4 {
     font-size: 14px;
     font-weight: 600;
-    color: #495057;
+    color: var(--sidebar-text);
     margin-bottom: 10px;
 }
 .filter-group {
@@ -99,20 +99,20 @@
     display: block;
     font-size: 12px;
     font-weight: 500;
-    color: #495057;
+    color: var(--sidebar-text);
     margin-bottom: 5px;
 }
 .filter-group input,
 .filter-group select {
     width: 100%;
     padding: 8px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     font-size: 13px;
 }
 .filter-group input:focus,
 .filter-group select:focus {
-    border-color: #2196F3;
+    border-color: var(--input-focus-border);
     outline: none;
     box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
 }
@@ -124,7 +124,7 @@
 .column-filter-section h4 {
     font-size: 14px;
     font-weight: 600;
-    color: #495057;
+    color: var(--sidebar-text);
     margin: 0;
 }
 .filter-header {
@@ -136,7 +136,7 @@
     line-height: 1;
 }
 .remove-filter-btn:hover {
-    color: #a71d2a !important;
+    color: var(--btn-danger-bg) !important;
 }
 
 /* Filter group with multi-select button */
@@ -159,7 +159,7 @@
     border-bottom: none !important;
 }
 .filter-value-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--toolbar-bg);
 }
 
 /* ── Facet Filter Panels ────────────────────────────────────────────── */
@@ -169,12 +169,12 @@
 .facet-section {
     margin-bottom: 18px;
     padding-bottom: 14px;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--sidebar-border);
 }
 .facet-title {
     font-size: 11px;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--sidebar-subtext);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0 0 8px 0;
@@ -201,7 +201,7 @@
 }
 .facet-label {
     font-size: 13px;
-    color: #343a40;
+    color: var(--sidebar-color);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -210,12 +210,12 @@
 /* Italicise "No value" placeholder */
 .facet-label[title="No value"] {
     font-style: italic;
-    color: #6c757d;
+    color: var(--sidebar-subtext);
 }
 .facet-count {
     font-size: 12px;
     font-weight: 600;
-    color: #495057;
+    color: var(--sidebar-text);
     min-width: 40px;
     text-align: right;
     flex-shrink: 0;
@@ -223,14 +223,14 @@
 .facet-track {
     width: 60px;
     height: 14px;
-    background: #e9ecef;
+    background: var(--filter-badge-bg);
     border-radius: 3px;
     overflow: hidden;
     flex-shrink: 0;
 }
 .facet-fill {
     height: 100%;
-    background: #4a7dbd;
+    background: var(--btn-primary-bg);
     border-radius: 3px;
     transition: width 0.3s ease;
 }
@@ -240,14 +240,14 @@
 .facet-toggle-btn {
     background: none;
     border: none;
-    color: #6c757d;
+    color: var(--sidebar-subtext);
     font-size: 12px;
     cursor: pointer;
     padding: 4px 0;
     margin-top: 2px;
 }
 .facet-toggle-btn:hover {
-    color: #495057;
+    color: var(--sidebar-text);
     text-decoration: underline;
 }
 
@@ -259,8 +259,8 @@
     align-items: center;
 }
 .apply-filters-btn {
-    background: #28a745;
-    color: #fff;
+    background: var(--status-approved);
+    color: var(--btn-primary-color);
     border: none;
     border-radius: 4px;
     padding: 4px 10px;
@@ -277,7 +277,7 @@
 }
 .apply-filters-btn.btn-loading {
     opacity: 0.6;
-    background: #6c757d;
+    background: var(--status-unprocessed);
     cursor: wait;
     pointer-events: none;
     animation: none;
@@ -287,13 +287,13 @@
     50% { box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3); }
 }
 .apply-filters-btn:hover {
-    background: #218838;
+    background: var(--btn-success-bg);
     opacity: 1;
 }
 .reset-filters-btn {
-    background: #fff;
-    color: #6c757d;
-    border: 1px solid #ced4da;
+    background: var(--toggle-btn-bg);
+    color: var(--sidebar-subtext);
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     padding: 4px 8px;
     font-size: 11px;
@@ -303,6 +303,6 @@
     white-space: nowrap;
 }
 .reset-filters-btn:hover {
-    background: #e9ecef;
-    color: #495057;
+    background: var(--filter-badge-bg);
+    color: var(--sidebar-text);
 }

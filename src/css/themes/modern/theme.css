@@ -2,7 +2,7 @@
    This is the current look — clean, minimal, indigo accents.
    No overrides needed since variables.css defines these as defaults. */
 
-[data-theme="modern"] {
+body[data-theme="modern"] {
     /* Already the default — listed here for completeness */
     --page-bg: #f0f2f5;
     --sidebar-bg: #ffffff;

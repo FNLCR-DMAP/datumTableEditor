@@ -46,13 +46,18 @@ Repository = "https://github.com/yourusername/dmapTableEditor"
 
 # Explicit package mapping: import as dmapTableEditor, code lives in src/
 [tool.setuptools]
-packages = ["dmapTableEditor", "dmapTableEditor.adapter", "dmapTableEditor.commute", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.server", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
+packages = ["dmapTableEditor", "dmapTableEditor.adapter", "dmapTableEditor.commute", "dmapTableEditor.config", "dmapTableEditor.css", "dmapTableEditor.css.themes", "dmapTableEditor.css.themes.classic", "dmapTableEditor.css.themes.modern", "dmapTableEditor.css.themes.dark", "dmapTableEditor.css.themes.eye-protection", "dmapTableEditor.data", "dmapTableEditor.db", "dmapTableEditor.js", "dmapTableEditor.processing", "dmapTableEditor.server", "dmapTableEditor.utils", "dmapTableEditor.widgets"]
 
 [tool.setuptools.package-dir]
 dmapTableEditor = "src"
 "dmapTableEditor.adapter" = "src/adapter"
 "dmapTableEditor.config" = "src/config"
 "dmapTableEditor.css" = "src/css"
+"dmapTableEditor.css.themes" = "src/css/themes"
+"dmapTableEditor.css.themes.classic" = "src/css/themes/classic"
+"dmapTableEditor.css.themes.modern" = "src/css/themes/modern"
+"dmapTableEditor.css.themes.dark" = "src/css/themes/dark"
+"dmapTableEditor.css.themes.eye-protection" = "src/css/themes/eye-protection"
 "dmapTableEditor.data" = "src/data"
 "dmapTableEditor.db" = "src/db"
 "dmapTableEditor.js" = "src/js"
@@ -63,3 +68,4 @@ dmapTableEditor = "src"
 
 [tool.setuptools.package-data]
 "*" = ["*.css", "*.js", "*.json"]
+"dmapTableEditor.css" = ["**/*.css"]

@@ -2,7 +2,7 @@
    Warm tones, reduced blue light, low contrast, gentle on the eyes.
    Beige/sepia-tinted backgrounds with muted accents. */
 
-[data-theme="eye-protection"] {
+body[data-theme="eye-protection"] {
     /* Typography */
     --font-family: "Georgia", "Cambria", "Times New Roman", serif;
 

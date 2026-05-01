@@ -1,7 +1,7 @@
 /* Dark Mode Theme
    True dark surfaces, reduced brightness, softer accent colors. */
 
-[data-theme="dark"] {
+body[data-theme="dark"] {
     /* Page background */
     --page-bg: #0f1419;
 
@@ -35,7 +35,7 @@
     --table-row-alt-bg: #1f2537;
     --table-row-hover-bg: #252d40;
     --table-cell-border: #2d3748;
-    --table-cell-color: #d1d5db;
+    --table-cell-color: #ffffff;
     --table-cell-edited-bg: #3b2f1a;
     --table-cell-edited-border: #d97706;
 
@@ -110,22 +110,22 @@
 }
 
 /* Dark mode specific overrides for elements with hardcoded colors */
-[data-theme="dark"] .modal-draggable-col,
-[data-theme="dark"] .current-col-tag {
+body[data-theme="dark"] .modal-draggable-col,
+body[data-theme="dark"] .current-col-tag {
     background: #3d4760 !important;
     color: #e2e8f0 !important;
 }
-[data-theme="dark"] .add-col-tag {
+body[data-theme="dark"] .add-col-tag {
     background: #242b3d !important;
     color: #c4cdd8 !important;
 }
-[data-theme="dark"] .header-dropdown {
+body[data-theme="dark"] .header-dropdown {
     background: #242b3d;
     border-color: #3d4760;
 }
-[data-theme="dark"] .header-dropdown .dropdown-item {
+body[data-theme="dark"] .header-dropdown .dropdown-item {
     color: #c4cdd8;
 }
-[data-theme="dark"] .header-dropdown .dropdown-item:hover {
+body[data-theme="dark"] .header-dropdown .dropdown-item:hover {
     background: #2d3548;
 }

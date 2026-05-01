@@ -9,25 +9,25 @@
 .log-container {
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #ddd;
+    border: 1px solid var(--log-border);
     border-radius: 5px;
     padding: 10px;
-    background: #fafafa;
+    background: var(--log-bg);
 }
 .log-entry {
     padding: 8px;
     margin-bottom: 8px;
-    border-left: 3px solid #2196F3;
-    background-color: #f0f7ff;
+    border-left: 3px solid var(--btn-primary-bg);
+    background-color: var(--filter-badge-bg);
     border-radius: 3px;
     font-size: 12px;
 }
 .log-entry .timestamp {
     font-weight: bold;
-    color: #1565c0;
+    color: var(--btn-primary-bg);
 }
 .log-entry .change-detail {
-    color: #666;
+    color: var(--sidebar-subtext);
     margin-top: 4px;
     font-family: monospace;
     font-size: 11px;

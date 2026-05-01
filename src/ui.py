@@ -8,17 +8,8 @@ from pathlib import Path
 
 
 def _load_css_files() -> str:
-    """Load all CSS files from src/css directory including theme variables"""
+    """Load component CSS files (no theme variables — those are applied inline on document.body)"""
     css_dir = Path(__file__).parent / "css"
-    
-    # Load theme variables first (defines :root defaults)
-    theme_files = [
-        "themes/variables.css",
-        "themes/modern/theme.css",
-        "themes/classic/theme.css",
-        "themes/eye-protection/theme.css",
-        "themes/dark/theme.css",
-    ]
     
     css_files = [
         "layout.css",
@@ -32,13 +23,62 @@ def _load_css_files() -> str:
     ]
     
     combined_css = []
-    for css_file in theme_files + css_files:
+    for css_file in css_files:
         css_path = css_dir / css_file
         if css_path.exists():
             combined_css.append(f"/* === {css_file} === */")
             combined_css.append(css_path.read_text())
     
+    # Also load dark-mode specific overrides (non-variable rules)
+    dark_extra = css_dir / "themes" / "dark" / "theme.css"
+    if dark_extra.exists():
+        content = dark_extra.read_text()
+        # Extract only the non-variable rules (after the closing } of the variable block)
+        parts = content.split("/* Dark mode specific overrides")
+        if len(parts) > 1:
+            combined_css.append("/* === dark mode overrides === */")
+            combined_css.append("/* Dark mode specific overrides" + parts[1])
+    
     return "\n".join(combined_css)
+
+
+def _build_theme_styles() -> dict:
+    """Parse theme CSS files and build inline style strings for each theme.
+    
+    The CSS files (variables.css + each theme.css) are the single source of truth.
+    This function extracts --variable: value pairs and returns them as inline style strings.
+    """
+    import re
+    css_dir = Path(__file__).parent / "css" / "themes"
+    
+    def _parse_vars(css_text: str) -> dict:
+        """Extract all --variable: value pairs from a CSS block."""
+        variables = {}
+        for match in re.finditer(r'(--[\w-]+)\s*:\s*([^;]+);', css_text):
+            variables[match.group(1)] = match.group(2).strip()
+        return variables
+    
+    def _vars_to_inline(variables: dict) -> str:
+        """Convert a dict of CSS variables to an inline style string."""
+        return " ".join(f"{k}: {v};" for k, v in variables.items())
+    
+    # Base/default variables (from variables.css — these are the "classic" values)
+    base_vars = _parse_vars((css_dir / "variables.css").read_text())
+    
+    # Each theme file overrides some or all base variables
+    themes = {}
+    theme_dirs = ["classic", "modern", "eye-protection", "dark"]
+    for theme_name in theme_dirs:
+        theme_file = css_dir / theme_name / "theme.css"
+        if theme_file.exists():
+            theme_vars = _parse_vars(theme_file.read_text())
+            # Merge: base + theme overrides
+            merged = {**base_vars, **theme_vars}
+            themes[theme_name] = _vars_to_inline(merged)
+        else:
+            themes[theme_name] = _vars_to_inline(base_vars)
+    
+    return themes
 
 
 def _load_js_files() -> str:
@@ -100,6 +140,9 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     theme = app_config.theme or "classic"
     clean_slate = app_config.clean_slate
     
+    # Build theme variable maps (parsed from CSS files)
+    theme_styles = _build_theme_styles()
+    
     # Status labels from config
     status_labels = app_config.status_labels
     status_choices = {k: v for k, v in status_labels.items()}
@@ -112,42 +155,45 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             style="display: none; visibility: hidden; position: absolute; left: -9999px;"
         ),
         
+        # Custom CSS injected in body to override Shiny/Bootstrap defaults
+        ui.tags.style(_load_css_files()),
+        
         ui.head_content(
             ui.tags.title(app_title),
-            ui.tags.style(_load_css_files()),
             ui.tags.script(_load_js_files()),
-            # Apply theme to document root
+            # Theme engine: stores all theme variable strings in JS, swaps inline style on document.body
             ui.tags.script(f"""
-                document.documentElement.setAttribute('data-theme', '{theme}');
+                window._themeStyles = {repr(theme_styles)};
                 window._currentTheme = '{theme}';
                 window._configTheme = '{theme}';
                 window.setTheme = function(name) {{
-                    document.documentElement.setAttribute('data-theme', name);
+                    if (window._themeStyles[name]) {{
+                        document.body.style.cssText = window._themeStyles[name];
+                    }}
                     window._currentTheme = name;
                     localStorage.setItem('dmap-theme', name);
-                    // Update theme selector if present
                     var sel = document.getElementById('theme-selector');
                     if (sel) sel.value = name;
                 }};
-                // Restore user preference only if config hasn't changed
-                (function() {{
+                document.addEventListener('DOMContentLoaded', function() {{
                     var saved = localStorage.getItem('dmap-theme');
                     var configTheme = '{theme}';
                     var lastConfig = localStorage.getItem('dmap-theme-config');
-                    // Only apply saved preference if config hasn't changed since last visit
+                    var activeTheme = configTheme;
                     if (saved && lastConfig === configTheme) {{
-                        document.documentElement.setAttribute('data-theme', saved);
-                        window._currentTheme = saved;
+                        activeTheme = saved;
                     }} else {{
-                        // Config changed — clear stale preference, use new config
                         localStorage.removeItem('dmap-theme');
                         localStorage.setItem('dmap-theme-config', configTheme);
                     }}
-                }})();
-                // Sync dropdown on DOM ready
-                document.addEventListener('DOMContentLoaded', function() {{
+                    window.setTheme(activeTheme);
                     var sel = document.getElementById('theme-selector');
-                    if (sel) sel.value = window._currentTheme;
+                    if (sel) {{
+                        sel.value = activeTheme;
+                        sel.addEventListener('change', function() {{
+                            setTheme(this.value);
+                        }});
+                    }}
                 }});
             """),
             # Namespace helper script - must be after the main JS files
@@ -348,7 +394,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ui.div(
                         ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success") if enable_save_button else None,
                         ui.tags.button("Export Selected", class_="btn btn-sm btn-info", onclick="openExportConfirmModal(event, 'selected')") if enable_export else None,
-                        ui.tags.button("Export All", class_="btn btn-sm btn-outline-info", onclick="openExportConfirmModal(event, 'all')") if enable_export else None,
+                        ui.tags.button("Export All", class_="btn btn-sm export-all-btn", onclick="openExportConfirmModal(event, 'all')") if enable_export else None,
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success") if enable_approval_workflow else None,
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),
@@ -406,13 +452,13 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         ui.tags.button("Mod Log", class_="mod-log-btn", onclick="openLogModal(event)"),
                         # Theme selector
                         ui.tags.select(
-                            ui.tags.option("Modern", value="modern"),
-                            ui.tags.option("Classic", value="classic"),
-                            ui.tags.option("Eye Protection", value="eye-protection"),
-                            ui.tags.option("Dark", value="dark"),
+                            ui.tags.option("Modern", value="modern", selected="selected" if theme == "modern" else None),
+                            ui.tags.option("Classic", value="classic", selected="selected" if theme == "classic" else None),
+                            ui.tags.option("Eye Protection", value="eye-protection", selected="selected" if theme == "eye-protection" else None),
+                            ui.tags.option("Dark", value="dark", selected="selected" if theme == "dark" else None),
                             id="theme-selector",
                             onchange="setTheme(this.value)",
-                            style="padding: 4px 8px; font-size: 11px; border: 1px solid #ced4da; border-radius: 4px; background: #ffffff; color: #495057; cursor: pointer;",
+                            class_="theme-selector",
                             title="Color Theme"
                         ),
                         class_="toolbar-right"
