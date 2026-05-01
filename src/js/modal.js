@@ -453,7 +453,24 @@ let currentFilterModalContext = null;
 window.openAddFilterModal = function(event) {
     currentFilterModalContext = event ? event.target : document.activeElement;
     var modal = findModalInContext(currentFilterModalContext, 'add-filter-modal');
-    if (modal) modal.classList.add('show');
+    if (modal) {
+        modal.classList.add('show');
+        // Focus search box if present
+        var searchBox = modal.querySelector('.filter-col-search');
+        if (searchBox) {
+            setTimeout(function() { searchBox.focus(); searchBox.value = ''; _filterColumnList(''); }, 50);
+        }
+    }
+};
+
+window._filterColumnList = function(term) {
+    var modal = findModalInContext(currentFilterModalContext, 'add-filter-modal');
+    if (!modal) return;
+    var buttons = modal.querySelectorAll('.btn-block');
+    var lower = (term || '').toLowerCase();
+    buttons.forEach(function(btn) {
+        btn.style.display = btn.textContent.toLowerCase().indexOf(lower) !== -1 ? '' : 'none';
+    });
 };
 
 window.closeAddFilterModal = function() {

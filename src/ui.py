@@ -469,7 +469,13 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             class_="modal-header"
                         ),
                         ui.div(
-                            ui.p("Select a column to filter by:", style="margin-bottom: 15px;"),
+                            ui.tags.input(
+                                type="text",
+                                placeholder="Search columns...",
+                                class_="form-control form-control-sm filter-col-search",
+                                oninput="_filterColumnList(this.value)",
+                                style="margin-bottom: 10px; font-size: 12px;"
+                            ),
                             ui.output_ui("available_filter_columns"),
                             class_="modal-body"
                         ),
