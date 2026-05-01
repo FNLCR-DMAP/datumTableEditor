@@ -149,7 +149,7 @@ class LpLimsDataProvider:
                 op = val.get("op", "in")
                 inner = val.get("value")
 
-                if op == "between" and isinstance(inner, list):
+                if op in ("between", "value_range") and isinstance(inner, list):
                     start = inner[0] if len(inner) > 0 and inner[0] else None
                     end = inner[1] if len(inner) > 1 and inner[1] else None
                     date_ranges.append(DateRangeFilter(column=col, start=start, end=end))

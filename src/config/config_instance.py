@@ -803,7 +803,7 @@ class DataFetcher:
         Filter values can be:
           - A string or list of strings: exact match (= / IN)
           - An operator dict {"op": "...", "value": ...}: rich operator
-            Supported ops: in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
+            Supported ops: in, not_in, contains, not_contains, between, value_range, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
         
         Args:
             params: Query parameters
@@ -891,7 +891,7 @@ class DataFetcher:
                             parts = [f'{col_e} NOT ILIKE {SqlLiteral(f"%{t}%")}' for t in targets]
                             conditions.append(f'({" AND ".join(parts)})' if len(parts) > 1 else parts[0])
                 
-                elif op == "between":
+                elif op in ("between", "value_range"):
                     if isinstance(fval, list) and len(fval) == 2:
                         lo_raw, hi_raw = fval
                         lo_none = lo_raw is None or str(lo_raw).strip() == ""
@@ -1518,7 +1518,7 @@ class DataFetcher:
         - filters_dict: {"column_name": ["value1", "value2"]} for simple IN filters
         - tab_filters: TabFilters object for date ranges, exclusions, etc.
 
-        LP LIMS expects date "between" as tab_filters.date_ranges with
+        LP LIMS expects date "between" (or "value_range") as tab_filters.date_ranges with
         start/end in YYYY-MM-DD format.
         """
         from ..adapter.lp_lims import TabFilters, DateRangeFilter
@@ -1536,7 +1536,7 @@ class DataFetcher:
                 op = val.get("op", "in")
                 inner = val.get("value")
 
-                if op == "between" and isinstance(inner, list):
+                if op in ("between", "value_range") and isinstance(inner, list):
                     # Route to tab_filters.date_ranges
                     start = inner[0] if len(inner) > 0 and inner[0] else None
                     end = inner[1] if len(inner) > 1 and inner[1] else None

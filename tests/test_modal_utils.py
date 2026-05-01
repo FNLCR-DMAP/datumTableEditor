@@ -423,7 +423,7 @@ class TestDynamicFilterOperatorDropdown:
         html = str(result)
 
         for op_value in ["in", "not_in", "contains", "not_contains", "gt", "gte",
-                         "lt", "lte", "between", "regex", "not_empty", "last_n_days"]:
+                         "lt", "lte", "between", "value_range", "regex", "not_empty", "last_n_days"]:
             assert f'value="{op_value}"' in html, f"Missing operator option: {op_value}"
 
     def test_preselects_operator(self):
@@ -684,7 +684,7 @@ class TestDatePickerUI:
     """Tests for date picker rendering in build_dynamic_filter_element."""
 
     def test_between_renders_two_date_inputs(self):
-        """Between op with is_date should render two <input type=date>."""
+        """between op should render two <input type=date>."""
         from src.utils.modal_utils import build_dynamic_filter_element
 
         result = build_dynamic_filter_element(
@@ -800,11 +800,11 @@ class TestDatePickerUI:
         assert "display: none" in html
 
     def test_non_date_column_renders_textarea(self):
-        """Non-date column should always render textarea."""
+        """Non-date column with contains op should render textarea."""
         from src.utils.modal_utils import build_dynamic_filter_element
 
         result = build_dynamic_filter_element(
-            "Name", ["all", "A", "B"], "", current_op="between", is_date=False
+            "Name", ["all", "A", "B"], "", current_op="contains", is_date=False
         )
         html = str(result)
 
@@ -852,12 +852,12 @@ class TestDateColumnsInPanel:
 
         assert 'type="date"' in html
 
-    def test_non_date_column_renders_textarea(self):
-        """Column NOT in date_columns should get textarea."""
+    def test_non_date_column_with_contains_renders_textarea(self):
+        """Column with non-date operator (contains) should get textarea."""
         from src.utils.modal_utils import build_dynamic_filters_panel
 
         df = pd.DataFrame({"Name": ["Alice", "Bob"]})
-        filters = {"Name": {"op": "between", "value": [], "interactive": True}}
+        filters = {"Name": {"op": "contains", "value": "Ali", "interactive": True}}
         result = build_dynamic_filters_panel(filters, df, date_columns=set())
         html = str(result)
 

@@ -232,7 +232,7 @@ def register_filters(ctx: ServerContext):
         filters = pending_filters.get().copy()
         old = filters.get(col_name)
 
-        is_between = isinstance(old, dict) and old.get("op") == "between"
+        is_between = isinstance(old, dict) and old.get("op") in ("between", "value_range")
 
         _is_date_col = False
         if is_lazy_loading() and hasattr(config, 'data_fetcher'):

@@ -323,6 +323,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "is": "in", "is not": "not_in",
         "contains": "contains", "does not contain": "not_contains",
         "between": "between",
+        "value range": "value_range", "value_range": "value_range",
         ">": "gt", "≥": "gte", ">=": "gte",
         "<": "lt", "≤": "lte", "<=": "lte",
         "matches regex": "regex", "matches": "regex",
@@ -1276,7 +1277,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         old = filters.get(col_name)
         
         # Determine if this is a between-type operator filter
-        is_between = isinstance(old, dict) and old.get("op") == "between"
+        is_between = isinstance(old, dict) and old.get("op") in ("between", "value_range")
         
         # Detect date columns for auto-promoting to "between" operator
         _is_date_col = False

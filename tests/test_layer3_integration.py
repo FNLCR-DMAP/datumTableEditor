@@ -1075,7 +1075,7 @@ class TestDateFilterIntegration:
         return lambda idx: "unprocessed"
 
     def test_date_between_filters_then_renders_panel(self, date_df, status_func):
-        """Between filter on date column should correctly filter rows AND render date picker UI."""
+        """between filter on date column should correctly filter rows AND render date picker UI."""
         from src.utils.filter_utils import get_filtered_rows
         from src.utils.modal_utils import build_dynamic_filters_panel
 
@@ -1188,7 +1188,7 @@ class TestDateFilterIntegration:
         # Values look like dates
         assert _looks_like_dates(["2024-01-01", "2024-06-15", "2024-12-31"]) is True
 
-        # Panel should detect and render date picker (via fallback)
+        # Panel should detect and render date picker (between op is always date)
         filters = {"mystery_col": {"op": "between", "value": [], "interactive": True}}
         html = str(build_dynamic_filters_panel(filters, df, date_columns=set()))
         assert 'type="date"' in html

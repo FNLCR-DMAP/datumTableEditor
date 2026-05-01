@@ -6,7 +6,7 @@ Supports two filter value formats:
   - Operator dict: {"op": "not_contains", "value": "RT"} → rich operator
 
 Supported operators:
-  in, not_in, contains, not_contains, between, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
+  in, not_in, contains, not_contains, between, value_range, gt, gte, lt, lte, last_n_days, not_empty, is_null, regex
 """
 
 import re
@@ -24,6 +24,7 @@ OPERATOR_LABELS = {
     "contains": "contains",
     "not_contains": "does not contain",
     "between": "between",
+    "value_range": "value range",
     "gt": ">",
     "gte": "≥",
     "lt": "<",
@@ -77,7 +78,7 @@ def _row_matches_operator(row_value_raw: Any, filter_def: dict) -> bool:
         targets = fval if isinstance(fval, list) else [fval]
         return all(str(t).lower() not in row_str.lower() for t in targets if t)
     
-    elif op == "between":
+    elif op in ("between", "value_range"):
         if isinstance(fval, list) and len(fval) == 2:
             lo_raw, hi_raw = fval
             lo_none = lo_raw is None or str(lo_raw).strip() == ""

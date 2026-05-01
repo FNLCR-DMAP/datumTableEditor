@@ -190,7 +190,7 @@ def build_operator_filter_element(col_name: str, filter_def: dict, fix_filter: b
     elif op == "last_n_days":
         value_display = f"{value} days"  # show "7 days"
     elif isinstance(value, list):
-        if op == "between" and len(value) == 2:
+        if op in ("between", "value_range") and len(value) == 2:
             value_display = f"{value[0]}  →  {value[1]}"
         else:
             value_display = ", ".join(str(v) for v in value)
@@ -256,6 +256,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
         ("lt", "<"),
         ("lte", "≤"),
         ("between", "between"),
+        ("value_range", "value range"),
         ("regex", "matches regex"),
         ("not_empty", "is not empty"),
         ("is_null", "is null"),
@@ -285,40 +286,74 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
     # Shared attributes for date inputs when locked
     _date_disabled = {"disabled": "disabled"} if fix_filter else {}
 
-    if is_date and current_op not in ("not_empty", "is_null"):
-        # Parse existing date values
+    if current_op == "between":
+        # Two date pickers for date range (between is always date)
+        date_vals = [v.strip()[:10] for v in display_value.split('\n') if v.strip()] if display_value else []
+        date_from = date_vals[0] if len(date_vals) > 0 else ""
+        date_to = date_vals[1] if len(date_vals) > 1 else ""
+        value_area = ui.div(
+            ui.div(
+                ui.tags.label("From", style="font-size: 11px; color: #6c757d; margin-right: 4px;"),
+                ui.tags.input(
+                    type="date", value=date_from,
+                    class_="form-control form-control-sm filter-date-input",
+                    style="font-size: 12px;",
+                    onchange=f"applyDateFilter('{safe_col_name}', event)",
+                    **{"data-column": col_name, "data-role": "from", **_date_disabled}
+                ),
+                style="display: flex; align-items: center; margin-bottom: 4px;"
+            ),
+            ui.div(
+                ui.tags.label("To", style="font-size: 11px; color: #6c757d; margin-right: 16px;"),
+                ui.tags.input(
+                    type="date", value=date_to,
+                    class_="form-control form-control-sm filter-date-input",
+                    style="font-size: 12px;",
+                    onchange=f"applyDateFilter('{safe_col_name}', event)",
+                    **{"data-column": col_name, "data-role": "to", **_date_disabled}
+                ),
+                style="display: flex; align-items: center;"
+            ),
+            style="padding: 4px 0;"
+        )
+    elif current_op == "value_range":
+        # Two text inputs for value range (numeric/text)
+        range_vals = [v.strip() for v in display_value.split('\n') if v.strip()] if display_value else []
+        range_from = range_vals[0] if len(range_vals) > 0 else ""
+        range_to = range_vals[1] if len(range_vals) > 1 else ""
+        _range_disabled = {"disabled": "disabled"} if fix_filter else {}
+        value_area = ui.div(
+            ui.div(
+                ui.tags.label("From", style="font-size: 11px; color: #6c757d; margin-right: 4px;"),
+                ui.tags.input(
+                    type="text", value=range_from,
+                    class_="form-control form-control-sm filter-date-input",
+                    style="font-size: 12px;",
+                    placeholder="min",
+                    onchange=f"applyDateFilter('{safe_col_name}', event)",
+                    **{"data-column": col_name, "data-role": "from", **_range_disabled}
+                ),
+                style="display: flex; align-items: center; margin-bottom: 4px;"
+            ),
+            ui.div(
+                ui.tags.label("To", style="font-size: 11px; color: #6c757d; margin-right: 16px;"),
+                ui.tags.input(
+                    type="text", value=range_to,
+                    class_="form-control form-control-sm filter-date-input",
+                    style="font-size: 12px;",
+                    placeholder="max",
+                    onchange=f"applyDateFilter('{safe_col_name}', event)",
+                    **{"data-column": col_name, "data-role": "to", **_range_disabled}
+                ),
+                style="display: flex; align-items: center;"
+            ),
+            style="padding: 4px 0;"
+        )
+    elif is_date and current_op not in ("not_empty", "is_null"):
+        # Date column with non-range date ops (gt, gte, lt, lte, last_n_days)
         date_vals = [v.strip()[:10] for v in display_value.split('\n') if v.strip()] if display_value else []
         
-        if current_op == "between":
-            # Two date pickers for range
-            date_from = date_vals[0] if len(date_vals) > 0 else ""
-            date_to = date_vals[1] if len(date_vals) > 1 else ""
-            value_area = ui.div(
-                ui.div(
-                    ui.tags.label("From", style="font-size: 11px; color: #6c757d; margin-right: 4px;"),
-                    ui.tags.input(
-                        type="date", value=date_from,
-                        class_="form-control form-control-sm filter-date-input",
-                        style="font-size: 12px;",
-                        onchange=f"applyDateFilter('{safe_col_name}', event)",
-                        **{"data-column": col_name, "data-role": "from", **_date_disabled}
-                    ),
-                    style="display: flex; align-items: center; margin-bottom: 4px;"
-                ),
-                ui.div(
-                    ui.tags.label("To", style="font-size: 11px; color: #6c757d; margin-right: 16px;"),
-                    ui.tags.input(
-                        type="date", value=date_to,
-                        class_="form-control form-control-sm filter-date-input",
-                        style="font-size: 12px;",
-                        onchange=f"applyDateFilter('{safe_col_name}', event)",
-                        **{"data-column": col_name, "data-role": "to", **_date_disabled}
-                    ),
-                    style="display: flex; align-items: center;"
-                ),
-                style="padding: 4px 0;"
-            )
-        elif current_op == "last_n_days":
+        if current_op == "last_n_days":
             # Number input for "within last N days"
             n_val = ""
             if date_vals:
@@ -360,7 +395,7 @@ def build_dynamic_filter_element(col_name: str, unique_values: list, current_val
             # in / not_in / contains / etc → fall through to textarea
             is_date = False
     
-    if not is_date or current_op in ("not_empty", "is_null"):
+    if (not is_date or current_op in ("not_empty", "is_null")) and current_op not in ("between", "value_range"):
         # Standard textarea with edit/confirm and ⋮ buttons
         if fix_filter:
             # Locked mode: read-only textarea, no edit/values buttons
@@ -479,10 +514,21 @@ def build_dynamic_filters_panel(
             else:
                 unique_values = ["all"]
             
+            # Determine if this is a date column:
+            # 1. Explicitly in date_columns set
+            # 2. Operator is between (always date) or date-oriented ops with date-like values
+            # 3. Values look like dates
+            col_is_date = (
+                col_name in date_columns
+                or op == "between"
+                or (op in ("gt", "gte", "lt", "lte", "last_n_days") and _looks_like_dates([str(v) for v in (raw_val if isinstance(raw_val, list) else [raw_val]) if v]))
+                or _looks_like_dates(unique_values[1:])
+            )
+            
             filter_elements.append(build_dynamic_filter_element(
                 col_name, unique_values, display_val,
                 fix_filter=fix_filter, column_masks=column_masks, current_op=op,
-                is_date=(col_name in date_columns or _looks_like_dates(unique_values[1:]))
+                is_date=col_is_date
             ))
             continue
         

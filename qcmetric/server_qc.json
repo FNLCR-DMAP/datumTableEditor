@@ -401,27 +401,27 @@
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 125
+          "line": 124
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 174
+          "line": 173
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 185
+          "line": 184
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 192
+          "line": 191
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 206
+          "line": 205
         }
       ]
     },
@@ -487,37 +487,37 @@
         {
           "type": "return",
           "function": "dynamic_filters",
-          "line": 96
+          "line": 97
         },
         {
           "type": "return",
           "function": "add_filter_btn_ui",
-          "line": 126
+          "line": 127
         },
         {
           "type": "return",
           "function": "available_filter_columns",
-          "line": 138
+          "line": 139
         },
         {
           "type": "return",
           "function": "_add_filter",
-          "line": 152
+          "line": 153
         },
         {
           "type": "return",
           "function": "_remove_filter",
-          "line": 163
+          "line": 165
         },
         {
           "type": "return",
           "function": "_set_filter_operator",
-          "line": 173
+          "line": 176
         },
         {
           "type": "return",
           "function": "_apply_filter_value",
-          "line": 215
+          "line": 219
         }
       ]
     },
