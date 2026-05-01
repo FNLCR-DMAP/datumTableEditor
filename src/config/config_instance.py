@@ -297,13 +297,20 @@ class DataFetcher:
         if self.app_config.database.mode != "datum":
             return False
         if self._datum_client is None:
-            # Attempt late initialization
+            # Attempt late initialization — always create client in datum mode
             from ..adapter.datum import DatumClient
             base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
             if base_url and token:
                 self._datum_client = DatumClient(base_url=base_url, token=token)
-        return True
+            else:
+                print(f"⚠ [DataFetcher] Datum mode but credentials missing: base_url={bool(base_url)}, token={bool(token)}")
+                print(f"   DATUM_BASE_URL env: {bool(os.environ.get('DATUM_BASE_URL'))}, DATUM_API_TOKEN env: {bool(os.environ.get('DATUM_API_TOKEN'))}")
+                print(f"   config.datum_base_url: {bool(self.app_config.database.datum_base_url)}")
+                # Force creation with whatever we have — let the API call fail with a clear error
+                if base_url:
+                    self._datum_client = DatumClient(base_url=base_url, token=token or "MISSING")
+        return self._datum_client is not None
 
     def __post_init__(self):
         """Initialize database connection and get initial count."""
@@ -326,6 +333,10 @@ class DataFetcher:
             token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
             if base_url and token:
                 self._datum_client = DatumClient(base_url=base_url, token=token)
+            else:
+                print(f"⚠ [DataFetcher._init_connection] Datum mode but no client created: base_url={bool(base_url)}, token={bool(token)}")
+                print(f"   config.datum_base_url='{self.app_config.database.datum_base_url}'")
+                print(f"   env DATUM_BASE_URL={bool(os.environ.get('DATUM_BASE_URL'))}, env DATUM_API_TOKEN={bool(os.environ.get('DATUM_API_TOKEN'))}")
         else:
             from sqlalchemy import create_engine
             conn_string = self.app_config.database.connection_string
