@@ -157,6 +157,7 @@ class TableConfig:
     # Column presets
     presets_enabled: bool = True
     presets_file_path: Optional[str] = None
+    presets_table: Optional[str] = None
     default_preset: str = "Default"
     
     # Clickable columns (emit cell_click event on click)
@@ -448,6 +449,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.readonly_columns = tb.get("readonly_columns", config.table.readonly_columns)
         config.table.presets_enabled = tb.get("presets_enabled", config.table.presets_enabled)
         config.table.presets_file_path = tb.get("presets_file_path")
+        config.table.presets_table = tb.get("presets_table")
         config.table.default_preset = tb.get("default_preset", config.table.default_preset)
         config.table.column_masks = tb.get("column_masks", config.table.column_masks)
         config.table.cell_click_columns = tb.get("cell_click_columns", config.table.cell_click_columns)

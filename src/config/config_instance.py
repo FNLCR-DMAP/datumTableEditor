@@ -4319,19 +4319,40 @@ class ConfigInstance:
     # =========================================================================
     
     def _get_preset_table_name(self) -> str:
-        """Generate the user preset table name: {data_table_base}_{username}_column_presets"""
-        # Extract base table name (without schema)
+        """Generate the user preset table name.
+        
+        If config.table.presets_table is set, use it as the base:
+            presets_table = "lp_prod.column_presets" → "lp_prod.column_presets_rui_he_nih_gov"
+        Otherwise derive from data_table:
+            data_table = "lp_prod.lims_metadata_3" → "lp_prod.lims_metadata_3_rui_he_nih_gov_column_presets"
+        """
+        safe_username = "".join(c if c.isalnum() else "_" for c in self.username).lower()
+        
+        # If explicit presets_table is configured, use it
+        presets_table = self.app_config.table.presets_table
+        if presets_table:
+            if '.' in presets_table:
+                schema, base = presets_table.rsplit('.', 1)
+                return f"{schema}.{base}_{safe_username}"
+            return f"{presets_table}_{safe_username}"
+        
+        # Derive from data_table
         data_table = self.app_config.database.data_table
         if '.' in data_table:
             base_name = data_table.split('.')[-1]
         else:
             base_name = data_table
-        safe_username = "".join(c if c.isalnum() else "_" for c in self.username).lower()
         
-        # Include schema if present
+        # Include schema if present in data_table
         if '.' in data_table:
             schema = data_table.split('.')[0]
             return f"{schema}.{base_name}_{safe_username}_column_presets"
+        
+        # Fallback: use datum_schema if available
+        datum_schema = self.app_config.database.datum_schema
+        if datum_schema and datum_schema != "public":
+            return f"{datum_schema}.{base_name}_{safe_username}_column_presets"
+        
         return f"{base_name}_{safe_username}_column_presets"
     
     def _ensure_preset_table_exists(self) -> bool:
