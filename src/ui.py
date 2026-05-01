@@ -120,39 +120,35 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
         ui.head_content(
             ui.tags.title(app_title),
             ui.tags.script(_load_js_files()),
-            # Apply theme to document root
+            # Apply theme to body (not html — Shiny controls <html>)
             ui.tags.script(f"""
-                document.documentElement.setAttribute('data-theme', '{theme}');
                 window._currentTheme = '{theme}';
                 window._configTheme = '{theme}';
                 window.setTheme = function(name) {{
-                    document.documentElement.setAttribute('data-theme', name);
+                    document.body.setAttribute('data-theme', name);
                     window._currentTheme = name;
                     localStorage.setItem('dmap-theme', name);
-                    // Update theme selector if present
                     var sel = document.getElementById('theme-selector');
                     if (sel) sel.value = name;
                 }};
-                // Restore user preference only if config hasn't changed
-                (function() {{
+                // On DOM ready: set theme on body and sync dropdown
+                document.addEventListener('DOMContentLoaded', function() {{
+                    // Restore user preference only if config hasn't changed
                     var saved = localStorage.getItem('dmap-theme');
                     var configTheme = '{theme}';
                     var lastConfig = localStorage.getItem('dmap-theme-config');
-                    // Only apply saved preference if config hasn't changed since last visit
+                    var activeTheme = configTheme;
                     if (saved && lastConfig === configTheme) {{
-                        document.documentElement.setAttribute('data-theme', saved);
-                        window._currentTheme = saved;
+                        activeTheme = saved;
                     }} else {{
-                        // Config changed — clear stale preference, use new config
                         localStorage.removeItem('dmap-theme');
                         localStorage.setItem('dmap-theme-config', configTheme);
                     }}
-                }})();
-                // Sync dropdown on DOM ready and bind change event
-                document.addEventListener('DOMContentLoaded', function() {{
+                    document.body.setAttribute('data-theme', activeTheme);
+                    window._currentTheme = activeTheme;
                     var sel = document.getElementById('theme-selector');
                     if (sel) {{
-                        sel.value = window._currentTheme;
+                        sel.value = activeTheme;
                         sel.addEventListener('change', function() {{
                             setTheme(this.value);
                         }});

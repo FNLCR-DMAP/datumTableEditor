@@ -1,9 +1,9 @@
 /* === Theme Variables (Base) ===
    All color/style tokens used across the app.
    Default values match the classic/main-branch look.
-   Theme overrides redefine these under [data-theme="<name>"] */
+   Theme overrides redefine these under body[data-theme="<name>"] */
 
-:root {
+body {
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-size-xs: 11px;
