@@ -8,17 +8,8 @@ from pathlib import Path
 
 
 def _load_css_files() -> str:
-    """Load all CSS files from src/css directory including theme variables"""
+    """Load component CSS files (no theme variables — those go inline on theme-provider div)"""
     css_dir = Path(__file__).parent / "css"
-    
-    # Load theme variables first (defines :root defaults)
-    theme_files = [
-        "themes/variables.css",
-        "themes/modern/theme.css",
-        "themes/classic/theme.css",
-        "themes/eye-protection/theme.css",
-        "themes/dark/theme.css",
-    ]
     
     css_files = [
         "layout.css",
@@ -32,13 +23,147 @@ def _load_css_files() -> str:
     ]
     
     combined_css = []
-    for css_file in theme_files + css_files:
+    for css_file in css_files:
         css_path = css_dir / css_file
         if css_path.exists():
             combined_css.append(f"/* === {css_file} === */")
             combined_css.append(css_path.read_text())
     
+    # Also load dark-mode specific overrides (non-variable rules)
+    dark_extra = css_dir / "themes" / "dark" / "theme.css"
+    if dark_extra.exists():
+        content = dark_extra.read_text()
+        # Extract only the non-variable rules (after the closing } of the variable block)
+        parts = content.split("/* Dark mode specific overrides")
+        if len(parts) > 1:
+            combined_css.append("/* === dark mode overrides === */")
+            combined_css.append("/* Dark mode specific overrides" + parts[1])
+    
     return "\n".join(combined_css)
+
+
+def _build_theme_styles() -> dict:
+    """Build inline style strings for each theme (all CSS variables as inline properties)."""
+    # Classic theme — the base/default
+    classic = (
+        "--font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; "
+        "--font-size-xs: 11px; --font-size-sm: 12px; --font-size-md: 13px; --font-size-lg: 16px; --font-size-xl: 17px; "
+        "--page-bg: white; "
+        "--sidebar-bg: #c5ccd3; --sidebar-color: #343a40; --sidebar-border: #adb5bd; --sidebar-shadow: none; "
+        "--sidebar-heading: #2c3e50; --sidebar-subtext: #6c757d; --sidebar-text: #495057; "
+        "--toolbar-bg: #f8f9fa; --toolbar-border: #dee2e6; --toolbar-shadow: none; "
+        "--toolbar-btn-bg: #ffffff; --toolbar-btn-border: #ced4da; --toolbar-btn-color: #495057; --toolbar-btn-hover-bg: #e9ecef; "
+        "--table-bg: white; --table-border: #ddd; --table-radius: 5px; --table-shadow: none; "
+        "--table-header-bg: #495057; --table-header-color: #ffffff; --table-header-border: #343a40; "
+        "--table-row-bg: #f5f7f9; --table-row-alt-bg: #c4d4e3; --table-row-hover-bg: #d0e8f0; "
+        "--table-cell-border: #ddd; --table-cell-color: #212529; "
+        "--table-cell-edited-bg: #FFF8DC; --table-cell-edited-border: #8B4513; "
+        "--status-unprocessed: #6c757d; --status-edited: #8B4513; --status-approved: #28a745; --status-rejected: #dc3545; "
+        "--pagination-bg: #f8f9fa; --pagination-border: #dee2e6; --pagination-btn-bg: #ffffff; "
+        "--pagination-btn-border: #dee2e6; --pagination-btn-color: #495057; --pagination-btn-hover-bg: #e9ecef; "
+        "--pagination-btn-active-bg: #495057; --pagination-btn-active-color: #ffffff; --pagination-info-color: #495057; "
+        "--modal-overlay-bg: #000000; --modal-bg: #ffffff; --modal-radius: 8px; "
+        "--modal-shadow: 0 4px 20px rgba(0,0,0,0.4); --modal-header-border: #dee2e6; --modal-header-color: #212529; "
+        "--input-bg: #ffffff; --input-border: #ced4da; --input-color: #495057; "
+        "--input-focus-border: #80bdff; --input-placeholder: #6c757d; "
+        "--btn-primary-bg: #007bff; --btn-primary-color: #ffffff; --btn-primary-hover-bg: #0069d9; "
+        "--btn-success-bg: #28a745; --btn-success-color: #ffffff; "
+        "--btn-danger-bg: #dc3545; --btn-danger-color: #ffffff; "
+        "--toggle-btn-bg: #ffffff; --toggle-btn-border: #ced4da; --toggle-btn-color: #495057; --toggle-btn-hover-bg: #e9ecef; "
+        "--scrollbar-track: #f1f1f1; --scrollbar-thumb: #adb5bd; --scrollbar-thumb-hover: #6c757d; "
+        "--histogram-track: #d0d5db; "
+        "--filter-badge-bg: #e9ecef; --filter-badge-color: #495057; "
+        "--log-bg: #ffffff; --log-border: #dee2e6; --log-item-border: #f1f1f1; --log-text: #212529; "
+        "--synthesis-bg: #ffc107; --synthesis-border: #e0a800; --synthesis-color: #856404; --synthesis-banner-bg: #fff3cd; "
+        "--status-approved-banner-bg: #e8f5e9; --status-rejected-banner-bg: #ffebee;"
+    )
+    
+    # Modern — override only what differs from classic
+    modern = classic.replace("--page-bg: white", "--page-bg: #f0f2f5")
+    modern = modern.replace("--sidebar-bg: #c5ccd3", "--sidebar-bg: #ffffff")
+    modern = modern.replace("--table-header-bg: #495057", "--table-header-bg: #1e293b")
+    modern = modern.replace("--table-header-color: #ffffff", "--table-header-color: #f1f5f9")
+    modern = modern.replace("--table-header-border: #343a40", "--table-header-border: #334155")
+    modern = modern.replace("--btn-primary-bg: #007bff", "--btn-primary-bg: #6366f1")
+    modern = modern.replace("--table-radius: 5px", "--table-radius: 12px")
+    modern = modern.replace("--modal-radius: 8px", "--modal-radius: 16px")
+    
+    # Eye Protection — full override
+    eye_protection = (
+        "--font-family: Georgia, Cambria, 'Times New Roman', serif; "
+        "--font-size-xs: 11px; --font-size-sm: 12px; --font-size-md: 13px; --font-size-lg: 16px; --font-size-xl: 17px; "
+        "--page-bg: #f5f0e8; "
+        "--sidebar-bg: #faf7f2; --sidebar-color: #3d3328; --sidebar-border: #e8e0d4; "
+        "--sidebar-shadow: 1px 0 6px rgba(80,60,30,0.05); "
+        "--sidebar-heading: #3d3328; --sidebar-subtext: #8c7b68; --sidebar-text: #5c4e3e; "
+        "--toolbar-bg: #faf7f2; --toolbar-border: #e8e0d4; --toolbar-shadow: 0 1px 3px rgba(80,60,30,0.04); "
+        "--toolbar-btn-bg: #faf7f2; --toolbar-btn-border: #e0d8cc; --toolbar-btn-color: #5c4e3e; --toolbar-btn-hover-bg: #f0ebe3; "
+        "--table-bg: #fefcf8; --table-border: #e8e0d4; --table-radius: 10px; --table-shadow: 0 1px 3px rgba(80,60,30,0.05); "
+        "--table-header-bg: #5c4e3e; --table-header-color: #faf7f2; --table-header-border: #4a3f33; "
+        "--table-row-bg: #fefcf8; --table-row-alt-bg: #f9f5ee; --table-row-hover-bg: #f4ede3; "
+        "--table-cell-border: #f0ebe3; --table-cell-color: #3d3328; "
+        "--table-cell-edited-bg: #fef9e7; --table-cell-edited-border: #a08050; "
+        "--status-unprocessed: #a89880; --status-edited: #c49030; --status-approved: #5a9060; --status-rejected: #b85040; "
+        "--pagination-bg: #faf7f2; --pagination-border: #e8e0d4; --pagination-btn-bg: #faf7f2; "
+        "--pagination-btn-border: #e0d8cc; --pagination-btn-color: #5c4e3e; --pagination-btn-hover-bg: #f0ebe3; "
+        "--pagination-btn-active-bg: #7a6b58; --pagination-btn-active-color: #faf7f2; --pagination-info-color: #8c7b68; "
+        "--modal-overlay-bg: rgba(60,48,30,0.35); --modal-bg: #faf7f2; --modal-radius: 14px; "
+        "--modal-shadow: 0 16px 48px rgba(60,48,30,0.12); --modal-header-border: #e8e0d4; --modal-header-color: #3d3328; "
+        "--input-bg: #fefcf8; --input-border: #e0d8cc; --input-color: #3d3328; "
+        "--input-focus-border: #7a6b58; --input-placeholder: #b0a090; "
+        "--btn-primary-bg: #7a6b58; --btn-primary-color: #faf7f2; --btn-primary-hover-bg: #655840; "
+        "--btn-success-bg: #5a9060; --btn-success-color: #faf7f2; "
+        "--btn-danger-bg: #b85040; --btn-danger-color: #faf7f2; "
+        "--toggle-btn-bg: #faf7f2; --toggle-btn-border: #e0d8cc; --toggle-btn-color: #8c7b68; --toggle-btn-hover-bg: #f0ebe3; "
+        "--scrollbar-track: #f0ebe3; --scrollbar-thumb: #d0c4b4; --scrollbar-thumb-hover: #a89880; "
+        "--histogram-track: #f0ebe3; "
+        "--filter-badge-bg: #f0ebe3; --filter-badge-color: #5c4e3e; "
+        "--log-bg: #faf7f2; --log-border: #e8e0d4; --log-item-border: #f0ebe3; --log-text: #5c4e3e; "
+        "--synthesis-bg: #d4a030; --synthesis-border: #b08820; --synthesis-color: #5c4e3e; --synthesis-banner-bg: #fef9e7; "
+        "--status-approved-banner-bg: #e8f0e0; --status-rejected-banner-bg: #f5e8e5;"
+    )
+    
+    # Dark — full override
+    dark = (
+        "--font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; "
+        "--font-size-xs: 11px; --font-size-sm: 12px; --font-size-md: 13px; --font-size-lg: 16px; --font-size-xl: 17px; "
+        "--page-bg: #0f1419; "
+        "--sidebar-bg: #1a1f2e; --sidebar-color: #e2e8f0; --sidebar-border: #2d3748; "
+        "--sidebar-shadow: 1px 0 8px rgba(0,0,0,0.3); "
+        "--sidebar-heading: #f1f5f9; --sidebar-subtext: #8892a4; --sidebar-text: #c4cdd8; "
+        "--toolbar-bg: #1a1f2e; --toolbar-border: #2d3748; --toolbar-shadow: 0 1px 3px rgba(0,0,0,0.3); "
+        "--toolbar-btn-bg: #242b3d; --toolbar-btn-border: #3d4760; --toolbar-btn-color: #c4cdd8; --toolbar-btn-hover-bg: #2d3548; "
+        "--table-bg: #1a1f2e; --table-border: #2d3748; --table-radius: 12px; --table-shadow: 0 2px 8px rgba(0,0,0,0.3); "
+        "--table-header-bg: #111827; --table-header-color: #e2e8f0; --table-header-border: #374151; "
+        "--table-row-bg: #1a1f2e; --table-row-alt-bg: #1f2537; --table-row-hover-bg: #252d40; "
+        "--table-cell-border: #2d3748; --table-cell-color: #d1d5db; "
+        "--table-cell-edited-bg: #3b2f1a; --table-cell-edited-border: #d97706; "
+        "--status-unprocessed: #6b7280; --status-edited: #f59e0b; --status-approved: #34d399; --status-rejected: #f87171; "
+        "--pagination-bg: #1a1f2e; --pagination-border: #2d3748; --pagination-btn-bg: #242b3d; "
+        "--pagination-btn-border: #3d4760; --pagination-btn-color: #c4cdd8; --pagination-btn-hover-bg: #2d3548; "
+        "--pagination-btn-active-bg: #6366f1; --pagination-btn-active-color: #ffffff; --pagination-info-color: #8892a4; "
+        "--modal-overlay-bg: rgba(0,0,0,0.7); --modal-bg: #1a1f2e; --modal-radius: 16px; "
+        "--modal-shadow: 0 20px 60px rgba(0,0,0,0.5); --modal-header-border: #2d3748; --modal-header-color: #f1f5f9; "
+        "--input-bg: #242b3d; --input-border: #3d4760; --input-color: #e2e8f0; "
+        "--input-focus-border: #818cf8; --input-placeholder: #6b7280; "
+        "--btn-primary-bg: #6366f1; --btn-primary-color: #ffffff; --btn-primary-hover-bg: #818cf8; "
+        "--btn-success-bg: #059669; --btn-success-color: #ffffff; "
+        "--btn-danger-bg: #dc2626; --btn-danger-color: #ffffff; "
+        "--toggle-btn-bg: #242b3d; --toggle-btn-border: #3d4760; --toggle-btn-color: #8892a4; --toggle-btn-hover-bg: #2d3548; "
+        "--scrollbar-track: #1f2537; --scrollbar-thumb: #3d4760; --scrollbar-thumb-hover: #4b5a78; "
+        "--histogram-track: #242b3d; "
+        "--filter-badge-bg: #242b3d; --filter-badge-color: #c4cdd8; "
+        "--log-bg: #1f2537; --log-border: #2d3748; --log-item-border: #2d3748; --log-text: #c4cdd8; "
+        "--synthesis-bg: #ffc107; --synthesis-border: #e0a800; --synthesis-color: #856404; --synthesis-banner-bg: #3b2f1a; "
+        "--status-approved-banner-bg: #1a2e1a; --status-rejected-banner-bg: #2e1a1a;"
+    )
+    
+    return {
+        "classic": classic,
+        "modern": modern,
+        "eye-protection": eye_protection,
+        "dark": dark,
+    }
 
 
 def _load_js_files() -> str:
@@ -98,9 +223,11 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     synthesis_label = app_config.synthesis.label or "Synthesis"
     presets_enabled = app_config.table.presets_enabled
     theme = app_config.theme or "classic"
-    # Force classic for debugging theme switching
-    theme = "classic"
     clean_slate = app_config.clean_slate
+    
+    # Build theme variable maps
+    theme_styles = _build_theme_styles()
+    active_theme_style = theme_styles.get(theme, theme_styles["classic"])
     
     # Status labels from config
     status_labels = app_config.status_labels
@@ -120,20 +247,22 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
         ui.head_content(
             ui.tags.title(app_title),
             ui.tags.script(_load_js_files()),
-            # Apply theme to body (not html — Shiny controls <html>)
+            # Theme engine: stores all theme variable strings in JS, swaps inline style on #theme-provider
             ui.tags.script(f"""
+                window._themeStyles = {repr(theme_styles)};
                 window._currentTheme = '{theme}';
                 window._configTheme = '{theme}';
                 window.setTheme = function(name) {{
-                    document.body.setAttribute('data-theme', name);
+                    var provider = document.getElementById('theme-provider');
+                    if (provider && window._themeStyles[name]) {{
+                        provider.style.cssText = window._themeStyles[name];
+                    }}
                     window._currentTheme = name;
                     localStorage.setItem('dmap-theme', name);
                     var sel = document.getElementById('theme-selector');
                     if (sel) sel.value = name;
                 }};
-                // On DOM ready: set theme on body and sync dropdown
                 document.addEventListener('DOMContentLoaded', function() {{
-                    // Restore user preference only if config hasn't changed
                     var saved = localStorage.getItem('dmap-theme');
                     var configTheme = '{theme}';
                     var lastConfig = localStorage.getItem('dmap-theme-config');
@@ -144,8 +273,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                         localStorage.removeItem('dmap-theme');
                         localStorage.setItem('dmap-theme-config', configTheme);
                     }}
-                    document.body.setAttribute('data-theme', activeTheme);
-                    window._currentTheme = activeTheme;
+                    window.setTheme(activeTheme);
                     var sel = document.getElementById('theme-selector');
                     if (sel) {{
                         sel.value = activeTheme;
@@ -254,8 +382,9 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             """)
         ),
         
-        # Main Container with Split Panels
+        # Main Container with Split Panels — also the theme-provider (inline CSS vars)
         ui.div(
+          ui.div(
             # Hidden element to provide namespace to JavaScript
             ui.output_ui("_namespace_holder"),
             
@@ -670,6 +799,9 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             ),
             
             class_="main-container clean-slate" if clean_slate else "main-container"
+          ),
+          id="theme-provider",
+          style=active_theme_style
         ),
     )
 
