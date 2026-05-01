@@ -69,9 +69,9 @@ jobs:
           print(f\"Mypy errors: {summary['mypy_errors']}\")
           if summary['unused_functions'] > 0:
               print('\nUnused functions:')
-              for func, info in data.items():
-                  if func != '_summary' and not info.get('used', True):
-                      print(f\"  - {func}\")
+              for filepath, info in data.get('function_mapping', {}).items():
+                  for fn in info.get('unused', []):
+                      print(f'  - {filepath}: {fn}')
           "
 
       - name: Display UI QC Report
@@ -89,15 +89,15 @@ jobs:
           print(f\"Mypy errors: {summary['mypy_errors']}\")
           "
 
-      - name: Display App QC Report
+      - name: Display Config QC Report
         run: |
           echo ""
           echo "============================================"
-          echo "  App QC Report"
+          echo "  Config QC Report"
           echo "============================================"
           python -c "
           import json
-          data = json.load(open('qcmetric/app_qc.json'))
+          data = json.load(open('qcmetric/config_qc.json'))
           summary = data['_summary']
           print(f\"Functions: {summary['total_functions']} (unused: {summary['unused_functions']})\")
           print(f\"Type coverage: {summary['function_coverage_percent']}%\")
@@ -110,7 +110,7 @@ jobs:
           echo "============================================"
           echo "  Frontend (JS/CSS) QC"
           echo "============================================"
-          python tooling/check_frontend.py
+          python tooling/src/qc/check_frontend.py
 
       - name: Display Frontend QC Details
         run: |
