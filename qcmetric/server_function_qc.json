@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 545,
+    "total_functions": 546,
     "total_unused": 112,
-    "unused_percentage": 20.6
+    "unused_percentage": 20.5
   },
   "modules": {
     "clipboard_utils.py": {
@@ -1083,12 +1083,13 @@
     "lp_lims_provider.py": {
       "description": "LP LIMS DataProvider \u2014 structured API-based data provider.",
       "path": "src/adapter/lp_lims_provider.py",
-      "total_functions": 20,
+      "total_functions": 21,
       "functions": [
         "__post_init__",
         "_build_filters",
         "_environment",
         "_fetch_metadata",
+        "_params_hash",
         "_sort_params",
         "_tab",
         "_user",
@@ -1109,6 +1110,7 @@
       "used_internally": [
         "_build_filters",
         "_fetch_metadata",
+        "_params_hash",
         "_sort_params",
         "clear_table_override",
         "columns",

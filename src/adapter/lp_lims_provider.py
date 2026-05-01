@@ -44,6 +44,7 @@ class LpLimsDataProvider:
     _value_counts_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
     _last_filtered_count: Optional[int] = field(default=None, repr=False)
     _last_filtered_params_hash: Optional[str] = field(default=None, repr=False)
+    _prefetched_page: Optional[pd.DataFrame] = field(default=None, repr=False)
 
     def __post_init__(self):
         base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
@@ -90,12 +91,15 @@ class LpLimsDataProvider:
         if not self._client:
             return
         try:
+            # Fetch first page of data in the same call as metadata.
+            # This eliminates the separate page_size=1 metadata call (~488ms saved).
+            prefetch_size = self.app_config.table.default_rows_per_page if hasattr(self.app_config, 'table') else 50
             response = self._client.read(
                 user=self._user,
                 tab=self._tab,
                 environment=self._environment,
                 page=1,
-                page_size=1,
+                page_size=prefetch_size,
             )
             self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
             if response.columns:
@@ -104,11 +108,31 @@ class LpLimsDataProvider:
                 self._columns = list(response.data[0].keys())
             else:
                 self._columns = []
+
+            # Cache the first page so fetch_page(page=1, no filters) is free
+            if response.data:
+                df = pd.DataFrame(response.data)
+                if not df.empty:
+                    df["_mod_status"] = "unprocessed"
+                self._prefetched_page = df
+                self._last_filtered_count = self._total_count
+                self._last_filtered_params_hash = self._params_hash_raw(None, None)
+
             print(f"[LpLimsDataProvider] {self._total_count} rows, {len(self._columns)} columns")
         except Exception as e:
             print(f"✗ LP LIMS metadata error: {e}")
             self._total_count = 0
             self._columns = []
+
+    @staticmethod
+    def _params_hash_raw(filters, status_filters) -> str:
+        """Hash from raw filter dicts (no QueryParams object needed)."""
+        import hashlib, json
+        key = json.dumps({
+            "filters": filters,
+            "status_filters": status_filters,
+        }, sort_keys=True, default=str)
+        return hashlib.sha256(key.encode()).hexdigest()
 
     def refresh_count(self) -> None:
         if not self._client:
@@ -188,19 +212,31 @@ class LpLimsDataProvider:
 
     # ── Query methods ───────────────────────────────────────────────────
 
-    @staticmethod
-    def _params_hash(params) -> str:
+    def _params_hash(self, params) -> str:
         """Cheap hash of filter-relevant params (excludes page/page_size/sort)."""
-        import hashlib, json
-        key = json.dumps({
-            "filters": params.filters if params.filters else None,
-            "status_filters": params.status_filters if hasattr(params, 'status_filters') else None,
-        }, sort_keys=True, default=str)
-        return hashlib.md5(key.encode()).hexdigest()
+        return self._params_hash_raw(
+            params.filters if params.filters else None,
+            params.status_filters if hasattr(params, 'status_filters') else None,
+        )
 
     def fetch_page(self, params) -> pd.DataFrame:
         if not self._client:
             return pd.DataFrame()
+
+        # Return prefetched first page if it matches (no filters, page 1, same size)
+        if (self._prefetched_page is not None
+            and params.page == 1
+            and not params.filters
+            and not getattr(params, 'sort_column', None)
+            and not getattr(params, 'status_filters', None)):
+            prefetch_size = self.app_config.table.default_rows_per_page if hasattr(self.app_config, 'table') else 50
+            if params.page_size <= prefetch_size:
+                df = self._prefetched_page.head(params.page_size).copy()
+                self._prefetched_page = None  # One-shot: free memory after use
+                print(f"[LpLimsDataProvider] Fetched {len(df)} rows (page 1, prefetched)")
+                return df
+            self._prefetched_page = None
+
         try:
             filters, tab_filters = self._build_filters(params)
             order_by, order_direction = self._sort_params(params)
