@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def _load_css_files() -> str:
-    """Load component CSS files (no theme variables — those go inline on theme-provider div)"""
+    """Load component CSS files (no theme variables — those are applied inline on document.body)"""
     css_dir = Path(__file__).parent / "css"
     
     css_files = [
@@ -140,9 +140,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     theme = app_config.theme or "classic"
     clean_slate = app_config.clean_slate
     
-    # Build theme variable maps
+    # Build theme variable maps (parsed from CSS files)
     theme_styles = _build_theme_styles()
-    active_theme_style = theme_styles.get(theme, theme_styles["classic"])
     
     # Status labels from config
     status_labels = app_config.status_labels
@@ -162,15 +161,14 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
         ui.head_content(
             ui.tags.title(app_title),
             ui.tags.script(_load_js_files()),
-            # Theme engine: stores all theme variable strings in JS, swaps inline style on #theme-provider
+            # Theme engine: stores all theme variable strings in JS, swaps inline style on document.body
             ui.tags.script(f"""
                 window._themeStyles = {repr(theme_styles)};
                 window._currentTheme = '{theme}';
                 window._configTheme = '{theme}';
                 window.setTheme = function(name) {{
-                    var provider = document.getElementById('theme-provider');
-                    if (provider && window._themeStyles[name]) {{
-                        provider.style.cssText = window._themeStyles[name];
+                    if (window._themeStyles[name]) {{
+                        document.body.style.cssText = window._themeStyles[name];
                     }}
                     window._currentTheme = name;
                     localStorage.setItem('dmap-theme', name);
@@ -297,9 +295,8 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             """)
         ),
         
-        # Main Container with Split Panels — also the theme-provider (inline CSS vars)
+        # Main Container with Split Panels
         ui.div(
-          ui.div(
             # Hidden element to provide namespace to JavaScript
             ui.output_ui("_namespace_holder"),
             
@@ -714,9 +711,6 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             ),
             
             class_="main-container clean-slate" if clean_slate else "main-container"
-          ),
-          id="theme-provider",
-          style=active_theme_style
         ),
     )
 
