@@ -281,7 +281,6 @@ class DataFetcher:
     _columns: List[str] = field(default_factory=list, repr=False)
     _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
     _table_override: Optional[str] = field(default=None, repr=False)
-    _prefetched_page: Optional[Any] = field(default=None, repr=False)
 
     @property
     def _lp_lims_user_email(self) -> str:
@@ -385,60 +384,58 @@ class DataFetcher:
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
             
-            # Combined query: get count + first page of data in one round-trip
-            prefetch_size = self.app_config.table.default_rows_per_page if hasattr(self.app_config, 'table') else 50
-            combined_query = f"SELECT *, COUNT(*) OVER() AS _total_row_count FROM {data_table_sql} LIMIT {prefetch_size}"
+            count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
+            columns_query = f"SELECT * FROM {data_table_sql} LIMIT 0"
             
             if self.app_config.database.mode == "datum" and self._datum_client:
-                # Datum mode — single combined query for count + columns + first page
+                # Datum mode
                 _t0 = _tm.time()
-                with tracker.track_sql("fetch_metadata.combined", combined_query):
+                with tracker.track_sql("fetch_metadata.count", count_query):
                     response = self._datum_client.execute_sql(
-                        sql=combined_query,
+                        sql=count_query,
                         database=self.app_config.database.datum_database,
                         schema=self.app_config.database.datum_schema,
                         service_name=self.app_config.database.datum_service_name,
                     )
-                if response.data:
-                    self._total_count = int(response.data[0].get("_total_row_count", 0))
-                    # Columns: all except the synthetic _total_row_count
-                    all_cols = list(response.columns) if response.columns else list(response.data[0].keys())
-                    self._columns = [c for c in all_cols if c != "_total_row_count"]
-                    # Cache prefetched rows (strip the window count column)
-                    prefetch_df = pd.DataFrame(response.data)
-                    prefetch_df = prefetch_df.drop(columns=["_total_row_count"], errors="ignore")
-                    self._prefetched_page = prefetch_df
-                else:
-                    self._total_count = 0
-                    self._columns = list(response.columns) if response.columns else []
-                # Fallback: try information_schema if no columns
+                self._total_count = int(response.data[0]["cnt"]) if response.data else 0
+                print(f"[Timing] fetch_metadata.count: {(_tm.time() - _t0)*1000:.0f}ms")
+                
+                # Get columns
+                _t0 = _tm.time()
+                with tracker.track_sql("fetch_metadata.columns", columns_query):
+                    response = self._datum_client.execute_sql(
+                        sql=columns_query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                # Use response.columns (always present) rather than
+                # response.data[0].keys() which fails when LIMIT 0 returns no rows
+                self._columns = list(response.columns) if response.columns else []
+                # Fallback: try information_schema
                 if not self._columns:
                     self._columns = self._get_columns_from_schema_datum()
-                print(f"[Timing] fetch_metadata.combined: {(_tm.time() - _t0)*1000:.0f}ms")
+                print(f"[Timing] fetch_metadata.columns: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Fetch column types from information_schema
                 _t0 = _tm.time()
                 self._column_types = self._get_column_types_from_schema()
                 print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             else:
-                # Direct SQLAlchemy mode — combined count + first page
+                # Direct SQLAlchemy mode
                 from sqlalchemy import text
                 _t0 = _tm.time()
                 with self._engine.connect() as conn:
-                    with tracker.track_sql("fetch_metadata.combined", combined_query):
-                        result = conn.execute(text(combined_query))
-                        rows = result.fetchall()
-                        columns = list(result.keys())
-                if rows:
-                    self._total_count = int(rows[0][-1])  # _total_row_count is last col
-                    self._columns = [c for c in columns if c != "_total_row_count"]
-                    prefetch_df = pd.DataFrame(rows, columns=columns)
-                    prefetch_df = prefetch_df.drop(columns=["_total_row_count"], errors="ignore")
-                    self._prefetched_page = prefetch_df
-                else:
-                    self._total_count = 0
-                    self._columns = [c for c in columns if c != "_total_row_count"]
-                print(f"[Timing] fetch_metadata.combined: {(_tm.time() - _t0)*1000:.0f}ms")
+                    with tracker.track_sql("fetch_metadata.count", count_query):
+                        result = conn.execute(text(count_query))
+                        row = result.fetchone()
+                        self._total_count = row[0] if row else 0
+                    
+                    # Get columns
+                    with tracker.track_sql("fetch_metadata.columns", columns_query):
+                        result = conn.execute(text(columns_query))
+                        self._columns = list(result.keys())
+                print(f"[Timing] fetch_metadata.sql: {(_tm.time() - _t0)*1000:.0f}ms")
                 
                 # Fetch column types from information_schema
                 _t0 = _tm.time()
@@ -1312,27 +1309,6 @@ class DataFetcher:
             is_lp_lims = self.app_config.database.mode == "lp_lims" and self._lp_lims_client
             if is_lp_lims:
                 return self._fetch_page_lp_lims(params)
-
-            # Return prefetched first page if available and applicable
-            # (page 1, no filters, no status filter, no sort override)
-            if (self._prefetched_page is not None
-                and params.page == 1
-                and not params.filters
-                and not getattr(params, 'status_filters', None)
-                and not params.sort_column):
-                prefetch_size = self.app_config.table.default_rows_per_page if hasattr(self.app_config, 'table') else 50
-                if params.page_size <= prefetch_size:
-                    df = self._prefetched_page.head(params.page_size).copy()
-                    self._prefetched_page = None  # One-shot: free memory
-                    df = self._coerce_date_columns(df)
-                    # Add mod_status column for prefetched rows
-                    if "_mod_status" not in df.columns:
-                        df["_mod_status"] = "unprocessed"
-                    df = self._apply_field_modifications(df)
-                    df = self._reconcile_status_column(df)
-                    print(f"[DataFetcher] Fetched {len(df)} rows (page 1, prefetched)")
-                    return df
-                self._prefetched_page = None
 
             data_table = self._effective_table
             mods_table = self.app_config.database.mods_table

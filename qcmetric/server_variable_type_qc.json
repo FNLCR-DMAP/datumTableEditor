@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 548,
+    "total_functions": 547,
     "fully_annotated_functions": 348,
-    "function_coverage_percent": 63.5,
-    "total_parameters": 715,
+    "function_coverage_percent": 63.6,
+    "total_parameters": 714,
     "annotated_parameters": 633,
-    "parameter_coverage_percent": 88.5,
+    "parameter_coverage_percent": 88.7,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -745,75 +745,75 @@
     },
     "src/adapter/lp_lims_provider.py": {
       "functions": {
-        "total": 23,
-        "with_return_type": 21,
+        "total": 22,
+        "with_return_type": 20,
         "fully_annotated": 12
       },
       "parameters": {
-        "total": 16,
+        "total": 15,
         "annotated": 6
       },
       "missing_annotations": [
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 51
+          "line": 49
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 92
+          "line": 90
         },
         {
           "type": "parameter",
           "function": "_params_hash_raw",
           "name": "filters",
-          "line": 130
+          "line": 128
         },
         {
           "type": "parameter",
           "function": "_params_hash_raw",
           "name": "status_filters",
-          "line": 130
+          "line": 128
         },
         {
           "type": "parameter",
           "function": "_build_filters",
           "name": "params",
-          "line": 164
+          "line": 162
         },
         {
           "type": "parameter",
           "function": "_sort_params",
           "name": "params",
-          "line": 203
+          "line": 201
         },
         {
           "type": "parameter",
           "function": "_params_hash",
           "name": "params",
-          "line": 217
-        },
-        {
-          "type": "parameter",
-          "function": "_full_params_hash",
-          "name": "params",
-          "line": 224
+          "line": 215
         },
         {
           "type": "parameter",
           "function": "fetch_page",
           "name": "params",
-          "line": 237
+          "line": 222
         },
         {
           "type": "parameter",
           "function": "get_filtered_count",
           "name": "params",
-          "line": 311
+          "line": 275
+        },
+        {
+          "type": "parameter",
+          "function": "fetch_all_filtered",
+          "name": "params",
+          "line": 301
         }
       ],
-      "missing_annotations_truncated": 2
+      "missing_annotations_truncated": 1
     },
     "src/adapter/provider.py": {
       "functions": {
