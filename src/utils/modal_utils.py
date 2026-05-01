@@ -472,12 +472,9 @@ def build_dynamic_filters_panel(
             else:
                 display_val = ""
             
-            # Get unique values for the values picker
-            # Prefer DB callback (full table) over DataFrame (may be paginated)
-            if get_unique_values_func:
-                db_values = get_unique_values_func(col_name)
-                unique_values = ["all"] + db_values
-            elif col_name in df.columns and len(df) > 0:
+            # Unique values are loaded on-demand when user clicks ⋮ button;
+            # only populate from in-memory DataFrame (cheap), skip DB callback.
+            if col_name in df.columns and len(df) > 0:
                 unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
             else:
                 unique_values = ["all"]
@@ -493,11 +490,9 @@ def build_dynamic_filters_panel(
         if col_name not in known_columns:
             continue
         
-        # Get unique values: prefer DB query (full table), fall back to DataFrame
-        if get_unique_values_func:
-            db_values = get_unique_values_func(col_name)
-            unique_values = ["all"] + db_values
-        elif col_name in df.columns and len(df) > 0:
+        # Unique values: use in-memory DataFrame only (cheap).
+        # DB-backed values loaded on-demand via ⋮ button → fetch_filter_values handler.
+        if col_name in df.columns and len(df) > 0:
             unique_values = ["all"] + sorted(df[col_name].dropna().astype(str).unique().tolist())
         else:
             unique_values = ["all"]

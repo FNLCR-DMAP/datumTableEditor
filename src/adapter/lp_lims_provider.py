@@ -17,6 +17,16 @@ from .lp_lims import DateRangeFilter, LpLimsClient, TabFilters
 from .provider import DataProvider
 
 
+# Simple TTL cache entry
+@dataclass
+class _CacheEntry:
+    value: Any
+    timestamp: float
+
+
+_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
 @dataclass
 class LpLimsDataProvider:
     """DataProvider implementation for LP LIMS read-only API.
@@ -30,6 +40,8 @@ class LpLimsDataProvider:
     _client: LpLimsClient = field(default=None, repr=False)
     _total_count: int = field(default=0, repr=False)
     _columns: List[str] = field(default_factory=list, repr=False)
+    _unique_values_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
+    _value_counts_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
         base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
@@ -144,12 +156,16 @@ class LpLimsDataProvider:
                     pass  # LP LIMS doesn't support NOT IN
                 else:
                     if isinstance(inner, list):
-                        result[col] = [str(v) for v in inner if v is not None]
-                    elif inner is not None:
+                        cleaned = [str(v) for v in inner if v is not None and str(v).strip()]
+                        if cleaned:
+                            result[col] = cleaned
+                    elif inner is not None and str(inner).strip():
                         result[col] = [str(inner)]
             elif isinstance(val, list):
-                result[col] = [str(v) for v in val]
-            else:
+                cleaned = [str(v) for v in val if v is not None and str(v).strip()]
+                if cleaned:
+                    result[col] = cleaned
+            elif val is not None and str(val).strip():
                 result[col] = [str(val)]
 
         filters_dict = result if result else None
@@ -250,6 +266,12 @@ class LpLimsDataProvider:
             return pd.DataFrame()
 
     def get_unique_values(self, column: str, limit: int = 5000) -> List[str]:
+        import time
+        cache_key = f"{column}:{limit}"
+        cached = self._unique_values_cache.get(cache_key)
+        if cached and (time.time() - cached.timestamp) < _CACHE_TTL_SECONDS:
+            return cached.value
+
         if not self._client:
             return []
         try:
@@ -265,12 +287,20 @@ class LpLimsDataProvider:
                 val = row.get(column)
                 if val is not None and str(val).strip():
                     values.add(str(val))
-            return sorted(values)[:limit]
+            result = sorted(values)[:limit]
+            self._unique_values_cache[cache_key] = _CacheEntry(value=result, timestamp=time.time())
+            return result
         except Exception as e:
             print(f"✗ LP LIMS get_unique_values error: {e}")
             return []
 
     def get_value_counts(self, column: str, limit: int = 50) -> List[Tuple[str, int]]:
+        import time
+        cache_key = f"{column}:{limit}"
+        cached = self._value_counts_cache.get(cache_key)
+        if cached and (time.time() - cached.timestamp) < _CACHE_TTL_SECONDS:
+            return cached.value
+
         if not self._client:
             return []
         try:
@@ -286,7 +316,9 @@ class LpLimsDataProvider:
                 val = row.get(column)
                 key = str(val).strip() if val is not None and str(val).strip() else "No value"
                 counter[key] += 1
-            return counter.most_common(limit)
+            result = counter.most_common(limit)
+            self._value_counts_cache[cache_key] = _CacheEntry(value=result, timestamp=time.time())
+            return result
         except Exception as e:
             print(f"✗ LP LIMS get_value_counts error: {e}")
             return []

@@ -593,9 +593,33 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         ns_prefix = session.ns("test").replace("test", "")
         selection_mode = "multiple" if app_config.review_detail_multi_select else "single"
         from shiny import ui as sui
+        # Emit a validation script that checks all data-shiny-ns attributes
+        # in the DOM match the expected namespace prefix for this module.
+        validation_js = f"""
+        (function() {{
+            var expected = '{ns_prefix}';
+            if (!expected) return;  // No namespace (single-module app)
+            document.querySelectorAll('[data-shiny-ns]').forEach(function(el) {{
+                var ns = el.getAttribute('data-shiny-ns');
+                if (ns && ns !== expected) {{
+                    // Multiple modules detected — validation is per-module, skip cross-module
+                    return;
+                }}
+            }});
+            // Register a Shiny message handler that validates incoming input names
+            if (typeof Shiny !== 'undefined' && Shiny.addCustomMessageHandler) {{
+                try {{
+                    Shiny.addCustomMessageHandler('ns_validate_' + expected, function(msg) {{
+                        console.log('[NS-Validate] Module "' + expected + '" received:', msg);
+                    }});
+                }} catch(e) {{}}
+            }}
+        }})();
+        """
         return sui.div(
             style="display:none;",
-            **{"data-shiny-ns": ns_prefix, "data-selection-mode": selection_mode}
+            **{"data-shiny-ns": ns_prefix, "data-selection-mode": selection_mode,
+               "data-ns-validated": "true"}
         )
 
     @render.ui

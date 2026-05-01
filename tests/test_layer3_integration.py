@@ -1618,11 +1618,12 @@ class TestCellEditUpdatesFilterPanel:
 # =============================================================================
 
 class TestLazyModeUniqueValuesCallback:
-    """When DataFrame is empty (lazy loading), build_dynamic_filters_panel
-    uses the get_unique_values_func callback to populate filter values."""
+    """In lazy loading mode, build_dynamic_filters_panel does NOT call
+    get_unique_values_func during render — values are loaded on-demand
+    when the user opens the filter values modal (⋮ button)."""
 
-    def test_empty_df_calls_callback_for_values(self):
-        """Empty DataFrame triggers callback; panel shows DB-fetched values."""
+    def test_empty_df_does_not_call_callback_during_render(self):
+        """Empty DataFrame does NOT trigger callback; data-values is empty."""
         from src.utils.modal_utils import build_dynamic_filters_panel
         from unittest.mock import MagicMock
 
@@ -1637,12 +1638,12 @@ class TestLazyModeUniqueValuesCallback:
             get_unique_values_func=callback
         ))
 
-        callback.assert_called_once_with("Gene_names")
-        assert "BRCA1" in panel_html
-        assert "TP53" in panel_html
+        callback.assert_not_called()
+        # Panel renders but without pre-populated unique values
+        assert "filter_Gene_names" in panel_html
 
-    def test_non_empty_df_prefers_callback(self):
-        """When callback is available, it is preferred over DataFrame for full unique values."""
+    def test_non_empty_df_uses_df_values_not_callback(self):
+        """When df has data, values come from the df, callback is not called."""
         from src.utils.modal_utils import build_dynamic_filters_panel
         from unittest.mock import MagicMock
 
@@ -1654,17 +1655,17 @@ class TestLazyModeUniqueValuesCallback:
             filters, df, get_unique_values_func=callback
         ))
 
-        callback.assert_called_once_with("Gene_names")
+        callback.assert_not_called()
         assert "BRCA1" in panel_html
-        assert "EGFR" in panel_html
+        assert "TP53" in panel_html
 
     def test_operator_filter_with_callback(self):
-        """Operator filter on empty df uses callback, then get_filtered_rows applies it."""
+        """Operator filter on empty df renders without calling callback; get_filtered_rows still works."""
         from src.utils.modal_utils import build_dynamic_filters_panel
         from src.utils.filter_utils import get_filtered_rows
         from unittest.mock import MagicMock
 
-        # Panel built with callback (lazy mode)
+        # Panel built with callback (lazy mode) — callback NOT called during render
         empty_df = pd.DataFrame(columns=["Gene_names"])
         callback = MagicMock(return_value=["BRCA1", "TP53", "EGFR"])
         filters = {"Gene_names": {"op": "in", "value": ["BRCA1"], "interactive": True}}
@@ -1674,6 +1675,7 @@ class TestLazyModeUniqueValuesCallback:
             all_columns=["Gene_names"],
             get_unique_values_func=callback
         ))
+        callback.assert_not_called()
         assert "BRCA1" in panel_html
 
         # Now apply filter on actual data

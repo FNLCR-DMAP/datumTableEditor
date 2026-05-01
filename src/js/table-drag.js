@@ -191,7 +191,7 @@ window.removeColumn = function(col, event) {
         event.preventDefault();
     }
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'});
+        setShinyInput('remove_column', {col: col, ts: Date.now()}, {priority: 'event'}, event ? event.target : null);
     }
 };
 
@@ -199,7 +199,7 @@ window.removeColumn = function(col, event) {
 window.addColumn = function(col, event) {
     if (event) event.stopPropagation();
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('add_column', {col: col, ts: Date.now()}, {priority: 'event'});
+        setShinyInput('add_column', {col: col, ts: Date.now()}, {priority: 'event'}, event ? event.target : null);
     }
 };
 
@@ -240,7 +240,7 @@ window.removeAllColumns = function(event) {
     
     // Send empty column list to server
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('column_order', {order: [], ts: Date.now()}, {priority: 'event'});
+        setShinyInput('column_order', {order: [], ts: Date.now()}, {priority: 'event'}, contextEl);
     }
 };
 
@@ -291,7 +291,7 @@ window.addAllColumns = function(event) {
         if (c) allCols.push(c);
     });
     if (typeof setShinyInput !== 'undefined') {
-        setShinyInput('column_order', {order: allCols, ts: Date.now()}, {priority: 'event'});
+        setShinyInput('column_order', {order: allCols, ts: Date.now()}, {priority: 'event'}, contextEl);
     }
 };
 

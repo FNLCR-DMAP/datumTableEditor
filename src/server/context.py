@@ -99,3 +99,18 @@ class ServerContext:
     _synthesis_autoloaded: bool = False
     _first_rows_per_page_sync: Any = None   # {"done": bool}
     _first_search_filter_sync: Any = None   # {"done": bool}
+
+    def validate_ns(self, input_name: str) -> str:
+        """Return the fully namespace-qualified input name and log a warning
+        if the raw name doesn't match the session namespace.
+
+        Usage in handlers where you receive a raw JS input name::
+
+            qualified = ctx.validate_ns("fetch_filter_values")
+        """
+        if self.session is None:
+            return input_name
+        expected_prefix = self.session.ns("_x_").replace("_x_", "")
+        if expected_prefix and not input_name.startswith(expected_prefix):
+            print(f"[NS-WARNING] Input '{input_name}' missing namespace prefix '{expected_prefix}'")
+        return expected_prefix + input_name if expected_prefix and not input_name.startswith(expected_prefix) else input_name

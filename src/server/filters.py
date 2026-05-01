@@ -299,3 +299,33 @@ def register_filters(ctx: ServerContext):
         """Revert pending filters back to current active filters."""
         pending_filters.set(active_filters.get().copy())
         _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
+
+    # ── Lazy-load filter values on dropdown open ────────────────────────
+
+    @reactive.Effect
+    @reactive.event(input.fetch_filter_values)
+    def _fetch_filter_values():
+        """Respond to JS request for filter unique values (lazy loading)."""
+        val = input.fetch_filter_values()
+        if not val:
+            return
+        col_name = val.get("column")
+        if not col_name:
+            return
+
+        # Fetch unique values from DB
+        if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
+            db_values = config.data_fetcher.get_unique_values(col_name)
+        else:
+            with reactive.isolate():
+                df = data.get()
+            if col_name in df.columns and len(df) > 0:
+                db_values = sorted(df[col_name].dropna().astype(str).unique().tolist())
+            else:
+                db_values = []
+
+        # Push values to JS via injected script
+        import json
+        values_json = json.dumps(db_values)
+        js_code = f"(function(){{ if(typeof _receiveFilterValues === 'function') _receiveFilterValues({values_json}); }})()"
+        ui.insert_ui(ui.tags.script(js_code), selector="body", where="beforeEnd")
