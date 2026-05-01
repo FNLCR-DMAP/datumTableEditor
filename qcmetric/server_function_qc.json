@@ -2,7 +2,7 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 546,
+    "total_functions": 547,
     "total_unused": 112,
     "unused_percentage": 20.5
   },
@@ -1480,13 +1480,15 @@
     "ui.py": {
       "description": "UI Definition for Epitopes Data Editor PyShiny App",
       "path": "src/ui.py",
-      "total_functions": 3,
+      "total_functions": 4,
       "functions": [
+        "_build_theme_styles",
         "_load_css_files",
         "_load_js_files",
         "create_app_ui"
       ],
       "used_internally": [
+        "_build_theme_styles",
         "_load_css_files",
         "_load_js_files",
         "create_app_ui"

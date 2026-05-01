@@ -136,7 +136,7 @@ def _build_theme_styles() -> dict:
         "--table-bg: #1a1f2e; --table-border: #2d3748; --table-radius: 12px; --table-shadow: 0 2px 8px rgba(0,0,0,0.3); "
         "--table-header-bg: #111827; --table-header-color: #e2e8f0; --table-header-border: #374151; "
         "--table-row-bg: #1a1f2e; --table-row-alt-bg: #1f2537; --table-row-hover-bg: #252d40; "
-        "--table-cell-border: #2d3748; --table-cell-color: #d1d5db; "
+        "--table-cell-border: #2d3748; --table-cell-color: #ffffff; "
         "--table-cell-edited-bg: #3b2f1a; --table-cell-edited-border: #d97706; "
         "--status-unprocessed: #6b7280; --status-edited: #f59e0b; --status-approved: #34d399; --status-rejected: #f87171; "
         "--pagination-bg: #1a1f2e; --pagination-border: #2d3748; --pagination-btn-bg: #242b3d; "

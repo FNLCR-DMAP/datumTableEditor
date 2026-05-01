@@ -2,9 +2,9 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 546,
-    "fully_annotated_functions": 348,
-    "function_coverage_percent": 63.7,
+    "total_functions": 547,
+    "fully_annotated_functions": 349,
+    "function_coverage_percent": 63.8,
     "total_parameters": 712,
     "annotated_parameters": 633,
     "parameter_coverage_percent": 88.9,
@@ -1241,9 +1241,9 @@
     },
     "src/ui.py": {
       "functions": {
-        "total": 3,
-        "with_return_type": 3,
-        "fully_annotated": 3
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 4
       },
       "parameters": {
         "total": 1,
