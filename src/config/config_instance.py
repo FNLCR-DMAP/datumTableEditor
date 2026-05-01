@@ -291,6 +291,20 @@ class DataFetcher:
         """
         return self.user_email or os.environ.get("LP_LIMS_USER", "")
     
+    @property
+    def _is_datum(self) -> bool:
+        """True when database mode is datum. Lazily ensures client is initialized."""
+        if self.app_config.database.mode != "datum":
+            return False
+        if self._datum_client is None:
+            # Attempt late initialization
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            if base_url and token:
+                self._datum_client = DatumClient(base_url=base_url, token=token)
+        return True
+
     def __post_init__(self):
         """Initialize database connection and get initial count."""
         self._init_connection()
@@ -387,7 +401,7 @@ class DataFetcher:
             count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
             columns_query = f"SELECT * FROM {data_table_sql} LIMIT 0"
             
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if self._is_datum:
                 # Datum mode
                 _t0 = _tm.time()
                 with tracker.track_sql("fetch_metadata.count", count_query):
@@ -468,7 +482,7 @@ class DataFetcher:
                 )
                 # row_count may be None; use total_pages as fallback (page_size=1)
                 self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
-            elif self.app_config.database.mode == "datum" and self._datum_client:
+            elif self._is_datum:
                 data_table = self._effective_table
                 data_table_sql = SqlTableName(data_table)
                 count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
@@ -600,7 +614,7 @@ class DataFetcher:
             ORDER BY ordinal_position
             """
 
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if self._is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
                     database=self.app_config.database.datum_database,
@@ -712,7 +726,7 @@ class DataFetcher:
             col_ident = SqlIdentifier(column)
             query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
             
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if self._is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
                     database=self.app_config.database.datum_database,
@@ -762,7 +776,7 @@ class DataFetcher:
                 f"GROUP BY val ORDER BY cnt DESC LIMIT {int(limit)}"
             )
 
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if self._is_datum:
                 response = self._datum_client.execute_sql(
                     sql=query,
                     database=self.app_config.database.datum_database,
@@ -1069,7 +1083,7 @@ class DataFetcher:
             data_table_sql = SqlTableName(data_table)
             mods_table_sql = SqlTableName(mods_table)
             
-            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            is_datum = self._is_datum
 
             # Build WHERE clause from filters (but ignore status_filters)
             where_clause = ""
@@ -1244,7 +1258,7 @@ class DataFetcher:
             data_table = self._effective_table
             data_table_sql = SqlTableName(data_table)
 
-            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            is_datum = self._is_datum
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
 
             needs_status = self._has_status_filter(params)
@@ -1317,7 +1331,7 @@ class DataFetcher:
             mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
-            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            is_datum = self._is_datum
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             order_clause = self._build_order_clause(params)
@@ -1439,7 +1453,7 @@ class DataFetcher:
             mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
-            is_datum = self.app_config.database.mode == "datum" and self._datum_client
+            is_datum = self._is_datum
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
             
             order_clause = self._build_order_clause(params)
@@ -1617,7 +1631,7 @@ class DataFetcher:
         data_table = self._active_table_name
         pk_columns = self.app_config.table.primary_key
 
-        if db_mode == "datum" and self._datum_client:
+        if self._is_datum:
             where_parts = []
             for pk_col in pk_columns:
                 if pk_col in row_pk:
@@ -1707,7 +1721,7 @@ class DataFetcher:
             ORDER BY created_at ASC
             """
             
-            if self.app_config.database.mode == "datum" and self._datum_client:
+            if self._is_datum:
                 response = self._datum_client.execute_sql(
                     sql=mods_query,
                     database=self.app_config.database.datum_database,
@@ -1771,7 +1785,7 @@ class DataFetcher:
                 f")"
             )
             try:
-                if self.app_config.database.mode == "datum" and self._datum_client:
+                if self._is_datum:
                     self._datum_client.execute_sql(
                         sql=sql,
                         database=self.app_config.database.datum_database,

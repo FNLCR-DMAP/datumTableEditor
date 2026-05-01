@@ -2,10 +2,10 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 165,
+    "total_functions": 166,
     "unused_functions": 1,
-    "fully_annotated_functions": 115,
-    "function_coverage_percent": 69.7,
+    "fully_annotated_functions": 116,
+    "function_coverage_percent": 69.9,
     "parameter_coverage_percent": 82.5,
     "mypy_errors": 0
   },
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 121,
+      "total": 122,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -119,6 +119,7 @@
         "_get_synthesis_age_minutes",
         "_has_status_filter",
         "_init_connection",
+        "_is_datum",
         "_is_text_column",
         "_load_all",
         "_load_data",
@@ -311,6 +312,7 @@
         "_effective_status_column",
         "_effective_status_column",
         "_effective_table",
+        "_is_datum",
         "_lp_lims_user_email",
         "_lp_lims_user_email",
         "_select_columns",
@@ -454,9 +456,9 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 121,
-        "with_return_type": 87,
-        "fully_annotated": 83
+        "total": 122,
+        "with_return_type": 88,
+        "fully_annotated": 84
       },
       "parameters": {
         "total": 125,
@@ -495,27 +497,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 294
+          "line": 308
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 299
+          "line": 313
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 326
+          "line": 340
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 336
+          "line": 350
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 356
+          "line": 370
         }
       ]
     },

@@ -2,9 +2,9 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 549,
-    "fully_annotated_functions": 351,
-    "function_coverage_percent": 63.9,
+    "total_functions": 550,
+    "fully_annotated_functions": 352,
+    "function_coverage_percent": 64.0,
     "total_parameters": 714,
     "annotated_parameters": 635,
     "parameter_coverage_percent": 88.9,
@@ -506,9 +506,9 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 121,
-        "with_return_type": 87,
-        "fully_annotated": 83
+        "total": 122,
+        "with_return_type": 88,
+        "fully_annotated": 84
       },
       "parameters": {
         "total": 125,
@@ -547,27 +547,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 294
+          "line": 308
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 299
+          "line": 313
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 326
+          "line": 340
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 336
+          "line": 350
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 356
+          "line": 370
         }
       ],
       "missing_annotations_truncated": 46
