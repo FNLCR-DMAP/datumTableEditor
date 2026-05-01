@@ -42,6 +42,8 @@ class LpLimsDataProvider:
     _columns: List[str] = field(default_factory=list, repr=False)
     _unique_values_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
     _value_counts_cache: Dict[str, _CacheEntry] = field(default_factory=dict, repr=False)
+    _last_filtered_count: Optional[int] = field(default=None, repr=False)
+    _last_filtered_params_hash: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self):
         base_url = self.app_config.database.lp_lims_base_url or os.environ.get("LP_LIMS_BASE_URL", "")
@@ -186,6 +188,16 @@ class LpLimsDataProvider:
 
     # ── Query methods ───────────────────────────────────────────────────
 
+    @staticmethod
+    def _params_hash(params) -> str:
+        """Cheap hash of filter-relevant params (excludes page/page_size/sort)."""
+        import hashlib, json
+        key = json.dumps({
+            "filters": params.filters if params.filters else None,
+            "status_filters": params.status_filters if hasattr(params, 'status_filters') else None,
+        }, sort_keys=True, default=str)
+        return hashlib.md5(key.encode()).hexdigest()
+
     def fetch_page(self, params) -> pd.DataFrame:
         if not self._client:
             return pd.DataFrame()
@@ -205,6 +217,11 @@ class LpLimsDataProvider:
                 order_direction=order_direction,
             )
 
+            # Cache the filtered row_count from this response to avoid a separate count request
+            if response.row_count is not None:
+                self._last_filtered_count = response.row_count
+                self._last_filtered_params_hash = self._params_hash(params)
+
             df = pd.DataFrame(response.data)
             if df.empty and response.columns:
                 df = pd.DataFrame(columns=response.columns)
@@ -222,6 +239,10 @@ class LpLimsDataProvider:
     def get_filtered_count(self, params) -> int:
         if not self._client:
             return 0
+        # Use cached count from fetch_page if filters haven't changed
+        ph = self._params_hash(params)
+        if self._last_filtered_count is not None and self._last_filtered_params_hash == ph:
+            return self._last_filtered_count
         try:
             filters, tab_filters = self._build_filters(params)
             response = self._client.read(
@@ -233,7 +254,10 @@ class LpLimsDataProvider:
                 page=1,
                 page_size=1,
             )
-            return response.row_count if response.row_count is not None else (response.total_pages or 0)
+            count = response.row_count if response.row_count is not None else (response.total_pages or 0)
+            self._last_filtered_count = count
+            self._last_filtered_params_hash = ph
+            return count
         except Exception as e:
             print(f"✗ LP LIMS get_filtered_count error: {e}")
             return 0

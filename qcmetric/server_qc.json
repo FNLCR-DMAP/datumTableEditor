@@ -2,19 +2,24 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 97,
-    "unused_functions": 0,
-    "fully_annotated_functions": 3,
-    "function_coverage_percent": 3.1,
-    "parameter_coverage_percent": 48.0,
+    "total_functions": 99,
+    "unused_functions": 1,
+    "fully_annotated_functions": 4,
+    "function_coverage_percent": 4.0,
+    "parameter_coverage_percent": 50.0,
     "mypy_errors": 0
   },
   "files": {},
   "function_mapping": {
     "src/server/context.py": {
-      "total": 0,
-      "functions": [],
-      "used": []
+      "total": 1,
+      "functions": [
+        "validate_ns"
+      ],
+      "used": [],
+      "unused": [
+        "validate_ns"
+      ]
     },
     "src/server/core.py": {
       "total": 29,
@@ -136,11 +141,12 @@
       ]
     },
     "src/server/filters.py": {
-      "total": 13,
+      "total": 14,
       "functions": [
         "_add_filter",
         "_apply_filter_value",
         "_apply_filters",
+        "_fetch_filter_values",
         "_handle_facet_filter",
         "_remove_filter",
         "_reset_pending_filters",
@@ -159,6 +165,7 @@
         "_add_filter",
         "_apply_filter_value",
         "_apply_filters",
+        "_fetch_filter_values",
         "_handle_facet_filter",
         "_remove_filter",
         "_reset_pending_filters",
@@ -279,13 +286,13 @@
   "type_coverage": {
     "src/server/context.py": {
       "functions": {
-        "total": 0,
-        "with_return_type": 0,
-        "fully_annotated": 0
+        "total": 1,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 0,
-        "annotated": 0
+        "total": 1,
+        "annotated": 1
       }
     },
     "src/server/core.py": {
@@ -453,7 +460,7 @@
     },
     "src/server/filters.py": {
       "functions": {
-        "total": 13,
+        "total": 14,
         "with_return_type": 0,
         "fully_annotated": 0
       },

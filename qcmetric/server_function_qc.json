@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 543,
-    "total_unused": 110,
-    "unused_percentage": 20.3
+    "total_functions": 545,
+    "total_unused": 112,
+    "unused_percentage": 20.6
   },
   "modules": {
     "clipboard_utils.py": {
@@ -1191,6 +1191,17 @@
         "__init__"
       ]
     },
+    "context.py": {
+      "description": "ServerContext \u2014 shared state container passed to all server sub-modules.",
+      "path": "src/server/context.py",
+      "total_functions": 1,
+      "functions": [
+        "validate_ns"
+      ],
+      "unused": [
+        "validate_ns"
+      ]
+    },
     "core.py": {
       "description": "Server core \u2014 create_server() setup, reactive values, and sub-module wiring.",
       "path": "src/server/core.py",
@@ -1317,11 +1328,12 @@
     "filters.py": {
       "description": "Server filters \u2014 facet panels, dynamic filters, apply/reset.",
       "path": "src/server/filters.py",
-      "total_functions": 13,
+      "total_functions": 14,
       "functions": [
         "_add_filter",
         "_apply_filter_value",
         "_apply_filters",
+        "_fetch_filter_values",
         "_handle_facet_filter",
         "_remove_filter",
         "_reset_pending_filters",
@@ -1340,6 +1352,7 @@
         "_add_filter",
         "_apply_filter_value",
         "_apply_filters",
+        "_fetch_filter_values",
         "_handle_facet_filter",
         "_remove_filter",
         "_reset_pending_filters",
@@ -1553,6 +1566,9 @@
       "__getitem__",
       "__init__"
     ],
+    "context.py": [
+      "validate_ns"
+    ],
     "core.py": [
       "_cell_click",
       "_namespace_holder",
@@ -1584,6 +1600,7 @@
       "_add_filter",
       "_apply_filter_value",
       "_apply_filters",
+      "_fetch_filter_values",
       "_handle_facet_filter",
       "_remove_filter",
       "_reset_pending_filters",

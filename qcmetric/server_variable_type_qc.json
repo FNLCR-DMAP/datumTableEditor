@@ -2,11 +2,11 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 543,
-    "fully_annotated_functions": 347,
+    "total_functions": 545,
+    "fully_annotated_functions": 348,
     "function_coverage_percent": 63.9,
-    "total_parameters": 710,
-    "annotated_parameters": 632,
+    "total_parameters": 711,
+    "annotated_parameters": 633,
     "parameter_coverage_percent": 89.0,
     "mypy_errors": 0,
     "mypy_available": true
@@ -757,48 +757,48 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 34
+          "line": 46
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 75
+          "line": 87
         },
         {
           "type": "parameter",
           "function": "_build_filters",
           "name": "params",
-          "line": 124
+          "line": 136
         },
         {
           "type": "parameter",
           "function": "_sort_params",
           "name": "params",
-          "line": 159
+          "line": 175
         },
         {
           "type": "parameter",
           "function": "fetch_page",
           "name": "params",
-          "line": 173
+          "line": 189
         },
         {
           "type": "parameter",
           "function": "get_filtered_count",
           "name": "params",
-          "line": 206
+          "line": 222
         },
         {
           "type": "parameter",
           "function": "fetch_all_filtered",
           "name": "params",
-          "line": 225
+          "line": 241
         },
         {
           "type": "parameter",
           "function": "get_status_counts",
           "name": "params",
-          "line": 294
+          "line": 326
         }
       ]
     },
@@ -826,13 +826,13 @@
     },
     "src/server/context.py": {
       "functions": {
-        "total": 0,
-        "with_return_type": 0,
-        "fully_annotated": 0
+        "total": 1,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 0,
-        "annotated": 0
+        "total": 1,
+        "annotated": 1
       }
     },
     "src/server/core.py": {
@@ -1002,7 +1002,7 @@
     },
     "src/server/filters.py": {
       "functions": {
-        "total": 13,
+        "total": 14,
         "with_return_type": 0,
         "fully_annotated": 0
       },
@@ -1062,7 +1062,7 @@
           "line": 215
         }
       ],
-      "missing_annotations_truncated": 3
+      "missing_annotations_truncated": 4
     },
     "src/server/pagination.py": {
       "functions": {
