@@ -348,7 +348,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                     ui.div(
                         ui.input_action_button("save_btn", "Save", class_="btn btn-sm btn-success") if enable_save_button else None,
                         ui.tags.button("Export Selected", class_="btn btn-sm btn-info", onclick="openExportConfirmModal(event, 'selected')") if enable_export else None,
-                        ui.tags.button("Export All", class_="btn btn-sm btn-outline-info", onclick="openExportConfirmModal(event, 'all')") if enable_export else None,
+                        ui.tags.button("Export All", class_="btn btn-sm export-all-btn", onclick="openExportConfirmModal(event, 'all')") if enable_export else None,
                         ui.input_action_button("approve_btn", "Approve", class_="btn btn-sm btn-success") if enable_approval_workflow else None,
                         ui.input_action_button("reject_btn", "Reject", class_="btn btn-sm btn-danger") if enable_approval_workflow else None,
                         ui.tags.button("Copy", class_="btn btn-sm btn-secondary", onclick="openCopyModal(event)"),

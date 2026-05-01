@@ -16,9 +16,9 @@
     width: 25%;
     min-width: 280px;
     max-width: 400px;
-    background: #c5ccd3;
-    color: #343a40;
-    border-right: 2px solid #adb5bd;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-color);
+    border-right: 2px solid var(--sidebar-border);
     padding: 15px;
     overflow-y: auto;
     transition: all 0.3s ease;
@@ -40,8 +40,8 @@
     width: 28px;
     height: 28px;
     border-radius: 4px;
-    border: 1px solid #ccc;
-    background: white;
+    border: 1px solid var(--toggle-btn-border);
+    background: var(--page-bg);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -58,7 +58,7 @@
     flex: 1;
     padding: 15px;
     overflow: hidden;
-    background: white;
+    background: var(--page-bg);
     display: flex;
     flex-direction: column;
 }

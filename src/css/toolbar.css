@@ -17,9 +17,9 @@
     gap: 15px;
     margin-bottom: 15px;
     padding: 12px;
-    background: #f8f9fa;
+    background: var(--toolbar-bg);
     border-radius: 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--toolbar-border);
 }
 .toolbar-left {
     display: flex;
@@ -46,8 +46,8 @@
 .preset-btn {
     padding: 8px 14px;
     font-size: 13px;
-    border: 1px solid #ced4da;
-    background: white;
+    border: 1px solid var(--toolbar-btn-border);
+    background: var(--toolbar-btn-bg);
     border-radius: 4px;
     cursor: pointer;
     display: flex;
@@ -55,7 +55,7 @@
     gap: 6px;
 }
 .preset-btn:hover {
-    background: #f8f9fa;
+    background: var(--toolbar-bg);
 }
 .preset-menu {
     display: none;
@@ -63,8 +63,8 @@
     top: 100%;
     right: 0;
     min-width: 200px;
-    background: white;
-    border: 1px solid #dee2e6;
+    background: var(--toolbar-btn-bg);
+    border: 1px solid var(--toolbar-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 1000;
@@ -82,14 +82,14 @@
     font-size: 13px;
 }
 .preset-menu-item:hover {
-    background: #f8f9fa;
+    background: var(--toolbar-bg);
 }
 .preset-menu-item.active {
-    background: #e3f2fd;
+    background: var(--table-row-hover-bg);
     font-weight: 600;
 }
 .preset-menu-item .delete-preset {
-    color: #dc3545;
+    color: var(--btn-danger-bg);
     opacity: 0.7;
     cursor: pointer;
 }
@@ -97,7 +97,7 @@
     opacity: 1;
 }
 .preset-menu-divider {
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--toolbar-border);
     margin: 4px 0;
 }
 .preset-save-row {
@@ -108,7 +108,7 @@
 .preset-save-row input {
     flex: 1;
     padding: 6px 10px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--toolbar-btn-border);
     border-radius: 4px;
     font-size: 12px;
 }
@@ -117,41 +117,55 @@
 .add-col-btn {
     padding: 8px 14px;
     font-size: 13px;
-    border: 1px solid #28a745;
-    background: #28a745;
-    color: white;
+    border: 1px solid var(--btn-success-bg);
+    background: var(--btn-success-bg);
+    color: var(--btn-primary-color);
     border-radius: 4px;
     cursor: pointer;
 }
 .add-col-btn:hover {
-    background: #218838;
+    background: var(--btn-success-bg);
 }
 
 /* Save Layout Button */
 .save-layout-btn {
     padding: 8px 14px;
     font-size: 13px;
-    border: 1px solid #17a2b8;
-    background: #17a2b8;
-    color: white;
+    border: 1px solid var(--btn-primary-bg);
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-color);
     border-radius: 4px;
     cursor: pointer;
     margin-right: 8px;
 }
 .save-layout-btn:hover {
-    background: #138496;
+    background: var(--btn-primary-bg);
 }
 
 /* Mod Log Button */
 .mod-log-btn {
     padding: 8px 14px;
     font-size: 13px;
-    border: 1px solid #6c757d;
-    background: #6c757d;
-    color: white;
+    border: 1px solid var(--status-unprocessed);
+    background: var(--status-unprocessed);
+    color: var(--btn-primary-color);
     border-radius: 4px;
     cursor: pointer;
 }
 .mod-log-btn:hover {
-    background: #5a6268;
+    background: var(--status-unprocessed);
+}
+
+/* Export All Button */
+.export-all-btn {
+    background: orange;
+    color: #000;
+    font-weight: bold;
+    border: 1px solid orange;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.export-all-btn:hover {
+    background: #e69500;
+    color: #000;
 }
