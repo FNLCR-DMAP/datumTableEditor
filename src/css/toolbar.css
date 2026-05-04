@@ -31,6 +31,7 @@
     padding: 4px 10px;
     font-size: 12px;
     line-height: 1.4;
+    color: var(--toolbar-btn-color);
 }
 .toolbar-right {
     display: flex;
@@ -48,6 +49,7 @@
     font-size: 13px;
     border: 1px solid var(--toolbar-btn-border);
     background: var(--toolbar-btn-bg);
+    color: var(--toolbar-btn-color);
     border-radius: 4px;
     cursor: pointer;
     display: flex;
@@ -80,6 +82,7 @@
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
+    color: var(--toolbar-btn-color);
 }
 .preset-menu-item:hover {
     background: var(--toolbar-bg);
@@ -111,6 +114,8 @@
     border: 1px solid var(--toolbar-btn-border);
     border-radius: 4px;
     font-size: 12px;
+    background: var(--input-bg);
+    color: var(--input-color);
 }
 
 /* Add Column Button */
