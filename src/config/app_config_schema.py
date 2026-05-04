@@ -310,8 +310,8 @@ class AppConfig:
     tracker_mode: bool = False  # Force-flush log every SQL query and render with elapsed time
     clean_slate: bool = False  # Show only the table — no sidebar, no toolbar, no modals
     
-    # Theme: modern | classic | eye-protection | dark
-    theme: str = "modern"
+    # Theme: classic | modern | eye-protection | dark
+    theme: str = "classic"
     
     # Configurable status labels: internal_key -> display_label
     # Internal keys: unprocessed, edited, approved, rejected
