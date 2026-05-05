@@ -91,28 +91,29 @@ class UserPresetsService:
         """Get the base table name."""
         return self._table_name
     
-    def _get_preset_table_name(self, username: str) -> str:
-        """Generate the user preset table name.
+    def _get_preset_table_name(self, username: str = None) -> str:
+        """Generate the preset table name.
         
-        Convention: {table_name}_{username}_column_presets
+        Convention: {table_name}_column_presets (shared table with username column)
         """
-        safe_username = "".join(c if c.isalnum() else "_" for c in username).lower()
-        return f"{self._table_name}_{safe_username}_column_presets"
+        return f"{self._table_name}_column_presets"
     
     def _ensure_table_exists(self, username: str) -> str:
-        """Create the user preset table if it doesn't exist."""
-        preset_table = self._get_preset_table_name(username)
+        """Create the preset table if it doesn't exist."""
+        preset_table = self._get_preset_table_name()
         
         create_sql = f"""
         CREATE TABLE IF NOT EXISTS "{preset_table}" (
             id SERIAL PRIMARY KEY,
-            preset_name VARCHAR(255) NOT NULL UNIQUE,
+            username VARCHAR(255) NOT NULL,
+            preset_name VARCHAR(255) NOT NULL,
             columns JSONB NOT NULL,
             is_default BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (username, preset_name)
         );
-        CREATE INDEX IF NOT EXISTS idx_{preset_table}_name ON "{preset_table}" (preset_name);
+        CREATE INDEX IF NOT EXISTS idx_{preset_table}_user ON "{preset_table}" (username);
         """
         
         with self._engine.connect() as conn:
@@ -138,12 +139,13 @@ class UserPresetsService:
         
         with self._engine.connect() as conn:
             if is_default:
-                conn.execute(text(f'UPDATE "{preset_table}" SET is_default = FALSE WHERE is_default = TRUE'))
+                conn.execute(text(f'UPDATE "{preset_table}" SET is_default = FALSE WHERE username = :username AND is_default = TRUE'),
+                             {"username": username})
             
             upsert_sql = text(f"""
-                INSERT INTO "{preset_table}" (preset_name, columns, is_default, updated_at)
-                VALUES (:preset_name, :columns, :is_default, CURRENT_TIMESTAMP)
-                ON CONFLICT (preset_name) 
+                INSERT INTO "{preset_table}" (username, preset_name, columns, is_default, updated_at)
+                VALUES (:username, :preset_name, :columns, :is_default, CURRENT_TIMESTAMP)
+                ON CONFLICT (username, preset_name) 
                 DO UPDATE SET 
                     columns = EXCLUDED.columns,
                     is_default = EXCLUDED.is_default,
@@ -152,6 +154,7 @@ class UserPresetsService:
             """)
             
             result = conn.execute(upsert_sql, {
+                "username": username,
                 "preset_name": preset_name,
                 "columns": json.dumps(columns),
                 "is_default": is_default
@@ -167,7 +170,7 @@ class UserPresetsService:
         Returns:
             List of preset dicts with keys: id, preset_name, columns, is_default, created_at, updated_at
         """
-        preset_table = self._get_preset_table_name(username)
+        preset_table = self._get_preset_table_name()
         
         inspector = inspect(self._engine)
         if preset_table not in inspector.get_table_names():
@@ -177,8 +180,9 @@ class UserPresetsService:
             result = conn.execute(text(f"""
                 SELECT id, preset_name, columns, is_default, created_at, updated_at
                 FROM "{preset_table}"
+                WHERE username = :username
                 ORDER BY preset_name
-            """))
+            """), {"username": username})
             
             presets = []
             for row in result:
@@ -199,7 +203,7 @@ class UserPresetsService:
         Returns:
             Preset dict or None if not found
         """
-        preset_table = self._get_preset_table_name(username)
+        preset_table = self._get_preset_table_name()
         
         inspector = inspect(self._engine)
         if preset_table not in inspector.get_table_names():
@@ -209,9 +213,9 @@ class UserPresetsService:
             result = conn.execute(text(f"""
                 SELECT id, preset_name, columns, is_default, created_at, updated_at
                 FROM "{preset_table}"
-                WHERE preset_name = :preset_name
+                WHERE username = :username AND preset_name = :preset_name
                 LIMIT 1
-            """), {"preset_name": preset_name})
+            """), {"username": username, "preset_name": preset_name})
             
             row = result.fetchone()
             if row:
@@ -232,7 +236,7 @@ class UserPresetsService:
         Returns:
             Preset dict or None if no default set
         """
-        preset_table = self._get_preset_table_name(username)
+        preset_table = self._get_preset_table_name()
         
         inspector = inspect(self._engine)
         if preset_table not in inspector.get_table_names():
@@ -242,9 +246,9 @@ class UserPresetsService:
             result = conn.execute(text(f"""
                 SELECT id, preset_name, columns, is_default, created_at, updated_at
                 FROM "{preset_table}"
-                WHERE is_default = TRUE
+                WHERE username = :username AND is_default = TRUE
                 LIMIT 1
-            """))
+            """), {"username": username})
             
             row = result.fetchone()
             if row:
@@ -265,7 +269,7 @@ class UserPresetsService:
         Returns:
             True if deleted, False if not found
         """
-        preset_table = self._get_preset_table_name(username)
+        preset_table = self._get_preset_table_name()
         
         inspector = inspect(self._engine)
         if preset_table not in inspector.get_table_names():
@@ -274,8 +278,8 @@ class UserPresetsService:
         with self._engine.connect() as conn:
             result = conn.execute(text(f"""
                 DELETE FROM "{preset_table}"
-                WHERE preset_name = :preset_name
-            """), {"preset_name": preset_name})
+                WHERE username = :username AND preset_name = :preset_name
+            """), {"username": username, "preset_name": preset_name})
             conn.commit()
             
         return result.rowcount > 0
@@ -286,46 +290,44 @@ class UserPresetsService:
         Returns:
             True if successful, False if preset not found
         """
-        preset_table = self._get_preset_table_name(username)
+        preset_table = self._get_preset_table_name()
         
         inspector = inspect(self._engine)
         if preset_table not in inspector.get_table_names():
             return False
         
         with self._engine.connect() as conn:
-            # Unset current default
-            conn.execute(text(f'UPDATE "{preset_table}" SET is_default = FALSE WHERE is_default = TRUE'))
+            # Unset current default for this user
+            conn.execute(text(f'UPDATE "{preset_table}" SET is_default = FALSE WHERE username = :username AND is_default = TRUE'),
+                         {"username": username})
             
             # Set new default
             result = conn.execute(text(f"""
                 UPDATE "{preset_table}" 
                 SET is_default = TRUE, updated_at = CURRENT_TIMESTAMP
-                WHERE preset_name = :preset_name
-            """), {"preset_name": preset_name})
+                WHERE username = :username AND preset_name = :preset_name
+            """), {"username": username, "preset_name": preset_name})
             conn.commit()
             
         return result.rowcount > 0
     
     def list_users(self) -> list[str]:
-        """List all users with preset tables.
+        """List all users with presets in this table.
         
         Returns:
             List of usernames
         """
+        preset_table = self._get_preset_table_name()
+        
         inspector = inspect(self._engine)
-        all_tables = inspector.get_table_names()
+        if preset_table not in inspector.get_table_names():
+            return []
         
-        prefix = f"{self._table_name}_"
-        suffix = "_column_presets"
-        
-        users = []
-        for table in all_tables:
-            if table.startswith(prefix) and table.endswith(suffix):
-                username = table[len(prefix):-len(suffix)]
-                if username:
-                    users.append(username)
-        
-        return users
+        with self._engine.connect() as conn:
+            result = conn.execute(text(f"""
+                SELECT DISTINCT username FROM "{preset_table}" ORDER BY username
+            """))
+            return [row[0] for row in result]
 
 
 # ============================================================================
@@ -333,9 +335,8 @@ class UserPresetsService:
 # ============================================================================
 
 def get_user_preset_table_name(table_name: str, username: str) -> str:
-    """Generate the user preset table name."""
-    safe_username = "".join(c if c.isalnum() else "_" for c in username).lower()
-    return f"{table_name}_{safe_username}_column_presets"
+    """Generate the preset table name (shared table, username is a column)."""
+    return f"{table_name}_column_presets"
 
 
 def create_user_preset_table(engine, table_name: str, username: str) -> str:

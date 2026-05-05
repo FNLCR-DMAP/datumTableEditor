@@ -1824,6 +1824,7 @@ class ConfigInstance:
     _state_table_available: bool = field(default=False, repr=False)
     _mods_table_checked: bool = field(default=False, repr=False)
     _preset_table_checked: bool = field(default=False, repr=False)
+    _preset_legacy_mode: Optional[bool] = field(default=None, repr=False)  # None=unchecked, True=old per-user table, False=new shared table
     _engine: Any = field(default=None, repr=False)
     _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
@@ -4335,21 +4336,89 @@ class ConfigInstance:
     # Preset Management (Datum-aware)
     # =========================================================================
     
-    def _get_preset_table_name(self) -> str:
-        """Generate the user preset table name: {data_table_base}_{username}_column_presets"""
-        # Extract base table name (without schema)
+    def _get_legacy_preset_table_name(self) -> str:
+        """Generate the old per-user preset table name: {data_table_base}_{username}_column_presets"""
         data_table = self.app_config.database.data_table
         if '.' in data_table:
             base_name = data_table.split('.')[-1]
         else:
             base_name = data_table
         safe_username = "".join(c if c.isalnum() else "_" for c in self.username).lower()
-        
-        # Include schema if present
         if '.' in data_table:
             schema = data_table.split('.')[0]
             return f"{schema}.{base_name}_{safe_username}_column_presets"
         return f"{base_name}_{safe_username}_column_presets"
+
+    def _get_new_preset_table_name(self) -> str:
+        """Generate the new shared preset table name: {data_table_base}_column_presets"""
+        data_table = self.app_config.database.data_table
+        if '.' in data_table:
+            base_name = data_table.split('.')[-1]
+        else:
+            base_name = data_table
+        if '.' in data_table:
+            schema = data_table.split('.')[0]
+            return f"{schema}.{base_name}_column_presets"
+        return f"{base_name}_column_presets"
+
+    def _get_preset_table_name(self) -> str:
+        """Return the active preset table name (legacy per-user or new shared).
+        
+        On first call, checks if the old per-user table exists. If yes, uses it (legacy mode).
+        Otherwise uses the new shared table with a username column.
+        """
+        if self._preset_legacy_mode is None:
+            self._detect_preset_legacy_mode()
+        if self._preset_legacy_mode:
+            return self._get_legacy_preset_table_name()
+        return self._get_new_preset_table_name()
+
+    def _detect_preset_legacy_mode(self) -> None:
+        """Detect whether the old per-user preset table exists."""
+        if self.app_config.database.mode == "datum":
+            self._detect_preset_legacy_mode_datum()
+            return
+        try:
+            from sqlalchemy import inspect as sa_inspect
+            engine = self._get_engine()
+            if engine is None:
+                self._preset_legacy_mode = False
+                return
+            inspector = sa_inspect(engine)
+            legacy_table = self._get_legacy_preset_table_name()
+            # Strip schema for inspector lookup
+            check_schema = None
+            check_table = legacy_table
+            if '.' in legacy_table:
+                check_schema = legacy_table.split('.')[0]
+                check_table = legacy_table.split('.')[1]
+            existing = inspector.get_table_names(schema=check_schema)
+            self._preset_legacy_mode = check_table in existing
+        except Exception:
+            self._preset_legacy_mode = False
+
+    def _detect_preset_legacy_mode_datum(self) -> None:
+        """Detect legacy preset table via Datum proxy."""
+        try:
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            if not base_url or not token:
+                self._preset_legacy_mode = False
+                return
+            client = DatumClient(base_url=base_url, token=token)
+            legacy_table = self._get_legacy_preset_table_name()
+            legacy_table_sql = _format_table_name(legacy_table)
+            # Try a lightweight query against the legacy table
+            client.execute_sql(
+                sql=f'SELECT 1 FROM {legacy_table_sql} LIMIT 1',
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            self._preset_legacy_mode = True
+        except Exception:
+            self._preset_legacy_mode = False
     
     def _ensure_preset_table_exists(self) -> bool:
         """Create the preset table if it doesn't exist. Only runs once per instance."""
@@ -4357,6 +4426,13 @@ class ConfigInstance:
             return True
         # Skip if already checked this session
         if self._preset_table_checked:
+            return True
+        
+        # Legacy mode: old per-user table already exists, no creation needed
+        if self._preset_legacy_mode is None:
+            self._detect_preset_legacy_mode()
+        if self._preset_legacy_mode:
+            self._preset_table_checked = True
             return True
         
         if self.app_config.database.mode == "datum":
@@ -4376,11 +4452,13 @@ class ConfigInstance:
                 conn.execute(text(f'''
                     CREATE TABLE IF NOT EXISTS {preset_table_sql} (
                         id SERIAL PRIMARY KEY,
-                        preset_name VARCHAR(255) NOT NULL UNIQUE,
+                        username VARCHAR(255) NOT NULL,
+                        preset_name VARCHAR(255) NOT NULL,
                         columns JSONB NOT NULL,
                         is_default BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (username, preset_name)
                     )
                 '''))
                 conn.commit()
@@ -4409,11 +4487,13 @@ class ConfigInstance:
                 sql=f'''
                     CREATE TABLE IF NOT EXISTS {preset_table_sql} (
                         id SERIAL PRIMARY KEY,
-                        preset_name VARCHAR(255) NOT NULL UNIQUE,
+                        username VARCHAR(255) NOT NULL,
+                        preset_name VARCHAR(255) NOT NULL,
                         columns JSONB NOT NULL,
                         is_default BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (username, preset_name)
                     )
                 ''',
                 database=self.app_config.database.datum_database,
@@ -4446,26 +4526,48 @@ class ConfigInstance:
                 return None
             
             with engine.connect() as conn:
-                if is_default:
-                    conn.execute(text(f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE'))
-                
-                result = conn.execute(
-                    text(f'''
-                        INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
-                        VALUES (:preset_name, :columns, :is_default, CURRENT_TIMESTAMP)
-                        ON CONFLICT (preset_name) 
-                        DO UPDATE SET 
-                            columns = EXCLUDED.columns,
-                            is_default = EXCLUDED.is_default,
-                            updated_at = CURRENT_TIMESTAMP
-                        RETURNING id
-                    '''),
-                    {
-                        "preset_name": preset_name,
-                        "columns": json.dumps(columns),
-                        "is_default": is_default
-                    }
-                )
+                if self._preset_legacy_mode:
+                    if is_default:
+                        conn.execute(text(f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE'))
+                    result = conn.execute(
+                        text(f'''
+                            INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
+                            VALUES (:preset_name, :columns, :is_default, CURRENT_TIMESTAMP)
+                            ON CONFLICT (preset_name) 
+                            DO UPDATE SET 
+                                columns = EXCLUDED.columns,
+                                is_default = EXCLUDED.is_default,
+                                updated_at = CURRENT_TIMESTAMP
+                            RETURNING id
+                        '''),
+                        {
+                            "preset_name": preset_name,
+                            "columns": json.dumps(columns),
+                            "is_default": is_default
+                        }
+                    )
+                else:
+                    if is_default:
+                        conn.execute(text(f'UPDATE {preset_table_sql} SET is_default = FALSE WHERE username = :username AND is_default = TRUE'),
+                                     {"username": self.username})
+                    result = conn.execute(
+                        text(f'''
+                            INSERT INTO {preset_table_sql} (username, preset_name, columns, is_default, updated_at)
+                            VALUES (:username, :preset_name, :columns, :is_default, CURRENT_TIMESTAMP)
+                            ON CONFLICT (username, preset_name) 
+                            DO UPDATE SET 
+                                columns = EXCLUDED.columns,
+                                is_default = EXCLUDED.is_default,
+                                updated_at = CURRENT_TIMESTAMP
+                            RETURNING id
+                        '''),
+                        {
+                            "username": self.username,
+                            "preset_name": preset_name,
+                            "columns": json.dumps(columns),
+                            "is_default": is_default
+                        }
+                    )
                 preset_id = result.scalar()
                 conn.commit()
                 return preset_id
@@ -4487,36 +4589,50 @@ class ConfigInstance:
             client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
-            
-            # Clear existing default if setting new default
-            if is_default:
-                client.execute_sql(
-                    sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE; COMMIT;',
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
-            
             columns_json_lit = SqlLiteral(json.dumps(columns))
             preset_name_lit = SqlLiteral(preset_name)
             
-            # UPSERT with explicit BEGIN/COMMIT for Datum proxy
-            sql = f'''
-                    BEGIN;
-                    INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
-                    VALUES ({preset_name_lit}, {columns_json_lit}::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
-                    ON CONFLICT (preset_name) 
-                    DO UPDATE SET 
-                        columns = EXCLUDED.columns,
-                        is_default = EXCLUDED.is_default,
-                        updated_at = CURRENT_TIMESTAMP
-                    RETURNING id;
-                    COMMIT;
-                '''
-            
-            print(f"[Datum DEBUG] Saving preset: name={preset_name}, is_default={is_default}")
-            print(f"[Datum DEBUG] Preset table: {preset_table_sql}, database: {self.app_config.database.datum_database}, schema: {self.app_config.database.datum_schema}")
-            print(f"[Datum DEBUG] Preset SQL: {sql}")
+            if self._preset_legacy_mode:
+                if is_default:
+                    client.execute_sql(
+                        sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE; COMMIT;',
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                sql = f'''
+                        BEGIN;
+                        INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
+                        VALUES ({preset_name_lit}, {columns_json_lit}::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
+                        ON CONFLICT (preset_name) 
+                        DO UPDATE SET 
+                            columns = EXCLUDED.columns,
+                            is_default = EXCLUDED.is_default,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING id;
+                        COMMIT;
+                    '''
+            else:
+                username_lit = SqlLiteral(self.username)
+                if is_default:
+                    client.execute_sql(
+                        sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE username = {username_lit} AND is_default = TRUE; COMMIT;',
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                sql = f'''
+                        BEGIN;
+                        INSERT INTO {preset_table_sql} (username, preset_name, columns, is_default, updated_at)
+                        VALUES ({username_lit}, {preset_name_lit}, {columns_json_lit}::jsonb, {str(is_default).upper()}, CURRENT_TIMESTAMP)
+                        ON CONFLICT (username, preset_name) 
+                        DO UPDATE SET 
+                            columns = EXCLUDED.columns,
+                            is_default = EXCLUDED.is_default,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING id;
+                        COMMIT;
+                    '''
             
             response = client.execute_sql(
                 sql=sql,
@@ -4525,18 +4641,11 @@ class ConfigInstance:
                 service_name=self.app_config.database.datum_service_name,
             )
             
-            print(f"[Datum DEBUG] Preset save response: {response.data}")
-            
             if response.data:
-                preset_id = response.data[0].get("id")
-                print(f"[Datum DEBUG] Preset saved with ID: {preset_id}")
-                return preset_id
-            print("[Datum DEBUG] No data returned from preset save")
+                return response.data[0].get("id")
             return None
         except Exception as e:
             print(f"⚠ Could not save preset via Datum: {e}")
-            import traceback
-            traceback.print_exc()
             return None
     
     def get_presets(self) -> List[Dict]:
@@ -4559,11 +4668,19 @@ class ConfigInstance:
                 return []
             
             with engine.connect() as conn:
-                result = conn.execute(text(f'''
-                    SELECT id, preset_name, columns, is_default, created_at, updated_at
-                    FROM {preset_table_sql}
-                    ORDER BY preset_name
-                '''))
+                if self._preset_legacy_mode:
+                    result = conn.execute(text(f'''
+                        SELECT id, preset_name, columns, is_default, created_at, updated_at
+                        FROM {preset_table_sql}
+                        ORDER BY preset_name
+                    '''))
+                else:
+                    result = conn.execute(text(f'''
+                        SELECT id, preset_name, columns, is_default, created_at, updated_at
+                        FROM {preset_table_sql}
+                        WHERE username = :username
+                        ORDER BY preset_name
+                    '''), {"username": self.username})
                 
                 presets = []
                 for row in result:
@@ -4595,11 +4712,20 @@ class ConfigInstance:
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
             
-            query = f'''
-                    SELECT id, preset_name, columns, is_default, created_at, updated_at
-                    FROM {preset_table_sql}
-                    ORDER BY preset_name
-                '''
+            if self._preset_legacy_mode:
+                query = f'''
+                        SELECT id, preset_name, columns, is_default, created_at, updated_at
+                        FROM {preset_table_sql}
+                        ORDER BY preset_name
+                    '''
+            else:
+                username_lit = SqlLiteral(self.username)
+                query = f'''
+                        SELECT id, preset_name, columns, is_default, created_at, updated_at
+                        FROM {preset_table_sql}
+                        WHERE username = {username_lit}
+                        ORDER BY preset_name
+                    '''
             
             response = client.execute_sql(
                 sql=query,
@@ -4644,10 +4770,16 @@ class ConfigInstance:
                 return False
             
             with engine.connect() as conn:
-                result = conn.execute(
-                    text(f'DELETE FROM {preset_table_sql} WHERE preset_name = :preset_name'),
-                    {"preset_name": preset_name}
-                )
+                if self._preset_legacy_mode:
+                    result = conn.execute(
+                        text(f'DELETE FROM {preset_table_sql} WHERE preset_name = :preset_name'),
+                        {"preset_name": preset_name}
+                    )
+                else:
+                    result = conn.execute(
+                        text(f'DELETE FROM {preset_table_sql} WHERE username = :username AND preset_name = :preset_name'),
+                        {"username": self.username, "preset_name": preset_name}
+                    )
                 conn.commit()
                 return result.rowcount > 0
         except Exception as e:
@@ -4670,8 +4802,14 @@ class ConfigInstance:
             preset_table_sql = _format_table_name(preset_table)
             preset_name_lit = SqlLiteral(preset_name)
             
+            if self._preset_legacy_mode:
+                sql = f"BEGIN; DELETE FROM {preset_table_sql} WHERE preset_name = {preset_name_lit}; COMMIT;"
+            else:
+                username_lit = SqlLiteral(self.username)
+                sql = f"BEGIN; DELETE FROM {preset_table_sql} WHERE username = {username_lit} AND preset_name = {preset_name_lit}; COMMIT;"
+            
             client.execute_sql(
-                sql=f"BEGIN; DELETE FROM {preset_table_sql} WHERE preset_name = {preset_name_lit}; COMMIT;",
+                sql=sql,
                 database=self.app_config.database.datum_database,
                 schema=self.app_config.database.datum_schema,
                 service_name=self.app_config.database.datum_service_name,

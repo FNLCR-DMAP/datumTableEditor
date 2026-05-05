@@ -20,7 +20,7 @@ class TestUserPresetsServiceInit:
             assert service._engine is mock_engine
     
     def test_get_preset_table_name(self):
-        """Should generate correct table name."""
+        """Should generate correct table name (shared, no username in name)."""
         with patch('src.db.user_presets.SQLALCHEMY_AVAILABLE', True):
             with patch('src.db.user_presets.create_engine'):
                 from src.db.user_presets import UserPresetsService
@@ -30,10 +30,10 @@ class TestUserPresetsServiceInit:
                 
                 table_name = service._get_preset_table_name("john_doe")
                 
-                assert table_name == "epitopes_john_doe_column_presets"
+                assert table_name == "epitopes_column_presets"
     
-    def test_get_preset_table_name_sanitizes(self):
-        """Should sanitize username for table name."""
+    def test_get_preset_table_name_ignores_username(self):
+        """Table name should not include username (it's a column now)."""
         with patch('src.db.user_presets.SQLALCHEMY_AVAILABLE', True):
             with patch('src.db.user_presets.create_engine'):
                 from src.db.user_presets import UserPresetsService
@@ -41,11 +41,11 @@ class TestUserPresetsServiceInit:
                 mock_engine = MagicMock()
                 service = UserPresetsService(engine=mock_engine, table_name="epitopes")
                 
-                # Special characters should be replaced
-                table_name = service._get_preset_table_name("john@company.com")
+                # Different users get the same table
+                table1 = service._get_preset_table_name("john@company.com")
+                table2 = service._get_preset_table_name("jane_doe")
                 
-                assert "@" not in table_name
-                assert "." not in table_name
+                assert table1 == table2 == "epitopes_column_presets"
 
 
 class TestUserPresetsServiceSavePreset:
@@ -73,7 +73,7 @@ class TestUserPresetsServiceSavePreset:
     def test_save_preset_returns_id(self, mock_service):
         """Saving preset should return preset ID."""
         # Mock _ensure_table_exists
-        mock_service._ensure_table_exists = MagicMock(return_value="test_user_column_presets")
+        mock_service._ensure_table_exists = MagicMock(return_value="test_column_presets")
         
         preset_id = mock_service.save_preset(
             username="user1",
@@ -109,7 +109,7 @@ class TestUserPresetsServiceEnsureTable:
                 
                 # Should have executed CREATE TABLE
                 assert mock_conn.execute.called
-                assert table_name == "test_user1_column_presets"
+                assert table_name == "test_column_presets"
 
 
 class TestUserPresetsServiceGetPresets:
@@ -151,7 +151,7 @@ class TestUserPresetsServiceGetPresetByName:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -179,7 +179,7 @@ class TestUserPresetsServiceDeletePreset:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -203,7 +203,7 @@ class TestUserPresetsServiceDeletePreset:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -262,7 +262,7 @@ class TestUserPresetsServiceGetDefaultPreset:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -306,7 +306,7 @@ class TestUserPresetsServiceSetDefault:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -335,18 +335,22 @@ class TestUserPresetsServiceListUsers:
                 assert users == []
     
     def test_list_users_finds_users(self):
-        """Should extract usernames from table names."""
+        """Should extract usernames from the shared preset table."""
         with patch('src.db.user_presets.SQLALCHEMY_AVAILABLE', True):
             with patch('src.db.user_presets.inspect') as mock_inspect:
                 from src.db.user_presets import UserPresetsService
                 
                 mock_engine = MagicMock()
+                mock_conn = MagicMock()
+                mock_result = MagicMock()
+                mock_result.__iter__ = MagicMock(return_value=iter([("alice",), ("bob",)]))
+                mock_conn.execute.return_value = mock_result
+                mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+                mock_conn.__exit__ = MagicMock(return_value=False)
+                mock_engine.connect.return_value = mock_conn
+                
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = [
-                    "test_alice_column_presets",
-                    "test_bob_column_presets",
-                    "other_table"
-                ]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -385,23 +389,22 @@ class TestStandaloneFunctions:
     """Tests for standalone backward compatibility functions."""
     
     def test_get_user_preset_table_name(self):
-        """Should generate correct table name."""
+        """Should generate correct table name (shared, ignores username)."""
         with patch('src.db.user_presets.SQLALCHEMY_AVAILABLE', True):
             from src.db.user_presets import get_user_preset_table_name
             
             result = get_user_preset_table_name("epitopes", "john")
             
-            assert result == "epitopes_john_column_presets"
+            assert result == "epitopes_column_presets"
     
-    def test_get_user_preset_table_name_sanitizes(self):
-        """Should sanitize special characters."""
+    def test_get_user_preset_table_name_same_for_all_users(self):
+        """All users share the same table."""
         with patch('src.db.user_presets.SQLALCHEMY_AVAILABLE', True):
             from src.db.user_presets import get_user_preset_table_name
             
             result = get_user_preset_table_name("epitopes", "john@test.com")
             
-            assert "@" not in result
-            assert "." not in result
+            assert result == "epitopes_column_presets"
     
     def test_list_user_preset_tables(self):
         """Should list preset tables."""
@@ -503,7 +506,7 @@ class TestUserPresetsServiceGetPresetByNameWithData:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -559,7 +562,7 @@ class TestUserPresetsServiceGetPresetsWithData:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -594,7 +597,7 @@ class TestUserPresetsServiceGetDefaultPresetWithData:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -703,7 +706,7 @@ class TestUserPresetsServiceSetDefaultSuccess:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
@@ -730,7 +733,7 @@ class TestUserPresetsServiceSavePresetWithDefault:
             mock_engine.connect.return_value = mock_conn
             
             service = UserPresetsService(engine=mock_engine, table_name="test")
-            service._ensure_table_exists = MagicMock(return_value="test_user_column_presets")
+            service._ensure_table_exists = MagicMock(return_value="test_column_presets")
             
             result = service.save_preset("user", "NewDefault", ["A", "B"], is_default=True)
             
@@ -763,7 +766,7 @@ class TestUserPresetsServiceGetPresetsNullDatetime:
                 mock_engine.connect.return_value = mock_conn
                 
                 mock_inspector = MagicMock()
-                mock_inspector.get_table_names.return_value = ["test_user_column_presets"]
+                mock_inspector.get_table_names.return_value = ["test_column_presets"]
                 mock_inspect.return_value = mock_inspector
                 
                 service = UserPresetsService(engine=mock_engine, table_name="test")
