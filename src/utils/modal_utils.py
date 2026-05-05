@@ -150,7 +150,7 @@ def build_copy_column_buttons(columns: list, column_masks: dict | None = None) -
                 display,
                 class_="btn copy-col-btn",
                 onclick=f"copyColumnValues('{safe_col}')",
-                style="width: 100%; margin-bottom: 4px; text-align: left; padding: 6px 10px; font-size: 12px; border: 1px solid #333; color: #333; background: white;"
+                style="width: 100%; margin-bottom: 4px; text-align: left; padding: 6px 10px; font-size: 12px;"
             )
         )
     return ui.div(*buttons, style="max-height: 400px; overflow-y: auto;")

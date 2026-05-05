@@ -2,10 +2,10 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 166,
+    "total_functions": 170,
     "unused_functions": 1,
-    "fully_annotated_functions": 116,
-    "function_coverage_percent": 69.9,
+    "fully_annotated_functions": 120,
+    "function_coverage_percent": 70.6,
     "parameter_coverage_percent": 82.5,
     "mypy_errors": 0
   },
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 122,
+      "total": 126,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -90,6 +90,8 @@
         "_coerce_date_columns",
         "_col_expr",
         "_delete_preset_datum",
+        "_detect_preset_legacy_mode",
+        "_detect_preset_legacy_mode_datum",
         "_effective_status_column",
         "_effective_status_column",
         "_effective_table",
@@ -114,6 +116,8 @@
         "_get_columns_from_schema_datum",
         "_get_display_columns",
         "_get_engine",
+        "_get_legacy_preset_table_name",
+        "_get_new_preset_table_name",
         "_get_preset_table_name",
         "_get_presets_datum",
         "_get_synthesis_age_minutes",
@@ -214,6 +218,8 @@
         "_coerce_date_columns",
         "_col_expr",
         "_delete_preset_datum",
+        "_detect_preset_legacy_mode",
+        "_detect_preset_legacy_mode_datum",
         "_ensure_data_table_exists",
         "_ensure_data_table_exists_datum",
         "_ensure_mods_table_exists",
@@ -235,6 +241,8 @@
         "_get_columns_from_schema_datum",
         "_get_display_columns",
         "_get_engine",
+        "_get_legacy_preset_table_name",
+        "_get_new_preset_table_name",
         "_get_preset_table_name",
         "_get_presets_datum",
         "_get_synthesis_age_minutes",
@@ -456,9 +464,9 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 122,
-        "with_return_type": 88,
-        "fully_annotated": 84
+        "total": 126,
+        "with_return_type": 92,
+        "fully_annotated": 88
       },
       "parameters": {
         "total": 125,

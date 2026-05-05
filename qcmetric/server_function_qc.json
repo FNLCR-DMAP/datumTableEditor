@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 550,
+    "total_functions": 554,
     "total_unused": 113,
-    "unused_percentage": 20.5
+    "unused_percentage": 20.4
   },
   "modules": {
     "clipboard_utils.py": {
@@ -634,7 +634,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 122,
+      "total_functions": 126,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -657,6 +657,8 @@
         "_coerce_date_columns",
         "_col_expr",
         "_delete_preset_datum",
+        "_detect_preset_legacy_mode",
+        "_detect_preset_legacy_mode_datum",
         "_effective_status_column",
         "_effective_status_column",
         "_effective_table",
@@ -681,6 +683,8 @@
         "_get_columns_from_schema_datum",
         "_get_display_columns",
         "_get_engine",
+        "_get_legacy_preset_table_name",
+        "_get_new_preset_table_name",
         "_get_preset_table_name",
         "_get_presets_datum",
         "_get_synthesis_age_minutes",
@@ -779,6 +783,8 @@
         "_coerce_date_columns",
         "_col_expr",
         "_delete_preset_datum",
+        "_detect_preset_legacy_mode",
+        "_detect_preset_legacy_mode_datum",
         "_ensure_data_table_exists",
         "_ensure_data_table_exists_datum",
         "_ensure_mods_table_exists",
@@ -800,6 +806,8 @@
         "_get_columns_from_schema_datum",
         "_get_display_columns",
         "_get_engine",
+        "_get_legacy_preset_table_name",
+        "_get_new_preset_table_name",
         "_get_preset_table_name",
         "_get_presets_datum",
         "_get_synthesis_age_minutes",

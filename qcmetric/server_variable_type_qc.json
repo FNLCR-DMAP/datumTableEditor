@@ -2,9 +2,9 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 550,
-    "fully_annotated_functions": 352,
-    "function_coverage_percent": 64.0,
+    "total_functions": 554,
+    "fully_annotated_functions": 356,
+    "function_coverage_percent": 64.3,
     "total_parameters": 714,
     "annotated_parameters": 635,
     "parameter_coverage_percent": 88.9,
@@ -381,42 +381,42 @@
           "type": "parameter",
           "function": "create_user_preset_table",
           "name": "engine",
-          "line": 341
+          "line": 342
         },
         {
           "type": "parameter",
           "function": "save_user_preset",
           "name": "engine",
-          "line": 347
+          "line": 348
         },
         {
           "type": "parameter",
           "function": "load_user_presets",
           "name": "engine",
-          "line": 354
+          "line": 355
         },
         {
           "type": "parameter",
           "function": "get_default_preset",
           "name": "engine",
-          "line": 360
+          "line": 361
         },
         {
           "type": "parameter",
           "function": "delete_user_preset",
           "name": "engine",
-          "line": 366
+          "line": 367
         },
         {
           "type": "parameter",
           "function": "list_user_preset_tables",
           "name": "engine",
-          "line": 372
+          "line": 373
         },
         {
           "type": "return",
           "function": "main",
-          "line": 389
+          "line": 390
         },
         {
           "type": "return",
@@ -506,9 +506,9 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 122,
-        "with_return_type": 88,
-        "fully_annotated": 84
+        "total": 126,
+        "with_return_type": 92,
+        "fully_annotated": 88
       },
       "parameters": {
         "total": 125,
