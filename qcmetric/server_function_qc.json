@@ -2,7 +2,7 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 554,
+    "total_functions": 555,
     "total_unused": 113,
     "unused_percentage": 20.4
   },
@@ -634,7 +634,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 126,
+      "total_functions": 127,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -711,6 +711,7 @@
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
+        "_run_synthesis_direct_query",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -831,6 +832,7 @@
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
+        "_run_synthesis_direct_query",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",

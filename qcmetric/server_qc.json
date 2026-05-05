@@ -358,7 +358,7 @@
           "type": "parameter",
           "function": "_get_row_status",
           "name": "row_idx",
-          "line": 291
+          "line": 296
         }
       ]
     },
@@ -669,22 +669,22 @@
         {
           "type": "return",
           "function": "synthesis_query_preview",
-          "line": 80
+          "line": 86
         },
         {
           "type": "return",
           "function": "synthesis_mode_banner",
-          "line": 91
+          "line": 97
         },
         {
           "type": "return",
           "function": "synthesis_status",
-          "line": 105
+          "line": 111
         },
         {
           "type": "return",
           "function": "_exit_synthesis",
-          "line": 329
+          "line": 345
         }
       ]
     }

@@ -836,6 +836,151 @@ class TestRunSynthesis:
 
 
 # =============================================================================
+# ConfigInstance._run_synthesis_direct_query (query mode)
+# =============================================================================
+
+class TestRunSynthesisDirectQuery:
+    """Tests for synthesis query mode (no view creation)."""
+
+    def _make_ci(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "direct"
+        ci.app_config.database.data_table = "test_data"
+        ci.app_config.synthesis.query = "SELECT id, name FROM source"
+        ci.app_config.synthesis.mode = "query"
+        ci.app_config.synthesis.result_table_prefix = "_synth"
+        ci.app_config.synthesis.ttl_minutes = 10
+        ci._synthesis_exists_cache = None
+        ci._synthesis_age_cache = None
+        ci._synthesis_age_cache_time = 0
+        ci.all_columns = []
+        ci.display_columns = []
+        return ci
+
+    def test_run_synthesis_routes_to_direct_query(self):
+        """When mode='query', run_synthesis should call _run_synthesis_direct_query."""
+        ci = self._make_ci()
+        expected_df = pd.DataFrame({"id": [1, 2], "name": ["a", "b"]})
+        ci._run_synthesis_direct_query = MagicMock(return_value=(expected_df, False))
+
+        df, was_cached = ci.run_synthesis()
+
+        ci._run_synthesis_direct_query.assert_called_once_with("SELECT id, name FROM source")
+        assert was_cached is False
+        assert list(df.columns) == ["id", "name"]
+        assert len(df) == 2
+
+    def test_run_synthesis_query_mode_skips_view_check(self):
+        """Query mode should NOT call check_synthesis_table_exists."""
+        ci = self._make_ci()
+        ci.check_synthesis_table_exists = MagicMock()
+        ci._run_synthesis_direct_query = MagicMock(return_value=(pd.DataFrame(), False))
+
+        ci.run_synthesis()
+
+        ci.check_synthesis_table_exists.assert_not_called()
+
+    def test_direct_query_returns_df_and_false(self):
+        """_run_synthesis_direct_query returns (df, False) — never cached."""
+        ci = self._make_ci()
+        ci.app_config.database.mode = "direct"
+
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [(1, "x"), (2, "y")]
+        mock_result.keys.return_value = ["id", "val"]
+        mock_conn.execute.return_value = mock_result
+        mock_engine.connect.return_value = mock_conn
+        ci._get_engine = MagicMock(return_value=mock_engine)
+
+        df, was_cached = ci._run_synthesis_direct_query("SELECT id, val FROM t")
+
+        assert was_cached is False
+        assert list(df.columns) == ["id", "val"]
+        assert len(df) == 2
+
+    def test_direct_query_datum_mode(self):
+        """_run_synthesis_direct_query in datum mode uses DatumClient."""
+        ci = self._make_ci()
+        ci.app_config.database.mode = "datum"
+        ci.app_config.database.datum_base_url = "http://datum"
+        ci.app_config.database.datum_token = "tok"
+        ci.app_config.database.datum_database = "db"
+        ci.app_config.database.datum_schema = "public"
+        ci.app_config.database.datum_service_name = "postgres_sql"
+
+        mock_response = MagicMock()
+        mock_response.data = [{"a": 1}, {"a": 2}, {"a": 3}]
+
+        with patch("src.adapter.datum.DatumClient") as MockClient:
+            MockClient.return_value.execute_sql.return_value = mock_response
+            df, was_cached = ci._run_synthesis_direct_query("SELECT a FROM t")
+
+        assert was_cached is False
+        assert len(df) == 3
+        assert list(df.columns) == ["a"]
+
+    def test_raises_when_no_query(self):
+        """Should raise ValueError when synthesis query is empty even in query mode."""
+        ci = self._make_ci()
+        ci.app_config.synthesis.query = ""
+
+        with pytest.raises(ValueError, match="No synthesis query"):
+            ci.run_synthesis()
+
+
+# =============================================================================
+# SynthesisConfig.mode field
+# =============================================================================
+
+class TestSynthesisConfigMode:
+    """Tests for SynthesisConfig.mode field."""
+
+    def test_default_mode_is_view(self):
+        """Default synthesis mode should be 'view'."""
+        from src.config.app_config_schema import SynthesisConfig
+        config = SynthesisConfig()
+        assert config.mode == "view"
+
+    def test_mode_parsed_from_config(self, tmp_path):
+        """mode should be loaded from JSON config."""
+        import json
+        from src.config.app_config_schema import AppConfig, load_config
+
+        config_file = tmp_path / "app_config.json"
+        config_file.write_text(json.dumps({
+            "synthesis": {
+                "query": "SELECT 1",
+                "mode": "query"
+            }
+        }))
+
+        config = load_config(str(config_file))
+        assert config.synthesis.mode == "query"
+
+    def test_mode_defaults_to_view_when_absent(self, tmp_path):
+        """When mode not specified, should default to 'view'."""
+        import json
+        from src.config.app_config_schema import load_config
+
+        config_file = tmp_path / "app_config.json"
+        config_file.write_text(json.dumps({
+            "synthesis": {
+                "query": "SELECT 1"
+            }
+        }))
+
+        config = load_config(str(config_file))
+        assert config.synthesis.mode == "view"
+
+
+# =============================================================================
 # load_config_only
 # =============================================================================
 

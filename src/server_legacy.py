@@ -2258,7 +2258,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             filtered_row_count.set(len(result_df))
             current_page.set(1)
             # Activate DataFetcher for SQL-level filtering on matview
-            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            if app_config.synthesis.mode != "query":
+                config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            else:
+                # Query mode: populate columns from result DataFrame
+                if len(result_df.columns) > 0:
+                    config.all_columns = list(result_df.columns)
+                    config.display_columns = list(result_df.columns)
             # Sync active_columns from the fetcher
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
@@ -2295,7 +2301,12 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             filtered_row_count.set(len(result_df))
             current_page.set(1)
             # Activate DataFetcher for SQL-level filtering on matview
-            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            if app_config.synthesis.mode != "query":
+                config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            else:
+                if len(result_df.columns) > 0:
+                    config.all_columns = list(result_df.columns)
+                    config.display_columns = list(result_df.columns)
             # Sync active_columns from the fetcher
             if config.all_columns:
                 active_columns.set(list(config.all_columns))

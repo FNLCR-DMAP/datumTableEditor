@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 554,
+    "total_functions": 555,
     "fully_annotated_functions": 356,
-    "function_coverage_percent": 64.3,
-    "total_parameters": 714,
-    "annotated_parameters": 635,
-    "parameter_coverage_percent": 88.9,
+    "function_coverage_percent": 64.1,
+    "total_parameters": 715,
+    "annotated_parameters": 636,
+    "parameter_coverage_percent": 89.0,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -506,13 +506,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 126,
+        "total": 127,
         "with_return_type": 92,
         "fully_annotated": 88
       },
       "parameters": {
-        "total": 125,
-        "annotated": 103
+        "total": 126,
+        "annotated": 104
       },
       "missing_annotations": [
         {
@@ -570,7 +570,7 @@
           "line": 373
         }
       ],
-      "missing_annotations_truncated": 46
+      "missing_annotations_truncated": 47
     },
     "src/config/sql_types.py": {
       "functions": {
@@ -904,7 +904,7 @@
           "type": "parameter",
           "function": "_get_row_status",
           "name": "row_idx",
-          "line": 291
+          "line": 296
         }
       ],
       "missing_annotations_truncated": 26
@@ -1220,22 +1220,22 @@
         {
           "type": "return",
           "function": "synthesis_query_preview",
-          "line": 80
+          "line": 86
         },
         {
           "type": "return",
           "function": "synthesis_mode_banner",
-          "line": 91
+          "line": 97
         },
         {
           "type": "return",
           "function": "synthesis_status",
-          "line": 105
+          "line": 111
         },
         {
           "type": "return",
           "function": "_exit_synthesis",
-          "line": 329
+          "line": 345
         }
       ]
     },

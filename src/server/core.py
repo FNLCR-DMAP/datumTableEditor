@@ -126,35 +126,40 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     _synthesis_autoloaded = False
     _synthesis_needs_generate = False
     if app_config.enable_synthesis and app_config.synthesis.query:
-        try:
-            if config.check_synthesis_table_exists():
-                result_table = config.get_synthesis_table_name()
-                if '.' in result_table:
-                    config._schemas_verified.add(result_table.split('.', 1)[0])
-                age = config._get_synthesis_age_minutes()
-                if age is None:
-                    from ..config.config_instance import SqlTableName
-                    config._stamp_synthesis_comment(SqlTableName(result_table), _t.time())
-                    age = 0.0
-                ttl = app_config.synthesis.ttl_minutes
-                if ttl > 0 and age > ttl:
-                    print(f"[Synthesis] Matview expired ({age:.0f} min > {ttl} min TTL) — will refresh after startup")
-                    _synthesis_needs_generate = True
+        if app_config.synthesis.mode == "query":
+            # Direct query mode — no view caching, always generate on startup
+            print("[Synthesis] Direct query mode — will auto-generate after startup")
+            _synthesis_needs_generate = True
+        else:
+            try:
+                if config.check_synthesis_table_exists():
+                    result_table = config.get_synthesis_table_name()
+                    if '.' in result_table:
+                        config._schemas_verified.add(result_table.split('.', 1)[0])
+                    age = config._get_synthesis_age_minutes()
+                    if age is None:
+                        from ..config.config_instance import SqlTableName
+                        config._stamp_synthesis_comment(SqlTableName(result_table), _t.time())
+                        age = 0.0
+                    ttl = app_config.synthesis.ttl_minutes
+                    if ttl > 0 and age > ttl:
+                        print(f"[Synthesis] Matview expired ({age:.0f} min > {ttl} min TTL) — will refresh after startup")
+                        _synthesis_needs_generate = True
+                    else:
+                        initial_df = config._read_synthesis_table(result_table)
+                        total_row_count = len(initial_df)
+                        _synthesis_autoloaded = True
+                        if not all_columns and len(initial_df.columns) > 0:
+                            all_columns = list(initial_df.columns)
+                            display_columns = list(initial_df.columns)
+                            config.all_columns = all_columns
+                            config.display_columns = display_columns
+                        print(f"[Synthesis] Auto-loaded cached matview ({age:.0f} min old, TTL {ttl} min) — {total_row_count} rows")
                 else:
-                    initial_df = config._read_synthesis_table(result_table)
-                    total_row_count = len(initial_df)
-                    _synthesis_autoloaded = True
-                    if not all_columns and len(initial_df.columns) > 0:
-                        all_columns = list(initial_df.columns)
-                        display_columns = list(initial_df.columns)
-                        config.all_columns = all_columns
-                        config.display_columns = display_columns
-                    print(f"[Synthesis] Auto-loaded cached matview ({age:.0f} min old, TTL {ttl} min) — {total_row_count} rows")
-            else:
-                print(f"[Synthesis] Matview missing — will auto-generate after startup")
-                _synthesis_needs_generate = True
-        except Exception as e:
-            print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")
+                    print(f"[Synthesis] Matview missing — will auto-generate after startup")
+                    _synthesis_needs_generate = True
+            except Exception as e:
+                print(f"[Synthesis] Auto-load failed: {e} — falling back to main table")
 
     # Determine initial data
     if _synthesis_autoloaded:

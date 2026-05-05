@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 170,
+    "total_functions": 171,
     "unused_functions": 1,
     "fully_annotated_functions": 120,
-    "function_coverage_percent": 70.6,
-    "parameter_coverage_percent": 82.5,
+    "function_coverage_percent": 70.2,
+    "parameter_coverage_percent": 82.6,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 126,
+      "total": 127,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -144,6 +144,7 @@
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
+        "_run_synthesis_direct_query",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -266,6 +267,7 @@
         "_refresh_synthesis",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
+        "_run_synthesis_direct_query",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -464,13 +466,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 126,
+        "total": 127,
         "with_return_type": 92,
         "fully_annotated": 88
       },
       "parameters": {
-        "total": 125,
-        "annotated": 103
+        "total": 126,
+        "annotated": 104
       },
       "missing": [
         {

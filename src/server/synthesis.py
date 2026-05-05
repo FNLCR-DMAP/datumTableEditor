@@ -56,6 +56,11 @@ def register_synthesis(ctx: ServerContext):
             current_page.set(1)
             if app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            else:
+                # Query mode: populate columns from result DataFrame
+                if len(result_df.columns) > 0:
+                    config.all_columns = list(result_df.columns)
+                    config.display_columns = list(result_df.columns)
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
@@ -281,6 +286,10 @@ def register_synthesis(ctx: ServerContext):
             current_page.set(1)
             if app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            else:
+                if len(result_df.columns) > 0:
+                    config.all_columns = list(result_df.columns)
+                    config.display_columns = list(result_df.columns)
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
@@ -314,6 +323,10 @@ def register_synthesis(ctx: ServerContext):
             current_page.set(1)
             if app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            else:
+                if len(result_df.columns) > 0:
+                    config.all_columns = list(result_df.columns)
+                    config.display_columns = list(result_df.columns)
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)
