@@ -200,6 +200,13 @@ table.edit-table > tbody > tr:hover > td {
     white-space: nowrap;
     max-width: 0;
 }
+.edit-table td a {
+    color: var(--btn-primary-bg);
+    text-decoration: underline;
+}
+.edit-table td a:hover {
+    opacity: 0.8;
+}
 .row-number {
     font-weight: bold;
     text-align: center;
