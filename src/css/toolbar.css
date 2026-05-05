@@ -33,6 +33,17 @@
     line-height: 1.4;
     color: var(--toolbar-btn-color);
 }
+.toolbar-left .btn.btn-secondary,
+.toolbar-left .btn.btn-outline-secondary {
+    background: var(--toolbar-btn-bg);
+    border: 1px solid var(--toolbar-btn-border);
+    color: var(--toolbar-btn-color);
+}
+.toolbar-left .btn.btn-secondary:hover,
+.toolbar-left .btn.btn-outline-secondary:hover {
+    background: var(--toolbar-btn-hover-bg);
+    color: var(--toolbar-btn-color);
+}
 .toolbar-right {
     display: flex;
     gap: 10px;
