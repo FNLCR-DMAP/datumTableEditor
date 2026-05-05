@@ -165,8 +165,9 @@
   "read_only": false,
 
   "synthesis": {
-    "_comment": "Long-running SQL transform. Result cached in a temporary table with TTL.",
+    "_comment": "Long-running SQL transform. mode=view creates a DB view with TTL caching; mode=query executes SQL directly (no view, on-the-fly).",
     "query": "",
+    "mode": "view",
     "result_table_prefix": "_synthesis_result",
     "ttl_minutes": 10,
     "label": "Synthesis"

@@ -54,7 +54,8 @@ def register_synthesis(ctx: ServerContext):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
-            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            if app_config.synthesis.mode != "query":
+                config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
@@ -278,7 +279,8 @@ def register_synthesis(ctx: ServerContext):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
-            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            if app_config.synthesis.mode != "query":
+                config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
@@ -296,7 +298,7 @@ def register_synthesis(ctx: ServerContext):
     @reactive.Effect
     @reactive.event(input.synthesis_regen_btn)
     async def _regen_synthesis():
-        """Force-recreate the synthesis view."""
+        """Force-recreate the synthesis view (or re-run in query mode)."""
         if not enable_synthesis:
             return
         synthesis_running.set(True)
@@ -310,7 +312,8 @@ def register_synthesis(ctx: ServerContext):
             total_rows.set(len(result_df))
             filtered_row_count.set(len(result_df))
             current_page.set(1)
-            config.activate_synthesis_fetcher(config.get_synthesis_table_name())
+            if app_config.synthesis.mode != "query":
+                config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)

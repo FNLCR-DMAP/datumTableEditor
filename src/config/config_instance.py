@@ -2986,7 +2986,10 @@ class ConfigInstance:
     def run_synthesis(self, force: bool = False) -> pd.DataFrame:
         """Return the synthesis result, creating the view if needed.
 
-        Cache logic:
+        In ``"query"`` mode, the SQL is executed directly and rows returned
+        as a DataFrame — no view is created, no TTL caching.
+
+        In ``"view"`` mode (default):
           1. Check if the synthesis view already exists.
           2. If exists and ``force=False`` → check TTL.
              a. If within TTL → read (cache hit).
@@ -3001,6 +3004,10 @@ class ConfigInstance:
         synthesis_query = self.app_config.synthesis.query
         if not synthesis_query:
             raise ValueError("No synthesis query configured")
+
+        # Direct query mode — no view creation
+        if self.app_config.synthesis.mode == "query":
+            return self._run_synthesis_direct_query(synthesis_query)
 
         result_table = self.get_synthesis_table_name()
         result_table_sql = SqlTableName(result_table)
@@ -3175,6 +3182,45 @@ class ConfigInstance:
                 rows = result.fetchall()
                 columns = list(result.keys())
             return pd.DataFrame(rows, columns=columns)
+
+    def _run_synthesis_direct_query(self, synthesis_query: str):
+        """Execute synthesis SQL directly and return rows as DataFrame.
+
+        No view is created — data is fetched on each run and held in memory.
+        Sorting/filtering happens on the fly in the application layer.
+
+        Returns ``(df, was_cached=False)`` tuple.
+        """
+        import time as _time
+
+        is_datum = self.app_config.database.mode == "datum"
+        start = _time.time()
+        print(f"[Synthesis] Direct query mode — executing SQL ...")
+
+        if is_datum:
+            from ..adapter.datum import DatumClient
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            client = DatumClient(base_url=base_url, token=token)
+            response = client.execute_sql(
+                sql=synthesis_query,
+                database=self.app_config.database.datum_database,
+                schema=self.app_config.database.datum_schema,
+                service_name=self.app_config.database.datum_service_name,
+            )
+            df = pd.DataFrame(response.data)
+        else:
+            from sqlalchemy import text
+            engine = self._get_engine()
+            with engine.connect() as conn:
+                result = conn.execute(text(synthesis_query))
+                rows = result.fetchall()
+                columns = list(result.keys())
+            df = pd.DataFrame(rows, columns=columns)
+
+        elapsed = _time.time() - start
+        print(f"[Synthesis] Direct query returned {len(df):,} rows in {elapsed:.1f}s")
+        return df, False
 
     def check_synthesis_table_exists(self) -> bool:
         """Return True if the synthesis result table exists (regardless of TTL).

@@ -228,22 +228,26 @@ class SynthesisConfig:
     When enabled, a "Synthesis" button appears in the toolbar.  Clicking it
     opens a modal showing the configured SQL transform.
 
-    Cache-on-demand with TTL:
-      - First request (or expired): runs the transform, materialises into a
-        PostgreSQL table, stores creation timestamp via COMMENT ON TABLE.
-      - Subsequent requests within TTL: reads the cached table instantly.
-      - After TTL expires: next request regenerates the table.
+    Two modes:
+      - ``"view"`` (default): creates a DB view, caches with TTL.
+      - ``"query"``: executes the SQL directly and returns rows in-memory.
+        No view is created — sorting/filtering happens on the fly.
+        Useful in datum mode where CREATE VIEW permissions may not exist.
     """
 
     # The SQL query to run (read-only, not user-editable)
     query: str = ""
 
-    # Name prefix for the materialised result table.
+    # Synthesis execution mode: "view" (create DB view) or "query" (direct query)
+    mode: str = "view"
+
+    # Name prefix for the materialised result table (only used in "view" mode).
     # Final name: {schema}.{result_table_prefix} (shared across users)
     result_table_prefix: str = "_synthesis_result"
 
-    # Time-to-live in minutes.  If the cached table is older than this,
-    # the next request will regenerate it.  0 = always regenerate.
+    # Time-to-live in minutes (only used in "view" mode).
+    # If the cached table is older than this, the next request will regenerate it.
+    # 0 = always regenerate.
     ttl_minutes: int = 10
 
     # Human-readable label shown on the synthesis button / modal title
@@ -509,6 +513,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
     if "synthesis" in file_config:
         syn = file_config["synthesis"]
         config.synthesis.query = syn.get("query", config.synthesis.query)
+        config.synthesis.mode = syn.get("mode", config.synthesis.mode)
         config.synthesis.result_table_prefix = syn.get("result_table_prefix", config.synthesis.result_table_prefix)
         config.synthesis.ttl_minutes = syn.get("ttl_minutes", config.synthesis.ttl_minutes)
         config.synthesis.label = syn.get("label", config.synthesis.label)

@@ -175,10 +175,12 @@
   "synthesis": {
     "query": "",
     "_query_comment": "The SQL SELECT query to execute. Result is materialised via CREATE TABLE AS. Not user-editable at runtime.",
+    "mode": "view",
+    "_mode_comment": "Execution mode: 'view' creates a DB view with TTL caching; 'query' executes SQL directly and returns rows in-memory (no view, sorting/filtering on the fly).",
     "result_table_prefix": "_synthesis_result",
-    "_result_table_prefix_comment": "Name for the materialised result table (shared across users)",
+    "_result_table_prefix_comment": "Name for the materialised result table (only used in view mode, shared across users)",
     "ttl_minutes": 10,
-    "_ttl_minutes_comment": "Cache lifetime in minutes. If a cached table exists within TTL, it is served instantly. 0 = always regenerate.",
+    "_ttl_minutes_comment": "Cache lifetime in minutes (only used in view mode). If a cached table exists within TTL, it is served instantly. 0 = always regenerate.",
     "label": "Synthesis",
     "_label_comment": "Human-readable label shown on the button and modal title"
   },
