@@ -1567,37 +1567,37 @@
     },
     {
       "file": "table.css",
-      "line": 256,
+      "line": 263,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 266,
+      "line": 273,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 280,
+      "line": 287,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 285,
+      "line": 292,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 289,
+      "line": 296,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },
     {
       "file": "table.css",
-      "line": 294,
+      "line": 301,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     }
