@@ -268,10 +268,10 @@ table.edit-table > tbody > tr:hover > td {
     cursor: pointer;
     position: relative;
     color: var(--btn-primary-bg);
+    text-decoration: underline;
 }
 .clickable-cell:hover {
     background-color: var(--table-row-hover-bg) !important;
-    text-decoration: underline;
 }
 .clickable-cell .cell-value {
     text-decoration: inherit;
