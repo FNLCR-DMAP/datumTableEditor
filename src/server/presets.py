@@ -263,12 +263,12 @@ def register_presets(ctx: ServerContext):
             ui.notification_show("No rows selected.", type="warning", duration=2)
             return
 
-        current_df = data.get()
-        if column_name not in current_df.columns:
+        if column_name not in page_df.columns:
             ui.notification_show(f"Column '{column_name}' not found.", type="error", duration=2)
             return
 
-        values = current_df.loc[selected_indices, column_name].astype(str).tolist()
+        result_df = page_df.loc[page_df.index.isin(selected_indices)]
+        values = result_df[column_name].astype(str).tolist()
         if not values:
             ui.notification_show("No valid rows selected.", type="warning", duration=2)
             return

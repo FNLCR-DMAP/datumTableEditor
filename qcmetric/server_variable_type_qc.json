@@ -1155,48 +1155,48 @@
           "type": "parameter",
           "function": "_save_presets_fn",
           "name": "presets_dict",
-          "line": 50
+          "line": 51
         },
         {
           "type": "return",
           "function": "_save_presets_fn",
-          "line": 50
+          "line": 51
         },
         {
           "type": "parameter",
           "function": "_save_active_preset_fn",
           "name": "preset_name",
-          "line": 53
+          "line": 54
         },
         {
           "type": "return",
           "function": "_save_active_preset_fn",
-          "line": 53
+          "line": 54
         },
         {
           "type": "return",
           "function": "current_preset_name",
-          "line": 57
+          "line": 58
         },
         {
           "type": "return",
           "function": "_refresh_presets",
-          "line": 62
+          "line": 63
         },
         {
           "type": "return",
           "function": "preset_menu_items",
-          "line": 77
+          "line": 78
         },
         {
           "type": "return",
           "function": "available_columns_modal",
-          "line": 85
+          "line": 86
         },
         {
           "type": "return",
           "function": "_update_column_order",
-          "line": 93
+          "line": 94
         }
       ],
       "missing_annotations_truncated": 13
