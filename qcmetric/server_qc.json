@@ -310,55 +310,55 @@
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 35
+          "line": 36
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 35
+          "line": 36
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 35
+          "line": 36
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 35
+          "line": 36
         },
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 91
+          "line": 92
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 94
+          "line": 95
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 97
+          "line": 98
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 102
+          "line": 103
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 122
+          "line": 123
         },
         {
           "type": "parameter",
           "function": "_get_row_status",
           "name": "row_idx",
-          "line": 296
+          "line": 297
         }
       ]
     },
@@ -376,52 +376,52 @@
         {
           "type": "return",
           "function": "register_edits",
-          "line": 24
+          "line": 25
         },
         {
           "type": "return",
           "function": "approval_status_ui",
-          "line": 50
+          "line": 51
         },
         {
           "type": "return",
           "function": "modifications_log_ui",
-          "line": 56
+          "line": 57
         },
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 63
+          "line": 64
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 81
+          "line": 82
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 124
+          "line": 127
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 173
+          "line": 178
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 184
+          "line": 189
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 191
+          "line": 196
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 205
+          "line": 210
         }
       ]
     },
@@ -439,22 +439,22 @@
         {
           "type": "return",
           "function": "register_export",
-          "line": 14
+          "line": 15
         },
         {
           "type": "return",
           "function": "_prepare_export",
-          "line": 35
+          "line": 36
         },
         {
           "type": "return",
           "function": "export_download_ui",
-          "line": 95
+          "line": 98
         },
         {
           "type": "return",
           "function": "_get_export_filename",
-          "line": 148
+          "line": 151
         }
       ]
     },
@@ -472,52 +472,52 @@
         {
           "type": "return",
           "function": "register_filters",
-          "line": 19
+          "line": 20
         },
         {
           "type": "return",
           "function": "facet_panels_ui",
-          "line": 38
+          "line": 39
         },
         {
           "type": "return",
           "function": "_handle_facet_filter",
-          "line": 76
+          "line": 77
         },
         {
           "type": "return",
           "function": "dynamic_filters",
-          "line": 97
+          "line": 98
         },
         {
           "type": "return",
           "function": "add_filter_btn_ui",
-          "line": 127
+          "line": 128
         },
         {
           "type": "return",
           "function": "available_filter_columns",
-          "line": 139
+          "line": 140
         },
         {
           "type": "return",
           "function": "_add_filter",
-          "line": 153
+          "line": 154
         },
         {
           "type": "return",
           "function": "_remove_filter",
-          "line": 165
+          "line": 166
         },
         {
           "type": "return",
           "function": "_set_filter_operator",
-          "line": 176
+          "line": 177
         },
         {
           "type": "return",
           "function": "_apply_filter_value",
-          "line": 219
+          "line": 222
         }
       ]
     },
@@ -535,53 +535,53 @@
         {
           "type": "return",
           "function": "register_pagination",
-          "line": 15
+          "line": 16
         },
         {
           "type": "parameter",
           "function": "_persist_page",
           "name": "page_num",
-          "line": 31
+          "line": 32
         },
         {
           "type": "return",
           "function": "_persist_page",
-          "line": 31
+          "line": 32
         },
         {
           "type": "return",
           "function": "_total_filtered",
-          "line": 43
+          "line": 44
         },
         {
           "type": "return",
           "function": "pagination_controls",
-          "line": 50
+          "line": 51
         },
         {
           "type": "return",
           "function": "_sync_rows_per_page",
-          "line": 65
+          "line": 66
         },
         {
           "type": "return",
           "function": "_first_page",
-          "line": 80
+          "line": 83
         },
         {
           "type": "return",
           "function": "_prev_page",
-          "line": 86
+          "line": 89
         },
         {
           "type": "return",
           "function": "_next_page",
-          "line": 95
+          "line": 98
         },
         {
           "type": "return",
           "function": "_last_page",
-          "line": 109
+          "line": 112
         }
       ]
     },
@@ -664,27 +664,27 @@
         {
           "type": "return",
           "function": "register_synthesis",
-          "line": 13
+          "line": 14
         },
         {
           "type": "return",
           "function": "synthesis_query_preview",
-          "line": 86
+          "line": 89
         },
         {
           "type": "return",
           "function": "synthesis_mode_banner",
-          "line": 97
+          "line": 100
         },
         {
           "type": "return",
           "function": "synthesis_status",
-          "line": 111
+          "line": 114
         },
         {
           "type": "return",
           "function": "_exit_synthesis",
-          "line": 345
+          "line": 356
         }
       ]
     }
