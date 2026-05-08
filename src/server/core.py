@@ -772,6 +772,16 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         _emit("cell_click", pk=pk, column=col, value=value, source_table=app_config.database.data_table)
         ui.notification_show(f"Cell click: {col} = {value}", type="message", duration=3)
 
+    # ── Programmatic refresh (exposed via WidgetAPI) ─────────────────
+    def _do_refresh():
+        if is_lazy_loading():
+            config.data_fetcher.refresh_count()
+            total_rows.set(config.data_fetcher.total_count)
+        else:
+            fresh = load_data_from_source()
+            data.set(fresh)
+        mods_log.set(load_modifications_log())
+
     # ── Return public API ─────────────────────────────────────────────
     return WidgetAPI(
         events=_emitter.events,
@@ -779,4 +789,5 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         active_columns=active_columns,
         widget_id=_emitter.widget_id,
         config=config,
+        _refresh_fn=_do_refresh,
     )

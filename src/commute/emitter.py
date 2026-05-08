@@ -107,7 +107,13 @@ class WidgetAPI:
     active_columns: reactive.Value
     widget_id: str = ""
     config: Any = None
+    _refresh_fn: Any = None
     _extra: dict = field(default_factory=dict)
+
+    def refresh(self) -> None:
+        """Programmatically reload data from source (same as Refresh button)."""
+        if self._refresh_fn:
+            self._refresh_fn()
 
     def __getitem__(self, key: str) -> Any:
         """Allow dict-style access: ``api["events"]``."""
