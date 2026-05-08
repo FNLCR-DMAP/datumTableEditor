@@ -5,6 +5,7 @@ import time as _t
 import os
 
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 import pandas as pd
 from datetime import datetime
 
@@ -327,6 +328,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         search = search_state.get()
         try:
             status_filters = list(input.status_filter_multi())
+        except (SilentException, SilentCancelOutputException):
+            raise
         except:
             status_filters = list(app_config.status_labels.keys())
         return get_filtered_rows(
@@ -344,6 +347,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         sort_state = current_sort.get()
         try:
             status_filters = list(input.status_filter_multi())
+        except (SilentException, SilentCancelOutputException):
+            raise
         except:
             status_filters = list(app_config.status_labels.keys())
         filters_dict = {}
@@ -678,6 +683,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             total = sum(counts.values()) or 1
             try:
                 selected = list(input.status_filter_multi())
+            except (SilentException, SilentCancelOutputException):
+                raise
             except:
                 selected = list(app_config.status_labels.keys())
             labels = app_config.status_labels

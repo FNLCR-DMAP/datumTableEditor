@@ -2,6 +2,7 @@
 Server edits — cell edit, cell reset, undo, approve/reject, reload, save.
 """
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 
 from ..utils import (
     build_approval_status_banner,
@@ -111,6 +112,8 @@ def register_edits(ctx: ServerContext):
                 else:
                     current_edited[cell_key]["current"] = new_val
                 edited_cells.set(current_edited)
+            except (SilentException, SilentCancelOutputException):
+                raise
             except Exception as e:
                 print(f"Warning: Could not track edited cell: {e}")
 
@@ -161,6 +164,8 @@ def register_edits(ctx: ServerContext):
             if cell_key in current_edited:
                 del current_edited[cell_key]
             edited_cells.set(current_edited)
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             print(f"Warning: Could not clear edited cell tracking: {e}")
 
@@ -227,6 +232,8 @@ def register_edits(ctx: ServerContext):
                         pk = {pk_col: row[pk_col] for pk_col in pk_cols if pk_col in current_df.columns}
                         pk_key = tuple(sorted(pk.items()))
                         row_data_map[pk_key] = row
+                    except (SilentException, SilentCancelOutputException):
+                        raise
                     except Exception:
                         pass
             _save_status_to_db(selected_pks, "approval", row_data_map)

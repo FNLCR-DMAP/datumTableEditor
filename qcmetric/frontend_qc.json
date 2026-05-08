@@ -1573,7 +1573,7 @@
     },
     {
       "file": "table.css",
-      "line": 273,
+      "line": 274,
       "type": "warning",
       "message": "!important usage (consider specificity instead)"
     },

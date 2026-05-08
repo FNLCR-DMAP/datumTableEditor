@@ -6,6 +6,7 @@ import traceback
 
 import pandas as pd
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 
 from .context import ServerContext
 
@@ -70,6 +71,8 @@ def register_synthesis(ctx: ServerContext):
                 f"Synthesis ready{cache_msg} — {len(result_df):,} rows",
                 type="message", duration=4
             )
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             traceback.print_exc()
             synthesis_error.set(str(e))
@@ -178,6 +181,8 @@ def register_synthesis(ctx: ServerContext):
                 }})();
                 </script>
                 """
+            except (SilentException, SilentCancelOutputException):
+                raise
             except Exception as _ce:
                 print(f"[Synthesis] Countdown error: {_ce}")
             status_children = [
@@ -261,6 +266,8 @@ def register_synthesis(ctx: ServerContext):
                         ),
                         class_="synthesis-status-area"
                     )
+            except (SilentException, SilentCancelOutputException):
+                raise
             except Exception:
                 pass
         return ui.div()
@@ -298,6 +305,8 @@ def register_synthesis(ctx: ServerContext):
                 f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
                 type="message", duration=4
             )
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             traceback.print_exc()
             synthesis_error.set(str(e))
@@ -334,6 +343,8 @@ def register_synthesis(ctx: ServerContext):
                 f"Synthesis regenerated — {len(result_df):,} rows",
                 type="message", duration=4
             )
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             traceback.print_exc()
             synthesis_error.set(str(e))

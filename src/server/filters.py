@@ -2,6 +2,7 @@
 Server filters — facet panels, dynamic filters, apply/reset.
 """
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 import pandas as pd
 
 from ..utils import (
@@ -193,6 +194,8 @@ def register_filters(ctx: ServerContext):
                 existing_values = [v.strip() for v in str(textarea_val).replace(',', '\n').split('\n') if v.strip()]
             else:
                 existing_values = []
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception:
             if isinstance(old, dict) and "op" in old:
                 existing_values = old.get("value", [])

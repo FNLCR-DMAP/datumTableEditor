@@ -2,6 +2,7 @@
 Server pagination — page navigation, rows-per-page sync, search handlers.
 """
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 
 from ..utils import (
     build_pagination_controls_all,
@@ -72,6 +73,8 @@ def register_pagination(ctx: ServerContext):
                         current_page.set(1)
             if not _first_rows_per_page_sync["done"]:
                 _first_rows_per_page_sync["done"] = True
+        except (SilentException, SilentCancelOutputException):
+            raise
         except:
             pass
 
@@ -128,6 +131,8 @@ def register_pagination(ctx: ServerContext):
                 target_page = max(1, min(target_page, total_pages))
                 current_page.set(target_page)
                 _persist_page(target_page)
+            except (SilentException, SilentCancelOutputException):
+                raise
             except:
                 pass
 

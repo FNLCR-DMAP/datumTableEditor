@@ -4,6 +4,7 @@ Updated for split panel layout with column customization
 """
 
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 import pandas as pd
 from datetime import datetime
 
@@ -427,6 +428,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 f"Synthesis ready{cache_msg} — {len(result_df):,} rows",
                 type="message", duration=4
             )
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -637,6 +640,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Get multi-select status filter
         try:
             status_filters = list(input.status_filter_multi())
+        except (SilentException, SilentCancelOutputException):
+            raise
         except:
             status_filters = list(app_config.status_labels.keys())
         
@@ -658,6 +663,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         # Get status filters
         try:
             status_filters = list(input.status_filter_multi())
+        except (SilentException, SilentCancelOutputException):
+            raise
         except:
             status_filters = list(app_config.status_labels.keys())
         
@@ -819,6 +826,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Get current filter selections
             try:
                 selected = list(input.status_filter_multi())
+            except (SilentException, SilentCancelOutputException):
+                raise
             except:
                 selected = list(app_config.status_labels.keys())
             
@@ -1238,6 +1247,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 existing_values = [v.strip() for v in str(textarea_val).replace(',', '\n').split('\n') if v.strip()]
             else:
                 existing_values = []
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception:
             # Textarea not available — fall back to stored filter values
             if isinstance(old, dict) and "op" in old:
@@ -1398,6 +1409,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             # Mark first sync as done
             if not _first_rows_per_page_sync["done"]:
                 _first_rows_per_page_sync["done"] = True
+        except (SilentException, SilentCancelOutputException):
+            raise
         except:
             pass
     
@@ -1513,6 +1526,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     rows_per_page=rows_per_page,
                     column_preset=active_preset.get()
                 )
+            except (SilentException, SilentCancelOutputException):
+                raise
             except:
                 pass
     
@@ -1684,6 +1699,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     # Subsequent edit - keep original, update current
                     current_edited[cell_key]["current"] = new_val
                 edited_cells.set(current_edited)
+            except (SilentException, SilentCancelOutputException):
+                raise
             except Exception as e:
                 print(f"Warning: Could not track edited cell: {e}")
             
@@ -1740,6 +1757,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             if cell_key in current_edited:
                 del current_edited[cell_key]
             edited_cells.set(current_edited)
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             print(f"Warning: Could not clear edited cell tracking: {e}")
 
@@ -1842,6 +1861,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             export_csv_data.set(output.getvalue())
             export_row_count.set(len(result_df))
             export_state.set("ready")
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             ui.notification_show(f"Export failed: {str(e)}", type="error", duration=5)
             export_state.set("error")
@@ -1976,6 +1997,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
                         pk_key = tuple(sorted(pk.items()))
                         row_data_map[pk_key] = row
+                    except (SilentException, SilentCancelOutputException):
+                        raise
                     except Exception:
                         pass
             _save_status_to_db(selected_pks, "approval", row_data_map)
@@ -2149,6 +2172,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 }})();
                 </script>
                 """
+            except (SilentException, SilentCancelOutputException):
+                raise
             except Exception as _ce:
                 print(f"[Synthesis] Countdown error: {_ce}")
             status_children = [
@@ -2233,6 +2258,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         ),
                         class_="synthesis-status-area"
                     )
+            except (SilentException, SilentCancelOutputException):
+                raise
             except Exception:
                 pass
         return ui.div()
@@ -2275,6 +2302,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
                 type="message", duration=4
             )
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -2316,6 +2345,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 f"Synthesis regenerated — {len(result_df):,} rows",
                 type="message", duration=4
             )
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             import traceback
             traceback.print_exc()

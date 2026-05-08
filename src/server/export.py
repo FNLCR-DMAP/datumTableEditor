@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 
 from shiny import render, ui, reactive
+from shiny.types import SilentException, SilentCancelOutputException
 
 from ..utils import sort_dataframe
 from .context import ServerContext
@@ -87,6 +88,8 @@ def register_export(ctx: ServerContext):
             export_csv_data.set(output.getvalue())
             export_row_count.set(len(result_df))
             export_state.set("ready")
+        except (SilentException, SilentCancelOutputException):
+            raise
         except Exception as e:
             ui.notification_show(f"Export failed: {str(e)}", type="error", duration=5)
             export_state.set("error")
