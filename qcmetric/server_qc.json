@@ -2,7 +2,7 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 99,
+    "total_functions": 100,
     "unused_functions": 1,
     "fully_annotated_functions": 4,
     "function_coverage_percent": 4.0,
@@ -22,12 +22,13 @@
       ]
     },
     "src/server/core.py": {
-      "total": 29,
+      "total": 30,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
         "_cell_click",
         "_convert_default_filters",
+        "_do_refresh",
         "_emit",
         "_fetch_all_filtered_data",
         "_fetch_page_data",
@@ -58,6 +59,7 @@
         "_build_query_params",
         "_cached_page_data",
         "_convert_default_filters",
+        "_do_refresh",
         "_emit",
         "_fetch_all_filtered_data",
         "_fetch_page_data",
@@ -297,7 +299,7 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 29,
+        "total": 30,
         "with_return_type": 3,
         "fully_annotated": 3
       },

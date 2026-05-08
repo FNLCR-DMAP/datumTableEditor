@@ -2,8 +2,8 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 555,
-    "fully_annotated_functions": 356,
+    "total_functions": 557,
+    "fully_annotated_functions": 357,
     "function_coverage_percent": 64.1,
     "total_parameters": 720,
     "annotated_parameters": 641,
@@ -821,9 +821,9 @@
     },
     "src/commute/emitter.py": {
       "functions": {
-        "total": 7,
-        "with_return_type": 7,
-        "fully_annotated": 7
+        "total": 8,
+        "with_return_type": 8,
+        "fully_annotated": 8
       },
       "parameters": {
         "total": 3,
@@ -843,7 +843,7 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 29,
+        "total": 30,
         "with_return_type": 3,
         "fully_annotated": 3
       },
@@ -907,7 +907,7 @@
           "line": 297
         }
       ],
-      "missing_annotations_truncated": 26
+      "missing_annotations_truncated": 27
     },
     "src/server/edits.py": {
       "functions": {
