@@ -416,30 +416,40 @@ window.closeCopyModal = function() {
 };
 
 window.copyColumnValues = function(columnName, event) {
-    // Use the original toolbar button context (not the modal button) to find selected rows
-    var contextEl = currentCopyModalContext || (event ? event.target : document.activeElement);
-    var container = (typeof _findWidgetContainer !== 'undefined') ? _findWidgetContainer(contextEl) : null;
-    var scope = container || document;
-
-    // Find selected rows: check for highlighted rows (most reliable), then checked inputs
+    // Gather selected row indices by scanning all select inputs in the table
     var selectedIndices = [];
-    var selectedRows = scope.querySelectorAll('.edit-table tbody tr.row-selected');
-    if (selectedRows.length > 0) {
-        selectedRows.forEach(function(tr) {
-            var input = tr.querySelector('input[id*="select_"]');
-            if (input) {
-                var match = input.id.match(/select_(\d+)/);
+    
+    // Find the table - search document directly to avoid scoping issues
+    var tables = document.querySelectorAll('.edit-table');
+    var table = null;
+    // If there's a widget context, find the table in that context
+    var contextEl = currentCopyModalContext || (event ? event.target : document.activeElement);
+    if (contextEl && typeof _findWidgetContainer !== 'undefined') {
+        var container = _findWidgetContainer(contextEl);
+        if (container) table = container.querySelector('.edit-table');
+    }
+    if (!table && tables.length > 0) table = tables[0];
+    
+    if (table) {
+        // Check every row input's checked state directly (works for both checkbox and radio)
+        var inputs = table.querySelectorAll('tbody input[id*="select_"]');
+        inputs.forEach(function(el) {
+            if (el.checked) {
+                var match = el.id.match(/select_(\d+)/);
                 if (match) selectedIndices.push(parseInt(match[1]));
             }
         });
-    }
-    // Fallback: query checked inputs directly
-    if (selectedIndices.length === 0) {
-        var checked = scope.querySelectorAll('input[type="checkbox"][id*="select_"]:checked:not([id*="select_all"]), input[type="radio"][id*="select_"]:checked');
-        checked.forEach(function(el) {
-            var match = el.id.match(/select_(\d+)/);
-            if (match) selectedIndices.push(parseInt(match[1]));
-        });
+        // Also check for highlighted rows (backup for radios where checked might be unreliable)
+        if (selectedIndices.length === 0) {
+            var rows = table.querySelectorAll('tbody tr.row-selected');
+            rows.forEach(function(tr) {
+                var input = tr.querySelector('input[id*="select_"]');
+                if (input) {
+                    var match = input.id.match(/select_(\d+)/);
+                    if (match) selectedIndices.push(parseInt(match[1]));
+                }
+            });
+        }
     }
 
     if (selectedIndices.length === 0) {

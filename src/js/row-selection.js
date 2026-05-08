@@ -54,11 +54,19 @@ function initRowSelection(contextEl) {
     
     // Use event delegation for checkbox clicks (handle namespaced IDs)
     table.addEventListener('click', function(e) {
-        const checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
+        // Find the checkbox - either clicked directly or via label/wrapper
+        var checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
+        if (!checkbox) {
+            // User might have clicked the label or form-check wrapper
+            var td = e.target.closest('td');
+            if (td) {
+                checkbox = td.querySelector('input[type="checkbox"][id*="select_"]');
+            }
+        }
         if (!checkbox) return;
         
         // Skip the header "select all" checkbox - it has its own handler
-        if (checkbox.id === 'select_all_page') return;
+        if (checkbox.id === 'select_all_page' || checkbox.id.endsWith('select_all_page')) return;
         
         // Extract row index from checkbox id (select_0, select_1, etc.)
         const match = checkbox.id.match(/select_(\d+)/);
@@ -119,11 +127,25 @@ function initRowSelection(contextEl) {
     
     // Also listen for programmatic checkbox changes (from Shiny)
     table.addEventListener('change', function(e) {
-        const checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
+        var checkbox = e.target.closest('input[type="checkbox"][id*="select_"]');
+        if (!checkbox) {
+            // For Shiny bindings that might fire change on wrapper elements
+            var td = e.target.closest('td');
+            if (td) checkbox = td.querySelector('input[type="checkbox"][id*="select_"]');
+        }
         if (checkbox) {
             updateRowHighlight(checkbox);
             updateSelectAllCheckbox(table);
         }
+    });
+
+    // Periodic sync: ensure row-selected class stays in sync with checked state
+    // This catches cases where Shiny bindings update checkboxes without firing events we can capture
+    table.addEventListener('mouseup', function() {
+        setTimeout(function() {
+            var inputs = table.querySelectorAll('tbody input[type="checkbox"][id*="select_"]:not([id*="select_all"])');
+            inputs.forEach(function(cb) { updateRowHighlight(cb); });
+        }, 50);
     });
 }
 
