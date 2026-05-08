@@ -180,13 +180,16 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
         else:
             cells.append(
                 ui.tags.td(
-                    ui.tags.input(
-                        type="radio",
-                        name="row_select",
-                        id=f"select_{idx}",
-                        value=str(idx),
-                        onclick=f"handleRadioSelect(this, {idx})",
-                        style="width: 16px; height: 16px; cursor: pointer; margin: 0;",
+                    ui.tags.div(
+                        ui.tags.input(
+                            type="radio",
+                            name="row_select",
+                            id=f"select_{idx}",
+                            value=str(idx),
+                            onclick=f"handleRadioSelect(this, {idx})",
+                            style="width: 16px; height: 16px; cursor: pointer; margin: 0;",
+                        ),
+                        style="min-height: 1.5rem; display: flex; align-items: center; justify-content: center;",
                     ),
                     style="text-align: center; width: 40px; vertical-align: middle;",
                 )
