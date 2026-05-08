@@ -416,13 +416,14 @@ window.closeCopyModal = function() {
 };
 
 window.copyColumnValues = function(columnName, event) {
-    // Get selected rows from checkboxes in the active tab
-    var contextEl = event ? event.target : currentCopyModalContext;
+    // Use the original toolbar button context (not the modal button) to find selected rows
+    var contextEl = currentCopyModalContext || (event ? event.target : document.activeElement);
+    var container = (typeof _findWidgetContainer !== 'undefined') ? _findWidgetContainer(contextEl) : null;
     var tabPane = contextEl ? contextEl.closest('.tab-pane, [role="tabpanel"]') : null;
-    var checkboxSelector = 'input[type="checkbox"][id*="select_"]:checked';
-    var checkboxes = tabPane ? tabPane.querySelectorAll(checkboxSelector) : document.querySelectorAll(checkboxSelector);
+    var scope = container || tabPane || document;
+    var selected = scope.querySelectorAll('input[type="checkbox"][id*="select_"]:checked, input[type="radio"][id*="select_"]:checked');
     
-    if (checkboxes.length === 0) {
+    if (selected.length === 0) {
         alert('Please select at least one row to copy values from.');
         return;
     }
@@ -430,8 +431,8 @@ window.copyColumnValues = function(columnName, event) {
     // Trigger server-side copy
     if (typeof setShinyInput !== 'undefined') {
         const selectedIndices = [];
-        checkboxes.forEach(function(cb) {
-            const match = cb.id.match(/select_(\d+)/);
+        selected.forEach(function(el) {
+            const match = el.id.match(/select_(\d+)/);
             if (match) {
                 selectedIndices.push(parseInt(match[1]));
             }

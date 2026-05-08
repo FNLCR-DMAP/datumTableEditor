@@ -146,20 +146,32 @@ window.selectAllRows = function(event) {
 
 window.deselectAllRows = function(event) {
     var container = _findWidgetContainer(event ? event.target : document.activeElement);
+    // Deselect checkboxes
     const checkboxes = container.querySelectorAll('input[type="checkbox"][id*="select_"]');
     checkboxes.forEach(function(checkbox) {
         if (checkbox.checked) {
             checkbox.checked = false;
             updateRowHighlight(checkbox);
             if (typeof setShinyInput !== 'undefined') {
-                // Extract just the input name part (select_N) from the full namespaced id
                 const inputName = checkbox.id.includes('-') ? checkbox.id.split('-').pop() : checkbox.id;
                 setShinyInput(inputName, false, {priority: 'event'}, checkbox);
             }
         }
     });
+    // Deselect radio buttons
+    const radios = container.querySelectorAll('input[type="radio"][name="row_select"]');
+    radios.forEach(function(radio) {
+        if (radio.checked) {
+            radio.checked = false;
+            var row = radio.closest('tr');
+            if (row) row.classList.remove('row-selected');
+            if (typeof setShinyInput !== 'undefined') {
+                var inputName = radio.id.includes('-') ? radio.id.split('-').pop() : radio.id;
+                setShinyInput(inputName, false, {priority: 'event'}, radio);
+            }
+        }
+    });
     lastSelectedRow = null;
-    // Also uncheck the header checkbox
     const selectAllCheckbox = container.querySelector('#select_all_page, input[id$="select_all_page"]');
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
 };
@@ -216,6 +228,31 @@ function updateSelectAllCheckbox(tableEl) {
 // Reset last selected row when page changes
 window.resetRowSelection = function() {
     lastSelectedRow = null;
+};
+
+// Handle radio button selection (single-select mode)
+window.handleRadioSelect = function(radio, rowIdx) {
+    var container = _findWidgetContainer(radio);
+    // Clear all row highlights
+    var allRadios = container.querySelectorAll('input[type="radio"][name="row_select"]');
+    allRadios.forEach(function(r) {
+        var tr = r.closest('tr');
+        if (tr) tr.classList.remove('row-selected');
+        // Deselect in Shiny
+        if (r !== radio && typeof setShinyInput !== 'undefined') {
+            var inputName = r.id.includes('-') ? r.id.split('-').pop() : r.id;
+            setShinyInput(inputName, false, {priority: 'event'}, r);
+        }
+    });
+    // Highlight selected row
+    var row = radio.closest('tr');
+    if (row) row.classList.add('row-selected');
+    // Send Shiny input
+    if (typeof setShinyInput !== 'undefined') {
+        var inputName = radio.id.includes('-') ? radio.id.split('-').pop() : radio.id;
+        setShinyInput(inputName, true, {priority: 'event'}, radio);
+    }
+    lastSelectedRow = rowIdx;
 };
 
 // Initialize row selection after table renders

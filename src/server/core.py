@@ -722,7 +722,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 cell_click_columns=app_config.table.cell_click_columns,
                 status_col_name=getattr(app_config.database, "status_column", None),
                 no_tz_display=app_config.table.no_tz_display,
-                show_select=app_config.enable_row_select
+                show_select=app_config.enable_row_select,
+                multi_select=app_config.review_detail_multi_select
             )
         return result
 
