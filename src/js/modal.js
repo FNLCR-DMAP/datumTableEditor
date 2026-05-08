@@ -419,25 +419,36 @@ window.copyColumnValues = function(columnName, event) {
     // Use the original toolbar button context (not the modal button) to find selected rows
     var contextEl = currentCopyModalContext || (event ? event.target : document.activeElement);
     var container = (typeof _findWidgetContainer !== 'undefined') ? _findWidgetContainer(contextEl) : null;
-    var tabPane = contextEl ? contextEl.closest('.tab-pane, [role="tabpanel"]') : null;
-    var scope = container || tabPane || document;
-    var selected = scope.querySelectorAll('input[type="checkbox"][id*="select_"]:checked, input[type="radio"][id*="select_"]:checked');
-    
-    if (selected.length === 0) {
+    var scope = container || document;
+
+    // Find selected rows: check for highlighted rows (most reliable), then checked inputs
+    var selectedIndices = [];
+    var selectedRows = scope.querySelectorAll('.edit-table tbody tr.row-selected');
+    if (selectedRows.length > 0) {
+        selectedRows.forEach(function(tr) {
+            var input = tr.querySelector('input[id*="select_"]');
+            if (input) {
+                var match = input.id.match(/select_(\d+)/);
+                if (match) selectedIndices.push(parseInt(match[1]));
+            }
+        });
+    }
+    // Fallback: query checked inputs directly
+    if (selectedIndices.length === 0) {
+        var checked = scope.querySelectorAll('input[type="checkbox"][id*="select_"]:checked:not([id*="select_all"]), input[type="radio"][id*="select_"]:checked');
+        checked.forEach(function(el) {
+            var match = el.id.match(/select_(\d+)/);
+            if (match) selectedIndices.push(parseInt(match[1]));
+        });
+    }
+
+    if (selectedIndices.length === 0) {
         alert('Please select at least one row to copy values from.');
         return;
     }
     
     // Trigger server-side copy
     if (typeof setShinyInput !== 'undefined') {
-        const selectedIndices = [];
-        selected.forEach(function(el) {
-            const match = el.id.match(/select_(\d+)/);
-            if (match) {
-                selectedIndices.push(parseInt(match[1]));
-            }
-        });
-        
         setShinyInput('copy_column_request', {
             column: columnName,
             indices: selectedIndices,

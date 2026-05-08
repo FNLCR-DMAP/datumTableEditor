@@ -6,7 +6,7 @@
     "unused_functions": 1,
     "fully_annotated_functions": 81,
     "function_coverage_percent": 85.3,
-    "parameter_coverage_percent": 96.0,
+    "parameter_coverage_percent": 96.1,
     "mypy_errors": 0
   },
   "files": {},
@@ -497,8 +497,8 @@
         "fully_annotated": 9
       },
       "parameters": {
-        "total": 82,
-        "annotated": 81
+        "total": 87,
+        "annotated": 86
       },
       "missing": [
         {

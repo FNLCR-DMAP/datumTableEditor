@@ -450,6 +450,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         the correct DataFrame regardless of mode.
         """
         page_df, paginated_indices, _, _ = _cached_page_data()
+        if not app_config.review_detail_multi_select:
+            # Single-select (radio) mode: use the single selected index
+            try:
+                row_idx = input.selected_radio_row()
+                if row_idx is not None and paginated_indices and row_idx < len(paginated_indices):
+                    return page_df, [paginated_indices[row_idx]]
+            except Exception:
+                pass
+            return page_df, []
         # Checkbox IDs correspond to DataFrame index labels in paginated_indices
         max_idx = max(paginated_indices) + 1 if paginated_indices else 0
         # Also check against data.get() length in case of non-lazy mode

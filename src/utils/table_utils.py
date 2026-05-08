@@ -184,10 +184,11 @@ def build_table_row(idx: int, row: pd.Series, cols: list, current_df: pd.DataFra
                         type="radio",
                         name="row_select",
                         id=f"select_{idx}",
+                        value=str(idx),
                         onclick=f"handleRadioSelect(this, {idx})",
-                        style="width: 16px; height: 16px; cursor: pointer;",
+                        style="width: 16px; height: 16px; cursor: pointer; margin: 0;",
                     ),
-                    style="text-align: center; width: 10px;",
+                    style="text-align: center; width: 40px; vertical-align: middle;",
                 )
             )
     

@@ -426,6 +426,15 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     def _get_page_selection():
         page_df, paginated_indices, _, _ = _cached_page_data()
+        if not app_config.review_detail_multi_select:
+            # Single-select (radio) mode: use the single selected index
+            try:
+                row_idx = input.selected_radio_row()
+                if row_idx is not None and paginated_indices and row_idx < len(paginated_indices):
+                    return page_df, [paginated_indices[row_idx]]
+            except Exception:
+                pass
+            return page_df, []
         max_idx = max(paginated_indices) + 1 if paginated_indices else 0
         check_range = max(max_idx, len(data.get()) if not is_lazy_loading() else max_idx)
         selected = get_selected_row_indices(input, check_range)
