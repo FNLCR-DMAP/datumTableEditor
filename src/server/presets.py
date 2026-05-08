@@ -46,6 +46,7 @@ def register_presets(ctx: ServerContext):
     is_lazy_loading = ctx.is_lazy_loading
     save_ui_state = ctx.save_ui_state
     _get_filtered_rows = ctx._get_filtered_rows
+    _get_page_selection = ctx._get_page_selection
 
     def _save_presets_fn(presets_dict):
         save_presets(config, presets_dict)
@@ -248,17 +249,32 @@ def register_presets(ctx: ServerContext):
     @reactive.Effect
     @reactive.event(input.copy_column_request)
     def _handle_copy_request():
-        js_code, col_name, count, error = process_copy_request(
-            input.copy_column_request(),
-            data.get(),
-            _get_filtered_rows(),
-            rows_per_page_value.get(),
-            current_page.get(),
-            get_paginated_indices,
-            get_copy_column_values
-        )
-        if error:
-            ui.notification_show(error, type="warning" if "select" in error else "error", duration=2)
-        elif js_code:
-            ui.insert_ui(ui.tags.script(js_code), selector="body", where="beforeEnd")
-            ui.notification_show(f"Copied {count} values from '{col_name}' to clipboard!", type="message", duration=2)
+        req = input.copy_column_request()
+        if not req:
+            return
+        column_name = req.get('column')
+        if not column_name:
+            ui.notification_show("No column specified.", type="warning", duration=2)
+            return
+
+        # Get selected rows from server-side state (same as Export)
+        page_df, selected_indices = _get_page_selection()
+        if not selected_indices:
+            ui.notification_show("No rows selected.", type="warning", duration=2)
+            return
+
+        current_df = data.get()
+        if column_name not in current_df.columns:
+            ui.notification_show(f"Column '{column_name}' not found.", type="error", duration=2)
+            return
+
+        values = current_df.loc[selected_indices, column_name].astype(str).tolist()
+        if not values:
+            ui.notification_show("No valid rows selected.", type="warning", duration=2)
+            return
+
+        from ..utils.clipboard_utils import generate_clipboard_js
+        copy_text = "\n".join(values)
+        js_code = generate_clipboard_js(copy_text)
+        ui.insert_ui(ui.tags.script(js_code), selector="body", where="beforeEnd")
+        ui.notification_show(f"Copied {len(values)} values from '{column_name}' to clipboard!", type="message", duration=2)
