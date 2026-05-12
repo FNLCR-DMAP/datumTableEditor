@@ -484,42 +484,42 @@
         {
           "type": "return",
           "function": "_handle_facet_filter",
-          "line": 77
+          "line": 86
         },
         {
           "type": "return",
           "function": "dynamic_filters",
-          "line": 100
+          "line": 109
         },
         {
           "type": "return",
           "function": "add_filter_btn_ui",
-          "line": 130
+          "line": 139
         },
         {
           "type": "return",
           "function": "available_filter_columns",
-          "line": 142
+          "line": 151
         },
         {
           "type": "return",
           "function": "_add_filter",
-          "line": 156
+          "line": 165
         },
         {
           "type": "return",
           "function": "_remove_filter",
-          "line": 168
+          "line": 177
         },
         {
           "type": "return",
           "function": "_set_filter_operator",
-          "line": 179
+          "line": 188
         },
         {
           "type": "return",
           "function": "_apply_filter_value",
-          "line": 224
+          "line": 233
         }
       ]
     },

@@ -84,7 +84,7 @@ def register_filters(ctx: ServerContext):
     @reactive.Effect
     @reactive.event(input.facet_filter_change)
     def _handle_facet_filter():
-        """Apply facet checkbox selection immediately (auto-apply)."""
+        """Update pending_filters with facet checkbox selection."""
         val = input.facet_filter_change()
         if not val:
             return
@@ -98,8 +98,6 @@ def register_filters(ctx: ServerContext):
         else:
             filters[col] = fv
         pending_filters.set(filters)
-        active_filters.set(filters.copy())
-        current_page.set(1)
         with reactive.isolate():
             _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 

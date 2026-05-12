@@ -2,10 +2,10 @@
   "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 95,
+    "total_functions": 96,
     "unused_functions": 1,
-    "fully_annotated_functions": 81,
-    "function_coverage_percent": 85.3,
+    "fully_annotated_functions": 82,
+    "function_coverage_percent": 85.4,
     "parameter_coverage_percent": 96.1,
     "mypy_errors": 0
   },
@@ -134,15 +134,17 @@
       ]
     },
     "src/utils/filter_utils.py": {
-      "total": 3,
+      "total": 4,
       "functions": [
         "_is_operator_filter",
         "_row_matches_operator",
+        "apply_column_filters",
         "get_filtered_rows"
       ],
       "used": [
         "_is_operator_filter",
         "_row_matches_operator",
+        "apply_column_filters",
         "get_filtered_rows"
       ]
     },
@@ -432,13 +434,13 @@
     },
     "src/utils/filter_utils.py": {
       "functions": {
-        "total": 3,
-        "with_return_type": 3,
-        "fully_annotated": 2
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 3
       },
       "parameters": {
-        "total": 10,
-        "annotated": 9
+        "total": 12,
+        "annotated": 11
       },
       "missing": [
         {

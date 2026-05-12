@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 557,
+    "total_functions": 558,
     "total_unused": 114,
-    "unused_percentage": 20.5
+    "unused_percentage": 20.4
   },
   "modules": {
     "clipboard_utils.py": {
@@ -144,15 +144,17 @@
     "filter_utils.py": {
       "description": "Filtering utilities for search and column filters.",
       "path": "src/utils/filter_utils.py",
-      "total_functions": 3,
+      "total_functions": 4,
       "functions": [
         "_is_operator_filter",
         "_row_matches_operator",
+        "apply_column_filters",
         "get_filtered_rows"
       ],
       "used_internally": [
         "_is_operator_filter",
         "_row_matches_operator",
+        "apply_column_filters",
         "get_filtered_rows"
       ]
     },

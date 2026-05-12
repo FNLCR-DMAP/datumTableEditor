@@ -2,11 +2,11 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 557,
-    "fully_annotated_functions": 357,
-    "function_coverage_percent": 64.1,
-    "total_parameters": 722,
-    "annotated_parameters": 643,
+    "total_functions": 558,
+    "fully_annotated_functions": 358,
+    "function_coverage_percent": 64.2,
+    "total_parameters": 727,
+    "annotated_parameters": 648,
     "parameter_coverage_percent": 89.1,
     "mypy_errors": 0,
     "mypy_available": true
@@ -143,13 +143,13 @@
     },
     "src/utils/filter_utils.py": {
       "functions": {
-        "total": 3,
-        "with_return_type": 3,
-        "fully_annotated": 2
+        "total": 4,
+        "with_return_type": 4,
+        "fully_annotated": 3
       },
       "parameters": {
-        "total": 10,
-        "annotated": 9
+        "total": 12,
+        "annotated": 11
       },
       "missing_annotations": [
         {
@@ -511,8 +511,8 @@
         "fully_annotated": 88
       },
       "parameters": {
-        "total": 126,
-        "annotated": 104
+        "total": 127,
+        "annotated": 105
       },
       "missing_annotations": [
         {
@@ -750,8 +750,8 @@
         "fully_annotated": 12
       },
       "parameters": {
-        "total": 13,
-        "annotated": 6
+        "total": 14,
+        "annotated": 7
       },
       "missing_annotations": [
         {
@@ -815,8 +815,8 @@
         "fully_annotated": 13
       },
       "parameters": {
-        "total": 10,
-        "annotated": 10
+        "total": 11,
+        "annotated": 11
       }
     },
     "src/commute/emitter.py": {
@@ -1030,42 +1030,42 @@
         {
           "type": "return",
           "function": "_handle_facet_filter",
-          "line": 77
+          "line": 86
         },
         {
           "type": "return",
           "function": "dynamic_filters",
-          "line": 100
+          "line": 109
         },
         {
           "type": "return",
           "function": "add_filter_btn_ui",
-          "line": 130
+          "line": 139
         },
         {
           "type": "return",
           "function": "available_filter_columns",
-          "line": 142
+          "line": 151
         },
         {
           "type": "return",
           "function": "_add_filter",
-          "line": 156
+          "line": 165
         },
         {
           "type": "return",
           "function": "_remove_filter",
-          "line": 168
+          "line": 177
         },
         {
           "type": "return",
           "function": "_set_filter_operator",
-          "line": 179
+          "line": 188
         },
         {
           "type": "return",
           "function": "_apply_filter_value",
-          "line": 224
+          "line": 233
         }
       ],
       "missing_annotations_truncated": 4
