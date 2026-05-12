@@ -188,10 +188,10 @@ class DatumClient:
     - token:    your DATUM_API_TOKEN
     """
 
-    def __init__(self, base_url: str, token: str, timeout: float = 60.0):
+    def __init__(self, base_url: str, token: str, timeout: float = 60.0, connect_timeout: float = 2.0):
         self.base_url = base_url.rstrip("/")
         self.token = token
-        self.timeout = timeout
+        self.timeout = (connect_timeout, timeout)
         self._session = requests.Session()
         self._session.headers.update(
             {

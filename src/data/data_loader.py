@@ -72,7 +72,7 @@ class DataLoader:
             method=config.api_method,
             url=url,
             headers=headers,
-            timeout=30
+            timeout=(2, 30)
         )
         response.raise_for_status()
         
@@ -235,7 +235,7 @@ class PersistenceManager:
         headers = {k: self._resolve_env_vars(v) for k, v in self.config.persistence.api_headers.items()}
         headers["Content-Type"] = "application/json"
         
-        response = requests.post(full_url, json=data, headers=headers, timeout=30)
+        response = requests.post(full_url, json=data, headers=headers, timeout=(2, 30))
         response.raise_for_status()
     
     def _load_api(self, url: Optional[str], endpoint: str) -> Any:
@@ -248,7 +248,7 @@ class PersistenceManager:
         full_url = f"{url}/{endpoint}" if not url.endswith(endpoint) else url
         headers = {k: self._resolve_env_vars(v) for k, v in self.config.persistence.api_headers.items()}
         
-        response = requests.get(full_url, headers=headers, timeout=30)
+        response = requests.get(full_url, headers=headers, timeout=(2, 30))
         if response.status_code == 404:
             return []
         response.raise_for_status()
