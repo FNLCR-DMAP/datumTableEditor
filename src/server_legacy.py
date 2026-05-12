@@ -1111,8 +1111,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         if not _facet_columns:
             return ui.div()
 
-        # Depend on pending_filters so the UI refreshes when selections change
-        filters = pending_filters.get()
+        # Checkbox checked state comes from pending (reflects user clicks)
+        pf = pending_filters.get()
+        # Value counts come from active (only change after Apply)
+        af = active_filters.get()
 
         with tracker.track_render("facet_panels_ui"):
             with reactive.isolate():
@@ -1123,7 +1125,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             for col in _facet_columns:
                 # Build filters excluding the current facet column so counts
                 # reflect the effect of OTHER active filters.
-                other_filters = {k: v for k, v in filters.items() if k != col}
+                other_filters = {k: v for k, v in af.items() if k != col}
 
                 if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
                     vc_map[col] = config.data_fetcher.get_value_counts(
@@ -1139,7 +1141,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                     vc_map[col] = []
 
                 # Derive selected from pending_filters
-                fv = filters.get(col)
+                fv = pf.get(col)
                 if fv and isinstance(fv, str) and fv.strip() and fv != "all":
                     selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
                 elif isinstance(fv, dict) and fv.get("op") == "in":

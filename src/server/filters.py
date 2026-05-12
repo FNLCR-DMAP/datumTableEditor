@@ -41,7 +41,10 @@ def register_filters(ctx: ServerContext):
         if not _facet_columns:
             return ui.div()
 
-        filters = pending_filters.get()
+        # Checkbox checked state comes from pending (reflects user clicks)
+        pf = pending_filters.get()
+        # Value counts come from active (only change after Apply)
+        af = active_filters.get()
 
         with tracker.track_render("facet_panels_ui"):
             with reactive.isolate():
@@ -52,7 +55,7 @@ def register_filters(ctx: ServerContext):
             for col in _facet_columns:
                 # Build filters excluding the current facet column so counts
                 # reflect the effect of OTHER active filters.
-                other_filters = {k: v for k, v in filters.items() if k != col}
+                other_filters = {k: v for k, v in af.items() if k != col}
 
                 if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
                     vc_map[col] = config.data_fetcher.get_value_counts(
@@ -67,7 +70,7 @@ def register_filters(ctx: ServerContext):
                 else:
                     vc_map[col] = []
 
-                fv = filters.get(col)
+                fv = pf.get(col)
                 if fv and isinstance(fv, str) and fv.strip() and fv != "all":
                     selected_map[col] = [v.strip() for v in fv.split("\n") if v.strip()]
                 elif isinstance(fv, dict) and fv.get("op") == "in":
