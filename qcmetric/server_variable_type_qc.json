@@ -5,9 +5,9 @@
     "total_functions": 557,
     "fully_annotated_functions": 357,
     "function_coverage_percent": 64.1,
-    "total_parameters": 720,
-    "annotated_parameters": 641,
-    "parameter_coverage_percent": 89.0,
+    "total_parameters": 722,
+    "annotated_parameters": 643,
+    "parameter_coverage_percent": 89.1,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -703,8 +703,8 @@
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 13,
-        "annotated": 13
+        "total": 14,
+        "annotated": 14
       },
       "missing_annotations": [
         {
@@ -732,8 +732,8 @@
         "fully_annotated": 1
       },
       "parameters": {
-        "total": 12,
-        "annotated": 12
+        "total": 13,
+        "annotated": 13
       },
       "missing_annotations": [
         {
