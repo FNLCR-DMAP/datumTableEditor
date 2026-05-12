@@ -316,7 +316,7 @@ class LpLimsDataProvider:
             print(f"✗ LP LIMS get_unique_values error: {e}")
             return []
 
-    def get_value_counts(self, column: str, limit: int = 50) -> List[Tuple[str, int]]:
+    def get_value_counts(self, column: str, limit: int = 50, filters: dict | None = None) -> List[Tuple[str, int]]:
         import time
         cache_key = f"{column}:{limit}"
         cached = self._value_counts_cache.get(cache_key)

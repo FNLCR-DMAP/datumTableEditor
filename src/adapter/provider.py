@@ -54,7 +54,7 @@ class DataProvider(Protocol):
         """Distinct values for a column (filter dropdowns)."""
         ...
 
-    def get_value_counts(self, column: str, limit: int = 50) -> List[Tuple[str, int]]:
+    def get_value_counts(self, column: str, limit: int = 50, filters: dict | None = None) -> List[Tuple[str, int]]:
         """Value frequency for a column (facet panels)."""
         ...
 

@@ -234,3 +234,40 @@ def get_filtered_rows(
         filtered_indices.append(idx)
     
     return filtered_indices
+
+
+def apply_column_filters(df: pd.DataFrame, column_filters: dict) -> pd.DataFrame:
+    """Apply column filters to a DataFrame and return the filtered subset.
+
+    This is a lightweight filter intended for computing facet value counts
+    on the already-loaded DataFrame.  It supports the same filter formats as
+    ``get_filtered_rows`` (newline-delimited strings and operator dicts) but
+    skips status/search filtering.
+    """
+    if not column_filters:
+        return df
+
+    mask = pd.Series(True, index=df.index)
+
+    for col_name, filter_value in column_filters.items():
+        if col_name not in df.columns:
+            continue
+
+        if _is_operator_filter(filter_value):
+            col_mask = df.apply(
+                lambda row, _col=col_name, _fv=filter_value: _row_matches_operator(row.get(_col), _fv),
+                axis=1,
+            )
+            mask &= col_mask
+            continue
+
+        if not filter_value or not str(filter_value).strip() or filter_value == "all":
+            continue
+
+        normalized = str(filter_value).replace("\n", ",").replace("\r", ",")
+        filter_values = [v.strip() for v in normalized.split(",") if v.strip()]
+        if filter_values:
+            col_series = df[col_name].fillna("No value").astype(str)
+            mask &= col_series.isin(filter_values)
+
+    return df.loc[mask]

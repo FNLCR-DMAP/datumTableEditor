@@ -1121,10 +1121,19 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             vc_map = {}
             selected_map = {}
             for col in _facet_columns:
+                # Build filters excluding the current facet column so counts
+                # reflect the effect of OTHER active filters.
+                other_filters = {k: v for k, v in filters.items() if k != col}
+
                 if is_lazy_loading() and hasattr(config, 'data_fetcher') and config.data_fetcher:
-                    vc_map[col] = config.data_fetcher.get_value_counts(col, limit=_facet_max * 10)
+                    vc_map[col] = config.data_fetcher.get_value_counts(
+                        col, limit=_facet_max * 10,
+                        filters=other_filters if other_filters else None,
+                    )
                 elif col in df.columns:
-                    counts = df[col].fillna("No value").astype(str).value_counts()
+                    from .utils.filter_utils import apply_column_filters
+                    filtered_df = apply_column_filters(df, other_filters) if other_filters else df
+                    counts = filtered_df[col].fillna("No value").astype(str).value_counts()
                     vc_map[col] = [(str(v), int(c)) for v, c in counts.head(_facet_max * 10).items()]
                 else:
                     vc_map[col] = []

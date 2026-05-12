@@ -10,7 +10,7 @@ from .data_utils import (
     get_status_counts,
     get_modification_summary,
 )
-from .filter_utils import get_filtered_rows
+from .filter_utils import get_filtered_rows, apply_column_filters
 from .ui_components import (
     build_log_entry_undo,
     build_log_entry_approval,

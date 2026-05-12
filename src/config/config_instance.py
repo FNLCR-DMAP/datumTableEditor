@@ -746,11 +746,17 @@ class DataFetcher:
             print(f"[DataFetcher] Error getting unique values for {column}: {e}")
         return []
 
-    def get_value_counts(self, column: str, limit: int = 50) -> List[Tuple[str, int]]:
+    def get_value_counts(self, column: str, limit: int = 50, filters: dict | None = None) -> List[Tuple[str, int]]:
         """Fetch value counts for a column ordered by frequency (descending).
 
         Returns list of (value, count) tuples.  NULL values are returned as
         the string ``"No value"``.
+
+        Args:
+            column: Column name to count values for.
+            limit: Max distinct values to return.
+            filters: Optional column filter dict (same format as active_filters)
+                     to restrict which rows are counted.
         """
         try:
             # LP LIMS mode: fetch data and compute value counts locally
@@ -772,10 +778,29 @@ class DataFetcher:
 
             data_table_sql = SqlTableName(self._effective_table)
             col_ident = SqlIdentifier(column)
+
+            # Build optional WHERE clause from filters
+            where_clause = ""
+            sql_params = {}
+            if filters:
+                # Normalize newline-delimited strings to lists (same as _build_query_params)
+                norm = {}
+                for k, v in filters.items():
+                    if isinstance(v, dict) and "op" in v:
+                        norm[k] = v
+                    elif v and str(v).strip() and v != "all":
+                        vals = [x.strip() for x in str(v).split("\n") if x.strip()]
+                        if vals:
+                            norm[k] = vals if len(vals) > 1 else vals[0]
+                if norm:
+                    dummy_params = QueryParams(filters=norm)
+                    where_clause, sql_params = self._build_where_clause(dummy_params, use_params=not self._is_datum)
+
             query = (
                 f"SELECT COALESCE(CAST({col_ident} AS TEXT), 'No value') AS val, "
                 f"COUNT(*) AS cnt "
                 f"FROM {data_table_sql} "
+                f"{where_clause} "
                 f"GROUP BY val ORDER BY cnt DESC LIMIT {int(limit)}"
             )
 
@@ -790,7 +815,7 @@ class DataFetcher:
             elif self._engine:
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
-                    result = conn.execute(text(query))
+                    result = conn.execute(text(query), sql_params)
                     return [(str(row[0]), int(row[1])) for row in result.fetchall()]
         except Exception as e:
             print(f"[DataFetcher] Error getting value counts for {column}: {e}")
