@@ -1158,7 +1158,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     @reactive.Effect
     @reactive.event(input.facet_filter_change)
     def _handle_facet_filter():
-        """Update pending_filters with facet checkbox selection."""
+        """Apply facet checkbox selection immediately."""
         val = input.facet_filter_change()
         if not val:
             return
@@ -1172,6 +1172,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         else:
             filters[col] = fv
         pending_filters.set(filters)
+        active_filters.set(filters.copy())
+        current_page.set(1)
         _filter_panel_trigger.set(_filter_panel_trigger.get() + 1)
 
     # Output: Dynamic filters UI
