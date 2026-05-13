@@ -514,16 +514,13 @@ class DataFetcher:
 
     @property
     def _effective_status_column(self) -> Optional[str]:
-        """Return status_column only if it actually exists in the table
-        *and* the status filter feature is enabled.
+        """Return status_column only if it actually exists in the table.
 
         If the config says ``"Status"`` but the table has ``"status"``
-        (or no such column at all), or ``enable_status_filter`` is
-        ``False``, return None so that ``_build_mod_status_expr`` falls
-        back to the simple ``COALESCE(ms.mod_type, 'unprocessed')`` path.
+        (or no such column at all), return None so that
+        ``_build_mod_status_expr`` falls back to the simple
+        ``COALESCE(ms.mod_type, 'unprocessed')`` path.
         """
-        if self._skip_mods:
-            return None
         col = getattr(self.app_config.database, "status_column", None)
         if col and col in self._columns:
             return col
@@ -1375,8 +1372,9 @@ class DataFetcher:
             cols = self._select_columns
             if self._skip_mods:
                 # No modification tracking — simple SELECT, no LATERAL JOIN
+                _status_expr = _build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None)) if self._effective_status_column else "'unprocessed'"
                 query = f"""
-                SELECT {cols}, 'unprocessed' AS _mod_status
+                SELECT {cols}, {_status_expr} AS _mod_status
                 FROM {data_table_sql} d
                 {where_clause}
                 {order_clause}
@@ -1492,8 +1490,9 @@ class DataFetcher:
             
             cols = self._select_columns
             if self._skip_mods:
+                _status_expr = _build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None)) if self._effective_status_column else "'unprocessed'"
                 query = f"""
-                SELECT {cols}, 'unprocessed' AS _mod_status
+                SELECT {cols}, {_status_expr} AS _mod_status
                 FROM {data_table_sql} d
                 {where_clause}
                 {order_clause}
@@ -1864,8 +1863,7 @@ class ConfigInstance:
     
     @property
     def _effective_status_column(self) -> Optional[str]:
-        """Return status_column only if it actually exists in the table
-        *and* the status filter feature is enabled.
+        """Return status_column only if it actually exists in the table.
 
         Mirrors DataFetcher._effective_status_column so that
         _load_from_database / _load_from_datum can reference it on self.
@@ -1873,8 +1871,6 @@ class ConfigInstance:
         During initial load, all_columns is empty — return None to use
         safe fallback (trusting the config value risks case mismatches).
         """
-        if self._skip_mods:
-            return None
         col = getattr(self.app_config.database, "status_column", None)
         if not col:
             return None
@@ -2308,8 +2304,9 @@ class ConfigInstance:
             limit_clause = f"LIMIT {max_rows}" if max_rows else ""
             
             if self._skip_mods:
+                _status_expr = _build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None)) if self._effective_status_column else "'unprocessed'"
                 query = f"""
-                SELECT d.*, 'unprocessed' AS _mod_status
+                SELECT d.*, {_status_expr} AS _mod_status
                 FROM {data_table_sql} d
                 ORDER BY d.{SqlIdentifier(pk_columns[0])}
                 {limit_clause}
@@ -2545,8 +2542,9 @@ class ConfigInstance:
             cols = self._data_fetcher._select_columns if self._data_fetcher else "d.*"
             
             if self._skip_mods:
+                _status_expr = _build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None)) if self._effective_status_column else "'unprocessed'"
                 query = f"""
-                SELECT {cols}, 'unprocessed' AS _mod_status
+                SELECT {cols}, {_status_expr} AS _mod_status
                 FROM {data_table_sql} d
                 ORDER BY d.{SqlIdentifier(pk_columns[0])}
                 {limit_clause}
