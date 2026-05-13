@@ -1655,7 +1655,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 status_col_name=getattr(app_config.database, "status_column", None),
                 no_tz_display=app_config.table.no_tz_display,
                 show_select=app_config.enable_row_select,
-                multi_select=app_config.review_detail_multi_select
+                multi_select=app_config.review_detail_multi_select,
+                status_values=getattr(app_config, "status_values", None)
             )
         return result
     
