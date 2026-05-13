@@ -5,9 +5,9 @@
     "total_functions": 558,
     "fully_annotated_functions": 358,
     "function_coverage_percent": 64.2,
-    "total_parameters": 727,
-    "annotated_parameters": 648,
-    "parameter_coverage_percent": 89.1,
+    "total_parameters": 732,
+    "annotated_parameters": 653,
+    "parameter_coverage_percent": 89.2,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -208,8 +208,8 @@
         "fully_annotated": 9
       },
       "parameters": {
-        "total": 87,
-        "annotated": 86
+        "total": 92,
+        "annotated": 91
       },
       "missing_annotations": [
         {

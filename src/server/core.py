@@ -735,6 +735,9 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 multi_select=app_config.review_detail_multi_select,
                 status_values=getattr(app_config, "status_values", None)
             )
+        return result
+
+    # ── Review Detail + Cell Click ──────────────────────────────────────
 
     @reactive.Effect
     @reactive.event(input.review_detail_btn)

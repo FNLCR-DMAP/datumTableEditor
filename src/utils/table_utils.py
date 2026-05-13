@@ -144,8 +144,8 @@ def build_status_badge(status: str, status_labels: dict = None, raw_value: str =
     """
     if raw_value is not None and str(raw_value).strip():
         status_text = str(raw_value).strip()
-        # Derive the correct CSS key from raw_value when status is generic
-        if status == "unprocessed" and (status_labels or status_values):
+        # Derive correct CSS key from raw_value when status is generic
+        if status == "unprocessed":
             raw_lower = status_text.lower()
             # Check status_values: {"approved": "Accepted"} → "accepted" -> "approved"
             if status_values:
