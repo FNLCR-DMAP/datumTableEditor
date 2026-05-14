@@ -166,6 +166,7 @@ class DatabaseSchemaManager:
         );
         CREATE INDEX idx_{table_name}_row_pk ON {table_name} USING GIN (row_pk);
         CREATE INDEX idx_{table_name}_created_at ON {table_name} (created_at DESC);
+        CREATE INDEX idx_{table_name}_active_latest ON {table_name} (row_pk, created_at DESC) WHERE undone = FALSE;
         """
         
         with self.engine.begin() as conn:

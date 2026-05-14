@@ -235,6 +235,12 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
             any_mod AS (
                 SELECT DISTINCT row_pk
                 FROM {mods_table_sql}
+            ),
+            field_mods AS (
+                SELECT fm.row_pk AS fm_row_pk, fm.column_name AS fm_column_name, fm.new_value AS fm_new_value
+                FROM {mods_table_sql} fm
+                WHERE fm.mod_type = 'field_modification'
+                  AND fm.undone = FALSE
             )"""
     join_clause = (
         f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build} "
@@ -1388,7 +1394,9 @@ class DataFetcher:
                 cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
                 inner_query = f"""
                 SELECT {cols}, 
-                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status
+                       {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status,
+                       (SELECT json_agg(json_build_object('column_name', fm.fm_column_name, 'new_value', fm.fm_new_value))
+                        FROM field_mods fm WHERE fm.fm_row_pk = {pk_json_build}) AS _field_mods
                 FROM {data_table_sql} d
                 {join}
                 {where_clause}
@@ -1716,8 +1724,7 @@ class DataFetcher:
             pk_columns = self.app_config.table.primary_key
             mods_table_sql = SqlTableName(mods_table)
             
-            # Build list of PKs from current data
-            pk_values = []
+            # Build PK index for row lookups
             pk_index = {}
             for idx, row in df.iterrows():
                 pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
@@ -1730,47 +1737,75 @@ class DataFetcher:
                     else:
                         serializable_pk[k] = v
                 pk_json = json.dumps(serializable_pk, sort_keys=True)
-                pk_values.append(pk_json)
                 if pk_json not in pk_index:
                     pk_index[pk_json] = []
                 pk_index[pk_json].append(idx)
             
-            if not pk_values:
-                return df
-            
-            # Query modifications for these PKs
-            pk_array_expr = build_pk_array(pk_values)
-            mods_query = f"""
-            SELECT row_pk, column_name, new_value 
-            FROM {mods_table_sql}
-            WHERE mod_type = 'field_modification' 
-              AND undone = FALSE
-              AND row_pk = ANY({pk_array_expr})
-            ORDER BY created_at ASC
-            """
-            
-            if self._is_datum:
-                response = self._datum_client.execute_sql(
-                    sql=mods_query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
-                mods = response.data
+            # Use pre-fetched _field_mods column if available (merged CTE)
+            if "_field_mods" in df.columns:
+                mods = []
+                for idx, row in df.iterrows():
+                    fm = row["_field_mods"]
+                    if fm is None:
+                        continue
+                    if isinstance(fm, str):
+                        fm = json.loads(fm)
+                    pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
+                    serializable_pk = {}
+                    for k, v in pk_dict.items():
+                        if hasattr(v, 'item'):
+                            serializable_pk[k] = v.item()
+                        elif pd.isna(v):
+                            serializable_pk[k] = None
+                        else:
+                            serializable_pk[k] = v
+                    pk_json = json.dumps(serializable_pk, sort_keys=True)
+                    for m in fm:
+                        mods.append({"row_pk": pk_json, "column_name": m["column_name"], "new_value": m["new_value"]})
+                df = df.drop(columns=["_field_mods"])
             else:
-                from sqlalchemy import text
-                with self._engine.connect() as conn:
-                    result = conn.execute(text(mods_query))
-                    mods = [dict(row._mapping) for row in result.fetchall()]
+                # Fallback: separate query (used by fetch_all_filtered / skip_mods paths)
+                pk_values = list(pk_index.keys())
+                if not pk_values:
+                    return df
+                pk_array_expr = build_pk_array(pk_values)
+                mods_query = f"""
+                SELECT row_pk, column_name, new_value 
+                FROM {mods_table_sql}
+                WHERE mod_type = 'field_modification' 
+                  AND undone = FALSE
+                  AND row_pk = ANY({pk_array_expr})
+                ORDER BY created_at ASC
+                """
+                
+                if self._is_datum:
+                    response = self._datum_client.execute_sql(
+                        sql=mods_query,
+                        database=self.app_config.database.datum_database,
+                        schema=self.app_config.database.datum_schema,
+                        service_name=self.app_config.database.datum_service_name,
+                    )
+                    mods = response.data
+                else:
+                    from sqlalchemy import text
+                    with self._engine.connect() as conn:
+                        result = conn.execute(text(mods_query))
+                        mods = [dict(row._mapping) for row in result.fetchall()]
             
             # Detect disagreements — data table wins, don't overwrite df
             disagreements = []  # [(pk_json, col, data_table_value)]
             seen = set()  # Track (pk_json, col) to only record latest disagreement
             for mod in mods:
                 row_pk = mod["row_pk"]
-                if isinstance(row_pk, str):
-                    row_pk = json.loads(row_pk)
-                pk_json = json.dumps(row_pk, sort_keys=True)
+                if isinstance(row_pk, dict):
+                    pk_json = json.dumps(row_pk, sort_keys=True)
+                elif isinstance(row_pk, str):
+                    try:
+                        pk_json = json.dumps(json.loads(row_pk), sort_keys=True)
+                    except (json.JSONDecodeError, TypeError):
+                        pk_json = row_pk
+                else:
+                    pk_json = json.dumps(row_pk, sort_keys=True)
                 
                 if pk_json in pk_index:
                     col = mod["column_name"]
