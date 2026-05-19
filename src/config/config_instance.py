@@ -1746,10 +1746,12 @@ class DataFetcher:
                 mods = []
                 for idx, row in df.iterrows():
                     fm = row["_field_mods"]
-                    if fm is None:
+                    if fm is None or (isinstance(fm, float) and pd.isna(fm)):
                         continue
                     if isinstance(fm, str):
                         fm = json.loads(fm)
+                    if not isinstance(fm, list):
+                        continue
                     pk_dict = {pk: row[pk] for pk in pk_columns if pk in df.columns}
                     serializable_pk = {}
                     for k, v in pk_dict.items():

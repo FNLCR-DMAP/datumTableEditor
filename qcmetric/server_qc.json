@@ -383,47 +383,47 @@
         {
           "type": "return",
           "function": "approval_status_ui",
-          "line": 51
+          "line": 52
         },
         {
           "type": "return",
           "function": "modifications_log_ui",
-          "line": 57
+          "line": 58
         },
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 64
+          "line": 65
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 82
+          "line": 83
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 127
+          "line": 135
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 178
+          "line": 186
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 189
+          "line": 197
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 196
+          "line": 204
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 210
+          "line": 218
         }
       ]
     },

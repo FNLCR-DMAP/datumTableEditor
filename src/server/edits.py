@@ -46,6 +46,7 @@ def register_edits(ctx: ServerContext):
     _save_status_to_db = ctx._save_status_to_db
     load_modifications_log = ctx.load_modifications_log
     load_data_from_source = ctx.load_data_from_source
+    _cached_page_data = ctx._cached_page_data
 
     @render.ui
     def approval_status_ui():
@@ -87,12 +88,16 @@ def register_edits(ctx: ServerContext):
         row, col, old_val, new_val = process_cell_edit_action(edit_data)
         print(f"DEBUG: processed edit - row={row}, col={col}, old={old_val}, new={new_val}")
         if row is not None and col:
-            current_df = data.get()
+            if is_lazy_loading() and _cached_page_data:
+                current_df, _, _, _ = _cached_page_data()
+            else:
+                current_df = data.get()
             current_log = mods_log.get()
             print(f"DEBUG: config type={type(config)}, db_mode={config.app_config.database.mode if hasattr(config, 'app_config') else 'N/A'}")
             updated_df, updated_log = perform_cell_edit(current_df, current_log, row, col, old_val, new_val, config_instance=config)
             print(f"DEBUG: perform_cell_edit returned, log entries: {len(updated_log)}")
-            data.set(updated_df)
+            if not is_lazy_loading():
+                data.set(updated_df)
             mods_log.set(updated_log)
 
             pk_cols = app_config.table.primary_key
@@ -118,7 +123,10 @@ def register_edits(ctx: ServerContext):
                 print(f"Warning: Could not track edited cell: {e}")
 
             save_log_to_file(updated_log, modifications_log_path)
-            updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+            if not is_lazy_loading():
+                updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+            else:
+                _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)
 
