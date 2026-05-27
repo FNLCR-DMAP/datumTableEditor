@@ -314,16 +314,46 @@ def build_approval_status_banner(status: str, timestamp: str) -> ui.div:
     return ui.div()
 
 
-def build_modifications_log(log: list) -> ui.div:
-    """Build the modifications log UI from log entries."""
+def _pk_matches(mod_pk: dict, displayed_pks: set) -> bool:
+    """Check if a modification's PK matches any of the displayed PKs."""
+    if not mod_pk or not displayed_pks:
+        return False
+    # Convert mod_pk to a hashable tuple for set lookup
+    pk_tuple = tuple(sorted((str(k), str(v)) for k, v in mod_pk.items()))
+    return pk_tuple in displayed_pks
+
+
+def build_modifications_log(log: list, displayed_pks: list = None) -> ui.div:
+    """Build the modifications log UI from log entries.
+    
+    Args:
+        log: List of modification log entries
+        displayed_pks: Optional list of PK dicts for currently displayed rows.
+                      If provided, only shows mods for those rows.
+    """
     if not log:
         return build_empty_log_message()
     
+    # Convert displayed_pks to a set of tuples for fast lookup
+    pk_set = None
+    if displayed_pks:
+        pk_set = set(
+            tuple(sorted((str(k), str(v)) for k, v in pk.items()))
+            for pk in displayed_pks
+        )
+    
     log_items = []
-    # Show all entries (field modifications, approvals, rejections)
+    # Show entries filtered by displayed PKs (if provided)
     for actual_idx, mod in reversed(list(enumerate(log))):
-        timestamp = mod.get("timestamp", "Unknown")
         details = mod.get("details", {})
+        
+        # Filter by displayed PKs if provided
+        if pk_set:
+            mod_pk = details.get("row_pk") or details.get("primary_key")
+            if mod_pk and not _pk_matches(mod_pk, pk_set):
+                continue
+        
+        timestamp = mod.get("timestamp", "Unknown")
         mod_type = mod.get("type")
         undone = mod.get("undone", False)
         

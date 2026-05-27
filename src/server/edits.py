@@ -57,7 +57,19 @@ def register_edits(ctx: ServerContext):
     @render.ui
     def modifications_log_ui():
         with tracker.track_render("modifications_log_ui"):
-            result = build_modifications_log(mods_log.get())
+            # Get PKs for currently displayed rows to filter the log
+            displayed_pks = []
+            if _cached_page_data:
+                try:
+                    page_df, _, _, _ = _cached_page_data()
+                    pk_cols = app_config.table.primary_key
+                    for _, row in page_df.iterrows():
+                        row_pk = {pk: row[pk] for pk in pk_cols if pk in page_df.columns}
+                        if row_pk:
+                            displayed_pks.append(row_pk)
+                except Exception:
+                    pass
+            result = build_modifications_log(mods_log.get(), displayed_pks)
         return result
 
     @reactive.Effect
