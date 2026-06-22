@@ -137,6 +137,17 @@ window.saveCellValue = function() {
     // Update the cell display
     currentEditCell.dataset.value = newValue;
     currentEditCell.querySelector('.cell-value').textContent = newValue || '—';
+    if (currentEditCell.dataset.original === undefined) {
+        currentEditCell.dataset.original = oldValue;
+    }
+    currentEditCell.classList.add('cell-edited');
+
+    const rowEl = currentEditCell.closest('tr');
+    const statusBadge = rowEl ? rowEl.querySelector('.row-status-badge') : null;
+    if (statusBadge && col !== 'Status') {
+        statusBadge.textContent = 'Edited';
+        statusBadge.className = 'row-status-badge status-edited';
+    }
     
     // Always send to Shiny — even same-value saves must propagate
     // through edit_assignment to downstream columns

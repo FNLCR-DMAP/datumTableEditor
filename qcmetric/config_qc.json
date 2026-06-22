@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 171,
+    "total_functions": 173,
     "unused_functions": 1,
     "fully_annotated_functions": 120,
-    "function_coverage_percent": 70.2,
-    "parameter_coverage_percent": 82.7,
+    "function_coverage_percent": 69.4,
+    "parameter_coverage_percent": 80.6,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 127,
+      "total": 129,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -145,6 +145,7 @@
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
+        "_save_cell_edit_to_datum",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -189,6 +190,7 @@
         "refresh_count",
         "reload_data",
         "run_synthesis",
+        "save_cell_edit_to_db",
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
@@ -268,6 +270,7 @@
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
+        "_save_cell_edit_to_datum",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -307,6 +310,7 @@
         "refresh_count",
         "reload_data",
         "run_synthesis",
+        "save_cell_edit_to_db",
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
@@ -466,13 +470,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 127,
+        "total": 129,
         "with_return_type": 92,
         "fully_annotated": 88
       },
       "parameters": {
-        "total": 127,
-        "annotated": 105
+        "total": 139,
+        "annotated": 111
       },
       "missing": [
         {

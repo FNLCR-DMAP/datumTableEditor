@@ -138,7 +138,7 @@ def register_edits(ctx: ServerContext):
             save_log_to_file(updated_log, modifications_log_path)
             if not is_lazy_loading():
                 updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
-            else:
+            elif target_col != col:
                 _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)

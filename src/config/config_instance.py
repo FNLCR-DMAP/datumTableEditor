@@ -237,10 +237,14 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
                 FROM {mods_table_sql}
             ),
             field_mods AS (
-                SELECT fm.row_pk AS fm_row_pk, fm.column_name AS fm_column_name, fm.new_value AS fm_new_value
+                SELECT DISTINCT ON (fm.row_pk, fm.column_name)
+                       fm.row_pk AS fm_row_pk,
+                       fm.column_name AS fm_column_name,
+                       fm.new_value AS fm_new_value
                 FROM {mods_table_sql} fm
                 WHERE fm.mod_type = 'field_modification'
                   AND fm.undone = FALSE
+                ORDER BY fm.row_pk, fm.column_name, fm.created_at DESC
             )"""
     join_clause = (
         f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build} "
@@ -1772,12 +1776,13 @@ class DataFetcher:
                     return df
                 pk_array_expr = build_pk_array(pk_values)
                 mods_query = f"""
-                SELECT row_pk, column_name, new_value 
+                  SELECT DISTINCT ON (row_pk, column_name)
+                      row_pk, column_name, new_value 
                 FROM {mods_table_sql}
                 WHERE mod_type = 'field_modification' 
                   AND undone = FALSE
                   AND row_pk = ANY({pk_array_expr})
-                ORDER BY created_at ASC
+                  ORDER BY row_pk, column_name, created_at DESC
                 """
                 
                 if self._is_datum:

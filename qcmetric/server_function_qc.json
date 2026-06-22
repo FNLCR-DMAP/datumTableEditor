@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 559,
+    "total_functions": 561,
     "total_unused": 114,
-    "unused_percentage": 20.4
+    "unused_percentage": 20.3
   },
   "modules": {
     "clipboard_utils.py": {
@@ -638,7 +638,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 127,
+      "total_functions": 129,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -716,6 +716,7 @@
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
+        "_save_cell_edit_to_datum",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -760,6 +761,7 @@
         "refresh_count",
         "reload_data",
         "run_synthesis",
+        "save_cell_edit_to_db",
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
@@ -837,6 +839,7 @@
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
+        "_save_cell_edit_to_datum",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -876,6 +879,7 @@
         "refresh_count",
         "reload_data",
         "run_synthesis",
+        "save_cell_edit_to_db",
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
