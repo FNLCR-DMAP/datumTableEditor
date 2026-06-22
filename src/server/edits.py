@@ -111,6 +111,15 @@ def register_edits(ctx: ServerContext):
             print(f"DEBUG: perform_cell_edit returned, log entries: {len(updated_log)}")
             if not is_lazy_loading():
                 data.set(updated_df)
+            else:
+                try:
+                    status_col = getattr(app_config.database, "status_column", None)
+                    sync_cols = [col, status_col, "_mod_status"]
+                    for sync_col in sync_cols:
+                        if sync_col and sync_col in current_df.columns and sync_col in updated_df.columns:
+                            current_df.iloc[row, current_df.columns.get_loc(sync_col)] = updated_df.iloc[row, updated_df.columns.get_loc(sync_col)]
+                except Exception as e:
+                    print(f"Warning: Could not update cached lazy page after edit: {e}")
             mods_log.set(updated_log)
 
             pk_cols = app_config.table.primary_key
