@@ -58,11 +58,12 @@ def register_edits(ctx: ServerContext):
     def modifications_log_ui():
         with tracker.track_render("modifications_log_ui"):
             # Get PKs for currently displayed rows to filter the log
-            displayed_pks = []
-            if _cached_page_data:
+            displayed_pks = None
+            if _cached_page_data and not is_lazy_loading():
                 try:
                     page_df, _, _, _ = _cached_page_data()
                     pk_cols = app_config.table.primary_key
+                    displayed_pks = []
                     for _, row in page_df.iterrows():
                         row_pk = {pk: row[pk] for pk in pk_cols if pk in page_df.columns}
                         if row_pk:

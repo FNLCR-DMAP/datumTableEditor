@@ -3840,6 +3840,86 @@ class ConfigInstance:
             print(f"✗ Error updating data via Datum: {e}")
             return False
 
+    def save_cell_edit_to_db(self, row_pk: dict, column: str, old_value, new_value, status_col: str = None, status_value=None):
+        """Persist one cell edit and its optional status sync in a single DB transaction."""
+        if self.app_config.database.mode == "datum":
+            return self._save_cell_edit_to_datum(row_pk, column, old_value, new_value, status_col, status_value)
+        return False
+
+    def _save_cell_edit_to_datum(self, row_pk: dict, column: str, old_value, new_value, status_col: str = None, status_value=None):
+        """Persist a cell edit via Datum using one multi-statement SQL request."""
+        try:
+            from ..adapter.datum import DatumClient
+
+            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+            if not base_url or not token:
+                return False
+
+            self._ensure_mods_table_exists()
+
+            client = DatumClient(base_url=base_url, token=token)
+            data_table_sql = SqlTableName(self.app_config.database.data_table)
+            mods_table_sql = SqlTableName(self.app_config.database.mods_table)
+            pk_columns = self.app_config.table.primary_key
+
+            where_parts = []
+            for pk_col in pk_columns:
+                if pk_col in row_pk:
+                    where_parts.append(f'{SqlIdentifier(pk_col)} = {SqlLiteral(row_pk[pk_col])}')
+            if not where_parts:
+                return False
+            where_sql = " AND ".join(where_parts)
+
+            serializable_pk = {}
+            for key, value in row_pk.items():
+                if hasattr(value, 'item'):
+                    serializable_pk[key] = value.item()
+                elif pd.isna(value):
+                    serializable_pk[key] = None
+                else:
+                    serializable_pk[key] = value
+
+            pk_lit = SqlLiteral(json.dumps(serializable_pk, sort_keys=True))
+            column_lit = SqlLiteral(column)
+            old_value_lit = SqlLiteral(str(old_value) if old_value is not None else None)
+            new_value_lit = SqlLiteral(str(new_value) if new_value is not None else None)
+
+            stmts = [
+                "BEGIN;",
+                f"UPDATE {data_table_sql} SET {SqlIdentifier(column)} = {SqlLiteral(new_value)} WHERE {where_sql};",
+                f"INSERT INTO {mods_table_sql} (row_pk, column_name, old_value, new_value, mod_type)"
+                f" VALUES ({pk_lit}::jsonb, {column_lit}, {old_value_lit}, {new_value_lit}, {SqlLiteral('field_modification')});",
+            ]
+
+            if status_col and status_value is not None and status_col != column:
+                status_col_lit = SqlLiteral(status_col)
+                status_value_lit = SqlLiteral(str(status_value))
+                stmts.extend([
+                    f"UPDATE {data_table_sql} SET {SqlIdentifier(status_col)} = {SqlLiteral(status_value)} WHERE {where_sql};",
+                    f"INSERT INTO {mods_table_sql} (row_pk, column_name, old_value, new_value, mod_type)"
+                    f" VALUES ({pk_lit}::jsonb, {status_col_lit}, NULL, {status_value_lit}, {SqlLiteral('field_modification')});",
+                ])
+
+            stmts.append("COMMIT;")
+            sql = "\n".join(stmts)
+
+            with tracker.track_sql("cell_edit.datum", sql):
+                client.execute_sql(
+                    sql=sql,
+                    database=self.app_config.database.datum_database,
+                    schema=self.app_config.database.datum_schema,
+                    service_name=self.app_config.database.datum_service_name,
+                )
+
+            self.invalidate_mods_cache()
+            return True
+        except Exception as e:
+            print(f"✗ Error saving cell edit via Datum: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def batch_save_status(self, entries: list):
         """Batch-save approval/rejection status changes in a single transaction.
 
