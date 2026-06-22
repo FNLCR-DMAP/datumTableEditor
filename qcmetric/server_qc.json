@@ -403,27 +403,27 @@
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 148
+          "line": 157
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 199
+          "line": 208
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 210
+          "line": 219
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 217
+          "line": 226
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 231
+          "line": 240
         }
       ]
     },

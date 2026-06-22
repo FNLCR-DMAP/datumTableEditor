@@ -296,7 +296,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     def _get_row_status(row_idx):
         current_df = data.get()
-        current_log = mods_log.get()
         if "_mod_status" in current_df.columns:
             try:
                 db_status = str(current_df.loc[row_idx, "_mod_status"]).strip().lower()
@@ -321,7 +320,38 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
         except:
             row_pk = None
+        current_log = mods_log.get()
         return get_row_status(row_idx, current_log, row_pk)
+
+    def _get_page_row_status(current_df):
+        reverse_status_values = {str(v).lower(): k for k, v in app_config.status_values.items()}
+
+        def _status_for_row(row_idx):
+            try:
+                row = current_df.loc[row_idx]
+            except Exception:
+                return "unprocessed"
+
+            for source_col in ("_mod_status", getattr(app_config.database, "status_column", None)):
+                if not source_col or source_col not in current_df.columns:
+                    continue
+                raw_status = str(row.get(source_col, "")).strip().lower()
+                if not raw_status:
+                    continue
+                if raw_status in ("edited", "approved", "rejected"):
+                    return raw_status
+                if raw_status == "approval":
+                    return "approved"
+                if raw_status == "rejection":
+                    return "rejected"
+                if raw_status == "field_modification":
+                    return "edited"
+                mapped = reverse_status_values.get(raw_status, raw_status)
+                if mapped in ("edited", "approved", "rejected"):
+                    return mapped
+            return "unprocessed"
+
+        return _status_for_row
 
     def _get_filtered_rows():
         current_df = data.get()
@@ -720,7 +750,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 widths=_widths,
                 filtered_count=filtered_count,
                 total_rows=total_count,
-                get_row_status_func=_get_row_status,
+                get_row_status_func=_get_page_row_status(current_df) if is_lazy_loading() else _get_row_status,
                 edited_cells=_edited,
                 pk_columns=app_config.table.primary_key,
                 editable_columns=[] if is_viewer else app_config.table.editable_columns,
