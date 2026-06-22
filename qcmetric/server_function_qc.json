@@ -2,7 +2,7 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 558,
+    "total_functions": 559,
     "total_unused": 114,
     "unused_percentage": 20.4
   },
@@ -284,8 +284,9 @@
     "ui_components.py": {
       "description": "UI component builders for the Epitopes Data Editor.",
       "path": "src/utils/ui_components.py",
-      "total_functions": 14,
+      "total_functions": 15,
       "functions": [
+        "_pk_matches",
         "build_approval_status_banner",
         "build_empty_log_message",
         "build_facet_bar",
@@ -302,6 +303,7 @@
         "format_row"
       ],
       "used_internally": [
+        "_pk_matches",
         "build_approval_status_banner",
         "build_empty_log_message",
         "build_facet_bar",

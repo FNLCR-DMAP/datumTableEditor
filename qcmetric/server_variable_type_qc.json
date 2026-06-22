@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 558,
-    "fully_annotated_functions": 358,
+    "total_functions": 559,
+    "fully_annotated_functions": 359,
     "function_coverage_percent": 64.2,
-    "total_parameters": 732,
-    "annotated_parameters": 653,
-    "parameter_coverage_percent": 89.2,
+    "total_parameters": 735,
+    "annotated_parameters": 656,
+    "parameter_coverage_percent": 89.3,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -250,13 +250,13 @@
     },
     "src/utils/ui_components.py": {
       "functions": {
-        "total": 14,
-        "with_return_type": 12,
-        "fully_annotated": 12
+        "total": 15,
+        "with_return_type": 13,
+        "fully_annotated": 13
       },
       "parameters": {
-        "total": 36,
-        "annotated": 34
+        "total": 39,
+        "annotated": 37
       },
       "missing_annotations": [
         {
@@ -938,37 +938,37 @@
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 65
+          "line": 77
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 83
+          "line": 95
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 135
+          "line": 147
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 186
+          "line": 198
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 197
+          "line": 209
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 204
+          "line": 216
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 218
+          "line": 230
         }
       ],
       "missing_annotations_truncated": 2

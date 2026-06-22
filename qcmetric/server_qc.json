@@ -393,37 +393,37 @@
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 65
+          "line": 77
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 83
+          "line": 95
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 135
+          "line": 147
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 186
+          "line": 198
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 197
+          "line": 209
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 204
+          "line": 216
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 218
+          "line": 230
         }
       ]
     },

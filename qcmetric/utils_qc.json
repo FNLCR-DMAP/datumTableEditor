@@ -2,11 +2,11 @@
   "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 96,
+    "total_functions": 97,
     "unused_functions": 1,
-    "fully_annotated_functions": 82,
-    "function_coverage_percent": 85.4,
-    "parameter_coverage_percent": 96.1,
+    "fully_annotated_functions": 83,
+    "function_coverage_percent": 85.6,
+    "parameter_coverage_percent": 96.2,
     "mypy_errors": 0
   },
   "files": {},
@@ -267,8 +267,9 @@
       ]
     },
     "src/utils/ui_components.py": {
-      "total": 14,
+      "total": 15,
       "functions": [
+        "_pk_matches",
         "build_approval_status_banner",
         "build_empty_log_message",
         "build_facet_bar",
@@ -285,6 +286,7 @@
         "format_row"
       ],
       "used": [
+        "_pk_matches",
         "build_approval_status_banner",
         "build_empty_log_message",
         "build_facet_bar",
@@ -541,13 +543,13 @@
     },
     "src/utils/ui_components.py": {
       "functions": {
-        "total": 14,
-        "with_return_type": 12,
-        "fully_annotated": 12
+        "total": 15,
+        "with_return_type": 13,
+        "fully_annotated": 13
       },
       "parameters": {
-        "total": 36,
-        "annotated": 34
+        "total": 39,
+        "annotated": 37
       },
       "missing": [
         {
