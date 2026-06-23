@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 558,
+    "total_functions": 563,
     "total_unused": 114,
-    "unused_percentage": 20.4
+    "unused_percentage": 20.2
   },
   "modules": {
     "clipboard_utils.py": {
@@ -284,8 +284,9 @@
     "ui_components.py": {
       "description": "UI component builders for the Epitopes Data Editor.",
       "path": "src/utils/ui_components.py",
-      "total_functions": 14,
+      "total_functions": 15,
       "functions": [
+        "_pk_matches",
         "build_approval_status_banner",
         "build_empty_log_message",
         "build_facet_bar",
@@ -302,6 +303,7 @@
         "format_row"
       ],
       "used_internally": [
+        "_pk_matches",
         "build_approval_status_banner",
         "build_empty_log_message",
         "build_facet_bar",
@@ -636,7 +638,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 127,
+      "total_functions": 129,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -714,6 +716,7 @@
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
+        "_save_cell_edit_to_datum",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -758,6 +761,7 @@
         "refresh_count",
         "reload_data",
         "run_synthesis",
+        "save_cell_edit_to_db",
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
@@ -835,6 +839,7 @@
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
+        "_save_cell_edit_to_datum",
         "_save_modification_to_datum",
         "_save_preset_datum",
         "_save_ui_state_datum",
@@ -874,6 +879,7 @@
         "refresh_count",
         "reload_data",
         "run_synthesis",
+        "save_cell_edit_to_db",
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
@@ -1223,7 +1229,7 @@
     "core.py": {
       "description": "Server core \u2014 create_server() setup, reactive values, and sub-module wiring.",
       "path": "src/server/core.py",
-      "total_functions": 30,
+      "total_functions": 32,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
@@ -1235,6 +1241,7 @@
         "_fetch_page_data",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_row_status",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
@@ -1244,6 +1251,7 @@
         "_require_editor",
         "_review_detail",
         "_save_status_to_db",
+        "_status_for_row",
         "create_server",
         "data_summary",
         "is_lazy_loading",
@@ -1266,6 +1274,7 @@
         "_fetch_page_data",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_row_status",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
@@ -1273,6 +1282,7 @@
         "_lazy_filtered_count",
         "_require_editor",
         "_save_status_to_db",
+        "_status_for_row",
         "create_server",
         "is_lazy_loading",
         "load_data_from_source",

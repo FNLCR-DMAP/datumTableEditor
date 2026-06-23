@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 100,
+    "total_functions": 102,
     "unused_functions": 1,
     "fully_annotated_functions": 4,
-    "function_coverage_percent": 4.0,
-    "parameter_coverage_percent": 50.0,
+    "function_coverage_percent": 3.9,
+    "parameter_coverage_percent": 46.4,
     "mypy_errors": 0
   },
   "files": {},
@@ -22,7 +22,7 @@
       ]
     },
     "src/server/core.py": {
-      "total": 30,
+      "total": 32,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
@@ -34,6 +34,7 @@
         "_fetch_page_data",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_row_status",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
@@ -43,6 +44,7 @@
         "_require_editor",
         "_review_detail",
         "_save_status_to_db",
+        "_status_for_row",
         "create_server",
         "data_summary",
         "is_lazy_loading",
@@ -65,6 +67,7 @@
         "_fetch_page_data",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_row_status",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
@@ -72,6 +75,7 @@
         "_lazy_filtered_count",
         "_require_editor",
         "_save_status_to_db",
+        "_status_for_row",
         "create_server",
         "is_lazy_loading",
         "load_data_from_source",
@@ -299,12 +303,12 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 30,
+        "total": 32,
         "with_return_type": 3,
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 16,
+        "total": 18,
         "annotated": 6
       },
       "missing": [
@@ -393,37 +397,37 @@
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 65
+          "line": 78
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 83
+          "line": 96
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 135
+          "line": 157
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 186
+          "line": 208
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 197
+          "line": 219
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 204
+          "line": 226
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 218
+          "line": 240
         }
       ]
     },

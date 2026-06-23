@@ -307,30 +307,73 @@ def perform_cell_edit(
     # Save to database FIRST, before mutating the DataFrame
     db_id = None
     db_failed = False
+    db_synced_status = False
+    _sync_status = None
+    _status_col = None
+    if config_instance and hasattr(config_instance, 'app_config'):
+        _ac = config_instance.app_config
+        _sv = getattr(_ac, 'status_values', None)
+        if isinstance(_sv, dict):
+            _sync_status = _sv.get('edited', 'edited')
+        _sc = getattr(getattr(_ac, 'database', None), 'status_column', None)
+        if isinstance(_sc, str):
+            _status_col = _sc
+    elif DB_AVAILABLE and app_config:
+        _sv = getattr(app_config, 'status_values', None)
+        if isinstance(_sv, dict):
+            _sync_status = _sv.get('edited', 'edited')
+        _sc = getattr(getattr(app_config, 'database', None), 'status_column', None)
+        if isinstance(_sc, str):
+            _status_col = _sc
+
     print(f"[Datum DEBUG] config_instance={config_instance is not None}, DB_AVAILABLE={DB_AVAILABLE}", flush=True)
     if config_instance:
-        print(f"[Datum DEBUG] Using config_instance to save modification", flush=True)
-        # Update the data table — write to target_col
-        try:
-            update_result = config_instance.update_data_in_db(row_pk, target_col, new_value)
-            print(f"[Datum DEBUG] update_data_in_db returned: {update_result}", flush=True)
-        except Exception as e:
-            print(f"[Datum DEBUG] ERROR in update_data_in_db: {e}", flush=True)
-            import traceback
-            traceback.print_exc()
-            db_failed = True
-        
-        # Save modification record (only if data update didn't fail)
-        if not db_failed:
+        db_mode = getattr(getattr(config_instance, 'app_config', None), 'database', None)
+        db_mode = getattr(db_mode, 'mode', None)
+        batch_cell_edit = getattr(type(config_instance), 'save_cell_edit_to_db', None)
+        can_batch_cell_edit = db_mode == "datum" and callable(batch_cell_edit)
+        status_col_for_batch = _status_col if _sync_status and _status_col and target_col != _status_col else None
+        if can_batch_cell_edit:
             try:
-                db_id = config_instance.save_modification_to_db(row_pk, target_col, old_value, new_value, "field_modification")
-                print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
-                if db_id is None:
-                    print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{target_col}", flush=True)
+                print(f"[Datum DEBUG] Using batched config_instance cell edit save", flush=True)
+                update_result = config_instance.save_cell_edit_to_db(
+                    row_pk, target_col, old_value, new_value,
+                    status_col=status_col_for_batch,
+                    status_value=_sync_status if status_col_for_batch else None,
+                )
+                print(f"[Datum DEBUG] save_cell_edit_to_db returned: {update_result}", flush=True)
+                if update_result:
+                    db_synced_status = bool(status_col_for_batch)
+                else:
+                    db_failed = True
             except Exception as e:
-                print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
+                print(f"[Datum DEBUG] ERROR in save_cell_edit_to_db: {e}", flush=True)
                 import traceback
                 traceback.print_exc()
+                db_failed = True
+        else:
+            print(f"[Datum DEBUG] Using config_instance to save modification", flush=True)
+            # Update the data table — write to target_col
+            try:
+                update_result = config_instance.update_data_in_db(row_pk, target_col, new_value)
+                print(f"[Datum DEBUG] update_data_in_db returned: {update_result}", flush=True)
+            except Exception as e:
+                print(f"[Datum DEBUG] ERROR in update_data_in_db: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                db_failed = True
+            
+            # Save modification record (only if data update didn't fail)
+            if not db_failed:
+                try:
+                    db_id = config_instance.save_modification_to_db(row_pk, target_col, old_value, new_value, "field_modification")
+                    print(f"[Datum DEBUG] save_modification_to_db returned: {db_id}", flush=True)
+                    if db_id is None:
+                        print(f"[Datum WARNING] save_modification_to_db returned None — audit record not saved for {row_pk}/{target_col}", flush=True)
+                except Exception as e:
+                    print(f"[Datum DEBUG] ERROR in save_modification_to_db: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
     elif DB_AVAILABLE and app_config.database.enabled:
         print(f"[Datum DEBUG] Using global app_config to save modification", flush=True)
         # Update the data table — write to target_col
@@ -353,38 +396,18 @@ def perform_cell_edit(
             print(f"[Datum DEBUG] target_col '{target_col}' not in DataFrame columns, skipping in-memory update", flush=True)
         
         # Force-sync the status column to "edited" so it reflects the modification
-        _sync_status = None
-        _status_col = None
-        if config_instance and hasattr(config_instance, 'app_config'):
-            _ac = config_instance.app_config
-            _sv = getattr(_ac, 'status_values', None)
-            if isinstance(_sv, dict):
-                _sync_status = _sv.get('edited', 'edited')
-            _sc = getattr(getattr(_ac, 'database', None), 'status_column', None)
-            if isinstance(_sc, str):
-                _status_col = _sc
-        elif DB_AVAILABLE and app_config:
-            _sv = getattr(app_config, 'status_values', None)
-            if isinstance(_sv, dict):
-                _sync_status = _sv.get('edited', 'edited')
-            _sc = getattr(getattr(app_config, 'database', None), 'status_column', None)
-            if isinstance(_sc, str):
-                _status_col = _sc
-            _status_col = getattr(getattr(app_config, 'database', None), 'status_column', None)
-        else:
-            _status_col = None
-
         if _sync_status and _status_col and target_col != _status_col:
             # Update the data table's status column in DB
-            try:
-                if config_instance:
-                    config_instance.update_data_in_db(row_pk, _status_col, _sync_status)
-                    config_instance.save_modification_to_db(row_pk, _status_col, None, _sync_status, "field_modification")
-                elif DB_AVAILABLE and app_config.database.enabled:
-                    update_data_in_db(row_pk, _status_col, _sync_status)
-                    save_modification_to_db(row_pk, _status_col, None, _sync_status, "field_modification")
-            except Exception as e:
-                print(f"[Datum DEBUG] status sync to '{_status_col}' failed: {e}", flush=True)
+            if not db_synced_status:
+                try:
+                    if config_instance:
+                        config_instance.update_data_in_db(row_pk, _status_col, _sync_status)
+                        config_instance.save_modification_to_db(row_pk, _status_col, None, _sync_status, "field_modification")
+                    elif DB_AVAILABLE and app_config.database.enabled:
+                        update_data_in_db(row_pk, _status_col, _sync_status)
+                        save_modification_to_db(row_pk, _status_col, None, _sync_status, "field_modification")
+                except Exception as e:
+                    print(f"[Datum DEBUG] status sync to '{_status_col}' failed: {e}", flush=True)
 
             # Update in-memory DataFrame
             if _status_col in updated_df.columns:

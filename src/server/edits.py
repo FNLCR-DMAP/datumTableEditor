@@ -58,11 +58,12 @@ def register_edits(ctx: ServerContext):
     def modifications_log_ui():
         with tracker.track_render("modifications_log_ui"):
             # Get PKs for currently displayed rows to filter the log
-            displayed_pks = []
-            if _cached_page_data:
+            displayed_pks = None
+            if _cached_page_data and not is_lazy_loading():
                 try:
                     page_df, _, _, _ = _cached_page_data()
                     pk_cols = app_config.table.primary_key
+                    displayed_pks = []
                     for _, row in page_df.iterrows():
                         row_pk = {pk: row[pk] for pk in pk_cols if pk in page_df.columns}
                         if row_pk:
@@ -110,6 +111,15 @@ def register_edits(ctx: ServerContext):
             print(f"DEBUG: perform_cell_edit returned, log entries: {len(updated_log)}")
             if not is_lazy_loading():
                 data.set(updated_df)
+            else:
+                try:
+                    status_col = getattr(app_config.database, "status_column", None)
+                    sync_cols = [col, status_col, "_mod_status"]
+                    for sync_col in sync_cols:
+                        if sync_col and sync_col in current_df.columns and sync_col in updated_df.columns:
+                            current_df.iloc[row, current_df.columns.get_loc(sync_col)] = updated_df.iloc[row, updated_df.columns.get_loc(sync_col)]
+                except Exception as e:
+                    print(f"Warning: Could not update cached lazy page after edit: {e}")
             mods_log.set(updated_log)
 
             pk_cols = app_config.table.primary_key
@@ -137,7 +147,7 @@ def register_edits(ctx: ServerContext):
             save_log_to_file(updated_log, modifications_log_path)
             if not is_lazy_loading():
                 updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
-            else:
+            elif target_col != col:
                 _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)

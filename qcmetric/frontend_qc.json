@@ -125,13 +125,13 @@
     },
     {
       "file": "cell-edit.js",
-      "line": 198,
+      "line": 209,
       "type": "warning",
       "message": "console.log statement found (consider removing for production)"
     },
     {
       "file": "cell-edit.js",
-      "line": 210,
+      "line": 221,
       "type": "info",
       "message": "Possible missing semicolon"
     },
