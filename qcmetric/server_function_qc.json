@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 561,
+    "total_functions": 563,
     "total_unused": 114,
-    "unused_percentage": 20.3
+    "unused_percentage": 20.2
   },
   "modules": {
     "clipboard_utils.py": {
@@ -1229,7 +1229,7 @@
     "core.py": {
       "description": "Server core \u2014 create_server() setup, reactive values, and sub-module wiring.",
       "path": "src/server/core.py",
-      "total_functions": 30,
+      "total_functions": 32,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
@@ -1241,6 +1241,7 @@
         "_fetch_page_data",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_row_status",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
@@ -1250,6 +1251,7 @@
         "_require_editor",
         "_review_detail",
         "_save_status_to_db",
+        "_status_for_row",
         "create_server",
         "data_summary",
         "is_lazy_loading",
@@ -1272,6 +1274,7 @@
         "_fetch_page_data",
         "_get_filtered_rows",
         "_get_modification_summary",
+        "_get_page_row_status",
         "_get_page_selection",
         "_get_row_status",
         "_get_selected_pks",
@@ -1279,6 +1282,7 @@
         "_lazy_filtered_count",
         "_require_editor",
         "_save_status_to_db",
+        "_status_for_row",
         "create_server",
         "is_lazy_loading",
         "load_data_from_source",

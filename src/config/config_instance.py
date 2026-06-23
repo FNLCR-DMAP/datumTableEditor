@@ -237,14 +237,14 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
                 FROM {mods_table_sql}
             ),
             field_mods AS (
-                SELECT DISTINCT ON (fm.row_pk, fm.column_name)
-                       fm.row_pk AS fm_row_pk,
+                SELECT fm.row_pk AS fm_row_pk,
                        fm.column_name AS fm_column_name,
-                       fm.new_value AS fm_new_value
+                       (array_agg(fm.old_value ORDER BY fm.created_at ASC))[1] AS fm_old_value,
+                       (array_agg(fm.new_value ORDER BY fm.created_at DESC))[1] AS fm_new_value
                 FROM {mods_table_sql} fm
                 WHERE fm.mod_type = 'field_modification'
                   AND fm.undone = FALSE
-                ORDER BY fm.row_pk, fm.column_name, fm.created_at DESC
+                GROUP BY fm.row_pk, fm.column_name
             )"""
     join_clause = (
         f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build} "
@@ -1399,7 +1399,7 @@ class DataFetcher:
                 inner_query = f"""
                 SELECT {cols}, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status,
-                       (SELECT json_agg(json_build_object('column_name', fm.fm_column_name, 'new_value', fm.fm_new_value))
+                           (SELECT json_agg(json_build_object('column_name', fm.fm_column_name, 'old_value', fm.fm_old_value, 'new_value', fm.fm_new_value))
                         FROM field_mods fm WHERE fm.fm_row_pk = {pk_json_build}) AS _field_mods
                 FROM {data_table_sql} d
                 {join}
@@ -1767,7 +1767,12 @@ class DataFetcher:
                             serializable_pk[k] = v
                     pk_json = json.dumps(serializable_pk, sort_keys=True)
                     for m in fm:
-                        mods.append({"row_pk": pk_json, "column_name": m["column_name"], "new_value": m["new_value"]})
+                        mods.append({
+                            "row_pk": pk_json,
+                            "column_name": m["column_name"],
+                            "old_value": m.get("old_value"),
+                            "new_value": m["new_value"],
+                        })
                 df = df.drop(columns=["_field_mods"])
             else:
                 # Fallback: separate query (used by fetch_all_filtered / skip_mods paths)
@@ -1776,13 +1781,15 @@ class DataFetcher:
                     return df
                 pk_array_expr = build_pk_array(pk_values)
                 mods_query = f"""
-                  SELECT DISTINCT ON (row_pk, column_name)
-                      row_pk, column_name, new_value 
+                  SELECT row_pk,
+                      column_name,
+                      (array_agg(old_value ORDER BY created_at ASC))[1] AS old_value,
+                      (array_agg(new_value ORDER BY created_at DESC))[1] AS new_value
                 FROM {mods_table_sql}
                 WHERE mod_type = 'field_modification' 
                   AND undone = FALSE
                   AND row_pk = ANY({pk_array_expr})
-                  ORDER BY row_pk, column_name, created_at DESC
+                  GROUP BY row_pk, column_name
                 """
                 
                 if self._is_datum:
@@ -1800,28 +1807,37 @@ class DataFetcher:
                         mods = [dict(row._mapping) for row in result.fetchall()]
             
             # Detect disagreements — data table wins, don't overwrite df
+            self.edited_cells = {}
             disagreements = []  # [(pk_json, col, data_table_value)]
             seen = set()  # Track (pk_json, col) to only record latest disagreement
             for mod in mods:
                 row_pk = mod["row_pk"]
                 if isinstance(row_pk, dict):
+                    row_pk_dict = row_pk
                     pk_json = json.dumps(row_pk, sort_keys=True)
                 elif isinstance(row_pk, str):
                     try:
-                        pk_json = json.dumps(json.loads(row_pk), sort_keys=True)
+                        row_pk_dict = json.loads(row_pk)
+                        pk_json = json.dumps(row_pk_dict, sort_keys=True)
                     except (json.JSONDecodeError, TypeError):
+                        row_pk_dict = {}
                         pk_json = row_pk
                 else:
+                    row_pk_dict = row_pk if isinstance(row_pk, dict) else {}
                     pk_json = json.dumps(row_pk, sort_keys=True)
                 
                 if pk_json in pk_index:
                     col = mod["column_name"]
                     mod_val = mod["new_value"]
+                    old_value = mod.get("old_value")
                     idx = pk_index[pk_json][0]
                     if col in df.columns:
                         actual = df.at[idx, col]
                         actual_str = str(actual) if pd.notna(actual) else ""
                         mod_str = str(mod_val) if mod_val is not None else ""
+                        if row_pk_dict:
+                            pk_tuple = tuple(sorted((k, str(v)) for k, v in row_pk_dict.items()))
+                            self.edited_cells[(pk_tuple, col)] = {"original": old_value, "current": actual_str}
                         cell_key = (pk_json, col)
                         if actual_str != mod_str:
                             if cell_key not in seen:

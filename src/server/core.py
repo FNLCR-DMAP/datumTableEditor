@@ -743,6 +743,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 _cols = active_columns.get()
                 _widths = column_widths.get()
                 _edited = edited_cells.get()
+                if is_lazy_loading() and getattr(config, "data_fetcher", None):
+                    _edited = {**getattr(config.data_fetcher, "edited_cells", {}), **_edited}
             result = build_table_container(
                 paginated_indices=paginated_indices,
                 current_df=current_df,

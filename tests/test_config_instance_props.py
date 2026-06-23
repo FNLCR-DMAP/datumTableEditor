@@ -37,6 +37,42 @@ class TestConfigInstanceDataFetcher:
         assert ci.data_fetcher is None
 
 
+class TestDataFetcherApplyFieldModifications:
+    """Pinning tests for lazy field-modification metadata."""
+
+    def test_prefetched_field_mods_rebuild_edited_cells(self):
+        """A refreshed lazy page should preserve edited-cell border metadata."""
+        from src.config.config_instance import DataFetcher
+
+        fetcher = DataFetcher.__new__(DataFetcher)
+        fetcher.app_config = MagicMock()
+        fetcher.app_config.table.primary_key = ["Variant_key"]
+        fetcher.app_config.database.mods_table = "test_mods"
+        fetcher.app_config.database.mode = "direct"
+        fetcher.app_config.enable_approval_workflow = True
+        fetcher.app_config.enable_status_filter = True
+        fetcher._table_override = None
+
+        df = pd.DataFrame({
+            "Variant_key": ["PK1"],
+            "Comments": ["new value"],
+            "_field_mods": [[{
+                "column_name": "Comments",
+                "old_value": "old value",
+                "new_value": "new value",
+            }]],
+        })
+
+        result = fetcher._apply_field_modifications(df)
+
+        assert "_field_mods" not in result.columns
+        cell_key = ((("Variant_key", "PK1"),), "Comments")
+        assert fetcher.edited_cells[cell_key] == {
+            "original": "old value",
+            "current": "new value",
+        }
+
+
 class TestConfigInstanceIsLazyLoading:
     """Pinning tests for ConfigInstance.is_lazy_loading property."""
 
