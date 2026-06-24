@@ -528,6 +528,7 @@ class TestDataFetcherGetValueCounts:
         fetcher._table_override = None
         fetcher._engine = MagicMock()
         fetcher._datum_client = None
+        fetcher._postgres_client = None
         return fetcher
 
     def test_direct_mode_returns_tuples(self):
@@ -569,6 +570,58 @@ class TestDataFetcherGetValueCounts:
 
         assert result == [("X", 10), ("Y", 5)]
         fetcher._datum_client.execute_sql.assert_called_once()
+
+    def test_postgres_mode_initializes_postgres_client(self, monkeypatch):
+        """Postgres mode should use PostgresClient as the DataFetcher SQL client."""
+        fetcher = self._make_fetcher("postgres")
+        fetcher.app_config.database.postgres_dsn = "MY_PG_DSN"
+        fetcher.app_config.database.postgres_host = "MY_PG_HOST"
+        fetcher.app_config.database.postgres_port = "MY_PG_PORT"
+        fetcher.app_config.database.postgres_user = "MY_PG_USER"
+        fetcher.app_config.database.postgres_password = "MY_PG_PASSWORD"
+        fetcher.app_config.database.postgres_database = "MY_PG_DATABASE"
+        fetcher.app_config.database.postgres_schema = "MY_PG_SCHEMA"
+        fetcher.app_config.database.postgres_connect_timeout = "MY_PG_CONNECT_TIMEOUT"
+        monkeypatch.setenv("MY_PG_DSN", "postgresql://example/db")
+        monkeypatch.setenv("MY_PG_HOST", "db.example")
+        monkeypatch.setenv("MY_PG_PORT", "6543")
+        monkeypatch.setenv("MY_PG_USER", "app")
+        monkeypatch.setenv("MY_PG_PASSWORD", "pw")
+        monkeypatch.setenv("MY_PG_DATABASE", "db")
+        monkeypatch.setenv("MY_PG_SCHEMA", "epi")
+        monkeypatch.setenv("MY_PG_CONNECT_TIMEOUT", "7")
+
+        with patch("src.adapter.postgres.PostgresClient") as MockClient:
+            assert fetcher._is_datum is True
+
+        MockClient.assert_called_once_with(
+            dsn="postgresql://example/db",
+            host="db.example",
+            port=6543,
+            user="app",
+            password="pw",
+            database="db",
+            schema="epi",
+            connect_timeout=7,
+        )
+        assert fetcher._datum_client is fetcher._postgres_client
+
+    def test_postgres_mode_value_counts_use_execute_sql_client(self):
+        """Postgres mode should use the Datum-compatible execute_sql path."""
+        fetcher = self._make_fetcher("postgres")
+        fetcher._postgres_client = MagicMock()
+        fetcher._datum_client = fetcher._postgres_client
+        fetcher._postgres_client.execute_sql.return_value.data = [
+            {"val": "A", "cnt": 3},
+        ]
+        fetcher.app_config.database.datum_database = None
+        fetcher.app_config.database.datum_schema = None
+        fetcher.app_config.database.datum_service_name = "postgres_sql"
+
+        result = fetcher.get_value_counts("Status")
+
+        assert result == [("A", 3)]
+        fetcher._postgres_client.execute_sql.assert_called_once()
 
     def test_respects_limit(self):
         """The SQL should include the specified LIMIT."""

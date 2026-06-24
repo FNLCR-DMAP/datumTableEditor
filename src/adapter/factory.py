@@ -31,7 +31,7 @@ def create_data_provider(app_config: "AppConfig", username: str = "", user_email
         from .lp_lims_provider import LpLimsDataProvider
         return LpLimsDataProvider(app_config=app_config, user_email=user_email)
     else:
-        # Datum and direct SQL modes use the existing DataFetcher
+        # SQL modes (direct, postgres, datum) use the existing DataFetcher
         # (which implements the DataProvider protocol)
         from ..config.config_instance import DataFetcher
         return DataFetcher(app_config=app_config, username=username, user_email=user_email)

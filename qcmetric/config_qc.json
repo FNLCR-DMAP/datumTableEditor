@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 173,
+    "total_functions": 175,
     "unused_functions": 1,
-    "fully_annotated_functions": 120,
-    "function_coverage_percent": 69.4,
-    "parameter_coverage_percent": 80.6,
+    "fully_annotated_functions": 121,
+    "function_coverage_percent": 69.1,
+    "parameter_coverage_percent": 79.9,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 129,
+      "total": 131,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -137,11 +137,13 @@
         "_lp_lims_user_email",
         "_mark_modification_undone_datum",
         "_normalize_mod_status",
+        "_postgres_client_kwargs",
         "_read_synthesis_table",
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
         "_refresh_synthesis",
+        "_resolve_env_ref",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -262,11 +264,13 @@
         "_load_ui_state_datum",
         "_mark_modification_undone_datum",
         "_normalize_mod_status",
+        "_postgres_client_kwargs",
         "_read_synthesis_table",
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
         "_refresh_synthesis",
+        "_resolve_env_ref",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -470,13 +474,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 129,
-        "with_return_type": 92,
-        "fully_annotated": 88
+        "total": 131,
+        "with_return_type": 93,
+        "fully_annotated": 89
       },
       "parameters": {
-        "total": 139,
-        "annotated": 111
+        "total": 143,
+        "annotated": 113
       },
       "missing": [
         {
@@ -511,27 +515,29 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 319
+          "line": 328
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 324
+          "line": 333
         },
         {
-          "type": "return",
-          "function": "set_table_override",
-          "line": 353
+          "type": "parameter",
+          "function": "_resolve_env_ref",
+          "name": "default",
+          "line": 363
         },
         {
-          "type": "return",
-          "function": "clear_table_override",
+          "type": "parameter",
+          "function": "_resolve_env_ref",
+          "name": "cast",
           "line": 363
         },
         {
           "type": "return",
-          "function": "_fetch_metadata",
-          "line": 383
+          "function": "_resolve_env_ref",
+          "line": 363
         }
       ]
     },

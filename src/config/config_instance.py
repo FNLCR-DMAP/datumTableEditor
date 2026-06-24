@@ -286,6 +286,7 @@ class DataFetcher:
     user_email: str = ""  # Actual user email for LP LIMS API
     _engine: Any = field(default=None, repr=False)
     _datum_client: Any = field(default=None, repr=False)
+    _postgres_client: Any = field(default=None, repr=False)
     _lp_lims_client: Any = field(default=None, repr=False)
     _total_count: int = field(default=0, repr=False)
     _columns: List[str] = field(default_factory=list, repr=False)
@@ -303,7 +304,15 @@ class DataFetcher:
     
     @property
     def _is_datum(self) -> bool:
-        """True when database mode is datum. Lazily ensures client is initialized."""
+        """True when SQL should run through a Datum-compatible execute_sql client."""
+        if self.app_config.database.mode == "postgres":
+            if self._postgres_client is None:
+                from ..adapter.postgres import PostgresClient
+                self._postgres_client = PostgresClient(
+                    **self._postgres_client_kwargs()
+                )
+            self._datum_client = self._postgres_client
+            return True
         if self.app_config.database.mode != "datum":
             return False
         if self._datum_client is None:
@@ -339,11 +348,42 @@ class DataFetcher:
                 self._datum_client = DatumClient(base_url=base_url, token=token)
             else:
                 print(f"⚠ [DataFetcher._init_connection] Datum mode but no base_url found")
+        elif self.app_config.database.mode == "postgres":
+            from ..adapter.postgres import PostgresClient
+            self._postgres_client = PostgresClient(
+                **self._postgres_client_kwargs()
+            )
+            self._datum_client = self._postgres_client
         else:
             from sqlalchemy import create_engine
             conn_string = self.app_config.database.connection_string
             if conn_string:
                 self._engine = create_engine(conn_string)
+
+    def _resolve_env_ref(self, env_name: Optional[Any], default_env_names: list[str] = None, default=None, cast=None):
+        """Resolve a config value that names an environment variable."""
+        names = []
+        if env_name not in (None, ""):
+            names.append(str(env_name))
+        names.extend(default_env_names or [])
+        for name in names:
+            value = os.environ.get(name)
+            if value not in (None, ""):
+                return cast(value) if cast else value
+        return default
+
+    def _postgres_client_kwargs(self) -> dict:
+        """Build PostgresClient kwargs from env-var-name config references."""
+        return {
+            "dsn": self._resolve_env_ref(self.app_config.database.postgres_dsn, ["PG_DSN", "DATABASE_URL"]),
+            "host": self._resolve_env_ref(self.app_config.database.postgres_host, ["PG_HOST"]),
+            "port": self._resolve_env_ref(self.app_config.database.postgres_port, ["PG_PORT"], cast=int),
+            "user": self._resolve_env_ref(self.app_config.database.postgres_user, ["PG_USER"]),
+            "password": self._resolve_env_ref(self.app_config.database.postgres_password, ["PG_PASSWORD"]),
+            "database": self._resolve_env_ref(self.app_config.database.postgres_database, ["PG_DATABASE"]),
+            "schema": self._resolve_env_ref(self.app_config.database.postgres_schema, ["PG_SCHEMA"]),
+            "connect_timeout": self._resolve_env_ref(self.app_config.database.postgres_connect_timeout, ["PG_CONNECT_TIMEOUT"], default=5, cast=int),
+        }
 
     @property
     def _effective_table(self) -> str:
@@ -2072,6 +2112,7 @@ class ConfigInstance:
             fetcher.user_email = self.user_email
             fetcher._engine = None
             fetcher._datum_client = None
+            fetcher._postgres_client = None
             fetcher._lp_lims_client = None
             fetcher._total_count = 0
             fetcher._columns = []

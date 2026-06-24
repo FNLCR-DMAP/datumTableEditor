@@ -178,6 +178,44 @@ class TestExportConfigSchema:
 
         assert "enabled" in result["database"]
         assert "connection_string" in result["database"]
+        assert "postgres" in result["database"]["mode"]
+        assert "postgres_host" in result["database"]
+
+
+class TestPostgresModeConfig:
+    """Tests for postgres database mode config loading."""
+
+    def test_load_config_reads_postgres_fields(self, tmp_path):
+        """Should load postgres mode and postgres-specific connection fields."""
+        from src.config.app_config_schema import load_config
+
+        config_path = tmp_path / "app_config.json"
+        config_path.write_text(json.dumps({
+            "database": {
+                "enabled": True,
+                "mode": "postgres",
+                "postgres_dsn": "MY_PG_DSN",
+                "postgres_host": "MY_PG_HOST",
+                "postgres_port": "MY_PG_PORT",
+                "postgres_user": "MY_PG_USER",
+                "postgres_password": "MY_PG_PASSWORD",
+                "postgres_database": "MY_PG_DATABASE",
+                "postgres_schema": "MY_PG_SCHEMA",
+                "postgres_connect_timeout": "MY_PG_CONNECT_TIMEOUT",
+            }
+        }))
+
+        config = load_config(config_path)
+
+        assert config.database.mode == "postgres"
+        assert config.database.postgres_dsn == "MY_PG_DSN"
+        assert config.database.postgres_host == "MY_PG_HOST"
+        assert config.database.postgres_port == "MY_PG_PORT"
+        assert config.database.postgres_user == "MY_PG_USER"
+        assert config.database.postgres_password == "MY_PG_PASSWORD"
+        assert config.database.postgres_database == "MY_PG_DATABASE"
+        assert config.database.postgres_schema == "MY_PG_SCHEMA"
+        assert config.database.postgres_connect_timeout == "MY_PG_CONNECT_TIMEOUT"
 
 
 class TestGetModificationStatus:

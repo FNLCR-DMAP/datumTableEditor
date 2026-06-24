@@ -20,5 +20,14 @@ __all__ = [
     "DatumClient",
     "LpLimsClient",
     "LpLimsDataProvider",
+    "PostgresClient",
     "create_data_provider",
 ]
+
+
+def __getattr__(name):
+    """Lazily import optional adapters to avoid hard startup dependencies."""
+    if name == "PostgresClient":
+        from .postgres import PostgresClient
+        return PostgresClient
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

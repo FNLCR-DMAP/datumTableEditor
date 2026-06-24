@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 563,
-    "total_unused": 114,
-    "unused_percentage": 20.2
+    "total_functions": 572,
+    "total_unused": 116,
+    "unused_percentage": 20.3
   },
   "modules": {
     "clipboard_utils.py": {
@@ -638,7 +638,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 129,
+      "total_functions": 131,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -708,11 +708,13 @@
         "_lp_lims_user_email",
         "_mark_modification_undone_datum",
         "_normalize_mod_status",
+        "_postgres_client_kwargs",
         "_read_synthesis_table",
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
         "_refresh_synthesis",
+        "_resolve_env_ref",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -831,11 +833,13 @@
         "_load_ui_state_datum",
         "_mark_modification_undone_datum",
         "_normalize_mod_status",
+        "_postgres_client_kwargs",
         "_read_synthesis_table",
         "_reconcile_status_column",
         "_reconcile_status_column",
         "_reconcile_status_df",
         "_refresh_synthesis",
+        "_resolve_env_ref",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -1151,6 +1155,31 @@
         "_environment",
         "_tab",
         "_user"
+      ]
+    },
+    "postgres.py": {
+      "description": "Direct PostgreSQL adapter with the same execute_sql shape as DatumClient.",
+      "path": "src/adapter/postgres.py",
+      "total_functions": 7,
+      "functions": [
+        "__init__",
+        "_execute_sql_once",
+        "_json_safe",
+        "execute_sql",
+        "get_connection",
+        "ping",
+        "unreachable_count"
+      ],
+      "used_internally": [
+        "_execute_sql_once",
+        "_json_safe",
+        "execute_sql",
+        "get_connection",
+        "ping"
+      ],
+      "unused": [
+        "__init__",
+        "unreachable_count"
       ]
     },
     "provider.py": {
@@ -1598,6 +1627,10 @@
       "_environment",
       "_tab",
       "_user"
+    ],
+    "postgres.py": [
+      "__init__",
+      "unreachable_count"
     ],
     "emitter.py": [
       "__getitem__",
