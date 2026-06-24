@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 570,
-    "fully_annotated_functions": 364,
-    "function_coverage_percent": 63.9,
-    "total_parameters": 756,
-    "annotated_parameters": 669,
-    "parameter_coverage_percent": 88.5,
+    "total_functions": 572,
+    "fully_annotated_functions": 365,
+    "function_coverage_percent": 63.8,
+    "total_parameters": 760,
+    "annotated_parameters": 671,
+    "parameter_coverage_percent": 88.3,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -506,13 +506,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 129,
-        "with_return_type": 92,
-        "fully_annotated": 88
+        "total": 131,
+        "with_return_type": 93,
+        "fully_annotated": 89
       },
       "parameters": {
-        "total": 139,
-        "annotated": 111
+        "total": 143,
+        "annotated": 113
       },
       "missing_annotations": [
         {
@@ -547,30 +547,32 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 335
+          "line": 328
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 340
+          "line": 333
+        },
+        {
+          "type": "parameter",
+          "function": "_resolve_env_ref",
+          "name": "default",
+          "line": 363
+        },
+        {
+          "type": "parameter",
+          "function": "_resolve_env_ref",
+          "name": "cast",
+          "line": 363
         },
         {
           "type": "return",
-          "function": "set_table_override",
-          "line": 382
-        },
-        {
-          "type": "return",
-          "function": "clear_table_override",
-          "line": 392
-        },
-        {
-          "type": "return",
-          "function": "_fetch_metadata",
-          "line": 412
+          "function": "_resolve_env_ref",
+          "line": 363
         }
       ],
-      "missing_annotations_truncated": 55
+      "missing_annotations_truncated": 58
     },
     "src/config/sql_types.py": {
       "functions": {
