@@ -511,27 +511,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 319
+          "line": 335
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 324
+          "line": 340
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 353
+          "line": 382
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 363
+          "line": 392
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 383
+          "line": 412
         }
       ]
     },

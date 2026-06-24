@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 563,
-    "fully_annotated_functions": 359,
-    "function_coverage_percent": 63.8,
-    "total_parameters": 749,
-    "annotated_parameters": 662,
-    "parameter_coverage_percent": 88.4,
+    "total_functions": 570,
+    "fully_annotated_functions": 364,
+    "function_coverage_percent": 63.9,
+    "total_parameters": 756,
+    "annotated_parameters": 669,
+    "parameter_coverage_percent": 88.5,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -547,27 +547,27 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 319
+          "line": 335
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 324
+          "line": 340
         },
         {
           "type": "return",
           "function": "set_table_override",
-          "line": 353
+          "line": 382
         },
         {
           "type": "return",
           "function": "clear_table_override",
-          "line": 363
+          "line": 392
         },
         {
           "type": "return",
           "function": "_fetch_metadata",
-          "line": 383
+          "line": 412
         }
       ],
       "missing_annotations_truncated": 55
@@ -805,6 +805,29 @@
           "function": "get_status_counts",
           "name": "params",
           "line": 348
+        }
+      ]
+    },
+    "src/adapter/postgres.py": {
+      "functions": {
+        "total": 7,
+        "with_return_type": 5,
+        "fully_annotated": 5
+      },
+      "parameters": {
+        "total": 7,
+        "annotated": 7
+      },
+      "missing_annotations": [
+        {
+          "type": "return",
+          "function": "__init__",
+          "line": 30
+        },
+        {
+          "type": "return",
+          "function": "get_connection",
+          "line": 75
         }
       ]
     },

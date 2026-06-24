@@ -87,6 +87,80 @@ class TestDatumClientExecuteSql:
 
 
 # =============================================================================
+# PostgresClient.execute_sql
+# =============================================================================
+
+class TestPostgresClientExecuteSql:
+    """Pinning tests for direct PostgresClient.execute_sql."""
+
+    def test_success_returns_datum_compatible_response(self):
+        """Should return PostgresSqlResponse with JSON-safe rows."""
+        import datetime as dt
+        import decimal
+        from src.adapter.postgres import PostgresClient
+        from src.adapter.datum import PostgresSqlResponse
+
+        client = PostgresClient.__new__(PostgresClient)
+        client.host = "localhost"
+        client.port = 5432
+        client.database = "testdb"
+        client._unreachable_count = 0
+        client.ping = MagicMock(return_value=True)
+
+        mock_connection = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.__enter__.return_value = mock_cursor
+        mock_cursor.__exit__.return_value = False
+        mock_cursor.description = [MagicMock(name="created_at"), MagicMock(name="amount")]
+        mock_cursor.description[0].name = "created_at"
+        mock_cursor.description[1].name = "amount"
+        mock_cursor.fetchall.return_value = [
+            {"created_at": dt.datetime(2026, 6, 24, 12, 0), "amount": decimal.Decimal("1.25")}
+        ]
+        mock_connection.cursor.return_value = mock_cursor
+        mock_connection.close = MagicMock()
+        mock_connection.commit = MagicMock()
+        client.get_connection = MagicMock(return_value=mock_connection)
+
+        result = client.execute_sql("SELECT * FROM t", database="testdb", schema="public")
+
+        assert isinstance(result, PostgresSqlResponse)
+        assert result.row_count == 1
+        assert result.columns == ["created_at", "amount"]
+        assert result.data == [{"created_at": "2026-06-24T12:00:00", "amount": 1.25}]
+        assert mock_cursor.execute.call_count == 2
+        mock_connection.commit.assert_called_once()
+        mock_connection.close.assert_called_once()
+
+    def test_safety_gate_blocks_destructive_sql(self):
+        """Should validate SQL before pinging or opening a connection."""
+        from src.adapter.datum import DestructiveSqlError
+        from src.adapter.postgres import PostgresClient
+
+        client = PostgresClient.__new__(PostgresClient)
+        client.ping = MagicMock(return_value=True)
+
+        with pytest.raises(DestructiveSqlError):
+            client.execute_sql("DROP TABLE important")
+
+        client.ping.assert_not_called()
+
+    def test_ping_failure_raises_operational_error(self):
+        """Should raise when PostgreSQL cannot be reached."""
+        from src.adapter.postgres import PostgresClient, psycopg
+
+        client = PostgresClient.__new__(PostgresClient)
+        client.host = "db"
+        client.port = 5432
+        client.database = "testdb"
+        client._unreachable_count = 2
+        client.ping = MagicMock(return_value=False)
+
+        with pytest.raises(psycopg.OperationalError, match="Cannot reach PostgreSQL"):
+            client.execute_sql("SELECT 1")
+
+
+# =============================================================================
 # config.py module-level functions
 # =============================================================================
 

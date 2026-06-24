@@ -1,7 +1,8 @@
 """
 DataProvider Protocol — the rendering layer's API for data acquisition.
 
-All data adapters (SQL, Datum, LP LIMS) implement this protocol.
+All data adapters (SQLAlchemy direct, direct psycopg PostgreSQL, Datum, LP LIMS)
+implement this protocol.
 The server/rendering layer only depends on this interface, never on
 concrete adapter internals.
 """

@@ -13,6 +13,7 @@ from .datum import DatumClient
 from .factory import create_data_provider
 from .lp_lims import LpLimsClient
 from .lp_lims_provider import LpLimsDataProvider
+from .postgres import PostgresClient
 from .provider import DataProvider
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "DatumClient",
     "LpLimsClient",
     "LpLimsDataProvider",
+    "PostgresClient",
     "create_data_provider",
 ]

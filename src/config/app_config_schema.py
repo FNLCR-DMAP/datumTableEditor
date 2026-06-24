@@ -173,11 +173,21 @@ class DatabaseConfig:
     # Enable database mode (if False, uses local CSV mode)
     enabled: bool = False
     
-    # Mode: "direct" for SQLAlchemy, "datum" for Datum proxy service, "lp_lims" for LP LIMS read-only API
+    # Mode: "direct" for SQLAlchemy, "postgres" for direct psycopg, "datum" for Datum proxy service, "lp_lims" for LP LIMS read-only API
     mode: str = "direct"
     
     # Direct mode: SQLAlchemy connection settings
     connection_string: Optional[str] = None
+
+    # Postgres mode: direct psycopg settings. Values are environment variable names, not secrets/connection values.
+    postgres_dsn: Optional[str] = None
+    postgres_host: Optional[str] = None
+    postgres_port: Optional[str] = None
+    postgres_user: Optional[str] = None
+    postgres_password: Optional[str] = None
+    postgres_database: Optional[str] = None
+    postgres_schema: Optional[str] = None
+    postgres_connect_timeout: Optional[str] = None
     
     # Datum mode: Proxy service settings
     datum_base_url: Optional[str] = None
@@ -462,6 +472,14 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.enabled = db.get("enabled", config.database.enabled)
         config.database.mode = db.get("mode", config.database.mode)
         config.database.connection_string = db.get("connection_string")
+        config.database.postgres_dsn = db.get("postgres_dsn")
+        config.database.postgres_host = db.get("postgres_host")
+        config.database.postgres_port = db.get("postgres_port")
+        config.database.postgres_user = db.get("postgres_user")
+        config.database.postgres_password = db.get("postgres_password")
+        config.database.postgres_database = db.get("postgres_database")
+        config.database.postgres_schema = db.get("postgres_schema")
+        config.database.postgres_connect_timeout = db.get("postgres_connect_timeout", config.database.postgres_connect_timeout)
         config.database.datum_base_url = db.get("datum_base_url")
         config.database.datum_token = db.get("datum_token")
         config.database.datum_service_name = db.get("datum_service_name", config.database.datum_service_name)
@@ -597,6 +615,26 @@ def _apply_env_overrides(config: AppConfig, username: Optional[str] = None) -> A
         config.database.datum_database = os.environ["DATUM_DATABASE"]
     if os.environ.get("DATUM_SCHEMA"):
         config.database.datum_schema = os.environ["DATUM_SCHEMA"]
+
+    # Direct psycopg PostgreSQL mode overrides
+    if os.environ.get("PG_DSN"):
+        config.database.postgres_dsn = config.database.postgres_dsn or "PG_DSN"
+    elif os.environ.get("DATABASE_URL"):
+        config.database.postgres_dsn = config.database.postgres_dsn or "DATABASE_URL"
+    if os.environ.get("PG_HOST"):
+        config.database.postgres_host = config.database.postgres_host or "PG_HOST"
+    if os.environ.get("PG_PORT"):
+        config.database.postgres_port = config.database.postgres_port or "PG_PORT"
+    if os.environ.get("PG_USER"):
+        config.database.postgres_user = config.database.postgres_user or "PG_USER"
+    if os.environ.get("PG_PASSWORD"):
+        config.database.postgres_password = config.database.postgres_password or "PG_PASSWORD"
+    if os.environ.get("PG_DATABASE"):
+        config.database.postgres_database = config.database.postgres_database or "PG_DATABASE"
+    if os.environ.get("PG_SCHEMA"):
+        config.database.postgres_schema = config.database.postgres_schema or "PG_SCHEMA"
+    if os.environ.get("PG_CONNECT_TIMEOUT"):
+        config.database.postgres_connect_timeout = config.database.postgres_connect_timeout or "PG_CONNECT_TIMEOUT"
     if os.environ.get("DATUM_SERVICE_NAME"):
         config.database.datum_service_name = os.environ["DATUM_SERVICE_NAME"]
     
@@ -657,7 +695,15 @@ def export_config_schema() -> dict:
         },
         "database": {
             "enabled": "boolean (enable PostgreSQL mode)",
-            "connection_string": "string (PostgreSQL connection string)",
+            "mode": "direct (SQLAlchemy) | postgres (direct psycopg) | datum (Datum proxy) | lp_lims (LP LIMS API)",
+            "connection_string": "string (SQLAlchemy direct mode connection string)",
+            "postgres_dsn": "string (postgres mode DSN environment variable name, optional)",
+            "postgres_host": "string (postgres mode host environment variable name, optional)",
+            "postgres_port": "string (postgres mode port environment variable name, optional)",
+            "postgres_user": "string (postgres mode user environment variable name, optional)",
+            "postgres_password": "string (postgres mode password environment variable name, optional)",
+            "postgres_database": "string (postgres mode database environment variable name, optional)",
+            "postgres_schema": "string (postgres mode schema/search_path environment variable name, optional)",
             "data_table": "string (main data table name)",
             "mods_table": "string (modifications tracking table)",
             "state_table": "string (UI state persistence table)",
