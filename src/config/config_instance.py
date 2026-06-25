@@ -1949,6 +1949,7 @@ class ConfigInstance:
     _preset_table_checked: bool = field(default=False, repr=False)
     _preset_legacy_mode: Optional[bool] = field(default=None, repr=False)  # None=unchecked, True=old per-user table, False=new shared table
     _engine: Any = field(default=None, repr=False)
+    _postgres_client: Any = field(default=None, repr=False)
     _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
@@ -2017,6 +2018,62 @@ class ConfigInstance:
             if conn_string:
                 self._engine = create_engine(conn_string)
         return self._engine
+
+    def _resolve_env_ref(self, env_name: Optional[Any], default_env_names: list[str] = None, default=None, cast=None):
+        """Resolve a config value that names an environment variable."""
+        names = []
+        if env_name not in (None, ""):
+            names.append(str(env_name))
+        names.extend(default_env_names or [])
+        for name in names:
+            value = os.environ.get(name)
+            if value not in (None, ""):
+                return cast(value) if cast else value
+        return default
+
+    def _postgres_client_kwargs(self) -> dict:
+        """Build PostgresClient kwargs from env-var-name config references."""
+        return {
+            "dsn": self._resolve_env_ref(self.app_config.database.postgres_dsn, ["PG_DSN", "DATABASE_URL"]),
+            "host": self._resolve_env_ref(self.app_config.database.postgres_host, ["PG_HOST"]),
+            "port": self._resolve_env_ref(self.app_config.database.postgres_port, ["PG_PORT"], cast=int),
+            "user": self._resolve_env_ref(self.app_config.database.postgres_user, ["PG_USER"]),
+            "password": self._resolve_env_ref(self.app_config.database.postgres_password, ["PG_PASSWORD"]),
+            "database": self._resolve_env_ref(self.app_config.database.postgres_database, ["PG_DATABASE"]),
+            "schema": self._resolve_env_ref(self.app_config.database.postgres_schema, ["PG_SCHEMA"]),
+            "connect_timeout": self._resolve_env_ref(self.app_config.database.postgres_connect_timeout, ["PG_CONNECT_TIMEOUT"], default=5, cast=int),
+        }
+
+    def _get_postgres_client(self):
+        """Get or create a cached direct Postgres execute_sql client."""
+        if self._postgres_client is None:
+            from ..adapter.postgres import PostgresClient
+            self._postgres_client = PostgresClient(**self._postgres_client_kwargs())
+        return self._postgres_client
+
+    def _uses_execute_sql_client(self) -> bool:
+        """True when synthesis SQL should use a Datum-compatible execute_sql client."""
+        return self.app_config.database.mode in ("datum", "postgres")
+
+    def _execute_client_sql(self, sql: str):
+        """Execute SQL through Datum or direct Postgres clients."""
+        if self.app_config.database.mode == "postgres":
+            return self._get_postgres_client().execute_sql(sql=sql)
+
+        from ..adapter.datum import DatumClient
+        base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
+        token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
+        client = DatumClient(base_url=base_url, token=token)
+        return client.execute_sql(
+            sql=sql,
+            database=self.app_config.database.datum_database,
+            schema=self.app_config.database.datum_schema,
+            service_name=self.app_config.database.datum_service_name,
+        )
+
+    def _execute_synthesis_sql(self, sql: str):
+        """Execute synthesis SQL through Datum or direct Postgres clients."""
+        return self._execute_client_sql(sql)
     
     def _load_all(self):
         """Load configuration and data."""
@@ -2193,7 +2250,7 @@ class ConfigInstance:
         # ── Layer 3: fresh DB query ──
         if self.app_config.database.mode == "lp_lims":
             df = self._load_from_lp_lims()
-        elif self.app_config.database.mode == "datum":
+        elif self._uses_execute_sql_client():
             df = self._load_from_datum()
         else:
             df = self._load_from_database()
@@ -2228,7 +2285,7 @@ class ConfigInstance:
         """
         if self._data_table_checked:
             return True
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._ensure_data_table_exists_datum()
         
         try:
@@ -2301,29 +2358,15 @@ class ConfigInstance:
             return False
 
     def _ensure_data_table_exists_datum(self) -> bool:
-        """Ensure data_table exists via Datum proxy, copying from source_table if needed."""
+        """Ensure data_table exists via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             data_table = self.app_config.database.data_table
             source_table = self.app_config.database.source_table
             data_table_sql = SqlTableName(data_table)
             
             # Check if data_table exists by trying to select from it
             try:
-                client.execute_sql(
-                    sql=f'SELECT 1 FROM {data_table_sql} LIMIT 1',
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                self._execute_client_sql(f'SELECT 1 FROM {data_table_sql} LIMIT 1')
                 self._data_table_checked = True
                 return True  # Table exists
             except Exception:
@@ -2343,30 +2386,20 @@ class ConfigInstance:
                 if schema not in self._schemas_verified:
                     schema_sql = SqlIdentifier(schema)
                     try:
-                        client.execute_sql(
-                            sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
-                            database=self.app_config.database.datum_database,
-                            schema=self.app_config.database.datum_schema,
-                            service_name=self.app_config.database.datum_service_name,
-                        )
+                        self._execute_client_sql(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}')
                     except Exception:
                         pass  # Schema may already exist
                     self._schemas_verified.add(schema)
             
             # Create data_table as a copy of source_table
-            client.execute_sql(
-                sql=f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            self._execute_client_sql(f'CREATE TABLE {data_table_sql} AS SELECT * FROM {source_table_sql}')
             
-            print(f"✓ Created {data_table_sql} from {source_table_sql} via Datum")
+            print(f"✓ Created {data_table_sql} from {source_table_sql} via execute_sql client")
             self._data_table_checked = True
             return True
             
         except Exception as e:
-            print(f"✗ Error ensuring data table exists via Datum: {e}")
+            print(f"✗ Error ensuring data table exists via execute_sql client: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -2610,23 +2643,14 @@ class ConfigInstance:
         return None
     
     def _load_from_datum(self) -> pd.DataFrame:
-        """Load data via Datum proxy."""
+        """Load data via Datum-compatible execute_sql client."""
         try:
             # Ensure data table exists (copy from source_table if needed)
             self._ensure_data_table_exists()
             # Ensure modifications table exists (data query joins against it for _mod_status)
             if not self._skip_mods:
                 self._ensure_mods_table_exists()
-            
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                raise ValueError("Datum mode requires datum_base_url and datum_token")
-            
-            client = DatumClient(base_url=base_url, token=token)
+
             data_table = self.app_config.database.data_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
@@ -2662,12 +2686,7 @@ class ConfigInstance:
                 {limit_clause}
                 """
             
-            response = client.execute_sql(
-                sql=query,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            response = self._execute_client_sql(query)
             
             df = pd.DataFrame(response.data)
 
@@ -2680,12 +2699,12 @@ class ConfigInstance:
                 self._cleanup_corrupted_modifications_datum()
             
             # Apply field modifications to the data (also optimized)
-            df = self._apply_field_modifications_datum(df, client)
+            df = self._apply_field_modifications_datum(df, None)
             df = self._reconcile_status_column(df)
             
             return df
         except Exception as e:
-            print(f"✗ Error loading from Datum: {e}")
+            print(f"✗ Error loading from execute_sql client: {e}")
             return pd.DataFrame()
 
     def _load_from_lp_lims(self) -> pd.DataFrame:
@@ -2774,12 +2793,7 @@ class ConfigInstance:
             ORDER BY created_at ASC
             """
             
-            response = client.execute_sql(
-                sql=mods_query,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            response = self._execute_client_sql(mods_query)
             
             self.edited_cells = {}
             disagreements = []
@@ -2844,7 +2858,7 @@ class ConfigInstance:
 
     def _fix_mod_disagreements_datum(self, disagreements: list,
                                      mods_table_sql: SqlTableName, client):
-        """Update the latest mod record's new_value to match the data table (Datum)."""
+        """Update the latest mod record's new_value to match the data table."""
         for pk_json, col, data_val in disagreements:
             sql = (
                 f"UPDATE {mods_table_sql} "
@@ -2859,12 +2873,7 @@ class ConfigInstance:
                 f")"
             )
             try:
-                client.execute_sql(
-                    sql=sql,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                self._execute_client_sql(sql)
             except Exception as e:
                 print(f"[Reconcile] Failed to fix mod for {col}: {e}")
 
@@ -2894,7 +2903,7 @@ class ConfigInstance:
                 return self._mods_log_cache
         
         # Load from database
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             result = self._load_modifications_from_datum()
         else:
             result = self._load_modifications_from_db()
@@ -2916,7 +2925,7 @@ class ConfigInstance:
         if self._mods_table_checked:
             return True
         
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._ensure_mods_table_exists_datum()
         
         try:
@@ -2967,17 +2976,8 @@ class ConfigInstance:
             return False
 
     def _ensure_mods_table_exists_datum(self) -> bool:
-        """Create modifications table via Datum proxy if it doesn't exist."""
+        """Create modifications table via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
             mods_table_sql = SqlTableName(mods_table)
             
@@ -2991,19 +2991,14 @@ class ConfigInstance:
             # Create schema if needed (once per schema per process)
             if schema_sql and schema_name not in self._schemas_verified:
                 try:
-                    client.execute_sql(
-                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
+                    self._execute_client_sql(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}')
                 except Exception:
                     pass  # Schema may already exist
                 self._schemas_verified.add(schema_name)
             
             # Create table if not exists - DDL auto-commits
-            client.execute_sql(
-                sql=f'''
+            self._execute_client_sql(
+                f'''
                     CREATE TABLE IF NOT EXISTS {mods_table_sql} (
                         id SERIAL PRIMARY KEY,
                         row_pk JSONB NOT NULL,
@@ -3015,17 +3010,14 @@ class ConfigInstance:
                         created_at TIMESTAMP DEFAULT NOW(),
                         created_by VARCHAR(255)
                     )
-                ''',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
+                '''
             )
             
             self._mods_table_checked = True
-            print(f"✓ Modifications table {mods_table_sql} ensured via Datum")
+            print(f"✓ Modifications table {mods_table_sql} ensured via execute_sql client")
             return True
         except Exception as e:
-            print(f"⚠ Could not create mods table via Datum: {e}")
+            print(f"⚠ Could not create mods table via execute_sql client: {e}")
             return False
 
     # ------------------------------------------------------------------
@@ -3059,7 +3051,7 @@ class ConfigInstance:
 
         result_table = self.get_synthesis_table_name()
         result_table_sql = SqlTableName(result_table)
-        is_datum = self.app_config.database.mode == "datum"
+        use_execute_sql = self._uses_execute_sql_client()
 
         # Parse schema/table for obj_description lookup
         if "." in result_table:
@@ -3075,17 +3067,8 @@ class ConfigInstance:
         )
 
         try:
-            if is_datum:
-                from ..adapter.datum import DatumClient
-                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-                client = DatumClient(base_url=base_url, token=token)
-                response = client.execute_sql(
-                    sql=comment_query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+            if use_execute_sql:
+                response = self._execute_synthesis_sql(comment_query)
                 rows = response.data
                 if not rows:
                     return None
@@ -3136,7 +3119,7 @@ class ConfigInstance:
         result_table = self.get_synthesis_table_name()
         result_table_sql = SqlTableName(result_table)
         ttl = self.app_config.synthesis.ttl_minutes
-        is_datum = self.app_config.database.mode == "datum"
+        use_execute_sql = self._uses_execute_sql_client()
 
         if self.check_synthesis_table_exists():
             age = self._get_synthesis_age_minutes()
@@ -3155,7 +3138,7 @@ class ConfigInstance:
             reason = "forced" if force else f"expired ({age:.0f} min > {ttl} min TTL)"
             start = _time.time()
             print(f"[Synthesis] Recreating view ({reason}) → {result_table_sql} ...")
-            self._refresh_synthesis(result_table_sql, is_datum, synthesis_query)
+            self._refresh_synthesis(result_table_sql, use_execute_sql, synthesis_query)
             self._stamp_synthesis_comment(result_table_sql, _time.time())
             self._synthesis_exists_cache = True
             self._synthesis_age_cache_time = _time.time()
@@ -3172,7 +3155,7 @@ class ConfigInstance:
         start = _time.time()
         print(f"[Synthesis] View missing — creating → {result_table_sql} ...")
 
-        if is_datum:
+        if use_execute_sql:
             self._run_synthesis_datum(result_table_sql, schema_sql, synthesis_query)
         else:
             self._run_synthesis_direct(result_table_sql, schema_sql, synthesis_query)
@@ -3193,17 +3176,8 @@ class ConfigInstance:
         comment = f"synthesis_created_at:{epoch}"
         stmt = f"COMMENT ON VIEW {result_table_sql} IS {SqlLiteral(comment)}"
         try:
-            if self.app_config.database.mode == "datum":
-                from ..adapter.datum import DatumClient
-                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-                client = DatumClient(base_url=base_url, token=token)
-                client.execute_sql(
-                    sql=stmt,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+            if self._uses_execute_sql_client():
+                self._execute_synthesis_sql(stmt)
             else:
                 from sqlalchemy import text
                 engine = self._get_engine()
@@ -3232,47 +3206,25 @@ class ConfigInstance:
             conn.commit()
 
     def _run_synthesis_datum(self, result_table_sql, schema_sql, synthesis_query):
-        """Create the synthesis view via Datum proxy."""
-        from ..adapter.datum import DatumClient
-
-        base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-        token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-        if not base_url or not token:
-            raise RuntimeError("Datum credentials not configured")
-
-        client = DatumClient(base_url=base_url, token=token)
-        db = self.app_config.database.datum_database
-        schema = self.app_config.database.datum_schema
-        svc = self.app_config.database.datum_service_name
+        """Create the synthesis view via Datum-compatible execute_sql client."""
 
         if schema_sql:
             # Only issue CREATE SCHEMA once per schema per process
             schema_name = result_table_sql._raw.split('.', 1)[0] if '.' in str(result_table_sql) else None
             if schema_name and schema_name not in self._schemas_verified:
                 try:
-                    client.execute_sql(sql=f"CREATE SCHEMA IF NOT EXISTS {schema_sql}",
-                                       database=db, schema=schema, service_name=svc)
+                    self._execute_synthesis_sql(f"CREATE SCHEMA IF NOT EXISTS {schema_sql}")
                 except Exception:
                     pass
                 self._schemas_verified.add(schema_name)
 
-        client.execute_sql(sql=f"CREATE OR REPLACE VIEW {result_table_sql} AS ({synthesis_query})",
-                           database=db, schema=schema, service_name=svc)
+        self._execute_synthesis_sql(f"CREATE OR REPLACE VIEW {result_table_sql} AS ({synthesis_query})")
 
-    def _refresh_synthesis(self, result_table_sql, is_datum: bool, synthesis_query: str):
+    def _refresh_synthesis(self, result_table_sql, use_execute_sql: bool, synthesis_query: str):
         """Recreate the synthesis view (CREATE OR REPLACE VIEW) with the latest query."""
         stmt = f"CREATE OR REPLACE VIEW {result_table_sql} AS ({synthesis_query})"
-        if is_datum:
-            from ..adapter.datum import DatumClient
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            client = DatumClient(base_url=base_url, token=token)
-            client.execute_sql(
-                sql=stmt,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+        if use_execute_sql:
+            self._execute_synthesis_sql(stmt)
         else:
             from sqlalchemy import text
             engine = self._get_engine()
@@ -3285,18 +3237,8 @@ class ConfigInstance:
         result_table_sql = SqlTableName(result_table)
         query = f"SELECT * FROM {result_table_sql}"
 
-        is_datum = self.app_config.database.mode == "datum"
-        if is_datum:
-            from ..adapter.datum import DatumClient
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            client = DatumClient(base_url=base_url, token=token)
-            response = client.execute_sql(
-                sql=query,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+        if self._uses_execute_sql_client():
+            response = self._execute_synthesis_sql(query)
             return pd.DataFrame(response.data)
         else:
             from sqlalchemy import text
@@ -3317,21 +3259,12 @@ class ConfigInstance:
         """
         import time as _time
 
-        is_datum = self.app_config.database.mode == "datum"
+        use_execute_sql = self._uses_execute_sql_client()
         start = _time.time()
         print(f"[Synthesis] Direct query mode — executing SQL ...")
 
-        if is_datum:
-            from ..adapter.datum import DatumClient
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            client = DatumClient(base_url=base_url, token=token)
-            response = client.execute_sql(
-                sql=synthesis_query,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+        if use_execute_sql:
+            response = self._execute_synthesis_sql(synthesis_query)
             df = pd.DataFrame(response.data)
         else:
             from sqlalchemy import text
@@ -3357,17 +3290,9 @@ class ConfigInstance:
         result_table = self.get_synthesis_table_name()
         result_table_sql = SqlTableName(result_table)
         try:
-            if self.app_config.database.mode == "datum":
-                from ..adapter.datum import DatumClient
-                base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-                token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-                client = DatumClient(base_url=base_url, token=token)
-                client.execute_sql(
-                    sql=f"SELECT 1 FROM {result_table_sql} LIMIT 1",
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+            if self._uses_execute_sql_client():
+                self._execute_synthesis_sql(f"SELECT 1 FROM {result_table_sql} LIMIT 1")
+                self._synthesis_exists_cache = True
                 return True
             else:
                 from sqlalchemy import text
@@ -3381,21 +3306,10 @@ class ConfigInstance:
             return False
 
     def _load_modifications_from_datum(self) -> List[Dict]:
-        """Load modifications via Datum proxy."""
+        """Load modifications via Datum-compatible execute_sql client."""
         try:
             # Ensure modifications table exists first
             self._ensure_mods_table_exists()
-            
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                print("⚠ Datum credentials not configured for modifications")
-                return []
-            
-            client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
             mods_table_sql = _format_table_name(mods_table)
             
@@ -3406,12 +3320,7 @@ class ConfigInstance:
             print(f"[Datum DEBUG] Loading modifications from {mods_table_sql}, database={self.app_config.database.datum_database}, schema={self.app_config.database.datum_schema}")
             
             with tracker.track_sql("load_modifications.datum", query):
-                response = client.execute_sql(
-                    sql=query,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                response = self._execute_client_sql(query)
             
             print(f"[Datum DEBUG] Loaded {len(response.data)} raw modifications")
             # Show latest few IDs to verify new entries
@@ -3443,7 +3352,7 @@ class ConfigInstance:
             print(f"[Datum DEBUG] After aggregation: {len(result)} modifications")
             return result
         except Exception as e:
-            print(f"✗ Error loading modifications from Datum: {e}")
+            print(f"✗ Error loading modifications from execute_sql client: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -3561,7 +3470,7 @@ class ConfigInstance:
         db_mode = self.app_config.database.mode
         print(f"[Datum DEBUG] save_modification_to_db called: mode={db_mode}, pk={row_pk}, col={column}")
         
-        if db_mode == "datum":
+        if self._uses_execute_sql_client():
             return self._save_modification_to_datum(row_pk, column, old_value, new_value, mod_type)
         
         # Ensure modifications table exists first
@@ -3611,21 +3520,10 @@ class ConfigInstance:
             return None
     
     def _save_modification_to_datum(self, row_pk: dict, column: str, old_value, new_value, mod_type: str):
-        """Save modification via Datum proxy."""
+        """Save modification via Datum-compatible execute_sql client."""
         try:
             # Ensure modifications table exists first
             self._ensure_mods_table_exists()
-            
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                print("⚠ Datum credentials not configured")
-                return None
-            
-            client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
             mods_table_sql = SqlTableName(mods_table)
             
@@ -3671,12 +3569,7 @@ class ConfigInstance:
             print(f"[Datum DEBUG] Full SQL: {sql}")
             
             with tracker.track_sql("save_modification.datum", sql):
-                response = client.execute_sql(
-                    sql=sql,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                response = self._execute_client_sql(sql)
             
             if response.data:
                 mod_id = response.data[0].get("id")
@@ -3688,14 +3581,14 @@ class ConfigInstance:
             print(f"[Datum] ⚠ No id returned from INSERT")
             return None
         except Exception as e:
-            print(f"✗ Error saving modification to Datum: {e}")
+            print(f"✗ Error saving modification via execute_sql client: {e}")
             import traceback
             traceback.print_exc()
             return None
 
     def mark_modification_undone_in_db(self, mod_id: int):
         """Mark a modification as undone in the database."""
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._mark_modification_undone_datum(mod_id)
         
         try:
@@ -3725,36 +3618,21 @@ class ConfigInstance:
             return False
     
     def _mark_modification_undone_datum(self, mod_id: int):
-        """Mark modification undone via Datum proxy."""
+        """Mark modification undone via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
             # Validate mod_id is an integer to prevent SQL injection
             mod_id = int(mod_id)
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
             mods_table_sql = _format_table_name(mods_table)
             
-            client.execute_sql(
-                sql=f'BEGIN; UPDATE {mods_table_sql} SET undone = TRUE WHERE id = {mod_id}; COMMIT;',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            self._execute_client_sql(f'BEGIN; UPDATE {mods_table_sql} SET undone = TRUE WHERE id = {mod_id}; COMMIT;')
             
             # Invalidate cache after successful update
             self.invalidate_mods_cache()
             
             return True
         except Exception as e:
-            print(f"✗ Error marking modification undone via Datum: {e}")
+            print(f"✗ Error marking modification undone via execute_sql client: {e}")
             return False
 
     def cleanup_corrupted_modifications(self):
@@ -3762,23 +3640,13 @@ class ConfigInstance:
         Delete modifications with empty row_pk from database.
         These records are corrupted and will cause all rows to be updated.
         """
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._cleanup_corrupted_modifications_datum()
         return 0
     
     def _cleanup_corrupted_modifications_datum(self):
-        """Clean up corrupted modifications via Datum."""
+        """Clean up corrupted modifications via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                print("⚠ Datum credentials not configured for cleanup")
-                return 0
-            
-            client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
             mods_table_sql = _format_table_name(mods_table)
             
@@ -3788,12 +3656,7 @@ class ConfigInstance:
                 WHERE mod_type = 'field_modification'
                   AND (row_pk IS NULL OR row_pk = '{{}}'::jsonb)
             """
-            count_response = client.execute_sql(
-                sql=count_sql,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            count_response = self._execute_client_sql(count_sql)
             count = count_response.data[0].get("cnt", 0) if count_response.data else 0
             
             if count > 0:
@@ -3805,22 +3668,17 @@ class ConfigInstance:
                       AND (row_pk IS NULL OR row_pk = '{{}}'::jsonb);
                     COMMIT;
                 """
-                client.execute_sql(
-                    sql=delete_sql,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                self._execute_client_sql(delete_sql)
                 print(f"✓ Cleaned up {count} corrupted field_modification records with empty row_pk")
             
             return count
         except Exception as e:
-            print(f"✗ Error cleaning up corrupted modifications: {e}")
+            print(f"✗ Error cleaning up corrupted modifications via execute_sql client: {e}")
             return 0
 
     def update_data_in_db(self, row_pk: dict, column: str, new_value):
         """Update the actual data in the database."""
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._update_data_in_datum(row_pk, column, new_value)
         
         try:
@@ -3861,17 +3719,8 @@ class ConfigInstance:
             return False
     
     def _update_data_in_datum(self, row_pk: dict, column: str, new_value):
-        """Update data via Datum proxy."""
+        """Update data via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             data_table = self.app_config.database.data_table
             pk_columns = self.app_config.table.primary_key
             
@@ -3891,36 +3740,22 @@ class ConfigInstance:
             new_val_lit = SqlLiteral(new_value)
             data_table_sql = SqlTableName(data_table)
             
-            client.execute_sql(
-                sql=f'BEGIN; UPDATE {data_table_sql} SET {col_ident} = {new_val_lit} WHERE {where_clause}; COMMIT;',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            self._execute_client_sql(f'BEGIN; UPDATE {data_table_sql} SET {col_ident} = {new_val_lit} WHERE {where_clause}; COMMIT;')
             return True
         except Exception as e:
-            print(f"✗ Error updating data via Datum: {e}")
+            print(f"✗ Error updating data via execute_sql client: {e}")
             return False
 
     def save_cell_edit_to_db(self, row_pk: dict, column: str, old_value, new_value, status_col: str = None, status_value=None):
         """Persist one cell edit and its optional status sync in a single DB transaction."""
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._save_cell_edit_to_datum(row_pk, column, old_value, new_value, status_col, status_value)
         return False
 
     def _save_cell_edit_to_datum(self, row_pk: dict, column: str, old_value, new_value, status_col: str = None, status_value=None):
-        """Persist a cell edit via Datum using one multi-statement SQL request."""
+        """Persist a cell edit via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            if not base_url or not token:
-                return False
-
             self._ensure_mods_table_exists()
-
-            client = DatumClient(base_url=base_url, token=token)
             data_table_sql = SqlTableName(self.app_config.database.data_table)
             mods_table_sql = SqlTableName(self.app_config.database.mods_table)
             pk_columns = self.app_config.table.primary_key
@@ -3967,17 +3802,12 @@ class ConfigInstance:
             sql = "\n".join(stmts)
 
             with tracker.track_sql("cell_edit.datum", sql):
-                client.execute_sql(
-                    sql=sql,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                self._execute_client_sql(sql)
 
             self.invalidate_mods_cache()
             return True
         except Exception as e:
-            print(f"✗ Error saving cell edit via Datum: {e}")
+            print(f"✗ Error saving cell edit via execute_sql client: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -3998,7 +3828,7 @@ class ConfigInstance:
             return
 
         db_mode = self.app_config.database.mode
-        if db_mode == "datum":
+        if self._uses_execute_sql_client():
             return self._batch_save_status_datum(entries)
         return self._batch_save_status_sqlalchemy(entries)
 
@@ -4088,17 +3918,8 @@ class ConfigInstance:
         print(f"[Batch] Saved {len(entries)} status changes in single transaction")
 
     def _batch_save_status_datum(self, entries: list):
-        """Execute batch status save via Datum proxy in a single multi-statement SQL call."""
+        """Execute batch status save via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            if not base_url or not token:
-                print("⚠ Datum credentials not configured for batch save")
-                return
-
-            client = DatumClient(base_url=base_url, token=token)
             mods_table = self.app_config.database.mods_table
             data_table = self.app_config.database.data_table
             pk_columns = self.app_config.table.primary_key
@@ -4172,17 +3993,12 @@ class ConfigInstance:
             sql = "\n".join(stmts)
 
             with tracker.track_sql("batch_save_status.datum", sql):
-                client.execute_sql(
-                    sql=sql,
-                    database=self.app_config.database.datum_database,
-                    schema=self.app_config.database.datum_schema,
-                    service_name=self.app_config.database.datum_service_name,
-                )
+                self._execute_client_sql(sql)
 
             self.invalidate_mods_cache()
-            print(f"[Batch] Saved {len(entries)} status changes via Datum in single transaction")
+            print(f"[Batch] Saved {len(entries)} status changes via execute_sql client in single transaction")
         except Exception as e:
-            print(f"✗ Error in batch status save via Datum: {e}")
+            print(f"✗ Error in batch status save via execute_sql client: {e}")
             import traceback
             traceback.print_exc()
 
@@ -4196,7 +4012,7 @@ class ConfigInstance:
         if self._state_table_checked:
             return self._state_table_available
         
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._ensure_state_table_exists_datum()
         
         try:
@@ -4251,17 +4067,8 @@ class ConfigInstance:
             return False
 
     def _ensure_state_table_exists_datum(self) -> bool:
-        """Create UI state table via Datum proxy if it doesn't exist."""
+        """Create UI state table via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             state_table = self.app_config.database.state_table
             state_table_sql = SqlTableName(state_table)
             
@@ -4275,19 +4082,14 @@ class ConfigInstance:
             # Create schema if needed (once per schema per process)
             if schema_sql and schema_name not in self._schemas_verified:
                 try:
-                    client.execute_sql(
-                        sql=f'CREATE SCHEMA IF NOT EXISTS {schema_sql}',
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
+                    self._execute_client_sql(f'CREATE SCHEMA IF NOT EXISTS {schema_sql}')
                 except Exception:
                     pass  # Schema may already exist
                 self._schemas_verified.add(schema_name)
             
             # Create table if not exists - DDL auto-commits
-            client.execute_sql(
-                sql=f'''
+            self._execute_client_sql(
+                f'''
                     CREATE TABLE IF NOT EXISTS {state_table_sql} (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255),
@@ -4301,17 +4103,14 @@ class ConfigInstance:
                         updated_at TIMESTAMP DEFAULT NOW(),
                         UNIQUE(user_id, session_id)
                     )
-                ''',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
+                '''
             )
             
             self._state_table_checked = True
             self._state_table_available = True
             return True
         except Exception as e:
-            print(f"⚠ Could not create state table via Datum: {e}")
+            print(f"⚠ Could not create state table via execute_sql client: {e}")
             self._state_table_checked = True
             self._state_table_available = False
             return False
@@ -4331,7 +4130,7 @@ class ConfigInstance:
             return False
         if self.app_config.read_only:
             return False
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._save_ui_state_datum(
                 sort_column, sort_ascending, current_page, 
                 rows_per_page, filters, column_preset
@@ -4402,22 +4201,12 @@ class ConfigInstance:
         filters: dict,
         column_preset: str
     ) -> bool:
-        """Save UI state via Datum proxy."""
+        """Save UI state via Datum-compatible execute_sql client."""
         # Ensure state table exists first
         if not self._ensure_state_table_exists():
             return False
         
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                print("⚠ Datum credentials not configured for state")
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             state_table = self.app_config.database.state_table
             state_table_sql = SqlTableName(state_table)
             
@@ -4450,15 +4239,10 @@ class ConfigInstance:
                 COMMIT;
             '''
             
-            client.execute_sql(
-                sql=sql,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            self._execute_client_sql(sql)
             return True
         except Exception as e:
-            print(f"⚠ Could not save UI state via Datum: {e}")
+            print(f"⚠ Could not save UI state via execute_sql client: {e}")
             return False
     
     def load_ui_state(self) -> Dict:
@@ -4478,7 +4262,7 @@ class ConfigInstance:
         if self.app_config.read_only:
             return default_state
         
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._load_ui_state_datum(default_state)
         
         # Ensure state table exists first
@@ -4530,35 +4314,23 @@ class ConfigInstance:
         return default_state
 
     def _load_ui_state_datum(self, default_state: Dict) -> Dict:
-        """Load UI state via Datum proxy."""
+        """Load UI state via Datum-compatible execute_sql client."""
         # Ensure state table exists first
         if not self._ensure_state_table_exists():
             return default_state
         
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return default_state
-            
-            client = DatumClient(base_url=base_url, token=token)
             state_table = self.app_config.database.state_table
             state_table_sql = SqlTableName(state_table)
             user_lit = SqlLiteral(self.username)
             
-            response = client.execute_sql(
-                sql=f'''
+            response = self._execute_client_sql(
+                f'''
                     SELECT sort_column, sort_ascending, current_page, 
                            rows_per_page, filters, column_preset
                     FROM {state_table_sql}
                     WHERE user_id = {user_lit} AND session_id = 'default_session'
-                ''',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
+                '''
             )
             
             if response.data and len(response.data) > 0:
@@ -4578,7 +4350,7 @@ class ConfigInstance:
                     "column_preset": row.get("column_preset")
                 }
         except Exception as e:
-            print(f"⚠ Could not load UI state via Datum: {e}")
+            print(f"⚠ Could not load UI state via execute_sql client: {e}")
         
         return default_state
 
@@ -4625,7 +4397,7 @@ class ConfigInstance:
 
     def _detect_preset_legacy_mode(self) -> None:
         """Detect whether the old per-user preset table exists."""
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             self._detect_preset_legacy_mode_datum()
             return
         try:
@@ -4648,24 +4420,12 @@ class ConfigInstance:
             self._preset_legacy_mode = False
 
     def _detect_preset_legacy_mode_datum(self) -> None:
-        """Detect legacy preset table via Datum proxy."""
+        """Detect legacy preset table via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            if not base_url or not token:
-                self._preset_legacy_mode = False
-                return
-            client = DatumClient(base_url=base_url, token=token)
             legacy_table = self._get_legacy_preset_table_name()
             legacy_table_sql = _format_table_name(legacy_table)
             # Try a lightweight query against the legacy table
-            client.execute_sql(
-                sql=f'SELECT 1 FROM {legacy_table_sql} LIMIT 1',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            self._execute_client_sql(f'SELECT 1 FROM {legacy_table_sql} LIMIT 1')
             self._preset_legacy_mode = True
         except Exception:
             self._preset_legacy_mode = False
@@ -4685,7 +4445,7 @@ class ConfigInstance:
             self._preset_table_checked = True
             return True
         
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._ensure_preset_table_exists_datum()
         
         try:
@@ -4719,22 +4479,13 @@ class ConfigInstance:
             return False
     
     def _ensure_preset_table_exists_datum(self) -> bool:
-        """Create preset table via Datum proxy."""
+        """Create preset table via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
             
-            client.execute_sql(
-                sql=f'''
+            self._execute_client_sql(
+                f'''
                     CREATE TABLE IF NOT EXISTS {preset_table_sql} (
                         id SERIAL PRIMARY KEY,
                         username VARCHAR(255) NOT NULL,
@@ -4745,15 +4496,12 @@ class ConfigInstance:
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE (username, preset_name)
                     )
-                ''',
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
+                '''
             )
             self._preset_table_checked = True
             return True
         except Exception as e:
-            print(f"⚠ Could not create preset table via Datum: {e}")
+            print(f"⚠ Could not create preset table via execute_sql client: {e}")
             return False
     
     def save_preset(self, preset_name: str, columns: Any, is_default: bool = False) -> Optional[int]:
@@ -4762,7 +4510,7 @@ class ConfigInstance:
             return None
         self._ensure_preset_table_exists()
         
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._save_preset_datum(preset_name, columns, is_default)
         
         try:
@@ -4826,17 +4574,8 @@ class ConfigInstance:
             return None
     
     def _save_preset_datum(self, preset_name: str, columns: Any, is_default: bool) -> Optional[int]:
-        """Save preset via Datum proxy."""
+        """Save preset via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return None
-            
-            client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
             columns_json_lit = SqlLiteral(json.dumps(columns))
@@ -4844,12 +4583,7 @@ class ConfigInstance:
             
             if self._preset_legacy_mode:
                 if is_default:
-                    client.execute_sql(
-                        sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE; COMMIT;',
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
+                    self._execute_client_sql(f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE is_default = TRUE; COMMIT;')
                 sql = f'''
                         BEGIN;
                         INSERT INTO {preset_table_sql} (preset_name, columns, is_default, updated_at)
@@ -4865,12 +4599,7 @@ class ConfigInstance:
             else:
                 username_lit = SqlLiteral(self.username)
                 if is_default:
-                    client.execute_sql(
-                        sql=f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE username = {username_lit} AND is_default = TRUE; COMMIT;',
-                        database=self.app_config.database.datum_database,
-                        schema=self.app_config.database.datum_schema,
-                        service_name=self.app_config.database.datum_service_name,
-                    )
+                    self._execute_client_sql(f'BEGIN; UPDATE {preset_table_sql} SET is_default = FALSE WHERE username = {username_lit} AND is_default = TRUE; COMMIT;')
                 sql = f'''
                         BEGIN;
                         INSERT INTO {preset_table_sql} (username, preset_name, columns, is_default, updated_at)
@@ -4884,18 +4613,13 @@ class ConfigInstance:
                         COMMIT;
                     '''
             
-            response = client.execute_sql(
-                sql=sql,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            response = self._execute_client_sql(sql)
             
             if response.data:
                 return response.data[0].get("id")
             return None
         except Exception as e:
-            print(f"⚠ Could not save preset via Datum: {e}")
+            print(f"⚠ Could not save preset via execute_sql client: {e}")
             return None
     
     def get_presets(self) -> List[Dict]:
@@ -4904,7 +4628,7 @@ class ConfigInstance:
             return []
         self._ensure_preset_table_exists()
         
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._get_presets_datum()
         
         try:
@@ -4948,17 +4672,8 @@ class ConfigInstance:
             return []
     
     def _get_presets_datum(self) -> List[Dict]:
-        """Load presets via Datum proxy."""
+        """Load presets via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return []
-            
-            client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
             
@@ -4977,12 +4692,7 @@ class ConfigInstance:
                         ORDER BY preset_name
                     '''
             
-            response = client.execute_sql(
-                sql=query,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            response = self._execute_client_sql(query)
             
             presets = []
             for row in response.data:
@@ -4999,14 +4709,14 @@ class ConfigInstance:
                 })
             return presets
         except Exception as e:
-            print(f"⚠ Could not load presets via Datum: {e}")
+            print(f"⚠ Could not load presets via execute_sql client: {e}")
             return []
     
     def delete_preset(self, preset_name: str) -> bool:
         """Delete a preset by name."""
         if not self.app_config.table.presets_enabled:
             return False
-        if self.app_config.database.mode == "datum":
+        if self._uses_execute_sql_client():
             return self._delete_preset_datum(preset_name)
         
         try:
@@ -5037,17 +4747,8 @@ class ConfigInstance:
             return False
     
     def _delete_preset_datum(self, preset_name: str) -> bool:
-        """Delete preset via Datum proxy."""
+        """Delete preset via Datum-compatible execute_sql client."""
         try:
-            from ..adapter.datum import DatumClient
-            
-            base_url = self.app_config.database.datum_base_url or os.environ.get("DATUM_BASE_URL", "")
-            token = self.app_config.database.datum_token or os.environ.get("DATUM_API_TOKEN", "")
-            
-            if not base_url or not token:
-                return False
-            
-            client = DatumClient(base_url=base_url, token=token)
             preset_table = self._get_preset_table_name()
             preset_table_sql = _format_table_name(preset_table)
             preset_name_lit = SqlLiteral(preset_name)
@@ -5058,15 +4759,10 @@ class ConfigInstance:
                 username_lit = SqlLiteral(self.username)
                 sql = f"BEGIN; DELETE FROM {preset_table_sql} WHERE username = {username_lit} AND preset_name = {preset_name_lit}; COMMIT;"
             
-            client.execute_sql(
-                sql=sql,
-                database=self.app_config.database.datum_database,
-                schema=self.app_config.database.datum_schema,
-                service_name=self.app_config.database.datum_service_name,
-            )
+            self._execute_client_sql(sql)
             return True
         except Exception as e:
-            print(f"⚠ Could not delete preset via Datum: {e}")
+            print(f"⚠ Could not delete preset via execute_sql client: {e}")
             return False
     
     def get_default_preset(self) -> Optional[Dict]:

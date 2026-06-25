@@ -331,7 +331,7 @@ def perform_cell_edit(
         db_mode = getattr(getattr(config_instance, 'app_config', None), 'database', None)
         db_mode = getattr(db_mode, 'mode', None)
         batch_cell_edit = getattr(type(config_instance), 'save_cell_edit_to_db', None)
-        can_batch_cell_edit = db_mode == "datum" and callable(batch_cell_edit)
+        can_batch_cell_edit = db_mode in ("datum", "postgres") and callable(batch_cell_edit)
         status_col_for_batch = _status_col if _sync_status and _status_col and target_col != _status_col else None
         if can_batch_cell_edit:
             try:

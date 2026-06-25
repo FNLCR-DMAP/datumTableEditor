@@ -282,6 +282,20 @@ class TestConfigInstanceCleanupCorruptedModifications:
         ci._cleanup_corrupted_modifications_datum.assert_called_once()
         assert result == 3
 
+    def test_postgres_mode_delegates_to_execute_sql_path(self):
+        """In postgres mode, should use the execute_sql cleanup path."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "postgres"
+        ci._cleanup_corrupted_modifications_datum = MagicMock(return_value=2)
+
+        result = ci.cleanup_corrupted_modifications()
+
+        ci._cleanup_corrupted_modifications_datum.assert_called_once()
+        assert result == 2
+
     def test_direct_mode_returns_zero(self):
         """In non-datum mode, should return 0."""
         from src.config.config_instance import ConfigInstance
@@ -310,6 +324,22 @@ class TestConfigInstanceUpdateDataInDb:
         result = ci.update_data_in_db({"id": 1}, "name", "new_value")
 
         ci._update_data_in_datum.assert_called_once_with({"id": 1}, "name", "new_value")
+        assert result is True
+
+    def test_postgres_mode_delegates_to_execute_sql_path(self):
+        """In postgres mode, should use the Datum-compatible execute_sql path."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "postgres"
+        ci._update_data_in_datum = MagicMock(return_value=True)
+        ci._get_engine = MagicMock()
+
+        result = ci.update_data_in_db({"id": 1}, "name", "new_value")
+
+        ci._update_data_in_datum.assert_called_once_with({"id": 1}, "name", "new_value")
+        ci._get_engine.assert_not_called()
         assert result is True
 
     def test_direct_mode_executes_update(self):
@@ -1015,6 +1045,21 @@ class TestRunSynthesisDirectQuery:
         assert len(df) == 3
         assert list(df.columns) == ["a"]
 
+    def test_direct_query_postgres_mode_uses_execute_sql_client(self):
+        """_run_synthesis_direct_query in postgres mode should not use SQLAlchemy."""
+        ci = self._make_ci()
+        ci.app_config.database.mode = "postgres"
+        ci._execute_synthesis_sql = MagicMock()
+        ci._execute_synthesis_sql.return_value.data = [{"a": 1}, {"a": 2}]
+        ci._get_engine = MagicMock()
+
+        df, was_cached = ci._run_synthesis_direct_query("SELECT a FROM t")
+
+        assert was_cached is False
+        assert list(df["a"]) == [1, 2]
+        ci._execute_synthesis_sql.assert_called_once_with("SELECT a FROM t")
+        ci._get_engine.assert_not_called()
+
     def test_raises_when_no_query(self):
         """Should raise ValueError when synthesis query is empty even in query mode."""
         ci = self._make_ci()
@@ -1022,6 +1067,66 @@ class TestRunSynthesisDirectQuery:
 
         with pytest.raises(ValueError, match="No synthesis query"):
             ci.run_synthesis()
+
+
+class TestPostgresFullFunctionRouting:
+    """Pin postgres mode away from SQLAlchemy-only feature branches."""
+
+    def _make_ci(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "postgres"
+        ci.app_config.state.persist_state = True
+        ci.app_config.read_only = False
+        ci.app_config.table.presets_enabled = True
+        ci._get_engine = MagicMock()
+        return ci
+
+    def test_postgres_eager_load_uses_execute_sql_loader(self):
+        """Non-lazy postgres loading should use the execute_sql loader."""
+        ci = self._make_ci()
+        expected_df = pd.DataFrame({"id": [1]})
+        ci._data_cache = None
+        ci._data_cache_time = 0
+        ci._load_from_datum = MagicMock(return_value=expected_df)
+        ci._load_from_database = MagicMock()
+
+        result = ci._load_data()
+
+        pd.testing.assert_frame_equal(result, expected_df)
+        ci._load_from_datum.assert_called_once()
+        ci._load_from_database.assert_not_called()
+
+    def test_postgres_state_uses_execute_sql_methods(self):
+        """Postgres UI state should delegate to execute_sql-backed methods."""
+        ci = self._make_ci()
+        ci._ensure_state_table_exists_datum = MagicMock(return_value=True)
+        ci._save_ui_state_datum = MagicMock(return_value=True)
+        ci._load_ui_state_datum = MagicMock(return_value={"current_page": 2})
+
+        assert ci._ensure_state_table_exists() is True
+        assert ci.save_ui_state(current_page=2) is True
+        assert ci.load_ui_state() == {"current_page": 2}
+        ci._get_engine.assert_not_called()
+
+    def test_postgres_presets_use_execute_sql_methods(self):
+        """Postgres presets should delegate to execute_sql-backed methods."""
+        ci = self._make_ci()
+        ci._preset_table_checked = False
+        ci._preset_legacy_mode = False
+        ci._detect_preset_legacy_mode = MagicMock()
+        ci._ensure_preset_table_exists_datum = MagicMock(return_value=True)
+        ci._save_preset_datum = MagicMock(return_value=11)
+        ci._get_presets_datum = MagicMock(return_value=[{"preset_name": "Default"}])
+        ci._delete_preset_datum = MagicMock(return_value=True)
+
+        assert ci._ensure_preset_table_exists() is True
+        assert ci.save_preset("Default", ["id"], is_default=True) == 11
+        assert ci.get_presets() == [{"preset_name": "Default"}]
+        assert ci.delete_preset("Default") is True
+        ci._get_engine.assert_not_called()
 
 
 # =============================================================================

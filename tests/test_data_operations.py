@@ -997,6 +997,37 @@ class TestPhantomLogOnDbFailure:
         assert len(updated_log) == 1
         assert updated_log[0]["db_id"] == 42
 
+    def test_postgres_mode_uses_batched_cell_edit_save(self, sample_data):
+        """Postgres mode should use the execute_sql batch edit path, not split writes."""
+        from src.utils.data_operations import perform_cell_edit
+
+        class PostgresConfigStub:
+            def __init__(self):
+                self.app_config = MagicMock()
+                self.app_config.database.mode = "postgres"
+                self.app_config.database.status_column = "Status"
+                self.app_config.table.primary_key = ["PatientID_Mutsequence"]
+                self.app_config.status_values = {"edited": "Edited"}
+                self._save_cell_edit_to_db = MagicMock(return_value=True)
+                self.update_data_in_db = MagicMock()
+                self.save_modification_to_db = MagicMock()
+
+            def save_cell_edit_to_db(self, *args, **kwargs):
+                return self._save_cell_edit_to_db(*args, **kwargs)
+
+        mock_config = PostgresConfigStub()
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        assert updated_df.iloc[0]["Gene_names"] == "BRCA1_v2"
+        assert len(updated_log) == 1
+        mock_config._save_cell_edit_to_db.assert_called_once()
+        mock_config.update_data_in_db.assert_not_called()
+        mock_config.save_modification_to_db.assert_not_called()
+
 
 # =====================================================================
 # Export Column Masking & Ordering

@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 572,
-    "fully_annotated_functions": 365,
-    "function_coverage_percent": 63.8,
-    "total_parameters": 760,
-    "annotated_parameters": 671,
-    "parameter_coverage_percent": 88.3,
+    "total_functions": 578,
+    "fully_annotated_functions": 367,
+    "function_coverage_percent": 63.5,
+    "total_parameters": 766,
+    "annotated_parameters": 675,
+    "parameter_coverage_percent": 88.1,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -506,13 +506,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 131,
-        "with_return_type": 93,
-        "fully_annotated": 89
+        "total": 137,
+        "with_return_type": 95,
+        "fully_annotated": 91
       },
       "parameters": {
-        "total": 143,
-        "annotated": 113
+        "total": 149,
+        "annotated": 117
       },
       "missing_annotations": [
         {
@@ -572,7 +572,7 @@
           "line": 363
         }
       ],
-      "missing_annotations_truncated": 58
+      "missing_annotations_truncated": 64
     },
     "src/config/sql_types.py": {
       "functions": {
