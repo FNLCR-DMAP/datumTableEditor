@@ -36,6 +36,12 @@ def register_synthesis(ctx: ServerContext):
     _synthesis_needs_generate = ctx._synthesis_needs_generate
     _synthesis_auto_triggered = {"done": False}
 
+    def _is_lazy_query_mode():
+        return app_config.synthesis.mode == "query" and config.is_lazy_loading
+
+    def _result_row_count(result_df: pd.DataFrame) -> int:
+        return config.total_row_count if _is_lazy_query_mode() else len(result_df)
+
     # ── Auto-generate on startup ────────────────────────────────────────
 
     @reactive.Effect
@@ -52,8 +58,9 @@ def register_synthesis(ctx: ServerContext):
             synthesis_cached.set(was_cached)
             synthesis_active.set(True)
             data.set(result_df)
-            total_rows.set(len(result_df))
-            filtered_row_count.set(len(result_df))
+            row_count = _result_row_count(result_df)
+            total_rows.set(row_count)
+            filtered_row_count.set(row_count)
             current_page.set(1)
             if app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
@@ -65,10 +72,10 @@ def register_synthesis(ctx: ServerContext):
             if config.all_columns:
                 active_columns.set(list(config.all_columns))
             cache_msg = " (cached)" if was_cached else ""
-            print(f"[Synthesis] Auto-generated{cache_msg} — {len(result_df):,} rows")
+            print(f"[Synthesis] Auto-generated{cache_msg} — {row_count:,} rows")
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
-                f"Synthesis ready{cache_msg} — {len(result_df):,} rows",
+                f"Synthesis ready{cache_msg} — {row_count:,} rows",
                 type="message", duration=4
             )
         except (SilentException, SilentCancelOutputException):
@@ -187,7 +194,7 @@ def register_synthesis(ctx: ServerContext):
                 print(f"[Synthesis] Countdown error: {_ce}")
             status_children = [
                 ui.p("Transform complete", ui.tags.br(),
-                     f"{len(synth_df):,} rows returned{cache_note}.",
+                     f"{_result_row_count(synth_df):,} rows returned{cache_note}.",
                      style="color: #28a745; font-weight: 500;"),
             ]
             if countdown_html:
@@ -288,8 +295,9 @@ def register_synthesis(ctx: ServerContext):
             synthesis_cached.set(was_cached)
             synthesis_active.set(True)
             data.set(result_df)
-            total_rows.set(len(result_df))
-            filtered_row_count.set(len(result_df))
+            row_count = _result_row_count(result_df)
+            total_rows.set(row_count)
+            filtered_row_count.set(row_count)
             current_page.set(1)
             if app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
@@ -302,7 +310,7 @@ def register_synthesis(ctx: ServerContext):
             cache_msg = " (cached)" if was_cached else ""
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
-                f"Synthesis complete{cache_msg} — {len(result_df):,} rows",
+                f"Synthesis complete{cache_msg} — {row_count:,} rows",
                 type="message", duration=4
             )
         except (SilentException, SilentCancelOutputException):
@@ -327,8 +335,9 @@ def register_synthesis(ctx: ServerContext):
             synthesis_cached.set(False)
             synthesis_active.set(True)
             data.set(result_df)
-            total_rows.set(len(result_df))
-            filtered_row_count.set(len(result_df))
+            row_count = _result_row_count(result_df)
+            total_rows.set(row_count)
+            filtered_row_count.set(row_count)
             current_page.set(1)
             if app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
@@ -340,7 +349,7 @@ def register_synthesis(ctx: ServerContext):
                 active_columns.set(list(config.all_columns))
             _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             ui.notification_show(
-                f"Synthesis regenerated — {len(result_df):,} rows",
+                f"Synthesis regenerated — {row_count:,} rows",
                 type="message", duration=4
             )
         except (SilentException, SilentCancelOutputException):

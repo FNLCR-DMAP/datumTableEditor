@@ -19,6 +19,7 @@ from ..utils import (
     build_table_container,
     sort_dataframe,
     get_paginated_indices,
+    get_page_buffer_window,
     get_selected_row_indices,
     get_preset_columns_and_widths,
 )
@@ -230,6 +231,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     active_columns = reactive.Value(list(initial_columns))
     column_widths = reactive.Value(dict(initial_widths))
     _columns_layout_trigger = reactive.Value(0)
+    _lazy_page_buffer = {
+        "key": None,
+        "df": pd.DataFrame(),
+        "filtered_count": 0,
+        "total_count": 0,
+    }
+    _lazy_count_cache = {"key": None, "value": 0}
 
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
     current_page = reactive.Value(1)
@@ -353,6 +361,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
         return _status_for_row
 
+    def _is_synthesis_query_in_memory():
+        return bool(synthesis_active.get() and app_config.synthesis.mode == "query")
+
+    def _clamped_page_for_indices(filtered_indices):
+        rows_per_page = rows_per_page_value.get()
+        if rows_per_page == "all":
+            return current_page.get()
+        rpp = int(rows_per_page)
+        total_pages = max(1, (len(filtered_indices) + rpp - 1) // rpp)
+        return max(1, min(current_page.get(), total_pages))
+
     def _get_filtered_rows():
         current_df = data.get()
         search = search_state.get()
@@ -414,17 +433,60 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         fetcher = config.data_fetcher
         if fetcher is None:
             return 0
-        params = _build_query_params()
-        return fetcher.get_filtered_count(params)
+
+        params = _build_query_params(page=1, page_size=1)
+        count_key = (
+            repr(params.filters),
+            params.search_term,
+            params.search_column,
+            tuple(params.status_filters or []),
+        )
+        if _lazy_count_cache["key"] != count_key:
+            _lazy_count_cache["key"] = count_key
+            _lazy_count_cache["value"] = fetcher.get_filtered_count(params)
+        return _lazy_count_cache["value"]
+
+    def _lazy_buffer_key(params, buffer_page, buffer_size):
+        return (
+            repr(params.filters),
+            params.search_term,
+            params.search_column,
+            repr(params.sort_column),
+            repr(params.sort_ascending),
+            tuple(params.status_filters or []),
+            buffer_page,
+            buffer_size,
+        )
 
     def _fetch_page_data():
         if is_lazy_loading():
             fetcher = config.data_fetcher
             if fetcher is None:
                 return pd.DataFrame(), 0, 0
-            params = _build_query_params()
-            fetched_df = fetcher.fetch_page(params)
-            return fetched_df, _lazy_filtered_count(), total_rows.get()
+
+            rows_per_page = rows_per_page_value.get()
+            if rows_per_page == "all":
+                params = _build_query_params()
+                fetched_df = fetcher.fetch_page(params)
+                return fetched_df, _lazy_filtered_count(), total_rows.get()
+
+            buffer_page, buffer_size, local_start, local_end = get_page_buffer_window(
+                current_page=current_page.get(),
+                rows_per_page_val=rows_per_page,
+                page_buffer_size=getattr(app_config.database, "page_buffer_size", int(rows_per_page)),
+            )
+            params = _build_query_params(page=buffer_page, page_size=buffer_size)
+            buffer_key = _lazy_buffer_key(params, buffer_page, buffer_size)
+
+            if _lazy_page_buffer["key"] != buffer_key:
+                fetched_df = fetcher.fetch_page(params)
+                _lazy_page_buffer["key"] = buffer_key
+                _lazy_page_buffer["df"] = fetched_df
+                _lazy_page_buffer["filtered_count"] = _lazy_filtered_count()
+                _lazy_page_buffer["total_count"] = total_rows.get()
+
+            page_df = _lazy_page_buffer["df"].iloc[local_start:local_end].copy()
+            return page_df, _lazy_page_buffer["filtered_count"], _lazy_page_buffer["total_count"]
         else:
             current_df = data.get()
             filtered_indices = _get_filtered_rows()
@@ -451,7 +513,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         else:
             current_df = data.get()
             filtered_indices = _get_filtered_rows()
-            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+            page = _clamped_page_for_indices(filtered_indices) if _is_synthesis_query_in_memory() else current_page.get()
+            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), page)
             return current_df, paginated_indices, len(filtered_indices), len(current_df)
 
     def _get_page_selection():
@@ -538,6 +601,30 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         pass
             return counts
         current_df = data.get()
+        if synthesis_active.get() and app_config.synthesis.mode == "query":
+            all_statuses = list(app_config.status_labels.keys())
+            counts = {key: 0 for key in all_statuses}
+            reverse_status_values = {str(v).lower(): k for k, v in app_config.status_values.items()}
+            source_col = "_mod_status" if "_mod_status" in current_df.columns else getattr(app_config.database, "status_column", None)
+            if source_col and source_col in current_df.columns:
+                raw_counts = current_df[source_col].fillna("").astype(str).str.strip().str.lower().value_counts()
+                for raw_status, count in raw_counts.items():
+                    if not raw_status:
+                        key = "unprocessed"
+                    elif raw_status == "approval":
+                        key = "approved"
+                    elif raw_status == "rejection":
+                        key = "rejected"
+                    elif raw_status == "field_modification":
+                        key = "edited"
+                    else:
+                        key = reverse_status_values.get(raw_status, raw_status)
+                    if key not in counts:
+                        key = "unprocessed"
+                    counts[key] = counts.get(key, 0) + int(count)
+            else:
+                counts["unprocessed"] = len(current_df)
+            return counts
         _ = mods_log.get()
         all_statuses = list(app_config.status_labels.keys())
         search = search_state.get()

@@ -282,6 +282,20 @@ class TestConfigInstanceCleanupCorruptedModifications:
         ci._cleanup_corrupted_modifications_datum.assert_called_once()
         assert result == 3
 
+    def test_postgres_mode_delegates_to_execute_sql_path(self):
+        """In postgres mode, should use the execute_sql cleanup path."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "postgres"
+        ci._cleanup_corrupted_modifications_datum = MagicMock(return_value=2)
+
+        result = ci.cleanup_corrupted_modifications()
+
+        ci._cleanup_corrupted_modifications_datum.assert_called_once()
+        assert result == 2
+
     def test_direct_mode_returns_zero(self):
         """In non-datum mode, should return 0."""
         from src.config.config_instance import ConfigInstance
@@ -312,6 +326,22 @@ class TestConfigInstanceUpdateDataInDb:
         ci._update_data_in_datum.assert_called_once_with({"id": 1}, "name", "new_value")
         assert result is True
 
+    def test_postgres_mode_delegates_to_execute_sql_path(self):
+        """In postgres mode, should use the Datum-compatible execute_sql path."""
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "postgres"
+        ci._update_data_in_datum = MagicMock(return_value=True)
+        ci._get_engine = MagicMock()
+
+        result = ci.update_data_in_db({"id": 1}, "name", "new_value")
+
+        ci._update_data_in_datum.assert_called_once_with({"id": 1}, "name", "new_value")
+        ci._get_engine.assert_not_called()
+        assert result is True
+
     def test_direct_mode_executes_update(self):
         """In direct mode, should execute SQL UPDATE with PK WHERE clause."""
         from src.config.config_instance import ConfigInstance
@@ -319,6 +349,7 @@ class TestConfigInstanceUpdateDataInDb:
         ci = ConfigInstance.__new__(ConfigInstance)
         ci.app_config = MagicMock()
         ci.app_config.database.mode = "direct"
+        ci.app_config.database.lazy_loading = False
         ci.app_config.database.data_table = "test_data"
         ci.app_config.table.primary_key = ["id"]
 
@@ -470,6 +501,7 @@ class TestDataFetcherTableOverride:
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = data_table
         fetcher._table_override = None
+        fetcher._query_override = None
         fetcher._total_count = 0
         fetcher._columns = []
         fetcher._column_types = {}
@@ -509,6 +541,16 @@ class TestDataFetcherTableOverride:
         assert fetcher._table_override == "temp_table"
         fetcher.clear_table_override()
         assert fetcher._table_override is None
+
+    def test_set_query_override_sets_subquery_source(self):
+        """set_query_override should use the query as a wrapped FROM source."""
+        fetcher = self._make_fetcher()
+        fetcher.set_query_override("SELECT id, name FROM source;")
+
+        assert fetcher._query_override == "SELECT id, name FROM source"
+        assert fetcher._table_override is None
+        assert fetcher._source_sql == "(SELECT id, name FROM source)"
+        fetcher._fetch_metadata.assert_called_once()
 
 
 # =============================================================================
@@ -639,6 +681,72 @@ class TestDataFetcherGetValueCounts:
         sql_str = str(call_args[0][0])
         assert "LIMIT 10" in sql_str
 
+    def test_query_override_fetch_page_wraps_query_with_limit_offset(self):
+        """Query override should page against the wrapped synthesis SQL."""
+        from src.config.config_instance import QueryParams
+
+        fetcher = self._make_fetcher("direct")
+        fetcher._query_override = "SELECT id, name FROM source"
+        fetcher._columns = ["id", "name"]
+        fetcher._column_types = {"name": "text"}
+        fetcher.app_config.database.mods_table = "mods"
+        fetcher.app_config.table.primary_key = ["id"]
+        fetcher.app_config.enable_approval_workflow = True
+        fetcher.app_config.enable_status_filter = True
+        fetcher.app_config.status_values = {}
+        fetcher.app_config.status_labels = {
+            "unprocessed": "Unprocessed",
+            "edited": "Edited",
+            "approved": "Approved",
+            "rejected": "Rejected",
+        }
+        fetcher.app_config.database.status_column = "Status"
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [(26, "row", "unprocessed")]
+        mock_result.keys.return_value = ["id", "name", "_mod_status"]
+        mock_conn.execute.return_value = mock_result
+        fetcher._engine.connect.return_value = mock_conn
+
+        df = fetcher.fetch_page(QueryParams(page=2, page_size=25))
+
+        sql_str = str(mock_conn.execute.call_args[0][0])
+        assert "FROM (SELECT id, name FROM source) d" in sql_str
+        assert "LIMIT 25 OFFSET 25" in sql_str
+        assert list(df.columns) == ["id", "name", "_mod_status"]
+
+    def test_query_override_fetch_page_applies_sort(self):
+        """Query override should ORDER BY the requested output column."""
+        from src.config.config_instance import QueryParams
+
+        fetcher = self._make_fetcher("direct")
+        fetcher._query_override = "SELECT id, name FROM source"
+        fetcher._columns = ["id", "name"]
+        fetcher._column_types = {"name": "text"}
+        fetcher.app_config.database.mods_table = "mods"
+        fetcher.app_config.table.primary_key = ["id"]
+        fetcher.app_config.enable_approval_workflow = False
+        fetcher.app_config.enable_status_filter = False
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [(2, "z", "unprocessed")]
+        mock_result.keys.return_value = ["id", "name", "_mod_status"]
+        mock_conn.execute.return_value = mock_result
+        fetcher._engine.connect.return_value = mock_conn
+
+        fetcher.fetch_page(QueryParams(sort_column="name", sort_ascending=False, page=1, page_size=25))
+
+        sql_str = str(mock_conn.execute.call_args[0][0])
+        assert "FROM (SELECT id, name FROM source) d" in sql_str
+        assert 'ORDER BY "name" DESC' in sql_str
+        assert "LIMIT 25 OFFSET 0" in sql_str
+
 
 # =============================================================================
 # ConfigInstance.activate_synthesis_fetcher / deactivate_synthesis_fetcher
@@ -741,6 +849,28 @@ class TestSynthesisFetcherLifecycle:
 
         assert ci._data_fetcher is None
 
+    def test_run_synthesis_query_lazy_activates_fetcher_without_materializing(self):
+        """Lazy query mode should prepare a DataFetcher, not fetch every row."""
+        ci = self._make_ci()
+        ci.app_config.database.lazy_loading = True
+        ci.app_config.synthesis.mode = "query"
+        ci.app_config.synthesis.query = "SELECT id, name FROM source"
+        ci.all_columns = []
+        ci._run_synthesis_direct_query = MagicMock()
+
+        def activate(query):
+            ci.all_columns = ["id", "name"]
+
+        ci.activate_synthesis_query_fetcher = MagicMock(side_effect=activate)
+
+        df, was_cached = ci.run_synthesis()
+
+        ci.activate_synthesis_query_fetcher.assert_called_once_with("SELECT id, name FROM source")
+        ci._run_synthesis_direct_query.assert_not_called()
+        assert was_cached is False
+        assert list(df.columns) == ["id", "name"]
+        assert df.empty
+
 
 # =============================================================================
 # ConfigInstance.get_synthesis_table_name
@@ -797,6 +927,7 @@ class TestCheckSynthesisTableExists:
         ci = ConfigInstance.__new__(ConfigInstance)
         ci.app_config = MagicMock()
         ci.app_config.database.mode = "direct"
+        ci.app_config.database.lazy_loading = False
         ci.app_config.database.data_table = "test_data"
         ci.app_config.synthesis.result_table_prefix = "_synthesis_result"
         ci._synthesis_exists_cache = None
@@ -938,6 +1069,7 @@ class TestRunSynthesisDirectQuery:
         ci.app_config = MagicMock()
         ci.app_config.database.mode = "direct"
         ci.app_config.database.data_table = "test_data"
+        ci.app_config.database.lazy_loading = False
         ci.app_config.synthesis.query = "SELECT id, name FROM source"
         ci.app_config.synthesis.mode = "query"
         ci.app_config.synthesis.result_table_prefix = "_synth"
@@ -1015,6 +1147,21 @@ class TestRunSynthesisDirectQuery:
         assert len(df) == 3
         assert list(df.columns) == ["a"]
 
+    def test_direct_query_postgres_mode_uses_execute_sql_client(self):
+        """_run_synthesis_direct_query in postgres mode should not use SQLAlchemy."""
+        ci = self._make_ci()
+        ci.app_config.database.mode = "postgres"
+        ci._execute_synthesis_sql = MagicMock()
+        ci._execute_synthesis_sql.return_value.data = [{"a": 1}, {"a": 2}]
+        ci._get_engine = MagicMock()
+
+        df, was_cached = ci._run_synthesis_direct_query("SELECT a FROM t")
+
+        assert was_cached is False
+        assert list(df["a"]) == [1, 2]
+        ci._execute_synthesis_sql.assert_called_once_with("SELECT a FROM t")
+        ci._get_engine.assert_not_called()
+
     def test_raises_when_no_query(self):
         """Should raise ValueError when synthesis query is empty even in query mode."""
         ci = self._make_ci()
@@ -1022,6 +1169,66 @@ class TestRunSynthesisDirectQuery:
 
         with pytest.raises(ValueError, match="No synthesis query"):
             ci.run_synthesis()
+
+
+class TestPostgresFullFunctionRouting:
+    """Pin postgres mode away from SQLAlchemy-only feature branches."""
+
+    def _make_ci(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.database.mode = "postgres"
+        ci.app_config.state.persist_state = True
+        ci.app_config.read_only = False
+        ci.app_config.table.presets_enabled = True
+        ci._get_engine = MagicMock()
+        return ci
+
+    def test_postgres_eager_load_uses_execute_sql_loader(self):
+        """Non-lazy postgres loading should use the execute_sql loader."""
+        ci = self._make_ci()
+        expected_df = pd.DataFrame({"id": [1]})
+        ci._data_cache = None
+        ci._data_cache_time = 0
+        ci._load_from_datum = MagicMock(return_value=expected_df)
+        ci._load_from_database = MagicMock()
+
+        result = ci._load_data()
+
+        pd.testing.assert_frame_equal(result, expected_df)
+        ci._load_from_datum.assert_called_once()
+        ci._load_from_database.assert_not_called()
+
+    def test_postgres_state_uses_execute_sql_methods(self):
+        """Postgres UI state should delegate to execute_sql-backed methods."""
+        ci = self._make_ci()
+        ci._ensure_state_table_exists_datum = MagicMock(return_value=True)
+        ci._save_ui_state_datum = MagicMock(return_value=True)
+        ci._load_ui_state_datum = MagicMock(return_value={"current_page": 2})
+
+        assert ci._ensure_state_table_exists() is True
+        assert ci.save_ui_state(current_page=2) is True
+        assert ci.load_ui_state() == {"current_page": 2}
+        ci._get_engine.assert_not_called()
+
+    def test_postgres_presets_use_execute_sql_methods(self):
+        """Postgres presets should delegate to execute_sql-backed methods."""
+        ci = self._make_ci()
+        ci._preset_table_checked = False
+        ci._preset_legacy_mode = False
+        ci._detect_preset_legacy_mode = MagicMock()
+        ci._ensure_preset_table_exists_datum = MagicMock(return_value=True)
+        ci._save_preset_datum = MagicMock(return_value=11)
+        ci._get_presets_datum = MagicMock(return_value=[{"preset_name": "Default"}])
+        ci._delete_preset_datum = MagicMock(return_value=True)
+
+        assert ci._ensure_preset_table_exists() is True
+        assert ci.save_preset("Default", ["id"], is_default=True) == 11
+        assert ci.get_presets() == [{"preset_name": "Default"}]
+        assert ci.delete_preset("Default") is True
+        ci._get_engine.assert_not_called()
 
 
 # =============================================================================

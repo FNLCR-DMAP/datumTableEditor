@@ -178,6 +178,15 @@ def get_filtered_rows(
     Returns:
         List of row indices (DataFrame index values) that match all filters
     """
+    all_statuses = {"unprocessed", "edited", "approved", "rejected"}
+    no_search = not str(search_term or "").strip()
+    no_column_filters = not any(
+        value and str(value).strip() and value != "all"
+        for value in (column_filters or {}).values()
+    )
+    if no_search and no_column_filters and all_statuses.issubset(set(status_filters or [])):
+        return list(df.index)
+
     filtered_indices = []
     
     for idx, row in df.iterrows():

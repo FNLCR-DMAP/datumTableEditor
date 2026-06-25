@@ -42,6 +42,7 @@ def register_presets(ctx: ServerContext):
     current_page = ctx.current_page
     current_sort = ctx.current_sort
     rows_per_page_value = ctx.rows_per_page_value
+    _table_reload_trigger = ctx._table_reload_trigger
     _columns_layout_trigger = ctx._columns_layout_trigger
     is_lazy_loading = ctx.is_lazy_loading
     save_ui_state = ctx.save_ui_state
@@ -144,6 +145,7 @@ def register_presets(ctx: ServerContext):
                 data.set(sort_dataframe(data.get(), col, direction))
             current_sort.set({"column": col, "ascending": ascending})
             current_page.set(1)
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             save_ui_state(
                 sort_column=col,
                 sort_ascending=ascending,

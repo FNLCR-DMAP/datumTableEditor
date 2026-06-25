@@ -331,7 +331,7 @@ def perform_cell_edit(
         db_mode = getattr(getattr(config_instance, 'app_config', None), 'database', None)
         db_mode = getattr(db_mode, 'mode', None)
         batch_cell_edit = getattr(type(config_instance), 'save_cell_edit_to_db', None)
-        can_batch_cell_edit = db_mode == "datum" and callable(batch_cell_edit)
+        can_batch_cell_edit = db_mode in ("datum", "postgres") and callable(batch_cell_edit)
         status_col_for_batch = _status_col if _sync_status and _status_col and target_col != _status_col else None
         if can_batch_cell_edit:
             try:
@@ -593,6 +593,35 @@ def get_paginated_indices(
     start = (current_page - 1) * rows_per_page
     end = start + rows_per_page
     return filtered_indices[start:end]
+
+
+def get_page_buffer_window(
+    current_page: int,
+    rows_per_page_val: str,
+    page_buffer_size: int,
+) -> Tuple[int, int, int, int]:
+    """Return DB buffer page and local slice for a UI page.
+
+    The DataFetcher API accepts page/page_size and translates that to
+    ``LIMIT page_size OFFSET (page - 1) * page_size``.  This helper maps a
+    UI page into a larger DB window so page navigation within that window can
+    be served from memory.
+
+    Returns:
+        (buffer_page, buffer_size, local_start, local_end)
+    """
+    if rows_per_page_val == "all":
+        buffer_size = max(1, int(page_buffer_size or 1))
+        return 1, buffer_size, 0, buffer_size
+
+    rows_per_page = max(1, int(rows_per_page_val))
+    buffer_size = max(rows_per_page, int(page_buffer_size or rows_per_page))
+    row_offset = max(0, int(current_page) - 1) * rows_per_page
+    buffer_start = (row_offset // buffer_size) * buffer_size
+    buffer_page = (buffer_start // buffer_size) + 1
+    local_start = row_offset - buffer_start
+    local_end = local_start + rows_per_page
+    return buffer_page, buffer_size, local_start, local_end
 
 
 def calculate_pagination(

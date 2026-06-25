@@ -62,6 +62,7 @@ from .data_operations import (
     get_selected_row_indices,
     get_copy_column_values,
     get_paginated_indices,
+    get_page_buffer_window,
     calculate_pagination,
 )
 from .filter_handlers import (
@@ -142,6 +143,7 @@ __all__ = [
     "get_selected_row_indices",
     "get_copy_column_values",
     "get_paginated_indices",
+    "get_page_buffer_window",
     "calculate_pagination",
     # Filter handlers
     "parse_filter_column",

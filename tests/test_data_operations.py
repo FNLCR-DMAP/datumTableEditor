@@ -411,6 +411,29 @@ class TestCalculatePagination:
         assert total_pages == 2
 
 
+class TestGetPageBufferWindow:
+    """Tests for lazy DB page buffering math."""
+
+    def test_pages_inside_same_buffer(self):
+        """Pages 1-12 at 25 rows/page fit in one 300-row buffer."""
+        from src.utils.data_operations import get_page_buffer_window
+
+        assert get_page_buffer_window(1, "25", 300) == (1, 300, 0, 25)
+        assert get_page_buffer_window(12, "25", 300) == (1, 300, 275, 300)
+
+    def test_next_buffer_starts_after_buffer_boundary(self):
+        """Page 13 starts the second 300-row DB buffer."""
+        from src.utils.data_operations import get_page_buffer_window
+
+        assert get_page_buffer_window(13, "25", 300) == (2, 300, 0, 25)
+
+    def test_buffer_is_at_least_rows_per_page(self):
+        """A too-small buffer should still fetch one full visible page."""
+        from src.utils.data_operations import get_page_buffer_window
+
+        assert get_page_buffer_window(2, "100", 25) == (2, 100, 0, 100)
+
+
 class TestGetSelectedRowIndices:
     """Tests for get_selected_row_indices function."""
     
@@ -996,6 +1019,37 @@ class TestPhantomLogOnDbFailure:
 
         assert len(updated_log) == 1
         assert updated_log[0]["db_id"] == 42
+
+    def test_postgres_mode_uses_batched_cell_edit_save(self, sample_data):
+        """Postgres mode should use the execute_sql batch edit path, not split writes."""
+        from src.utils.data_operations import perform_cell_edit
+
+        class PostgresConfigStub:
+            def __init__(self):
+                self.app_config = MagicMock()
+                self.app_config.database.mode = "postgres"
+                self.app_config.database.status_column = "Status"
+                self.app_config.table.primary_key = ["PatientID_Mutsequence"]
+                self.app_config.status_values = {"edited": "Edited"}
+                self._save_cell_edit_to_db = MagicMock(return_value=True)
+                self.update_data_in_db = MagicMock()
+                self.save_modification_to_db = MagicMock()
+
+            def save_cell_edit_to_db(self, *args, **kwargs):
+                return self._save_cell_edit_to_db(*args, **kwargs)
+
+        mock_config = PostgresConfigStub()
+
+        updated_df, updated_log = perform_cell_edit(
+            sample_data, [], 0, "Gene_names", "BRCA1", "BRCA1_v2",
+            config_instance=mock_config
+        )
+
+        assert updated_df.iloc[0]["Gene_names"] == "BRCA1_v2"
+        assert len(updated_log) == 1
+        mock_config._save_cell_edit_to_db.assert_called_once()
+        mock_config.update_data_in_db.assert_not_called()
+        mock_config.save_modification_to_db.assert_not_called()
 
 
 # =====================================================================

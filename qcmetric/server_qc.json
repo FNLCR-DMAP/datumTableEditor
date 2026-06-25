@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 102,
+    "total_functions": 106,
     "unused_functions": 1,
-    "fully_annotated_functions": 4,
-    "function_coverage_percent": 3.9,
-    "parameter_coverage_percent": 46.4,
+    "fully_annotated_functions": 5,
+    "function_coverage_percent": 4.7,
+    "parameter_coverage_percent": 46.7,
     "mypy_errors": 0
   },
   "files": {},
@@ -22,11 +22,12 @@
       ]
     },
     "src/server/core.py": {
-      "total": 32,
+      "total": 34,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
         "_cell_click",
+        "_clamped_page_for_indices",
         "_convert_default_filters",
         "_do_refresh",
         "_emit",
@@ -39,6 +40,7 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_is_synthesis_query_in_memory",
         "_lazy_filtered_count",
         "_namespace_holder",
         "_require_editor",
@@ -60,6 +62,7 @@
       "used": [
         "_build_query_params",
         "_cached_page_data",
+        "_clamped_page_for_indices",
         "_convert_default_filters",
         "_do_refresh",
         "_emit",
@@ -72,6 +75,7 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_is_synthesis_query_in_memory",
         "_lazy_filtered_count",
         "_require_editor",
         "_save_status_to_db",
@@ -270,15 +274,19 @@
       ]
     },
     "src/server/synthesis.py": {
-      "total": 5,
+      "total": 7,
       "functions": [
         "_exit_synthesis",
+        "_is_lazy_query_mode",
+        "_result_row_count",
         "register_synthesis",
         "synthesis_mode_banner",
         "synthesis_query_preview",
         "synthesis_status"
       ],
       "used": [
+        "_is_lazy_query_mode",
+        "_result_row_count",
         "register_synthesis"
       ],
       "framework_managed": [
@@ -303,12 +311,12 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 32,
+        "total": 34,
         "with_return_type": 3,
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 18,
+        "total": 19,
         "annotated": 6
       },
       "missing": [
@@ -611,60 +619,60 @@
           "type": "parameter",
           "function": "_save_presets_fn",
           "name": "presets_dict",
-          "line": 51
+          "line": 52
         },
         {
           "type": "return",
           "function": "_save_presets_fn",
-          "line": 51
+          "line": 52
         },
         {
           "type": "parameter",
           "function": "_save_active_preset_fn",
           "name": "preset_name",
-          "line": 54
+          "line": 55
         },
         {
           "type": "return",
           "function": "_save_active_preset_fn",
-          "line": 54
+          "line": 55
         },
         {
           "type": "return",
           "function": "current_preset_name",
-          "line": 58
+          "line": 59
         },
         {
           "type": "return",
           "function": "_refresh_presets",
-          "line": 63
+          "line": 64
         },
         {
           "type": "return",
           "function": "preset_menu_items",
-          "line": 78
+          "line": 79
         },
         {
           "type": "return",
           "function": "available_columns_modal",
-          "line": 86
+          "line": 87
         },
         {
           "type": "return",
           "function": "_update_column_order",
-          "line": 94
+          "line": 95
         }
       ]
     },
     "src/server/synthesis.py": {
       "functions": {
-        "total": 5,
-        "with_return_type": 0,
-        "fully_annotated": 0
+        "total": 7,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 1,
-        "annotated": 1
+        "total": 2,
+        "annotated": 2
       },
       "missing": [
         {
@@ -674,23 +682,28 @@
         },
         {
           "type": "return",
+          "function": "_is_lazy_query_mode",
+          "line": 39
+        },
+        {
+          "type": "return",
           "function": "synthesis_query_preview",
-          "line": 89
+          "line": 96
         },
         {
           "type": "return",
           "function": "synthesis_mode_banner",
-          "line": 100
+          "line": 107
         },
         {
           "type": "return",
           "function": "synthesis_status",
-          "line": 114
+          "line": 121
         },
         {
           "type": "return",
           "function": "_exit_synthesis",
-          "line": 356
+          "line": 365
         }
       ]
     }
