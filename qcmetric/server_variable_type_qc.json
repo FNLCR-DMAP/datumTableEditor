@@ -2,11 +2,11 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 578,
-    "fully_annotated_functions": 367,
-    "function_coverage_percent": 63.5,
-    "total_parameters": 766,
-    "annotated_parameters": 675,
+    "total_functions": 585,
+    "fully_annotated_functions": 369,
+    "function_coverage_percent": 63.1,
+    "total_parameters": 770,
+    "annotated_parameters": 678,
     "parameter_coverage_percent": 88.1,
     "mypy_errors": 0,
     "mypy_available": true
@@ -506,13 +506,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 137,
-        "with_return_type": 95,
-        "fully_annotated": 91
+        "total": 140,
+        "with_return_type": 96,
+        "fully_annotated": 92
       },
       "parameters": {
-        "total": 149,
-        "annotated": 117
+        "total": 151,
+        "annotated": 119
       },
       "missing_annotations": [
         {
@@ -547,32 +547,32 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 328
+          "line": 329
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 333
+          "line": 334
         },
         {
           "type": "parameter",
           "function": "_resolve_env_ref",
           "name": "default",
-          "line": 363
+          "line": 364
         },
         {
           "type": "parameter",
           "function": "_resolve_env_ref",
           "name": "cast",
-          "line": 363
+          "line": 364
         },
         {
           "type": "return",
           "function": "_resolve_env_ref",
-          "line": 363
+          "line": 364
         }
       ],
-      "missing_annotations_truncated": 64
+      "missing_annotations_truncated": 66
     },
     "src/config/sql_types.py": {
       "functions": {
@@ -868,12 +868,12 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 32,
+        "total": 34,
         "with_return_type": 3,
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 18,
+        "total": 19,
         "annotated": 6
       },
       "missing_annotations": [
@@ -932,7 +932,7 @@
           "line": 297
         }
       ],
-      "missing_annotations_truncated": 31
+      "missing_annotations_truncated": 34
     },
     "src/server/edits.py": {
       "functions": {
@@ -1228,13 +1228,13 @@
     },
     "src/server/synthesis.py": {
       "functions": {
-        "total": 5,
-        "with_return_type": 0,
-        "fully_annotated": 0
+        "total": 7,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 1,
-        "annotated": 1
+        "total": 2,
+        "annotated": 2
       },
       "missing_annotations": [
         {
@@ -1244,23 +1244,28 @@
         },
         {
           "type": "return",
+          "function": "_is_lazy_query_mode",
+          "line": 39
+        },
+        {
+          "type": "return",
           "function": "synthesis_query_preview",
-          "line": 89
+          "line": 96
         },
         {
           "type": "return",
           "function": "synthesis_mode_banner",
-          "line": 100
+          "line": 107
         },
         {
           "type": "return",
           "function": "synthesis_status",
-          "line": 114
+          "line": 121
         },
         {
           "type": "return",
           "function": "_exit_synthesis",
-          "line": 356
+          "line": 365
         }
       ]
     },

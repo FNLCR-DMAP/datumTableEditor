@@ -718,6 +718,35 @@ class TestDataFetcherGetValueCounts:
         assert "LIMIT 25 OFFSET 25" in sql_str
         assert list(df.columns) == ["id", "name", "_mod_status"]
 
+    def test_query_override_fetch_page_applies_sort(self):
+        """Query override should ORDER BY the requested output column."""
+        from src.config.config_instance import QueryParams
+
+        fetcher = self._make_fetcher("direct")
+        fetcher._query_override = "SELECT id, name FROM source"
+        fetcher._columns = ["id", "name"]
+        fetcher._column_types = {"name": "text"}
+        fetcher.app_config.database.mods_table = "mods"
+        fetcher.app_config.table.primary_key = ["id"]
+        fetcher.app_config.enable_approval_workflow = False
+        fetcher.app_config.enable_status_filter = False
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [(2, "z", "unprocessed")]
+        mock_result.keys.return_value = ["id", "name", "_mod_status"]
+        mock_conn.execute.return_value = mock_result
+        fetcher._engine.connect.return_value = mock_conn
+
+        fetcher.fetch_page(QueryParams(sort_column="name", sort_ascending=False, page=1, page_size=25))
+
+        sql_str = str(mock_conn.execute.call_args[0][0])
+        assert "FROM (SELECT id, name FROM source) d" in sql_str
+        assert 'ORDER BY "name" DESC' in sql_str
+        assert "LIMIT 25 OFFSET 0" in sql_str
+
 
 # =============================================================================
 # ConfigInstance.activate_synthesis_fetcher / deactivate_synthesis_fetcher

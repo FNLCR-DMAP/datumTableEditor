@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 181,
+    "total_functions": 184,
     "unused_functions": 1,
-    "fully_annotated_functions": 123,
-    "function_coverage_percent": 68.0,
-    "parameter_coverage_percent": 79.5,
+    "fully_annotated_functions": 124,
+    "function_coverage_percent": 67.4,
+    "parameter_coverage_percent": 79.7,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 137,
+      "total": 140,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -159,11 +159,13 @@
         "_select_columns",
         "_skip_mods",
         "_skip_mods",
+        "_source_sql",
         "_stamp_synthesis_comment",
         "_update_data_in_datum",
         "_update_status_in_db",
         "_uses_execute_sql_client",
         "activate_synthesis_fetcher",
+        "activate_synthesis_query_fetcher",
         "batch_save_status",
         "check_synthesis_table_exists",
         "cleanup_corrupted_modifications",
@@ -202,6 +204,7 @@
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
+        "set_query_override",
         "set_table_override",
         "total_count",
         "total_row_count",
@@ -293,6 +296,7 @@
         "_update_data_in_datum",
         "_uses_execute_sql_client",
         "activate_synthesis_fetcher",
+        "activate_synthesis_query_fetcher",
         "batch_save_status",
         "check_synthesis_table_exists",
         "cleanup_corrupted_modifications",
@@ -330,6 +334,7 @@
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
+        "set_query_override",
         "set_table_override",
         "total_count",
         "total_row_count",
@@ -348,6 +353,7 @@
         "_select_columns",
         "_skip_mods",
         "_skip_mods",
+        "_source_sql",
         "columns",
         "data_fetcher",
         "date_columns",
@@ -486,13 +492,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 137,
-        "with_return_type": 95,
-        "fully_annotated": 91
+        "total": 140,
+        "with_return_type": 96,
+        "fully_annotated": 92
       },
       "parameters": {
-        "total": 149,
-        "annotated": 117
+        "total": 151,
+        "annotated": 119
       },
       "missing": [
         {
@@ -527,29 +533,29 @@
         {
           "type": "return",
           "function": "__post_init__",
-          "line": 328
+          "line": 329
         },
         {
           "type": "return",
           "function": "_init_connection",
-          "line": 333
+          "line": 334
         },
         {
           "type": "parameter",
           "function": "_resolve_env_ref",
           "name": "default",
-          "line": 363
+          "line": 364
         },
         {
           "type": "parameter",
           "function": "_resolve_env_ref",
           "name": "cast",
-          "line": 363
+          "line": 364
         },
         {
           "type": "return",
           "function": "_resolve_env_ref",
-          "line": 363
+          "line": 364
         }
       ]
     },

@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 578,
-    "total_unused": 116,
-    "unused_percentage": 20.1
+    "total_functions": 585,
+    "total_unused": 117,
+    "unused_percentage": 20.0
   },
   "modules": {
     "clipboard_utils.py": {
@@ -638,7 +638,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 137,
+      "total_functions": 140,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -730,11 +730,13 @@
         "_select_columns",
         "_skip_mods",
         "_skip_mods",
+        "_source_sql",
         "_stamp_synthesis_comment",
         "_update_data_in_datum",
         "_update_status_in_db",
         "_uses_execute_sql_client",
         "activate_synthesis_fetcher",
+        "activate_synthesis_query_fetcher",
         "batch_save_status",
         "check_synthesis_table_exists",
         "cleanup_corrupted_modifications",
@@ -773,6 +775,7 @@
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
+        "set_query_override",
         "set_table_override",
         "total_count",
         "total_row_count",
@@ -862,6 +865,7 @@
         "_update_data_in_datum",
         "_uses_execute_sql_client",
         "activate_synthesis_fetcher",
+        "activate_synthesis_query_fetcher",
         "batch_save_status",
         "check_synthesis_table_exists",
         "cleanup_corrupted_modifications",
@@ -899,6 +903,7 @@
         "save_modification_to_db",
         "save_preset",
         "save_ui_state",
+        "set_query_override",
         "set_table_override",
         "total_count",
         "total_row_count",
@@ -916,6 +921,7 @@
         "_select_columns",
         "_skip_mods",
         "_skip_mods",
+        "_source_sql",
         "_update_status_in_db",
         "data_fetcher"
       ]
@@ -1270,11 +1276,12 @@
     "core.py": {
       "description": "Server core \u2014 create_server() setup, reactive values, and sub-module wiring.",
       "path": "src/server/core.py",
-      "total_functions": 32,
+      "total_functions": 34,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
         "_cell_click",
+        "_clamped_page_for_indices",
         "_convert_default_filters",
         "_do_refresh",
         "_emit",
@@ -1287,6 +1294,7 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_is_synthesis_query_in_memory",
         "_lazy_filtered_count",
         "_namespace_holder",
         "_require_editor",
@@ -1308,6 +1316,7 @@
       "used_internally": [
         "_build_query_params",
         "_cached_page_data",
+        "_clamped_page_for_indices",
         "_convert_default_filters",
         "_do_refresh",
         "_emit",
@@ -1320,6 +1329,7 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_is_synthesis_query_in_memory",
         "_lazy_filtered_count",
         "_require_editor",
         "_save_status_to_db",
@@ -1528,15 +1538,19 @@
     "synthesis.py": {
       "description": "Server synthesis \u2014 synthesis transform run/regen/exit + status display.",
       "path": "src/server/synthesis.py",
-      "total_functions": 5,
+      "total_functions": 7,
       "functions": [
         "_exit_synthesis",
+        "_is_lazy_query_mode",
+        "_result_row_count",
         "register_synthesis",
         "synthesis_mode_banner",
         "synthesis_query_preview",
         "synthesis_status"
       ],
       "used_internally": [
+        "_is_lazy_query_mode",
+        "_result_row_count",
         "register_synthesis"
       ],
       "unused": [
@@ -1605,6 +1619,7 @@
       "_select_columns",
       "_skip_mods",
       "_skip_mods",
+      "_source_sql",
       "_update_status_in_db",
       "data_fetcher"
     ],
