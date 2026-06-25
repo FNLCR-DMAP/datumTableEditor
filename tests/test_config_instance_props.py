@@ -349,6 +349,7 @@ class TestConfigInstanceUpdateDataInDb:
         ci = ConfigInstance.__new__(ConfigInstance)
         ci.app_config = MagicMock()
         ci.app_config.database.mode = "direct"
+        ci.app_config.database.lazy_loading = False
         ci.app_config.database.data_table = "test_data"
         ci.app_config.table.primary_key = ["id"]
 
@@ -500,6 +501,7 @@ class TestDataFetcherTableOverride:
         fetcher.app_config = MagicMock()
         fetcher.app_config.database.data_table = data_table
         fetcher._table_override = None
+        fetcher._query_override = None
         fetcher._total_count = 0
         fetcher._columns = []
         fetcher._column_types = {}
@@ -539,6 +541,16 @@ class TestDataFetcherTableOverride:
         assert fetcher._table_override == "temp_table"
         fetcher.clear_table_override()
         assert fetcher._table_override is None
+
+    def test_set_query_override_sets_subquery_source(self):
+        """set_query_override should use the query as a wrapped FROM source."""
+        fetcher = self._make_fetcher()
+        fetcher.set_query_override("SELECT id, name FROM source;")
+
+        assert fetcher._query_override == "SELECT id, name FROM source"
+        assert fetcher._table_override is None
+        assert fetcher._source_sql == "(SELECT id, name FROM source)"
+        fetcher._fetch_metadata.assert_called_once()
 
 
 # =============================================================================
@@ -669,6 +681,43 @@ class TestDataFetcherGetValueCounts:
         sql_str = str(call_args[0][0])
         assert "LIMIT 10" in sql_str
 
+    def test_query_override_fetch_page_wraps_query_with_limit_offset(self):
+        """Query override should page against the wrapped synthesis SQL."""
+        from src.config.config_instance import QueryParams
+
+        fetcher = self._make_fetcher("direct")
+        fetcher._query_override = "SELECT id, name FROM source"
+        fetcher._columns = ["id", "name"]
+        fetcher._column_types = {"name": "text"}
+        fetcher.app_config.database.mods_table = "mods"
+        fetcher.app_config.table.primary_key = ["id"]
+        fetcher.app_config.enable_approval_workflow = True
+        fetcher.app_config.enable_status_filter = True
+        fetcher.app_config.status_values = {}
+        fetcher.app_config.status_labels = {
+            "unprocessed": "Unprocessed",
+            "edited": "Edited",
+            "approved": "Approved",
+            "rejected": "Rejected",
+        }
+        fetcher.app_config.database.status_column = "Status"
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [(26, "row", "unprocessed")]
+        mock_result.keys.return_value = ["id", "name", "_mod_status"]
+        mock_conn.execute.return_value = mock_result
+        fetcher._engine.connect.return_value = mock_conn
+
+        df = fetcher.fetch_page(QueryParams(page=2, page_size=25))
+
+        sql_str = str(mock_conn.execute.call_args[0][0])
+        assert "FROM (SELECT id, name FROM source) d" in sql_str
+        assert "LIMIT 25 OFFSET 25" in sql_str
+        assert list(df.columns) == ["id", "name", "_mod_status"]
+
 
 # =============================================================================
 # ConfigInstance.activate_synthesis_fetcher / deactivate_synthesis_fetcher
@@ -771,6 +820,28 @@ class TestSynthesisFetcherLifecycle:
 
         assert ci._data_fetcher is None
 
+    def test_run_synthesis_query_lazy_activates_fetcher_without_materializing(self):
+        """Lazy query mode should prepare a DataFetcher, not fetch every row."""
+        ci = self._make_ci()
+        ci.app_config.database.lazy_loading = True
+        ci.app_config.synthesis.mode = "query"
+        ci.app_config.synthesis.query = "SELECT id, name FROM source"
+        ci.all_columns = []
+        ci._run_synthesis_direct_query = MagicMock()
+
+        def activate(query):
+            ci.all_columns = ["id", "name"]
+
+        ci.activate_synthesis_query_fetcher = MagicMock(side_effect=activate)
+
+        df, was_cached = ci.run_synthesis()
+
+        ci.activate_synthesis_query_fetcher.assert_called_once_with("SELECT id, name FROM source")
+        ci._run_synthesis_direct_query.assert_not_called()
+        assert was_cached is False
+        assert list(df.columns) == ["id", "name"]
+        assert df.empty
+
 
 # =============================================================================
 # ConfigInstance.get_synthesis_table_name
@@ -827,6 +898,7 @@ class TestCheckSynthesisTableExists:
         ci = ConfigInstance.__new__(ConfigInstance)
         ci.app_config = MagicMock()
         ci.app_config.database.mode = "direct"
+        ci.app_config.database.lazy_loading = False
         ci.app_config.database.data_table = "test_data"
         ci.app_config.synthesis.result_table_prefix = "_synthesis_result"
         ci._synthesis_exists_cache = None
@@ -968,6 +1040,7 @@ class TestRunSynthesisDirectQuery:
         ci.app_config = MagicMock()
         ci.app_config.database.mode = "direct"
         ci.app_config.database.data_table = "test_data"
+        ci.app_config.database.lazy_loading = False
         ci.app_config.synthesis.query = "SELECT id, name FROM source"
         ci.app_config.synthesis.mode = "query"
         ci.app_config.synthesis.result_table_prefix = "_synth"

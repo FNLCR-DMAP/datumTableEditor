@@ -292,6 +292,7 @@ class DataFetcher:
     _columns: List[str] = field(default_factory=list, repr=False)
     _column_types: Dict[str, str] = field(default_factory=dict, repr=False)
     _table_override: Optional[str] = field(default=None, repr=False)
+    _query_override: Optional[str] = field(default=None, repr=False)
 
     @property
     def _lp_lims_user_email(self) -> str:
@@ -390,19 +391,36 @@ class DataFetcher:
         """Return override table if set, else the configured data_table."""
         return self._table_override or self.app_config.database.data_table
 
+    @property
+    def _source_sql(self) -> str:
+        """Return the SQL FROM source for runtime queries."""
+        if self._query_override:
+            query = self._query_override.strip().rstrip(";")
+            return f"({query})"
+        return str(SqlTableName(self._effective_table))
+
     def set_table_override(self, table_name: str):
         """Point all runtime queries at *table_name* (e.g. a matview).
 
         Refreshes the row count and column metadata automatically.
         Modification tracking is suppressed while the override is active.
         """
+        self._query_override = None
         self._table_override = table_name
         self._fetch_metadata()
         print(f"[DataFetcher] Table override → {table_name} ({self._total_count} rows, {len(self._columns)} cols)")
 
+    def set_query_override(self, query: str):
+        """Point runtime queries at a SQL subquery instead of a physical table."""
+        self._table_override = None
+        self._query_override = query.strip().rstrip(";")
+        self._fetch_metadata()
+        print(f"[DataFetcher] Query override → {self._total_count} rows, {len(self._columns)} cols")
+
     def clear_table_override(self):
         """Restore queries to the original data table."""
         self._table_override = None
+        self._query_override = None
         self._fetch_metadata()
         print(f"[DataFetcher] Table override cleared → {self.app_config.database.data_table} ({self._total_count} rows, {len(self._columns)} cols)")
 
@@ -448,8 +466,7 @@ class DataFetcher:
                 print(f"DataFetcher: LP LIMS has {self._total_count} rows, {len(self._columns)} columns")
                 return
 
-            data_table = self._effective_table
-            data_table_sql = SqlTableName(data_table)
+            data_table_sql = self._source_sql
             
             count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
             columns_query = f"SELECT * FROM {data_table_sql} LIMIT 0"
@@ -484,10 +501,13 @@ class DataFetcher:
                     self._columns = self._get_columns_from_schema_datum()
                 print(f"[Timing] fetch_metadata.columns: {(_tm.time() - _t0)*1000:.0f}ms")
                 
-                # Fetch column types from information_schema
-                _t0 = _tm.time()
-                self._column_types = self._get_column_types_from_schema()
-                print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
+                if self._query_override:
+                    self._column_types = {}
+                else:
+                    # Fetch column types from information_schema
+                    _t0 = _tm.time()
+                    self._column_types = self._get_column_types_from_schema()
+                    print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             else:
                 # Direct SQLAlchemy mode
                 from sqlalchemy import text
@@ -504,10 +524,13 @@ class DataFetcher:
                         self._columns = list(result.keys())
                 print(f"[Timing] fetch_metadata.sql: {(_tm.time() - _t0)*1000:.0f}ms")
                 
-                # Fetch column types from information_schema
-                _t0 = _tm.time()
-                self._column_types = self._get_column_types_from_schema()
-                print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
+                if self._query_override:
+                    self._column_types = {}
+                else:
+                    # Fetch column types from information_schema
+                    _t0 = _tm.time()
+                    self._column_types = self._get_column_types_from_schema()
+                    print(f"[Timing] fetch_metadata.types: {(_tm.time() - _t0)*1000:.0f}ms")
             
             text_cols = [c for c, t in self._column_types.items() if t in self._TEXT_TYPES]
             print(f"DataFetcher: Table has {self._total_count} rows, {len(self._columns)} columns ({len(text_cols)} text)")
@@ -536,8 +559,7 @@ class DataFetcher:
                 # row_count may be None; use total_pages as fallback (page_size=1)
                 self._total_count = response.row_count if response.row_count is not None else (response.total_pages or 0)
             elif self._is_datum:
-                data_table = self._effective_table
-                data_table_sql = SqlTableName(data_table)
+                data_table_sql = self._source_sql
                 count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
                 response = self._datum_client.execute_sql(
                     sql=count_query,
@@ -547,8 +569,7 @@ class DataFetcher:
                 )
                 self._total_count = int(response.data[0]["cnt"]) if response.data else 0
             else:
-                data_table = self._effective_table
-                data_table_sql = SqlTableName(data_table)
+                data_table_sql = self._source_sql
                 count_query = f"SELECT COUNT(*) as cnt FROM {data_table_sql}"
                 from sqlalchemy import text
                 with self._engine.connect() as conn:
@@ -592,7 +613,7 @@ class DataFetcher:
         - enable_status_filter = false
         - enable_approval_workflow = false
         """
-        if self._table_override:
+        if self._table_override or self._query_override:
             return True
         if not getattr(self.app_config, "enable_approval_workflow", True):
             return True
@@ -775,7 +796,7 @@ class DataFetcher:
                         values.add(str(val))
                 return sorted(values)[:limit]
 
-            data_table_sql = SqlTableName(self._effective_table)
+            data_table_sql = self._source_sql
             col_ident = SqlIdentifier(column)
             query = f'SELECT DISTINCT {col_ident} FROM {data_table_sql} WHERE {col_ident} IS NOT NULL ORDER BY {col_ident} LIMIT {limit}'
             
@@ -826,7 +847,7 @@ class DataFetcher:
                     counter[key] += 1
                 return counter.most_common(limit)
 
-            data_table_sql = SqlTableName(self._effective_table)
+            data_table_sql = self._source_sql
             col_ident = SqlIdentifier(column)
 
             # Build optional WHERE clause from filters
@@ -1155,10 +1176,9 @@ class DataFetcher:
             return counts
 
         try:
-            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = SqlTableName(data_table)
+            data_table_sql = self._source_sql
             mods_table_sql = SqlTableName(mods_table)
             
             is_datum = self._is_datum
@@ -1286,8 +1306,11 @@ class DataFetcher:
         cols = params.sort_column
         asc = params.sort_ascending
         if not cols:
-            if pk_columns:
-                return f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
+            for pk_col in pk_columns:
+                if pk_col in self._columns:
+                    return f'ORDER BY {SqlIdentifier(pk_col)} ASC'
+            if self._columns:
+                return f'ORDER BY {SqlIdentifier(self._columns[0])} ASC'
             return ""
         if isinstance(cols, str):
             cols = [cols]
@@ -1302,8 +1325,11 @@ class DataFetcher:
                 direction = "ASC" if a else "DESC"
                 parts.append(f'{SqlIdentifier(c)} {direction}')
         if not parts:
-            if pk_columns:
-                return f'ORDER BY {SqlIdentifier(pk_columns[0])} ASC'
+            for pk_col in pk_columns:
+                if pk_col in self._columns:
+                    return f'ORDER BY {SqlIdentifier(pk_col)} ASC'
+            if self._columns:
+                return f'ORDER BY {SqlIdentifier(self._columns[0])} ASC'
             return ""
         return f'ORDER BY {", ".join(parts)}'
 
@@ -1333,8 +1359,7 @@ class DataFetcher:
                 # row_count may be None; use total_pages as fallback (page_size=1)
                 return response.row_count if response.row_count is not None else (response.total_pages or 0)
 
-            data_table = self._effective_table
-            data_table_sql = SqlTableName(data_table)
+            data_table_sql = self._source_sql
 
             is_datum = self._is_datum
             where_clause, sql_params = self._build_where_clause(params, use_params=not is_datum)
@@ -1402,10 +1427,9 @@ class DataFetcher:
             if is_lp_lims:
                 return self._fetch_page_lp_lims(params)
 
-            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = SqlTableName(data_table)
+            data_table_sql = self._source_sql
             mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
@@ -1424,9 +1448,10 @@ class DataFetcher:
             
             cols = self._select_columns
             if self._skip_mods:
+                mod_status_select = "" if "_mod_status" in self._columns else ", 'unprocessed' AS _mod_status"
                 # No modification tracking — simple SELECT, no LATERAL JOIN
                 query = f"""
-                SELECT {cols}, 'unprocessed' AS _mod_status
+                SELECT {cols}{mod_status_select}
                 FROM {data_table_sql} d
                 {where_clause}
                 {order_clause}
@@ -1526,10 +1551,9 @@ class DataFetcher:
                 print(f"[DataFetcher] LP LIMS export fetched {len(df)} rows")
                 return df
 
-            data_table = self._effective_table
             mods_table = self.app_config.database.mods_table
             pk_columns = self.app_config.table.primary_key
-            data_table_sql = SqlTableName(data_table)
+            data_table_sql = self._source_sql
             mods_table_sql = SqlTableName(mods_table)
             
             # Use parameterized queries for SQLAlchemy, interpolated for Datum
@@ -1544,8 +1568,9 @@ class DataFetcher:
             
             cols = self._select_columns
             if self._skip_mods:
+                mod_status_select = "" if "_mod_status" in self._columns else ", 'unprocessed' AS _mod_status"
                 query = f"""
-                SELECT {cols}, 'unprocessed' AS _mod_status
+                SELECT {cols}{mod_status_select}
                 FROM {data_table_sql} d
                 {where_clause}
                 {order_clause}
@@ -2175,6 +2200,7 @@ class ConfigInstance:
             fetcher._columns = []
             fetcher._column_types = {}
             fetcher._table_override = matview_table
+            fetcher._query_override = None
             fetcher._init_connection()
             fetcher._fetch_metadata()          # introspects matview
             self._data_fetcher = fetcher
@@ -2186,6 +2212,34 @@ class ConfigInstance:
             print(f"[DataFetcher] Created for synthesis → {matview_table} ({fetcher._total_count} rows)")
         else:
             self._data_fetcher.set_table_override(matview_table)
+
+    def activate_synthesis_query_fetcher(self, synthesis_query: str):
+        """Create/reconfigure a DataFetcher that pages over a synthesis SQL query."""
+        if self._data_fetcher is None:
+            fetcher = DataFetcher.__new__(DataFetcher)
+            fetcher.app_config = self.app_config
+            fetcher.username = self.username
+            fetcher.user_email = self.user_email
+            fetcher._engine = None
+            fetcher._datum_client = None
+            fetcher._postgres_client = None
+            fetcher._lp_lims_client = None
+            fetcher._total_count = 0
+            fetcher._columns = []
+            fetcher._column_types = {}
+            fetcher._table_override = None
+            fetcher._query_override = synthesis_query.strip().rstrip(";")
+            fetcher._init_connection()
+            fetcher._fetch_metadata()
+            self._data_fetcher = fetcher
+        else:
+            self._data_fetcher.set_query_override(synthesis_query)
+
+        if self._data_fetcher._columns:
+            self.all_columns = self._data_fetcher._columns.copy()
+            self.display_columns = self._data_fetcher._columns.copy()
+            self.df = pd.DataFrame(columns=self.all_columns)
+        print(f"[DataFetcher] Created for synthesis query ({self._data_fetcher.total_count} rows)")
 
     def deactivate_synthesis_fetcher(self):
         """Restore the DataFetcher to the original data table (or remove it)."""
@@ -3114,6 +3168,9 @@ class ConfigInstance:
 
         # Direct query mode — no view creation
         if self.app_config.synthesis.mode == "query":
+            if self.app_config.database.lazy_loading:
+                self.activate_synthesis_query_fetcher(synthesis_query)
+                return pd.DataFrame(columns=self.all_columns), False
             return self._run_synthesis_direct_query(synthesis_query)
 
         result_table = self.get_synthesis_table_name()

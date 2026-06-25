@@ -353,6 +353,17 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
         return _status_for_row
 
+    def _is_synthesis_query_in_memory():
+        return bool(synthesis_active.get() and app_config.synthesis.mode == "query")
+
+    def _clamped_page_for_indices(filtered_indices):
+        rows_per_page = rows_per_page_value.get()
+        if rows_per_page == "all":
+            return current_page.get()
+        rpp = int(rows_per_page)
+        total_pages = max(1, (len(filtered_indices) + rpp - 1) // rpp)
+        return max(1, min(current_page.get(), total_pages))
+
     def _get_filtered_rows():
         current_df = data.get()
         search = search_state.get()
@@ -451,7 +462,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         else:
             current_df = data.get()
             filtered_indices = _get_filtered_rows()
-            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), current_page.get())
+            page = _clamped_page_for_indices(filtered_indices) if _is_synthesis_query_in_memory() else current_page.get()
+            paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), page)
             return current_df, paginated_indices, len(filtered_indices), len(current_df)
 
     def _get_page_selection():
