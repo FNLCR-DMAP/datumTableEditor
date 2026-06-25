@@ -411,6 +411,29 @@ class TestCalculatePagination:
         assert total_pages == 2
 
 
+class TestGetPageBufferWindow:
+    """Tests for lazy DB page buffering math."""
+
+    def test_pages_inside_same_buffer(self):
+        """Pages 1-12 at 25 rows/page fit in one 300-row buffer."""
+        from src.utils.data_operations import get_page_buffer_window
+
+        assert get_page_buffer_window(1, "25", 300) == (1, 300, 0, 25)
+        assert get_page_buffer_window(12, "25", 300) == (1, 300, 275, 300)
+
+    def test_next_buffer_starts_after_buffer_boundary(self):
+        """Page 13 starts the second 300-row DB buffer."""
+        from src.utils.data_operations import get_page_buffer_window
+
+        assert get_page_buffer_window(13, "25", 300) == (2, 300, 0, 25)
+
+    def test_buffer_is_at_least_rows_per_page(self):
+        """A too-small buffer should still fetch one full visible page."""
+        from src.utils.data_operations import get_page_buffer_window
+
+        assert get_page_buffer_window(2, "100", 25) == (2, 100, 0, 100)
+
+
 class TestGetSelectedRowIndices:
     """Tests for get_selected_row_indices function."""
     

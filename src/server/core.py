@@ -19,6 +19,7 @@ from ..utils import (
     build_table_container,
     sort_dataframe,
     get_paginated_indices,
+    get_page_buffer_window,
     get_selected_row_indices,
     get_preset_columns_and_widths,
 )
@@ -230,6 +231,13 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     active_columns = reactive.Value(list(initial_columns))
     column_widths = reactive.Value(dict(initial_widths))
     _columns_layout_trigger = reactive.Value(0)
+    _lazy_page_buffer = {
+        "key": None,
+        "df": pd.DataFrame(),
+        "filtered_count": 0,
+        "total_count": 0,
+    }
+    _lazy_count_cache = {"key": None, "value": 0}
 
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
     current_page = reactive.Value(1)
@@ -425,17 +433,60 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         fetcher = config.data_fetcher
         if fetcher is None:
             return 0
-        params = _build_query_params()
-        return fetcher.get_filtered_count(params)
+
+        params = _build_query_params(page=1, page_size=1)
+        count_key = (
+            repr(params.filters),
+            params.search_term,
+            params.search_column,
+            tuple(params.status_filters or []),
+        )
+        if _lazy_count_cache["key"] != count_key:
+            _lazy_count_cache["key"] = count_key
+            _lazy_count_cache["value"] = fetcher.get_filtered_count(params)
+        return _lazy_count_cache["value"]
+
+    def _lazy_buffer_key(params, buffer_page, buffer_size):
+        return (
+            repr(params.filters),
+            params.search_term,
+            params.search_column,
+            repr(params.sort_column),
+            repr(params.sort_ascending),
+            tuple(params.status_filters or []),
+            buffer_page,
+            buffer_size,
+        )
 
     def _fetch_page_data():
         if is_lazy_loading():
             fetcher = config.data_fetcher
             if fetcher is None:
                 return pd.DataFrame(), 0, 0
-            params = _build_query_params()
-            fetched_df = fetcher.fetch_page(params)
-            return fetched_df, _lazy_filtered_count(), total_rows.get()
+
+            rows_per_page = rows_per_page_value.get()
+            if rows_per_page == "all":
+                params = _build_query_params()
+                fetched_df = fetcher.fetch_page(params)
+                return fetched_df, _lazy_filtered_count(), total_rows.get()
+
+            buffer_page, buffer_size, local_start, local_end = get_page_buffer_window(
+                current_page=current_page.get(),
+                rows_per_page_val=rows_per_page,
+                page_buffer_size=getattr(app_config.database, "page_buffer_size", int(rows_per_page)),
+            )
+            params = _build_query_params(page=buffer_page, page_size=buffer_size)
+            buffer_key = _lazy_buffer_key(params, buffer_page, buffer_size)
+
+            if _lazy_page_buffer["key"] != buffer_key:
+                fetched_df = fetcher.fetch_page(params)
+                _lazy_page_buffer["key"] = buffer_key
+                _lazy_page_buffer["df"] = fetched_df
+                _lazy_page_buffer["filtered_count"] = _lazy_filtered_count()
+                _lazy_page_buffer["total_count"] = total_rows.get()
+
+            page_df = _lazy_page_buffer["df"].iloc[local_start:local_end].copy()
+            return page_df, _lazy_page_buffer["filtered_count"], _lazy_page_buffer["total_count"]
         else:
             current_df = data.get()
             filtered_indices = _get_filtered_rows()

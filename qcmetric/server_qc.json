@@ -619,48 +619,48 @@
           "type": "parameter",
           "function": "_save_presets_fn",
           "name": "presets_dict",
-          "line": 51
+          "line": 52
         },
         {
           "type": "return",
           "function": "_save_presets_fn",
-          "line": 51
+          "line": 52
         },
         {
           "type": "parameter",
           "function": "_save_active_preset_fn",
           "name": "preset_name",
-          "line": 54
+          "line": 55
         },
         {
           "type": "return",
           "function": "_save_active_preset_fn",
-          "line": 54
+          "line": 55
         },
         {
           "type": "return",
           "function": "current_preset_name",
-          "line": 58
+          "line": 59
         },
         {
           "type": "return",
           "function": "_refresh_presets",
-          "line": 63
+          "line": 64
         },
         {
           "type": "return",
           "function": "preset_menu_items",
-          "line": 78
+          "line": 79
         },
         {
           "type": "return",
           "function": "available_columns_modal",
-          "line": 86
+          "line": 87
         },
         {
           "type": "return",
           "function": "_update_column_order",
-          "line": 94
+          "line": 95
         }
       ]
     },
