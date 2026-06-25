@@ -41,6 +41,24 @@ class TestIsOperatorFilter:
         assert _is_operator_filter({}) is False
 
 
+class TestGetFilteredRowsFastPath:
+    def test_no_filters_all_statuses_skips_status_callback(self):
+        df = pd.DataFrame({"Name": ["A", "B", "C"]}, index=[10, 11, 12])
+        status_func = MagicMock(side_effect=AssertionError("status callback should not run"))
+
+        result = get_filtered_rows(
+            df=df,
+            active_columns=["Name"],
+            search_term="",
+            status_filters=["unprocessed", "edited", "approved", "rejected"],
+            column_filters={},
+            get_row_status_func=status_func,
+        )
+
+        assert result == [10, 11, 12]
+        status_func.assert_not_called()
+
+
 # =====================================================================
 # _row_matches_operator — IN / NOT_IN
 # =====================================================================

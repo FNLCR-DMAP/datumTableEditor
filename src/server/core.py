@@ -538,6 +538,30 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                         pass
             return counts
         current_df = data.get()
+        if synthesis_active.get() and app_config.synthesis.mode == "query":
+            all_statuses = list(app_config.status_labels.keys())
+            counts = {key: 0 for key in all_statuses}
+            reverse_status_values = {str(v).lower(): k for k, v in app_config.status_values.items()}
+            source_col = "_mod_status" if "_mod_status" in current_df.columns else getattr(app_config.database, "status_column", None)
+            if source_col and source_col in current_df.columns:
+                raw_counts = current_df[source_col].fillna("").astype(str).str.strip().str.lower().value_counts()
+                for raw_status, count in raw_counts.items():
+                    if not raw_status:
+                        key = "unprocessed"
+                    elif raw_status == "approval":
+                        key = "approved"
+                    elif raw_status == "rejection":
+                        key = "rejected"
+                    elif raw_status == "field_modification":
+                        key = "edited"
+                    else:
+                        key = reverse_status_values.get(raw_status, raw_status)
+                    if key not in counts:
+                        key = "unprocessed"
+                    counts[key] = counts.get(key, 0) + int(count)
+            else:
+                counts["unprocessed"] = len(current_df)
+            return counts
         _ = mods_log.get()
         all_statuses = list(app_config.status_labels.keys())
         search = search_state.get()
