@@ -59,7 +59,7 @@ def register_edits(ctx: ServerContext):
         with tracker.track_render("modifications_log_ui"):
             # Get PKs for currently displayed rows to filter the log
             displayed_pks = None
-            if _cached_page_data and not is_lazy_loading():
+            if _cached_page_data:
                 try:
                     page_df, _, _, _ = _cached_page_data()
                     pk_cols = app_config.table.primary_key
@@ -81,14 +81,21 @@ def register_edits(ctx: ServerContext):
         log_idx = process_undo_action(input.undo_modification())
         if log_idx is None:
             return
-        updated_df, updated_log, message, error = perform_undo(data.get(), mods_log.get(), log_idx, config_instance=config)
+        if is_lazy_loading() and _cached_page_data:
+            current_df, _, _, _ = _cached_page_data()
+        else:
+            current_df = data.get()
+        updated_df, updated_log, message, error = perform_undo(current_df, mods_log.get(), log_idx, config_instance=config)
         if error:
             ui.notification_show(error, type="warning", duration=2)
         else:
-            data.set(updated_df)
+            if not is_lazy_loading():
+                data.set(updated_df)
+                updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+            else:
+                _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             mods_log.set(updated_log)
             save_log_to_file(updated_log, modifications_log_path)
-            updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
             ui.notification_show(message, type="message", duration=2)
 
     @reactive.Effect
@@ -168,7 +175,10 @@ def register_edits(ctx: ServerContext):
         if row is None or not col:
             return
 
-        current_df = data.get()
+        if is_lazy_loading() and _cached_page_data:
+            current_df, _, _, _ = _cached_page_data()
+        else:
+            current_df = data.get()
         current_log = mods_log.get()
 
         target_col = col
@@ -181,7 +191,10 @@ def register_edits(ctx: ServerContext):
             current_df, current_log, row, target_col,
             current_value, original_value, config_instance=config
         )
-        data.set(updated_df)
+        if not is_lazy_loading():
+            data.set(updated_df)
+        else:
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
         mods_log.set(updated_log)
 
         pk_cols = app_config.table.primary_key
@@ -200,7 +213,8 @@ def register_edits(ctx: ServerContext):
             print(f"Warning: Could not clear edited cell tracking: {e}")
 
         save_log_to_file(updated_log, modifications_log_path)
-        updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+        if not is_lazy_loading():
+            updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
         ui.notification_show(f"Reset Row {row + 1}, {col} to original value", type="message", duration=2)
 
     @reactive.Effect
@@ -227,10 +241,13 @@ def register_edits(ctx: ServerContext):
         if is_lazy_loading():
             config.data_fetcher.refresh_count()
             total_rows.set(config.data_fetcher.total_count)
+            config.invalidate_mods_cache()
+            mods_log.set([])
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
         else:
             fresh_data = load_data_from_source()
             data.set(fresh_data)
-        mods_log.set(load_modifications_log())
+            mods_log.set(load_modifications_log(force_refresh=True))
         ui.notification_show("Data reloaded from database.", type="message", duration=3)
 
     # ── Approve / Reject ────────────────────────────────────────────────

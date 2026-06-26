@@ -224,7 +224,7 @@ class DatabaseConfig:
     page_buffer_size: int = 300  # Rows to fetch per page query (DB-level pagination)
     lazy_loading: bool = False  # If True, use DB-level pagination instead of loading all data
     max_rows_per_page: int = 100
-    default_rows_per_page: int = 25
+    default_rows_per_page: Optional[int] = None  # Deprecated alias for table.default_rows_per_page
     
     # Shared app-level cache (cross-session)
     shared_cache_key: Optional[str] = None  # If set, share loaded data across sessions using this key
@@ -447,6 +447,9 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.state.persist_column_selection = st.get("persist_column_selection", config.state.persist_column_selection)
         config.state.persist_column_widths = st.get("persist_column_widths", config.state.persist_column_widths)
     
+    table_has_default_rows = False
+    database_default_rows = None
+
     # Table
     if "table" in file_config:
         tb = file_config["table"]
@@ -456,6 +459,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.table.default_column_widths = tb.get("default_column_widths", config.table.default_column_widths)
         config.table.default_sort_column = tb.get("default_sort_column")
         config.table.default_sort_ascending = tb.get("default_sort_ascending", config.table.default_sort_ascending)
+        table_has_default_rows = "default_rows_per_page" in tb
         config.table.default_rows_per_page = tb.get("default_rows_per_page", config.table.default_rows_per_page)
         config.table.rows_per_page_options = tb.get("rows_per_page_options", config.table.rows_per_page_options)
         config.table.editable_columns = tb.get("editable_columns", config.table.editable_columns)
@@ -507,9 +511,21 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         config.database.page_buffer_size = db.get("page_buffer_size", config.database.page_buffer_size)
         config.database.lazy_loading = db.get("lazy_loading", config.database.lazy_loading)
         config.database.max_rows_per_page = db.get("max_rows_per_page", config.database.max_rows_per_page)
-        config.database.default_rows_per_page = db.get("default_rows_per_page", config.database.default_rows_per_page)
+        database_default_rows = db.get("default_rows_per_page")
+        config.database.default_rows_per_page = database_default_rows
         config.database.shared_cache_key = db.get("shared_cache_key")
         config.database.shared_cache_ttl = db.get("shared_cache_ttl", config.database.shared_cache_ttl)
+
+    if database_default_rows is not None:
+        builtin_default_rows = TableConfig().default_rows_per_page
+        if (
+            not table_has_default_rows
+            or (
+                config.table.default_rows_per_page == builtin_default_rows
+                and database_default_rows != builtin_default_rows
+            )
+        ):
+            config.table.default_rows_per_page = database_default_rows
     
     # Feature flags
     config.enable_approval_workflow = file_config.get("enable_approval_workflow", config.enable_approval_workflow)
@@ -713,7 +729,6 @@ def export_config_schema() -> dict:
             "max_overflow": "number (max pool overflow connections)",
             "pool_timeout": "number (seconds to wait for connection)",
             "max_rows_per_page": "number (max rows per page, default 100)",
-            "default_rows_per_page": "number (default rows per page)",
         },
         "enable_approval_workflow": "boolean",
         "enable_export": "boolean",

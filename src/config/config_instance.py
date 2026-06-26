@@ -7,6 +7,8 @@ Each widget can load its own config file independently.
 
 import json
 import os
+import hashlib
+import re
 import threading
 import time as _time
 import pandas as pd
@@ -64,6 +66,223 @@ def _format_table_name(table_name: str) -> str:
     DEPRECATED — prefer SqlTableName(table_name) in new code.
     """
     return str(SqlTableName(table_name))
+
+
+def _mods_index_name(table_name: str, suffix: str) -> str:
+    """Return a deterministic index name for a mods table."""
+    table_part = table_name.split(".")[-1]
+    safe_base = re.sub(r"[^A-Za-z0-9_]+", "_", table_part).strip("_") or "mods"
+    digest = hashlib.sha1(f"{table_name}:{suffix}".encode("utf-8")).hexdigest()[:8]
+    fixed_len = len("idx__") + len(suffix) + 1 + len(digest)
+    max_base_len = max(8, 63 - fixed_len)
+    index_name = f"idx_{safe_base[:max_base_len]}_{suffix}_{digest}"
+    return str(SqlIdentifier(index_name))
+
+
+def _mods_index_statements(mods_table: str) -> List[str]:
+    """Build indexes used by mods-log loading, status joins, and undo checks."""
+    table_sql = SqlTableName(mods_table)
+    specs = [
+        ("rowpk_gin", "USING GIN (row_pk)", ""),
+        ("created", "(created_at ASC, id ASC)", ""),
+        ("active_latest", "(row_pk, created_at DESC, id DESC)", "WHERE undone = FALSE"),
+        (
+            "field_active",
+            "(row_pk, column_name, created_at DESC, id DESC)",
+            "WHERE undone = FALSE AND mod_type = 'field_modification'",
+        ),
+        (
+            "status_created",
+            "(mod_type, created_at ASC, id ASC)",
+            "WHERE mod_type IN ('approval', 'rejection')",
+        ),
+    ]
+    statements = []
+    for suffix, definition, predicate in specs:
+        stmt = f"CREATE INDEX IF NOT EXISTS {_mods_index_name(mods_table, suffix)} ON {table_sql} {definition}"
+        if predicate:
+            stmt = f"{stmt} {predicate}"
+        statements.append(stmt)
+    return statements
+
+
+def _row_pk_json_values(row_pks: list) -> List[str]:
+    """Serialize row primary-key dicts exactly as mods-table JSONB values."""
+    values = []
+    seen = set()
+    for row_pk in row_pks or []:
+        if not isinstance(row_pk, dict) or not row_pk:
+            continue
+        serializable_pk = {}
+        for key, value in row_pk.items():
+            if hasattr(value, "item"):
+                value = value.item()
+            else:
+                try:
+                    if pd.isna(value):
+                        value = None
+                except Exception:
+                    pass
+            serializable_pk[key] = value
+        pk_json = json.dumps(serializable_pk, sort_keys=True)
+        if pk_json not in seen:
+            values.append(pk_json)
+            seen.add(pk_json)
+    return values
+
+
+def _modifications_log_query(mods_table_sql, pk_array_sql: str = None) -> str:
+    """Return log rows with approval/rejection batches grouped in SQL."""
+    pk_filter = f" AND row_pk = ANY({pk_array_sql})" if pk_array_sql else ""
+    return f"""
+    WITH latest_field_mods AS (
+        SELECT DISTINCT ON (row_pk, column_name)
+               id,
+               row_pk,
+               column_name,
+               old_value,
+               new_value,
+               mod_type,
+               created_by,
+               created_at,
+               undone,
+               NULL::jsonb AS grouped_row_pks,
+               NULL::integer AS grouped_count,
+               id AS sort_id
+        FROM {mods_table_sql}
+        WHERE mod_type = 'field_modification'
+          AND undone = FALSE{pk_filter}
+        ORDER BY row_pk, column_name, created_at DESC, id DESC
+    ),
+    other_non_status AS (
+        SELECT id,
+               row_pk,
+               column_name,
+               old_value,
+               new_value,
+               mod_type,
+               created_by,
+               created_at,
+               undone,
+               NULL::jsonb AS grouped_row_pks,
+               NULL::integer AS grouped_count,
+               id AS sort_id
+        FROM {mods_table_sql}
+        WHERE mod_type NOT IN ('approval', 'rejection', 'field_modification'){pk_filter}
+    ),
+    grouped_status AS (
+        SELECT NULL::integer AS id,
+               NULL::jsonb AS row_pk,
+               '_status'::varchar AS column_name,
+               NULL::text AS old_value,
+               CASE WHEN mod_type = 'approval' THEN 'approved' ELSE 'rejected' END AS new_value,
+               mod_type,
+               NULL::varchar AS created_by,
+               date_trunc('second', created_at) AS created_at,
+               FALSE AS undone,
+               jsonb_agg(row_pk ORDER BY id) AS grouped_row_pks,
+               COUNT(*)::integer AS grouped_count,
+               MIN(id) AS sort_id
+        FROM {mods_table_sql}
+        WHERE mod_type IN ('approval', 'rejection'){pk_filter}
+        GROUP BY mod_type, date_trunc('second', created_at)
+    )
+    SELECT id,
+           row_pk,
+           column_name,
+           old_value,
+           new_value,
+           mod_type,
+           created_by,
+           created_at,
+           undone,
+           grouped_row_pks,
+           grouped_count
+    FROM (
+        SELECT * FROM latest_field_mods
+        UNION ALL
+        SELECT * FROM other_non_status
+        UNION ALL
+        SELECT * FROM grouped_status
+    ) log_rows
+    ORDER BY created_at ASC, sort_id ASC
+    """
+
+
+def _coerce_json(value, default):
+    """Decode JSON strings returned by Datum while accepting native objects."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return default
+    return value
+
+
+def _coerce_grouped_row_pks(value) -> list:
+    row_pks = _coerce_json(value, [])
+    if not isinstance(row_pks, list):
+        return []
+    result = []
+    for row_pk in row_pks:
+        parsed = _coerce_json(row_pk, row_pk)
+        if isinstance(parsed, dict) and parsed:
+            result.append(parsed)
+    return result
+
+
+def _timestamp_for_log(value, truncate_seconds: bool = False):
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        text_value = value.isoformat()
+    else:
+        text_value = str(value)
+    return text_value[:19] if truncate_seconds else text_value
+
+
+def _modification_rows_to_log(rows: list) -> List[Dict]:
+    """Convert SQL result rows into the in-memory modifications log shape."""
+    log = []
+    for row in rows:
+        mod_type = row.get("mod_type")
+        grouped_row_pks = row.get("grouped_row_pks")
+        if mod_type in ("approval", "rejection") and grouped_row_pks is not None:
+            row_pks = _coerce_grouped_row_pks(grouped_row_pks)
+            action = "approved" if mod_type == "approval" else "rejected"
+            rows_key = "approved_rows" if mod_type == "approval" else "rejected_rows"
+            count_key = "approved_row_count" if mod_type == "approval" else "rejected_row_count"
+            log.append({
+                "timestamp": _timestamp_for_log(row.get("created_at"), truncate_seconds=True),
+                "type": mod_type,
+                "details": {
+                    "action": action,
+                    rows_key: row_pks,
+                    count_key: int(row.get("grouped_count") or len(row_pks)),
+                }
+            })
+            continue
+
+        row_pk = _coerce_json(row.get("row_pk"), {})
+        if row_pk is None:
+            row_pk = {}
+
+        log.append({
+            "db_id": row.get("id"),
+            "timestamp": _timestamp_for_log(row.get("created_at")),
+            "type": mod_type,
+            "undone": row.get("undone", False),
+            "details": {
+                "row_pk": row_pk,
+                "column": row.get("column_name"),
+                "old_value": row.get("old_value"),
+                "new_value": row.get("new_value"),
+                "created_by": row.get("created_by")
+            }
+        })
+    return log
 
 
 def _escape_identifier(name: str) -> str:
@@ -195,22 +414,15 @@ def _build_mod_status_expr(status_column: str = None, status_labels: dict = None
     return f"COALESCE({mod_normalize}, 'unprocessed')"
 
 
-def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
+def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str, include_field_mods: bool = False):
     """Return (cte_clause, join_clause) to replace LATERAL JOIN with a CTE.
 
-    The CTE materialises only the latest undone modification per PK from the
+    The CTE materialises only the latest active modification per PK from the
     (small) mods table.  PostgreSQL uses a hash-join against the data table
     instead of a correlated sub-query per row.
 
-    A second CTE (``any_mod``) tracks PKs that have *any* modification
-    history (including undone).  When all mods for a row have been undone
-    the active-CTE produces NULL, but we must NOT fall back to the data
-    table's status column because that value is stale from the original
-    edit.  ``any_mod`` lets the status expression distinguish "never
-    modified" from "all modifications undone".
-
-    The join aliases are ``ms`` (active mod) and ``am`` (any mod) so that
-    ``_build_mod_status_expr()`` expressions work unchanged.
+    ``include_field_mods`` adds a second aggregate CTE used only by lazy page
+    fetches to rebuild edited-cell border metadata.
 
     Usage::
 
@@ -231,11 +443,9 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
                 FROM {mods_table_sql} lm
                 WHERE lm.undone = FALSE
                 ORDER BY lm.row_pk, lm.created_at DESC
-            ),
-            any_mod AS (
-                SELECT DISTINCT row_pk
-                FROM {mods_table_sql}
-            ),
+            )"""
+    if include_field_mods:
+        cte_clause += f""",
             field_mods AS (
                 SELECT fm.row_pk AS fm_row_pk,
                        fm.column_name AS fm_column_name,
@@ -247,8 +457,7 @@ def _build_mod_cte_and_join(mods_table_sql, pk_json_build: str):
                 GROUP BY fm.row_pk, fm.column_name
             )"""
     join_clause = (
-        f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build} "
-        f"LEFT JOIN any_mod am ON am.row_pk = {pk_json_build}"
+        f"LEFT JOIN latest_mod ms ON ms.row_pk = {pk_json_build}"
     )
     return cte_clause, join_clause
 
@@ -1460,7 +1669,9 @@ class DataFetcher:
             else:
                 # CTE materialises the tiny mods table; hash-join replaces
                 # the expensive per-row LATERAL sub-query.
-                cte, join = _build_mod_cte_and_join(mods_table_sql, pk_json_build)
+                cte, join = _build_mod_cte_and_join(
+                    mods_table_sql, pk_json_build, include_field_mods=True
+                )
                 inner_query = f"""
                 SELECT {cols}, 
                        {_build_mod_status_expr(self._effective_status_column, getattr(self.app_config, "status_labels", None), getattr(self.app_config, "status_values", None))} AS _mod_status,
@@ -1977,6 +2188,9 @@ class ConfigInstance:
     _postgres_client: Any = field(default=None, repr=False)
     _mods_log_cache: List[Dict] = field(default=None, repr=False)  # Cache for modifications log
     _mods_log_cache_time: float = field(default=0, repr=False)  # Cache timestamp
+    _mods_log_pk_cache: List[Dict] = field(default=None, repr=False)  # Cache for scoped modifications log
+    _mods_log_pk_cache_key: Tuple[str, ...] = field(default=None, repr=False)
+    _mods_log_pk_cache_time: float = field(default=0, repr=False)
     _data_cache: pd.DataFrame = field(default=None, repr=False)  # Cache for data
     _data_cache_time: float = field(default=0, repr=False)  # Data cache timestamp
     _data_fetcher: Any = field(default=None, repr=False)  # DataProvider (lazy loading)
@@ -2937,12 +3151,17 @@ class ConfigInstance:
             return [col for col in self.app_config.table.default_columns if col in self.df.columns]
         return self.all_columns[:12]  # Default to first 12 columns
     
-    def load_modifications_log(self, force_refresh: bool = False) -> List[Dict]:
+    def load_modifications_log(
+        self,
+        force_refresh: bool = False,
+        row_pks: list = None,
+    ) -> List[Dict]:
         """
         Load modifications log from database with caching.
         
         Args:
             force_refresh: If True, bypass cache and reload from DB
+            row_pks: Optional list of row PK dicts to load only those rows' mods
         """
         # When approval workflow is disabled, skip all mods DB queries
         if self._skip_mods:
@@ -2952,6 +3171,28 @@ class ConfigInstance:
         
         # Use cached data if available and not expired (cache for 5 seconds)
         cache_ttl = 5.0
+        pk_json_values = None
+        if row_pks is not None:
+            pk_json_values = _row_pk_json_values(row_pks)
+            if not pk_json_values:
+                return []
+            scoped_key = tuple(sorted(pk_json_values))
+            if (
+                not force_refresh
+                and getattr(self, "_mods_log_pk_cache", None) is not None
+                and getattr(self, "_mods_log_pk_cache_key", None) == scoped_key
+                and time.time() - getattr(self, "_mods_log_pk_cache_time", 0) < cache_ttl
+            ):
+                return self._mods_log_pk_cache
+            if self._uses_execute_sql_client():
+                result = self._load_modifications_from_datum(pk_json_values=pk_json_values)
+            else:
+                result = self._load_modifications_from_db(pk_json_values=pk_json_values)
+            self._mods_log_pk_cache = result
+            self._mods_log_pk_cache_key = scoped_key
+            self._mods_log_pk_cache_time = time.time()
+            return result
+
         if not force_refresh and self._mods_log_cache is not None:
             if time.time() - self._mods_log_cache_time < cache_ttl:
                 return self._mods_log_cache
@@ -2972,6 +3213,9 @@ class ConfigInstance:
         """Invalidate the modifications log cache (call after making changes)."""
         self._mods_log_cache = None
         self._mods_log_cache_time = 0
+        self._mods_log_pk_cache = None
+        self._mods_log_pk_cache_key = None
+        self._mods_log_pk_cache_time = 0
 
     def _ensure_mods_table_exists(self) -> bool:
         """Create the modifications table if it doesn't exist. Only runs once per instance."""
@@ -3022,6 +3266,13 @@ class ConfigInstance:
                     )
                 '''))
                 conn.commit()
+                for index_sql in _mods_index_statements(mods_table):
+                    try:
+                        conn.execute(text(index_sql))
+                        conn.commit()
+                    except Exception as idx_e:
+                        conn.rollback()
+                        print(f"⚠ Could not create mods index: {idx_e}")
             self._mods_table_checked = True
             print(f"✓ Modifications table {table_sql} ensured")
             return True
@@ -3066,6 +3317,11 @@ class ConfigInstance:
                     )
                 '''
             )
+            for index_sql in _mods_index_statements(mods_table):
+                try:
+                    self._execute_client_sql(index_sql)
+                except Exception as idx_e:
+                    print(f"⚠ Could not create mods index via execute_sql client: {idx_e}")
             
             self._mods_table_checked = True
             print(f"✓ Modifications table {mods_table_sql} ensured via execute_sql client")
@@ -3362,7 +3618,7 @@ class ConfigInstance:
             self._synthesis_exists_cache = False
             return False
 
-    def _load_modifications_from_datum(self) -> List[Dict]:
+    def _load_modifications_from_datum(self, pk_json_values: list = None) -> List[Dict]:
         """Load modifications via Datum-compatible execute_sql client."""
         try:
             # Ensure modifications table exists first
@@ -3370,43 +3626,23 @@ class ConfigInstance:
             mods_table = self.app_config.database.mods_table
             mods_table_sql = _format_table_name(mods_table)
             
-            query = f'''SELECT id, row_pk, column_name, old_value, new_value, 
-                       mod_type, created_by, created_at, undone
-                       FROM {mods_table_sql} ORDER BY created_at ASC'''
+            pk_array_sql = build_pk_array(pk_json_values) if pk_json_values else None
+            query = _modifications_log_query(mods_table_sql, pk_array_sql=pk_array_sql)
             
-            print(f"[Datum DEBUG] Loading modifications from {mods_table_sql}, database={self.app_config.database.datum_database}, schema={self.app_config.database.datum_schema}")
+            scope = f" for {len(pk_json_values)} PKs" if pk_json_values else ""
+            print(f"[Datum DEBUG] Loading modifications{scope} from {mods_table_sql}, database={self.app_config.database.datum_database}, schema={self.app_config.database.datum_schema}")
             
             with tracker.track_sql("load_modifications.datum", query):
                 response = self._execute_client_sql(query)
             
-            print(f"[Datum DEBUG] Loaded {len(response.data)} raw modifications")
+            print(f"[Datum DEBUG] Loaded {len(response.data)} modification log rows")
             # Show latest few IDs to verify new entries
             if response.data:
-                latest_ids = [r.get("id") for r in response.data[-5:]]
+                latest_ids = [r.get("id") for r in response.data if r.get("id") is not None][-5:]
                 print(f"[Datum DEBUG] Latest 5 modification IDs: {latest_ids}")
             
-            log = []
-            for row in response.data:
-                row_pk = row.get("row_pk", {})
-                if isinstance(row_pk, str):
-                    row_pk = json.loads(row_pk)
-                
-                log.append({
-                    "db_id": row.get("id"),
-                    "timestamp": row.get("created_at"),
-                    "type": row.get("mod_type"),
-                    "undone": row.get("undone", False),
-                    "details": {
-                        "row_pk": row_pk,
-                        "column": row.get("column_name"),
-                        "old_value": row.get("old_value"),
-                        "new_value": row.get("new_value"),
-                        "created_by": row.get("created_by")
-                    }
-                })
-            
-            result = self._aggregate_approval_rejection_entries(log)
-            print(f"[Datum DEBUG] After aggregation: {len(result)} modifications")
+            result = _modification_rows_to_log(response.data)
+            print(f"[Datum DEBUG] Parsed {len(result)} modifications")
             return result
         except Exception as e:
             print(f"✗ Error loading modifications from execute_sql client: {e}")
@@ -3414,7 +3650,7 @@ class ConfigInstance:
             traceback.print_exc()
             return []
 
-    def _load_modifications_from_db(self) -> List[Dict]:
+    def _load_modifications_from_db(self, pk_json_values: list = None) -> List[Dict]:
         """Load modifications from database."""
         try:
             # Ensure modifications table exists first
@@ -3429,40 +3665,14 @@ class ConfigInstance:
                 return []
             
             table_sql = _format_table_name(mods_table)
-            load_mods_sql = f'''
-                    SELECT id, row_pk, column_name, old_value, new_value, 
-                           mod_type, created_by, created_at, undone
-                    FROM {table_sql}
-                    ORDER BY created_at ASC
-                '''
+            pk_array_sql = build_pk_array(pk_json_values) if pk_json_values else None
+            load_mods_sql = _modifications_log_query(table_sql, pk_array_sql=pk_array_sql)
             with engine.connect() as conn:
                 with tracker.track_sql("load_modifications", load_mods_sql):
                     result = conn.execute(text(load_mods_sql))
-                    rows = result.fetchall()
+                    rows = result.mappings().all()
             
-            log = []
-            for row in rows:
-                row_pk = row[1]
-                if isinstance(row_pk, str):
-                    row_pk = json.loads(row_pk)
-                elif row_pk is None:
-                    row_pk = {}
-                
-                log.append({
-                    "db_id": row[0],
-                    "timestamp": row[7].isoformat() if row[7] else None,
-                    "type": row[5],
-                    "undone": row[8],
-                    "details": {
-                        "row_pk": row_pk,
-                        "column": row[2],
-                        "old_value": row[3],
-                        "new_value": row[4],
-                        "created_by": row[6]
-                    }
-                })
-            
-            return self._aggregate_approval_rejection_entries(log)
+            return _modification_rows_to_log(rows)
         except Exception as e:
             print(f"✗ Error loading modifications: {e}")
             return []
@@ -4301,6 +4511,13 @@ class ConfigInstance:
         except Exception as e:
             print(f"⚠ Could not save UI state via execute_sql client: {e}")
             return False
+
+    def _apply_ui_state_policy(self, state: Dict, default_state: Dict) -> Dict:
+        """Apply state persistence feature flags after loading saved UI state."""
+        if not self.app_config.state.persist_page:
+            state["current_page"] = default_state["current_page"]
+            state["rows_per_page"] = default_state["rows_per_page"]
+        return state
     
     def load_ui_state(self) -> Dict:
         """Load UI state from database for this config instance."""
@@ -4357,7 +4574,7 @@ class ConfigInstance:
                 elif filters is None:
                     filters = {}
                 
-                return {
+                loaded_state = {
                     "sort_column": row[0] or default_state["sort_column"],
                     "sort_ascending": row[1] if row[1] is not None else default_state["sort_ascending"],
                     "current_page": row[2] or default_state["current_page"],
@@ -4365,6 +4582,7 @@ class ConfigInstance:
                     "filters": filters,
                     "column_preset": row[5]
                 }
+                return self._apply_ui_state_policy(loaded_state, default_state)
         except Exception as e:
             print(f"⚠ Could not load UI state: {e}")
         
@@ -4398,7 +4616,7 @@ class ConfigInstance:
                 elif filters is None:
                     filters = {}
                 
-                return {
+                loaded_state = {
                     "sort_column": row.get("sort_column") or default_state["sort_column"],
                     "sort_ascending": row.get("sort_ascending") if row.get("sort_ascending") is not None else default_state["sort_ascending"],
                     "current_page": row.get("current_page") or default_state["current_page"],
@@ -4406,6 +4624,7 @@ class ConfigInstance:
                     "filters": filters,
                     "column_preset": row.get("column_preset")
                 }
+                return self._apply_ui_state_policy(loaded_state, default_state)
         except Exception as e:
             print(f"⚠ Could not load UI state via execute_sql client: {e}")
         

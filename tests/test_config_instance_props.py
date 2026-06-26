@@ -73,6 +73,140 @@ class TestDataFetcherApplyFieldModifications:
         }
 
 
+class TestModificationsLogPerformanceSql:
+    """Pin the optimized SQL fragments used by large modifications logs."""
+
+    def test_mod_cte_omits_field_mods_by_default(self):
+        from src.config.config_instance import _build_mod_cte_and_join
+        from src.config.sql_types import SqlTableName
+
+        cte, join = _build_mod_cte_and_join(
+            SqlTableName("schema.mods"),
+            "jsonb_build_object('id', d.\"id\"::text)",
+        )
+
+        assert "latest_mod" in cte
+        assert "field_mods" not in cte
+        assert "any_mod" not in cte
+        assert "LEFT JOIN latest_mod" in join
+
+    def test_mod_cte_includes_field_mods_when_requested(self):
+        from src.config.config_instance import _build_mod_cte_and_join
+        from src.config.sql_types import SqlTableName
+
+        cte, _ = _build_mod_cte_and_join(
+            SqlTableName("schema.mods"),
+            "jsonb_build_object('id', d.\"id\"::text)",
+            include_field_mods=True,
+        )
+
+        assert "field_mods AS" in cte
+        assert "GROUP BY fm.row_pk, fm.column_name" in cte
+
+    def test_mods_index_statements_cover_log_hot_paths(self):
+        from src.config.config_instance import _mods_index_statements
+
+        statements = _mods_index_statements("schema.mods")
+        sql = "\n".join(statements)
+
+        assert len(statements) == 5
+        assert "CREATE INDEX IF NOT EXISTS" in sql
+        assert "USING GIN (row_pk)" in sql
+        assert "(created_at ASC, id ASC)" in sql
+        assert "WHERE undone = FALSE" in sql
+        assert "WHERE undone = FALSE AND mod_type = 'field_modification'" in sql
+        assert "WHERE mod_type IN ('approval', 'rejection')" in sql
+
+    def test_modifications_log_query_can_scope_to_loaded_pks(self):
+        from src.config.config_instance import _modifications_log_query
+        from src.config.sql_types import SqlTableName
+
+        query = _modifications_log_query(
+            SqlTableName("schema.mods"),
+            pk_array_sql="ARRAY['{\"id\":\"A\"}'::jsonb]",
+        )
+
+        assert query.count("row_pk = ANY(ARRAY") == 3
+        assert "DISTINCT ON (row_pk, column_name)" in query
+        assert "WHERE mod_type = 'field_modification'" in query
+        assert "AND undone = FALSE AND row_pk = ANY" in query
+        assert "WHERE mod_type NOT IN ('approval', 'rejection', 'field_modification') AND row_pk = ANY" in query
+        assert "WHERE mod_type IN ('approval', 'rejection') AND row_pk = ANY" in query
+
+    def test_modifications_log_query_condenses_field_history(self):
+        from src.config.config_instance import _modifications_log_query
+        from src.config.sql_types import SqlTableName
+
+        query = _modifications_log_query(SqlTableName("schema.mods"))
+
+        assert "latest_field_mods AS" in query
+        assert "SELECT DISTINCT ON (row_pk, column_name)" in query
+        assert "ORDER BY row_pk, column_name, created_at DESC, id DESC" in query
+        assert "SELECT * FROM latest_field_mods" in query
+
+    def test_row_pk_json_values_dedupes_and_normalizes_values(self):
+        from src.config.config_instance import _row_pk_json_values
+
+        values = _row_pk_json_values([
+            {"id": 1, "sample": "A"},
+            {"sample": "A", "id": 1},
+            {"id": 2, "sample": None},
+            {},
+        ])
+
+        assert values == [
+            '{"id": 1, "sample": "A"}',
+            '{"id": 2, "sample": null}',
+        ]
+
+    def test_modification_rows_to_log_handles_sql_grouped_status(self):
+        from datetime import datetime
+        from src.config.config_instance import _modification_rows_to_log
+
+        rows = [
+            {
+                "id": 10,
+                "row_pk": {"id": "A"},
+                "column_name": "Notes",
+                "old_value": "old",
+                "new_value": "new",
+                "mod_type": "field_modification",
+                "created_by": "tester",
+                "created_at": datetime(2026, 6, 26, 9, 33, 4, 123456),
+                "undone": False,
+                "grouped_row_pks": None,
+                "grouped_count": None,
+            },
+            {
+                "id": None,
+                "row_pk": None,
+                "column_name": "_status",
+                "old_value": None,
+                "new_value": "approved",
+                "mod_type": "approval",
+                "created_by": None,
+                "created_at": datetime(2026, 6, 26, 9, 34, 0),
+                "undone": False,
+                "grouped_row_pks": [{"id": "A"}, {"id": "B"}],
+                "grouped_count": 2,
+            },
+        ]
+
+        log = _modification_rows_to_log(rows)
+
+        assert log[0]["db_id"] == 10
+        assert log[0]["details"]["row_pk"] == {"id": "A"}
+        assert log[1] == {
+            "timestamp": "2026-06-26T09:34:00",
+            "type": "approval",
+            "details": {
+                "action": "approved",
+                "approved_rows": [{"id": "A"}, {"id": "B"}],
+                "approved_row_count": 2,
+            },
+        }
+
+
 class TestConfigInstanceIsLazyLoading:
     """Pinning tests for ConfigInstance.is_lazy_loading property."""
 
@@ -186,6 +320,38 @@ class TestConfigInstanceInvalidateModsCache:
 
         assert ci._mods_log_cache is None
         assert ci._mods_log_cache_time == 0
+
+
+class TestConfigInstanceUiStatePolicy:
+    """Pinning tests for loaded UI state feature flags."""
+
+    def test_persist_page_false_uses_default_rows_per_page(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.state.persist_page = False
+
+        loaded = {"current_page": 4, "rows_per_page": 100, "filters": {"A": "B"}}
+        default = {"current_page": 1, "rows_per_page": 50, "filters": {}}
+
+        result = ci._apply_ui_state_policy(loaded, default)
+
+        assert result["current_page"] == 1
+        assert result["rows_per_page"] == 50
+        assert result["filters"] == {"A": "B"}
+
+    def test_persist_page_true_preserves_saved_rows_per_page(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.state.persist_page = True
+
+        loaded = {"current_page": 4, "rows_per_page": 100}
+        default = {"current_page": 1, "rows_per_page": 50}
+
+        assert ci._apply_ui_state_policy(loaded, default) == loaded
 
 
 class TestConfigInstanceReloadData:

@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 184,
+    "total_functions": 193,
     "unused_functions": 1,
-    "fully_annotated_functions": 124,
-    "function_coverage_percent": 67.4,
-    "parameter_coverage_percent": 79.7,
+    "fully_annotated_functions": 129,
+    "function_coverage_percent": 66.8,
+    "parameter_coverage_percent": 79.0,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 140,
+      "total": 149,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -78,6 +78,7 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_apply_ui_state_policy",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
         "_build_lp_lims_filters",
@@ -88,6 +89,8 @@
         "_build_where_clause",
         "_cleanup_corrupted_modifications_datum",
         "_coerce_date_columns",
+        "_coerce_grouped_row_pks",
+        "_coerce_json",
         "_col_expr",
         "_delete_preset_datum",
         "_detect_preset_legacy_mode",
@@ -139,6 +142,10 @@
         "_lp_lims_user_email",
         "_lp_lims_user_email",
         "_mark_modification_undone_datum",
+        "_modification_rows_to_log",
+        "_modifications_log_query",
+        "_mods_index_name",
+        "_mods_index_statements",
         "_normalize_mod_status",
         "_postgres_client_kwargs",
         "_postgres_client_kwargs",
@@ -149,6 +156,7 @@
         "_refresh_synthesis",
         "_resolve_env_ref",
         "_resolve_env_ref",
+        "_row_pk_json_values",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -161,6 +169,7 @@
         "_skip_mods",
         "_source_sql",
         "_stamp_synthesis_comment",
+        "_timestamp_for_log",
         "_update_data_in_datum",
         "_update_status_in_db",
         "_uses_execute_sql_client",
@@ -220,6 +229,7 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_apply_ui_state_policy",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
         "_build_lp_lims_filters",
@@ -230,6 +240,8 @@
         "_build_where_clause",
         "_cleanup_corrupted_modifications_datum",
         "_coerce_date_columns",
+        "_coerce_grouped_row_pks",
+        "_coerce_json",
         "_col_expr",
         "_delete_preset_datum",
         "_detect_preset_legacy_mode",
@@ -275,6 +287,10 @@
         "_load_modifications_from_db",
         "_load_ui_state_datum",
         "_mark_modification_undone_datum",
+        "_modification_rows_to_log",
+        "_modifications_log_query",
+        "_mods_index_name",
+        "_mods_index_statements",
         "_normalize_mod_status",
         "_postgres_client_kwargs",
         "_postgres_client_kwargs",
@@ -285,6 +301,7 @@
         "_refresh_synthesis",
         "_resolve_env_ref",
         "_resolve_env_ref",
+        "_row_pk_json_values",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -293,6 +310,7 @@
         "_save_preset_datum",
         "_save_ui_state_datum",
         "_stamp_synthesis_comment",
+        "_timestamp_for_log",
         "_update_data_in_datum",
         "_uses_execute_sql_client",
         "activate_synthesis_fetcher",
@@ -492,70 +510,72 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 140,
-        "with_return_type": 96,
-        "fully_annotated": 92
+        "total": 149,
+        "with_return_type": 103,
+        "fully_annotated": 97
       },
       "parameters": {
-        "total": 151,
-        "annotated": 119
+        "total": 169,
+        "annotated": 132
       },
       "missing": [
         {
           "type": "parameter",
+          "function": "_modifications_log_query",
+          "name": "mods_table_sql",
+          "line": 134
+        },
+        {
+          "type": "parameter",
+          "function": "_coerce_json",
+          "name": "value",
+          "line": 212
+        },
+        {
+          "type": "parameter",
+          "function": "_coerce_json",
+          "name": "default",
+          "line": 212
+        },
+        {
+          "type": "return",
+          "function": "_coerce_json",
+          "line": 212
+        },
+        {
+          "type": "parameter",
+          "function": "_coerce_grouped_row_pks",
+          "name": "value",
+          "line": 224
+        },
+        {
+          "type": "parameter",
+          "function": "_timestamp_for_log",
+          "name": "value",
+          "line": 236
+        },
+        {
+          "type": "return",
+          "function": "_timestamp_for_log",
+          "line": 236
+        },
+        {
+          "type": "parameter",
           "function": "_escape_literal",
           "name": "value",
-          "line": 78
+          "line": 297
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "df",
-          "line": 106
+          "line": 325
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "update_fn",
-          "line": 106
-        },
-        {
-          "type": "parameter",
-          "function": "_build_mod_cte_and_join",
-          "name": "mods_table_sql",
-          "line": 198
-        },
-        {
-          "type": "return",
-          "function": "_build_mod_cte_and_join",
-          "line": 198
-        },
-        {
-          "type": "return",
-          "function": "__post_init__",
-          "line": 329
-        },
-        {
-          "type": "return",
-          "function": "_init_connection",
-          "line": 334
-        },
-        {
-          "type": "parameter",
-          "function": "_resolve_env_ref",
-          "name": "default",
-          "line": 364
-        },
-        {
-          "type": "parameter",
-          "function": "_resolve_env_ref",
-          "name": "cast",
-          "line": 364
-        },
-        {
-          "type": "return",
-          "function": "_resolve_env_ref",
-          "line": 364
+          "line": 325
         }
       ]
     },

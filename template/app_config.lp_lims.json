@@ -20,8 +20,7 @@
 
     "lazy_loading": true,
     "max_rows": null,
-    "max_rows_per_page": 100,
-    "default_rows_per_page": 25
+    "max_rows_per_page": 100
   },
 
   "persistence": {
@@ -70,6 +69,7 @@
     "default_sort_ascending": true,
 
     "default_rows_per_page": 25,
+    "_default_rows_per_page_comment": "Initial UI page size. Saved UI state can override this unless state.persist_page=false.",
     "rows_per_page_options": [10, 25, 50, 100],
 
     "editable_columns": [],

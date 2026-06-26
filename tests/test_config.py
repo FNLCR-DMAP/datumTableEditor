@@ -585,13 +585,25 @@ class TestPaginationConfig:
         _merge_config(config, {"database": {"max_rows_per_page": 500}})
         assert config.database.max_rows_per_page == 500
 
-    def test_database_default_rows_per_page_loaded(self):
-        """database.default_rows_per_page is loaded from config."""
+    def test_database_default_rows_per_page_alias_updates_table_default(self):
+        """database.default_rows_per_page is a deprecated alias for table.default_rows_per_page."""
         from src.config.app_config_schema import AppConfig, _merge_config
 
         config = AppConfig()
         _merge_config(config, {"database": {"default_rows_per_page": 100}})
         assert config.database.default_rows_per_page == 100
+        assert config.table.default_rows_per_page == 100
+
+    def test_table_default_rows_per_page_wins_over_database_alias(self):
+        """An explicit table default should win over the deprecated database alias."""
+        from src.config.app_config_schema import AppConfig, _merge_config
+
+        config = AppConfig()
+        _merge_config(config, {
+            "database": {"default_rows_per_page": 100},
+            "table": {"default_rows_per_page": 50},
+        })
+        assert config.table.default_rows_per_page == 50
 
     def test_database_page_buffer_size_loaded(self):
         """database.page_buffer_size is loaded from config."""
