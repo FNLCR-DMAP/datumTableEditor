@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 191,
+    "total_functions": 192,
     "unused_functions": 1,
-    "fully_annotated_functions": 127,
-    "function_coverage_percent": 66.5,
-    "parameter_coverage_percent": 78.3,
+    "fully_annotated_functions": 128,
+    "function_coverage_percent": 66.7,
+    "parameter_coverage_percent": 78.8,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 147,
+      "total": 148,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -155,6 +155,7 @@
         "_refresh_synthesis",
         "_resolve_env_ref",
         "_resolve_env_ref",
+        "_row_pk_json_values",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -298,6 +299,7 @@
         "_refresh_synthesis",
         "_resolve_env_ref",
         "_resolve_env_ref",
+        "_row_pk_json_values",
         "_run_synthesis_datum",
         "_run_synthesis_direct",
         "_run_synthesis_direct_query",
@@ -506,72 +508,72 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 147,
-        "with_return_type": 101,
-        "fully_annotated": 95
+        "total": 148,
+        "with_return_type": 102,
+        "fully_annotated": 96
       },
       "parameters": {
-        "total": 162,
-        "annotated": 125
+        "total": 167,
+        "annotated": 130
       },
       "missing": [
         {
           "type": "parameter",
           "function": "_modifications_log_query",
           "name": "mods_table_sql",
-          "line": 109
+          "line": 134
         },
         {
           "type": "parameter",
           "function": "_coerce_json",
           "name": "value",
-          "line": 165
+          "line": 191
         },
         {
           "type": "parameter",
           "function": "_coerce_json",
           "name": "default",
-          "line": 165
+          "line": 191
         },
         {
           "type": "return",
           "function": "_coerce_json",
-          "line": 165
+          "line": 191
         },
         {
           "type": "parameter",
           "function": "_coerce_grouped_row_pks",
           "name": "value",
-          "line": 177
+          "line": 203
         },
         {
           "type": "parameter",
           "function": "_timestamp_for_log",
           "name": "value",
-          "line": 189
+          "line": 215
         },
         {
           "type": "return",
           "function": "_timestamp_for_log",
-          "line": 189
+          "line": 215
         },
         {
           "type": "parameter",
           "function": "_escape_literal",
           "name": "value",
-          "line": 250
+          "line": 276
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "df",
-          "line": 278
+          "line": 304
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "update_fn",
-          "line": 278
+          "line": 304
         }
       ]
     },

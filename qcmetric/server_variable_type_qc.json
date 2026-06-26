@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 594,
-    "fully_annotated_functions": 373,
-    "function_coverage_percent": 62.8,
-    "total_parameters": 787,
-    "annotated_parameters": 687,
-    "parameter_coverage_percent": 87.3,
+    "total_functions": 598,
+    "fully_annotated_functions": 374,
+    "function_coverage_percent": 62.5,
+    "total_parameters": 796,
+    "annotated_parameters": 694,
+    "parameter_coverage_percent": 87.2,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -506,72 +506,72 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 147,
-        "with_return_type": 101,
-        "fully_annotated": 95
+        "total": 148,
+        "with_return_type": 102,
+        "fully_annotated": 96
       },
       "parameters": {
-        "total": 162,
-        "annotated": 125
+        "total": 167,
+        "annotated": 130
       },
       "missing_annotations": [
         {
           "type": "parameter",
           "function": "_modifications_log_query",
           "name": "mods_table_sql",
-          "line": 109
+          "line": 134
         },
         {
           "type": "parameter",
           "function": "_coerce_json",
           "name": "value",
-          "line": 165
+          "line": 191
         },
         {
           "type": "parameter",
           "function": "_coerce_json",
           "name": "default",
-          "line": 165
+          "line": 191
         },
         {
           "type": "return",
           "function": "_coerce_json",
-          "line": 165
+          "line": 191
         },
         {
           "type": "parameter",
           "function": "_coerce_grouped_row_pks",
           "name": "value",
-          "line": 177
+          "line": 203
         },
         {
           "type": "parameter",
           "function": "_timestamp_for_log",
           "name": "value",
-          "line": 189
+          "line": 215
         },
         {
           "type": "return",
           "function": "_timestamp_for_log",
-          "line": 189
+          "line": 215
         },
         {
           "type": "parameter",
           "function": "_escape_literal",
           "name": "value",
-          "line": 250
+          "line": 276
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "df",
-          "line": 278
+          "line": 304
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "update_fn",
-          "line": 278
+          "line": 304
         }
       ],
       "missing_annotations_truncated": 73
@@ -870,13 +870,13 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 35,
+        "total": 38,
         "with_return_type": 3,
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 22,
-        "annotated": 6
+        "total": 26,
+        "annotated": 8
       },
       "missing_annotations": [
         {
@@ -903,6 +903,12 @@
           "line": 37
         },
         {
+          "type": "parameter",
+          "function": "load_modifications_log",
+          "name": "row_pks",
+          "line": 93
+        },
+        {
           "type": "return",
           "function": "load_modifications_log",
           "line": 93
@@ -926,15 +932,9 @@
           "type": "return",
           "function": "is_lazy_loading",
           "line": 124
-        },
-        {
-          "type": "parameter",
-          "function": "_get_row_status",
-          "name": "row_idx",
-          "line": 306
         }
       ],
-      "missing_annotations_truncated": 38
+      "missing_annotations_truncated": 43
     },
     "src/server/edits.py": {
       "functions": {
@@ -970,32 +970,32 @@
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 96
+          "line": 103
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 157
+          "line": 164
         },
         {
           "type": "return",
           "function": "_save_modifications",
-          "line": 208
+          "line": 222
         },
         {
           "type": "return",
           "function": "_export_status_report",
-          "line": 219
+          "line": 233
         },
         {
           "type": "return",
           "function": "_reload_data",
-          "line": 226
+          "line": 240
         },
         {
           "type": "return",
           "function": "_approve_data",
-          "line": 240
+          "line": 257
         }
       ],
       "missing_annotations_truncated": 2

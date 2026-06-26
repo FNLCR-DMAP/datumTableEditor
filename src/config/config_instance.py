@@ -135,7 +135,26 @@ def _modifications_log_query(mods_table_sql, pk_array_sql: str = None) -> str:
     """Return log rows with approval/rejection batches grouped in SQL."""
     pk_filter = f" AND row_pk = ANY({pk_array_sql})" if pk_array_sql else ""
     return f"""
-    WITH non_status AS (
+    WITH latest_field_mods AS (
+        SELECT DISTINCT ON (row_pk, column_name)
+               id,
+               row_pk,
+               column_name,
+               old_value,
+               new_value,
+               mod_type,
+               created_by,
+               created_at,
+               undone,
+               NULL::jsonb AS grouped_row_pks,
+               NULL::integer AS grouped_count,
+               id AS sort_id
+        FROM {mods_table_sql}
+        WHERE mod_type = 'field_modification'
+          AND undone = FALSE{pk_filter}
+        ORDER BY row_pk, column_name, created_at DESC, id DESC
+    ),
+    other_non_status AS (
         SELECT id,
                row_pk,
                column_name,
@@ -149,7 +168,7 @@ def _modifications_log_query(mods_table_sql, pk_array_sql: str = None) -> str:
                NULL::integer AS grouped_count,
                id AS sort_id
         FROM {mods_table_sql}
-        WHERE mod_type NOT IN ('approval', 'rejection'){pk_filter}
+        WHERE mod_type NOT IN ('approval', 'rejection', 'field_modification'){pk_filter}
     ),
     grouped_status AS (
         SELECT NULL::integer AS id,
@@ -180,7 +199,9 @@ def _modifications_log_query(mods_table_sql, pk_array_sql: str = None) -> str:
            grouped_row_pks,
            grouped_count
     FROM (
-        SELECT * FROM non_status
+        SELECT * FROM latest_field_mods
+        UNION ALL
+        SELECT * FROM other_non_status
         UNION ALL
         SELECT * FROM grouped_status
     ) log_rows

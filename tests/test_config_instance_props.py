@@ -126,9 +126,23 @@ class TestModificationsLogPerformanceSql:
             pk_array_sql="ARRAY['{\"id\":\"A\"}'::jsonb]",
         )
 
-        assert query.count("row_pk = ANY(ARRAY") == 2
-        assert "WHERE mod_type NOT IN ('approval', 'rejection') AND row_pk = ANY" in query
+        assert query.count("row_pk = ANY(ARRAY") == 3
+        assert "DISTINCT ON (row_pk, column_name)" in query
+        assert "WHERE mod_type = 'field_modification'" in query
+        assert "AND undone = FALSE AND row_pk = ANY" in query
+        assert "WHERE mod_type NOT IN ('approval', 'rejection', 'field_modification') AND row_pk = ANY" in query
         assert "WHERE mod_type IN ('approval', 'rejection') AND row_pk = ANY" in query
+
+    def test_modifications_log_query_condenses_field_history(self):
+        from src.config.config_instance import _modifications_log_query
+        from src.config.sql_types import SqlTableName
+
+        query = _modifications_log_query(SqlTableName("schema.mods"))
+
+        assert "latest_field_mods AS" in query
+        assert "SELECT DISTINCT ON (row_pk, column_name)" in query
+        assert "ORDER BY row_pk, column_name, created_at DESC, id DESC" in query
+        assert "SELECT * FROM latest_field_mods" in query
 
     def test_row_pk_json_values_dedupes_and_normalizes_values(self):
         from src.config.config_instance import _row_pk_json_values
