@@ -322,6 +322,38 @@ class TestConfigInstanceInvalidateModsCache:
         assert ci._mods_log_cache_time == 0
 
 
+class TestConfigInstanceUiStatePolicy:
+    """Pinning tests for loaded UI state feature flags."""
+
+    def test_persist_page_false_uses_default_rows_per_page(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.state.persist_page = False
+
+        loaded = {"current_page": 4, "rows_per_page": 100, "filters": {"A": "B"}}
+        default = {"current_page": 1, "rows_per_page": 50, "filters": {}}
+
+        result = ci._apply_ui_state_policy(loaded, default)
+
+        assert result["current_page"] == 1
+        assert result["rows_per_page"] == 50
+        assert result["filters"] == {"A": "B"}
+
+    def test_persist_page_true_preserves_saved_rows_per_page(self):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.state.persist_page = True
+
+        loaded = {"current_page": 4, "rows_per_page": 100}
+        default = {"current_page": 1, "rows_per_page": 50}
+
+        assert ci._apply_ui_state_policy(loaded, default) == loaded
+
+
 class TestConfigInstanceReloadData:
     """Pinning tests for ConfigInstance.reload_data."""
 

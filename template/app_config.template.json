@@ -40,7 +40,6 @@
     "page_buffer_size": 300,
     "_page_buffer_size_comment": "Rows to fetch per query when lazy_loading is enabled.",
     "max_rows_per_page": 100,
-    "default_rows_per_page": 25,
     "shared_cache_key": null,
     "_shared_cache_key_comment": "If set, share loaded data across browser sessions using this key. Saves DB queries on multi-tab use.",
     "shared_cache_ttl": 300,
@@ -150,6 +149,7 @@
     "default_sort_ascending": true,
     
     "default_rows_per_page": 25,
+    "_default_rows_per_page_comment": "Initial UI page size. Saved UI state can override this unless state.persist_page=false.",
     "rows_per_page_options": [10, 25, 50, 100, "all"],
     
     "editable_columns": [],

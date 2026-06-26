@@ -4511,6 +4511,13 @@ class ConfigInstance:
         except Exception as e:
             print(f"⚠ Could not save UI state via execute_sql client: {e}")
             return False
+
+    def _apply_ui_state_policy(self, state: Dict, default_state: Dict) -> Dict:
+        """Apply state persistence feature flags after loading saved UI state."""
+        if not self.app_config.state.persist_page:
+            state["current_page"] = default_state["current_page"]
+            state["rows_per_page"] = default_state["rows_per_page"]
+        return state
     
     def load_ui_state(self) -> Dict:
         """Load UI state from database for this config instance."""
@@ -4567,7 +4574,7 @@ class ConfigInstance:
                 elif filters is None:
                     filters = {}
                 
-                return {
+                loaded_state = {
                     "sort_column": row[0] or default_state["sort_column"],
                     "sort_ascending": row[1] if row[1] is not None else default_state["sort_ascending"],
                     "current_page": row[2] or default_state["current_page"],
@@ -4575,6 +4582,7 @@ class ConfigInstance:
                     "filters": filters,
                     "column_preset": row[5]
                 }
+                return self._apply_ui_state_policy(loaded_state, default_state)
         except Exception as e:
             print(f"⚠ Could not load UI state: {e}")
         
@@ -4608,7 +4616,7 @@ class ConfigInstance:
                 elif filters is None:
                     filters = {}
                 
-                return {
+                loaded_state = {
                     "sort_column": row.get("sort_column") or default_state["sort_column"],
                     "sort_ascending": row.get("sort_ascending") if row.get("sort_ascending") is not None else default_state["sort_ascending"],
                     "current_page": row.get("current_page") or default_state["current_page"],
@@ -4616,6 +4624,7 @@ class ConfigInstance:
                     "filters": filters,
                     "column_preset": row.get("column_preset")
                 }
+                return self._apply_ui_state_policy(loaded_state, default_state)
         except Exception as e:
             print(f"⚠ Could not load UI state via execute_sql client: {e}")
         
