@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 585,
-    "fully_annotated_functions": 369,
-    "function_coverage_percent": 63.1,
-    "total_parameters": 770,
-    "annotated_parameters": 678,
-    "parameter_coverage_percent": 88.1,
+    "total_functions": 594,
+    "fully_annotated_functions": 373,
+    "function_coverage_percent": 62.8,
+    "total_parameters": 787,
+    "annotated_parameters": 687,
+    "parameter_coverage_percent": 87.3,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -50,13 +50,13 @@
     },
     "src/utils/data_operations.py": {
       "functions": {
-        "total": 14,
-        "with_return_type": 14,
-        "fully_annotated": 12
+        "total": 15,
+        "with_return_type": 15,
+        "fully_annotated": 13
       },
       "parameters": {
-        "total": 44,
-        "annotated": 42
+        "total": 47,
+        "annotated": 45
       },
       "missing_annotations": [
         {
@@ -506,73 +506,75 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 140,
-        "with_return_type": 96,
-        "fully_annotated": 92
+        "total": 147,
+        "with_return_type": 101,
+        "fully_annotated": 95
       },
       "parameters": {
-        "total": 151,
-        "annotated": 119
+        "total": 162,
+        "annotated": 125
       },
       "missing_annotations": [
         {
           "type": "parameter",
+          "function": "_modifications_log_query",
+          "name": "mods_table_sql",
+          "line": 109
+        },
+        {
+          "type": "parameter",
+          "function": "_coerce_json",
+          "name": "value",
+          "line": 165
+        },
+        {
+          "type": "parameter",
+          "function": "_coerce_json",
+          "name": "default",
+          "line": 165
+        },
+        {
+          "type": "return",
+          "function": "_coerce_json",
+          "line": 165
+        },
+        {
+          "type": "parameter",
+          "function": "_coerce_grouped_row_pks",
+          "name": "value",
+          "line": 177
+        },
+        {
+          "type": "parameter",
+          "function": "_timestamp_for_log",
+          "name": "value",
+          "line": 189
+        },
+        {
+          "type": "return",
+          "function": "_timestamp_for_log",
+          "line": 189
+        },
+        {
+          "type": "parameter",
           "function": "_escape_literal",
           "name": "value",
-          "line": 78
+          "line": 250
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "df",
-          "line": 106
+          "line": 278
         },
         {
           "type": "parameter",
           "function": "_reconcile_status_df",
           "name": "update_fn",
-          "line": 106
-        },
-        {
-          "type": "parameter",
-          "function": "_build_mod_cte_and_join",
-          "name": "mods_table_sql",
-          "line": 198
-        },
-        {
-          "type": "return",
-          "function": "_build_mod_cte_and_join",
-          "line": 198
-        },
-        {
-          "type": "return",
-          "function": "__post_init__",
-          "line": 329
-        },
-        {
-          "type": "return",
-          "function": "_init_connection",
-          "line": 334
-        },
-        {
-          "type": "parameter",
-          "function": "_resolve_env_ref",
-          "name": "default",
-          "line": 364
-        },
-        {
-          "type": "parameter",
-          "function": "_resolve_env_ref",
-          "name": "cast",
-          "line": 364
-        },
-        {
-          "type": "return",
-          "function": "_resolve_env_ref",
-          "line": 364
+          "line": 278
         }
       ],
-      "missing_annotations_truncated": 66
+      "missing_annotations_truncated": 73
     },
     "src/config/sql_types.py": {
       "functions": {
@@ -868,12 +870,12 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 34,
+        "total": 35,
         "with_return_type": 3,
         "fully_annotated": 3
       },
       "parameters": {
-        "total": 19,
+        "total": 22,
         "annotated": 6
       },
       "missing_annotations": [
@@ -881,58 +883,58 @@
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 36
+          "line": 37
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 36
+          "line": 37
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 36
+          "line": 37
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 36
+          "line": 37
         },
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 92
+          "line": 93
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 95
+          "line": 96
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 98
+          "line": 99
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 103
+          "line": 104
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 123
+          "line": 124
         },
         {
           "type": "parameter",
           "function": "_get_row_status",
           "name": "row_idx",
-          "line": 297
+          "line": 306
         }
       ],
-      "missing_annotations_truncated": 34
+      "missing_annotations_truncated": 38
     },
     "src/server/edits.py": {
       "functions": {

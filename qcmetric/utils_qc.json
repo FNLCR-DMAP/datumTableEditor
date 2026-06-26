@@ -2,10 +2,10 @@
   "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 97,
+    "total_functions": 98,
     "unused_functions": 1,
-    "fully_annotated_functions": 83,
-    "function_coverage_percent": 85.6,
+    "fully_annotated_functions": 84,
+    "function_coverage_percent": 85.7,
     "parameter_coverage_percent": 96.2,
     "mypy_errors": 0
   },
@@ -46,7 +46,7 @@
       ]
     },
     "src/utils/data_operations.py": {
-      "total": 14,
+      "total": 15,
       "functions": [
         "_get_row_pk",
         "_pk_to_string",
@@ -56,6 +56,7 @@
         "export_csv",
         "export_status_report",
         "get_copy_column_values",
+        "get_page_buffer_window",
         "get_paginated_indices",
         "get_selected_row_indices",
         "perform_cell_edit",
@@ -72,6 +73,7 @@
         "export_csv",
         "export_status_report",
         "get_copy_column_values",
+        "get_page_buffer_window",
         "get_paginated_indices",
         "get_selected_row_indices",
         "perform_cell_edit",
@@ -343,13 +345,13 @@
     },
     "src/utils/data_operations.py": {
       "functions": {
-        "total": 14,
-        "with_return_type": 14,
-        "fully_annotated": 12
+        "total": 15,
+        "with_return_type": 15,
+        "fully_annotated": 13
       },
       "parameters": {
-        "total": 44,
-        "annotated": 42
+        "total": 47,
+        "annotated": 45
       },
       "missing": [
         {

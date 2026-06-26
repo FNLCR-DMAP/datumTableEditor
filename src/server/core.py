@@ -201,10 +201,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "ascending": ui_state.get("sort_ascending", True)
     })
     _t3 = _t.time()
-    mods_log = reactive.Value(load_modifications_log())
+    initial_mods_log = load_modifications_log()
+    mods_log = reactive.Value(initial_mods_log)
     print(f"[Timing] load_modifications_log: {(_t.time() - _t3)*1000:.0f}ms")
 
-    initial_status, initial_timestamp = get_latest_approval_status(load_modifications_log())
+    initial_status, initial_timestamp = get_latest_approval_status(initial_mods_log)
     approval_status = reactive.Value(initial_status)
     approval_timestamp = reactive.Value(initial_timestamp)
 
