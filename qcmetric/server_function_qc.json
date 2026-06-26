@@ -2,7 +2,7 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 598,
+    "total_functions": 599,
     "total_unused": 118,
     "unused_percentage": 19.7
   },
@@ -640,7 +640,7 @@
     "config_instance.py": {
       "description": "Configuration Instance Loader",
       "path": "src/config/config_instance.py",
-      "total_functions": 148,
+      "total_functions": 149,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -651,6 +651,7 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_apply_ui_state_policy",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
         "_build_lp_lims_filters",
@@ -799,6 +800,7 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_apply_ui_state_policy",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
         "_build_lp_lims_filters",

@@ -2,11 +2,11 @@
   "_description": "QC report for config",
   "_generated": true,
   "_summary": {
-    "total_functions": 192,
+    "total_functions": 193,
     "unused_functions": 1,
-    "fully_annotated_functions": 128,
-    "function_coverage_percent": 66.7,
-    "parameter_coverage_percent": 78.8,
+    "fully_annotated_functions": 129,
+    "function_coverage_percent": 66.8,
+    "parameter_coverage_percent": 79.0,
     "mypy_errors": 0
   },
   "files": {},
@@ -67,7 +67,7 @@
       ]
     },
     "src/config/config_instance.py": {
-      "total": 148,
+      "total": 149,
       "functions": [
         "__post_init__",
         "__post_init__",
@@ -78,6 +78,7 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_apply_ui_state_policy",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
         "_build_lp_lims_filters",
@@ -228,6 +229,7 @@
         "_apply_field_modifications",
         "_apply_field_modifications",
         "_apply_field_modifications_datum",
+        "_apply_ui_state_policy",
         "_batch_save_status_datum",
         "_batch_save_status_sqlalchemy",
         "_build_lp_lims_filters",
@@ -508,13 +510,13 @@
     },
     "src/config/config_instance.py": {
       "functions": {
-        "total": 148,
-        "with_return_type": 102,
-        "fully_annotated": 96
+        "total": 149,
+        "with_return_type": 103,
+        "fully_annotated": 97
       },
       "parameters": {
-        "total": 167,
-        "annotated": 130
+        "total": 169,
+        "annotated": 132
       },
       "missing": [
         {
