@@ -90,8 +90,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         _emitter.emit(action, **payload)
 
     # Create local functions that use this config instance
-    def load_modifications_log():
-        return config.load_modifications_log()
+    def load_modifications_log(row_pks=None, force_refresh: bool = False):
+        return config.load_modifications_log(force_refresh=force_refresh, row_pks=row_pks)
 
     def load_data_from_source():
         return config.reload_data()
@@ -201,7 +201,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "ascending": ui_state.get("sort_ascending", True)
     })
     _t3 = _t.time()
-    initial_mods_log = load_modifications_log()
+    initial_mods_log = [] if _initial_lazy_loading else load_modifications_log()
     mods_log = reactive.Value(initial_mods_log)
     print(f"[Timing] load_modifications_log: {(_t.time() - _t3)*1000:.0f}ms")
 
@@ -518,6 +518,28 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             paginated_indices = get_paginated_indices(filtered_indices, rows_per_page_value.get(), page)
             return current_df, paginated_indices, len(filtered_indices), len(current_df)
 
+    def _page_row_pks(page_df):
+        pk_cols = app_config.table.primary_key
+        pks = []
+        for _, row in page_df.iterrows():
+            row_pk = {pk: row[pk] for pk in pk_cols if pk in page_df.columns}
+            if row_pk:
+                pks.append(row_pk)
+        return pks
+
+    def _load_current_page_modifications(force_refresh: bool = False):
+        page_df, _, _, _ = _cached_page_data()
+        if is_lazy_loading():
+            return load_modifications_log(row_pks=_page_row_pks(page_df), force_refresh=force_refresh)
+        return load_modifications_log(force_refresh=force_refresh)
+
+    @reactive.Effect
+    def _sync_lazy_page_modifications():
+        if not is_lazy_loading():
+            return
+        page_df, _, _, _ = _cached_page_data()
+        mods_log.set(load_modifications_log(row_pks=_page_row_pks(page_df)))
+
     def _get_page_selection():
         page_df, paginated_indices, _, _ = _cached_page_data()
         if not app_config.review_detail_multi_select:
@@ -583,23 +605,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
                 status_filters=list(app_config.status_labels.keys())
             )
             counts = config.data_fetcher.get_status_counts(count_params)
-            current_log = mods_log.get()
-            if current_log:
-                current_df = data.get()
-                pk_cols = app_config.table.primary_key
-                for idx in current_df.index:
-                    try:
-                        row = current_df.loc[idx]
-                        row_pk = {pk: row[pk] for pk in pk_cols if pk in current_df.columns}
-                        log_status = get_row_status(idx, current_log, row_pk)
-                        db_status = str(row.get("_mod_status", "unprocessed")).strip().lower()
-                        if log_status != "unprocessed" and log_status != db_status:
-                            if db_status in counts:
-                                counts[db_status] = max(0, counts[db_status] - 1)
-                            if log_status in counts:
-                                counts[log_status] += 1
-                    except:
-                        pass
             return counts
         current_df = data.get()
         if synthesis_active.get() and app_config.synthesis.mode == "query":
@@ -804,7 +809,8 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     @render.ui
     def stats_histogram():
-        _ = mods_log.get()
+        if not is_lazy_loading():
+            _ = mods_log.get()
         with tracker.track_render("stats_histogram"):
             counts = _get_status_counts()
             total = sum(counts.values()) or 1
@@ -901,7 +907,11 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         else:
             fresh = load_data_from_source()
             data.set(fresh)
-        mods_log.set(load_modifications_log())
+        if is_lazy_loading():
+            config.invalidate_mods_cache()
+            mods_log.set(_load_current_page_modifications(force_refresh=True))
+        else:
+            mods_log.set(load_modifications_log(force_refresh=True))
 
     # ── Return public API ─────────────────────────────────────────────
     return WidgetAPI(

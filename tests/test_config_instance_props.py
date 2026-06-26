@@ -117,6 +117,34 @@ class TestModificationsLogPerformanceSql:
         assert "WHERE undone = FALSE AND mod_type = 'field_modification'" in sql
         assert "WHERE mod_type IN ('approval', 'rejection')" in sql
 
+    def test_modifications_log_query_can_scope_to_loaded_pks(self):
+        from src.config.config_instance import _modifications_log_query
+        from src.config.sql_types import SqlTableName
+
+        query = _modifications_log_query(
+            SqlTableName("schema.mods"),
+            pk_array_sql="ARRAY['{\"id\":\"A\"}'::jsonb]",
+        )
+
+        assert query.count("row_pk = ANY(ARRAY") == 2
+        assert "WHERE mod_type NOT IN ('approval', 'rejection') AND row_pk = ANY" in query
+        assert "WHERE mod_type IN ('approval', 'rejection') AND row_pk = ANY" in query
+
+    def test_row_pk_json_values_dedupes_and_normalizes_values(self):
+        from src.config.config_instance import _row_pk_json_values
+
+        values = _row_pk_json_values([
+            {"id": 1, "sample": "A"},
+            {"sample": "A", "id": 1},
+            {"id": 2, "sample": None},
+            {},
+        ])
+
+        assert values == [
+            '{"id": 1, "sample": "A"}',
+            '{"id": 2, "sample": null}',
+        ]
+
     def test_modification_rows_to_log_handles_sql_grouped_status(self):
         from datetime import datetime
         from src.config.config_instance import _modification_rows_to_log
