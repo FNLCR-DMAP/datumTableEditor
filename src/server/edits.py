@@ -47,6 +47,7 @@ def register_edits(ctx: ServerContext):
     load_modifications_log = ctx.load_modifications_log
     load_data_from_source = ctx.load_data_from_source
     _cached_page_data = ctx._cached_page_data
+    _invalidate_lazy_cache = ctx._invalidate_lazy_cache or (lambda: None)
 
     def _database_enabled() -> bool:
         database = getattr(app_config, "database", None)
@@ -64,6 +65,12 @@ def register_edits(ctx: ServerContext):
             return
         data_dir.mkdir(parents=True, exist_ok=True)
         updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+
+    def _refresh_table_view():
+        if is_lazy_loading():
+            _invalidate_lazy_cache()
+        with reactive.isolate():
+            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
 
     @render.ui
     def approval_status_ui():
@@ -110,7 +117,7 @@ def register_edits(ctx: ServerContext):
                 data.set(updated_df)
                 _save_data_state(updated_df)
             else:
-                _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+                _refresh_table_view()
             mods_log.set(updated_log)
             _save_log(updated_log)
             ui.notification_show(message, type="message", duration=2)
@@ -171,8 +178,8 @@ def register_edits(ctx: ServerContext):
             _save_log(updated_log)
             if not is_lazy_loading():
                 _save_data_state(updated_df)
-            elif target_col != col:
-                _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+            else:
+                _refresh_table_view()
             col_label = f"{col} → {target_col}" if target_col != col else col
             ui.notification_show(f"Updated Row {row + 1}, {col_label}", type="message", duration=2)
 
@@ -211,7 +218,7 @@ def register_edits(ctx: ServerContext):
         if not is_lazy_loading():
             data.set(updated_df)
         else:
-            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+            _refresh_table_view()
         mods_log.set(updated_log)
 
         pk_cols = app_config.table.primary_key
@@ -259,9 +266,8 @@ def register_edits(ctx: ServerContext):
         if is_lazy_loading():
             config.data_fetcher.refresh_count()
             total_rows.set(config.data_fetcher.total_count)
-            config.invalidate_mods_cache()
             mods_log.set([])
-            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+            _refresh_table_view()
         else:
             fresh_data = load_data_from_source()
             data.set(fresh_data)
@@ -316,8 +322,7 @@ def register_edits(ctx: ServerContext):
             data.set(full_df)
 
         mods_log.set(log)
-        with reactive.isolate():
-            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+        _refresh_table_view()
         ui.notification_show(f"{len(selected_pks)} row(s) APPROVED!", type="message", duration=2)
 
     @reactive.Effect
@@ -353,8 +358,7 @@ def register_edits(ctx: ServerContext):
             data.set(full_df)
 
         mods_log.set(log)
-        with reactive.isolate():
-            _table_reload_trigger.set(_table_reload_trigger.get() + 1)
+        _refresh_table_view()
         ui.notification_show(f"{len(selected_pks)} row(s) REJECTED!", type="message", duration=2)
 
     @reactive.Effect

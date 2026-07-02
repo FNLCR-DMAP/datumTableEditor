@@ -86,6 +86,7 @@ class ServerContext:
     _fetch_page_data: Callable = None
     _fetch_all_filtered_data: Callable = None
     _cached_page_data: Callable = None
+    _invalidate_lazy_cache: Callable = None
     _get_page_selection: Callable = None
     _get_selected_pks: Callable = None
     _save_status_to_db: Callable = None

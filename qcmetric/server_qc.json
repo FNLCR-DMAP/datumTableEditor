@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 110,
+    "total_functions": 113,
     "unused_functions": 1,
-    "fully_annotated_functions": 5,
-    "function_coverage_percent": 4.5,
-    "parameter_coverage_percent": 43.2,
+    "fully_annotated_functions": 6,
+    "function_coverage_percent": 5.3,
+    "parameter_coverage_percent": 41.0,
     "mypy_errors": 0
   },
   "files": {},
@@ -109,22 +109,28 @@
       ]
     },
     "src/server/edits.py": {
-      "total": 12,
+      "total": 15,
       "functions": [
         "_approve_data",
         "_clear_approval",
+        "_database_enabled",
         "_export_status_report",
         "_handle_cell_edit",
         "_handle_cell_reset",
         "_handle_undo",
         "_reject_data",
         "_reload_data",
+        "_save_data_state",
+        "_save_log",
         "_save_modifications",
         "approval_status_ui",
         "modifications_log_ui",
         "register_edits"
       ],
       "used": [
+        "_database_enabled",
+        "_save_data_state",
+        "_save_log",
         "register_edits"
       ],
       "framework_managed": [
@@ -386,12 +392,12 @@
     },
     "src/server/edits.py": {
       "functions": {
-        "total": 12,
-        "with_return_type": 0,
-        "fully_annotated": 0
+        "total": 15,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 1,
+        "total": 3,
         "annotated": 1
       },
       "missing": [
@@ -401,49 +407,51 @@
           "line": 25
         },
         {
+          "type": "parameter",
+          "function": "_save_log",
+          "name": "updated_log",
+          "line": 55
+        },
+        {
+          "type": "return",
+          "function": "_save_log",
+          "line": 55
+        },
+        {
+          "type": "parameter",
+          "function": "_save_data_state",
+          "name": "updated_df",
+          "line": 62
+        },
+        {
+          "type": "return",
+          "function": "_save_data_state",
+          "line": 62
+        },
+        {
           "type": "return",
           "function": "approval_status_ui",
-          "line": 52
+          "line": 69
         },
         {
           "type": "return",
           "function": "modifications_log_ui",
-          "line": 58
+          "line": 75
         },
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 78
+          "line": 95
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 103
+          "line": 120
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 164
-        },
-        {
-          "type": "return",
-          "function": "_save_modifications",
-          "line": 222
-        },
-        {
-          "type": "return",
-          "function": "_export_status_report",
-          "line": 233
-        },
-        {
-          "type": "return",
-          "function": "_reload_data",
-          "line": 240
-        },
-        {
-          "type": "return",
-          "function": "_approve_data",
-          "line": 257
+          "line": 181
         }
       ]
     },

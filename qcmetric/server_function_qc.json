@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 599,
+    "total_functions": 603,
     "total_unused": 118,
-    "unused_percentage": 19.7
+    "unused_percentage": 19.6
   },
   "modules": {
     "clipboard_utils.py": {
@@ -48,8 +48,9 @@
     "data_operations.py": {
       "description": "Data operations utilities for the Epitopes Data Editor.",
       "path": "src/utils/data_operations.py",
-      "total_functions": 15,
+      "total_functions": 16,
       "functions": [
+        "_database_persistence_enabled",
         "_get_row_pk",
         "_pk_to_string",
         "calculate_pagination",
@@ -67,6 +68,7 @@
         "save_modifications_to_file"
       ],
       "used_internally": [
+        "_database_persistence_enabled",
         "_get_row_pk",
         "_pk_to_string",
         "calculate_pagination",
@@ -1383,22 +1385,28 @@
     "edits.py": {
       "description": "Server edits \u2014 cell edit, cell reset, undo, approve/reject, reload, save.",
       "path": "src/server/edits.py",
-      "total_functions": 12,
+      "total_functions": 15,
       "functions": [
         "_approve_data",
         "_clear_approval",
+        "_database_enabled",
         "_export_status_report",
         "_handle_cell_edit",
         "_handle_cell_reset",
         "_handle_undo",
         "_reject_data",
         "_reload_data",
+        "_save_data_state",
+        "_save_log",
         "_save_modifications",
         "approval_status_ui",
         "modifications_log_ui",
         "register_edits"
       ],
       "used_internally": [
+        "_database_enabled",
+        "_save_data_state",
+        "_save_log",
         "register_edits"
       ],
       "unused": [

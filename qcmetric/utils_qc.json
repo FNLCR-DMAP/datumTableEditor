@@ -2,10 +2,10 @@
   "_description": "QC report for utils",
   "_generated": true,
   "_summary": {
-    "total_functions": 98,
+    "total_functions": 99,
     "unused_functions": 1,
-    "fully_annotated_functions": 84,
-    "function_coverage_percent": 85.7,
+    "fully_annotated_functions": 85,
+    "function_coverage_percent": 85.9,
     "parameter_coverage_percent": 96.2,
     "mypy_errors": 0
   },
@@ -46,8 +46,9 @@
       ]
     },
     "src/utils/data_operations.py": {
-      "total": 15,
+      "total": 16,
       "functions": [
+        "_database_persistence_enabled",
         "_get_row_pk",
         "_pk_to_string",
         "calculate_pagination",
@@ -65,6 +66,7 @@
         "save_modifications_to_file"
       ],
       "used": [
+        "_database_persistence_enabled",
         "_get_row_pk",
         "_pk_to_string",
         "calculate_pagination",
@@ -345,26 +347,26 @@
     },
     "src/utils/data_operations.py": {
       "functions": {
-        "total": 15,
-        "with_return_type": 15,
-        "fully_annotated": 13
+        "total": 16,
+        "with_return_type": 16,
+        "fully_annotated": 14
       },
       "parameters": {
-        "total": 47,
-        "annotated": 45
+        "total": 50,
+        "annotated": 48
       },
       "missing": [
         {
           "type": "parameter",
           "function": "perform_undo",
           "name": "config_instance",
-          "line": 66
+          "line": 76
         },
         {
           "type": "parameter",
           "function": "perform_cell_edit",
           "name": "config_instance",
-          "line": 245
+          "line": 255
         }
       ]
     },

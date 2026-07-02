@@ -34,6 +34,16 @@ from .export import register_export
 from .synthesis import register_synthesis
 
 
+def _reset_lazy_cache(page_buffer: dict, count_cache: dict) -> None:
+    """Clear cached lazy-loading page data and filtered counts."""
+    page_buffer["key"] = None
+    page_buffer["df"] = pd.DataFrame()
+    page_buffer["filtered_count"] = 0
+    page_buffer["total_count"] = 0
+    count_cache["key"] = None
+    count_cache["value"] = 0
+
+
 def create_server(input, output, session, config_path: str = "app_config.json"):  # noqa: ARG001
     """
     Server logic for the Shiny app.
@@ -239,6 +249,10 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         "total_count": 0,
     }
     _lazy_count_cache = {"key": None, "value": 0}
+
+    def _invalidate_lazy_cache():
+        _reset_lazy_cache(_lazy_page_buffer, _lazy_count_cache)
+        config.invalidate_mods_cache()
 
     initial_rows_per_page = str(ui_state.get("rows_per_page", 25))
     current_page = reactive.Value(1)
@@ -716,6 +730,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         _fetch_page_data=_fetch_page_data,
         _fetch_all_filtered_data=_fetch_all_filtered_data,
         _cached_page_data=_cached_page_data,
+        _invalidate_lazy_cache=_invalidate_lazy_cache,
         _get_page_selection=_get_page_selection,
         _get_selected_pks=_get_selected_pks,
         _save_status_to_db=_save_status_to_db,
@@ -809,6 +824,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
 
     @render.ui
     def stats_histogram():
+        _ = _table_reload_trigger.get()
         if not is_lazy_loading():
             _ = mods_log.get()
         with tracker.track_render("stats_histogram"):

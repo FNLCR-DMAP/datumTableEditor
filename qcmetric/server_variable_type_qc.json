@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 599,
-    "fully_annotated_functions": 375,
-    "function_coverage_percent": 62.6,
-    "total_parameters": 798,
-    "annotated_parameters": 696,
-    "parameter_coverage_percent": 87.2,
+    "total_functions": 603,
+    "fully_annotated_functions": 377,
+    "function_coverage_percent": 62.5,
+    "total_parameters": 803,
+    "annotated_parameters": 699,
+    "parameter_coverage_percent": 87.0,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -50,26 +50,26 @@
     },
     "src/utils/data_operations.py": {
       "functions": {
-        "total": 15,
-        "with_return_type": 15,
-        "fully_annotated": 13
+        "total": 16,
+        "with_return_type": 16,
+        "fully_annotated": 14
       },
       "parameters": {
-        "total": 47,
-        "annotated": 45
+        "total": 50,
+        "annotated": 48
       },
       "missing_annotations": [
         {
           "type": "parameter",
           "function": "perform_undo",
           "name": "config_instance",
-          "line": 66
+          "line": 76
         },
         {
           "type": "parameter",
           "function": "perform_cell_edit",
           "name": "config_instance",
-          "line": 245
+          "line": 255
         }
       ]
     },
@@ -938,12 +938,12 @@
     },
     "src/server/edits.py": {
       "functions": {
-        "total": 12,
-        "with_return_type": 0,
-        "fully_annotated": 0
+        "total": 15,
+        "with_return_type": 1,
+        "fully_annotated": 1
       },
       "parameters": {
-        "total": 1,
+        "total": 3,
         "annotated": 1
       },
       "missing_annotations": [
@@ -953,52 +953,54 @@
           "line": 25
         },
         {
+          "type": "parameter",
+          "function": "_save_log",
+          "name": "updated_log",
+          "line": 55
+        },
+        {
+          "type": "return",
+          "function": "_save_log",
+          "line": 55
+        },
+        {
+          "type": "parameter",
+          "function": "_save_data_state",
+          "name": "updated_df",
+          "line": 62
+        },
+        {
+          "type": "return",
+          "function": "_save_data_state",
+          "line": 62
+        },
+        {
           "type": "return",
           "function": "approval_status_ui",
-          "line": 52
+          "line": 69
         },
         {
           "type": "return",
           "function": "modifications_log_ui",
-          "line": 58
+          "line": 75
         },
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 78
+          "line": 95
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 103
+          "line": 120
         },
         {
           "type": "return",
           "function": "_handle_cell_reset",
-          "line": 164
-        },
-        {
-          "type": "return",
-          "function": "_save_modifications",
-          "line": 222
-        },
-        {
-          "type": "return",
-          "function": "_export_status_report",
-          "line": 233
-        },
-        {
-          "type": "return",
-          "function": "_reload_data",
-          "line": 240
-        },
-        {
-          "type": "return",
-          "function": "_approve_data",
-          "line": 257
+          "line": 181
         }
       ],
-      "missing_annotations_truncated": 2
+      "missing_annotations_truncated": 6
     },
     "src/server/export.py": {
       "functions": {
