@@ -25,6 +25,16 @@ except ImportError as e:
     print(f"[data_operations] Could not load global config: {e}, DB_AVAILABLE=False")
 
 
+def _database_persistence_enabled(database_enabled: Optional[bool] = None) -> bool:
+    """Return whether persistence is handled by the active database backend."""
+    if database_enabled is not None:
+        return bool(database_enabled)
+    if not DB_AVAILABLE or app_config is None:
+        return False
+    database = getattr(app_config, "database", None)
+    return bool(getattr(database, "enabled", False))
+
+
 def _get_row_pk(df: pd.DataFrame, row_idx: int, pk_cols: list = None) -> dict:
     """Extract primary key values for a row using positional index (iloc).
     
@@ -442,7 +452,8 @@ def save_modifications_to_file(
     df: pd.DataFrame,
     log: List[Dict],
     log_path: Path,
-    data_state_path: Path
+    data_state_path: Path,
+    database_enabled: Optional[bool] = None
 ) -> str:
     """
     Save modifications log and data state to files (or database if enabled).
@@ -451,22 +462,30 @@ def save_modifications_to_file(
         Success message
     """
     # In database mode, data is already saved on each edit
-    if DB_AVAILABLE and app_config.database.enabled:
+    if _database_persistence_enabled(database_enabled):
         return f"Changes saved to database ({len(log)} modifications tracked)"
     
     # File-based persistence
-    save_log_to_file(log, log_path)
+    data_state_path = Path(data_state_path)
+    data_state_path.parent.mkdir(parents=True, exist_ok=True)
+    save_log_to_file(log, log_path, database_enabled=False)
     df.to_json(data_state_path, orient="records", indent=2, default_handler=str)
     
     return f"Saved {len(log)} modifications!"
 
 
-def save_log_to_file(log: List[Dict], log_path: Path) -> None:
+def save_log_to_file(
+    log: List[Dict],
+    log_path: Path,
+    database_enabled: Optional[bool] = None
+) -> None:
     """Save modifications log to file (skipped if database mode)."""
-    # In database mode, skip file saves (handled by server.py)
-    if DB_AVAILABLE and app_config.database.enabled:
+    # In database mode, skip file saves (handled by the active DB backend).
+    if _database_persistence_enabled(database_enabled):
         return
     
+    log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "w") as f:
         json.dump(log, f, indent=2)
 

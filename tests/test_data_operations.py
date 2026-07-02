@@ -216,6 +216,18 @@ class TestModificationLogPersistence:
         # Function may or may not create file depending on implementation
         # Just verify no exception
         assert result is None or isinstance(result, (bool, str))
+
+    def test_save_log_to_file_explicit_db_mode_skips_file(self, tmp_path, sample_modifications):
+        """Explicit DB mode should skip local log writes even if global config says file mode."""
+        from src.utils.data_operations import save_log_to_file
+
+        log_path = tmp_path / "missing" / "test_log.json"
+
+        with patch("src.utils.data_operations.DB_AVAILABLE", False):
+            result = save_log_to_file(sample_modifications, log_path, database_enabled=True)
+
+        assert result is None
+        assert not log_path.exists()
     
     def test_load_log_from_file(self, tmp_path, sample_modifications):
         """Loading log should parse JSON correctly."""
@@ -815,6 +827,28 @@ class TestSaveModificationsToFile:
             msg = save_modifications_to_file(df, log, Path("/nope/log.json"), Path("/nope/state.json"))
 
         assert "database" in msg.lower()
+
+    def test_explicit_db_mode_returns_message_without_writing(self, tmp_path):
+        """Active session DB mode should override stale global file-mode config."""
+        from src.utils.data_operations import save_modifications_to_file
+
+        df = pd.DataFrame({"A": [1]})
+        log = [{"type": "field_modification"}]
+        log_path = tmp_path / "missing" / "log.json"
+        state_path = tmp_path / "missing" / "state.json"
+
+        with patch('src.utils.data_operations.DB_AVAILABLE', False):
+            msg = save_modifications_to_file(
+                df,
+                log,
+                log_path,
+                state_path,
+                database_enabled=True
+            )
+
+        assert "database" in msg.lower()
+        assert not log_path.exists()
+        assert not state_path.exists()
 
     def test_empty_log(self, tmp_path):
         """Should handle empty log correctly."""

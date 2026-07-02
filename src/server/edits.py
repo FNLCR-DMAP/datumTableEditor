@@ -48,6 +48,23 @@ def register_edits(ctx: ServerContext):
     load_data_from_source = ctx.load_data_from_source
     _cached_page_data = ctx._cached_page_data
 
+    def _database_enabled() -> bool:
+        database = getattr(app_config, "database", None)
+        return bool(getattr(database, "enabled", False))
+
+    def _save_log(updated_log):
+        save_log_to_file(
+            updated_log,
+            modifications_log_path,
+            database_enabled=_database_enabled()
+        )
+
+    def _save_data_state(updated_df):
+        if _database_enabled():
+            return
+        data_dir.mkdir(parents=True, exist_ok=True)
+        updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+
     @render.ui
     def approval_status_ui():
         with tracker.track_render("approval_status_ui"):
@@ -91,11 +108,11 @@ def register_edits(ctx: ServerContext):
         else:
             if not is_lazy_loading():
                 data.set(updated_df)
-                updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+                _save_data_state(updated_df)
             else:
                 _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             mods_log.set(updated_log)
-            save_log_to_file(updated_log, modifications_log_path)
+            _save_log(updated_log)
             ui.notification_show(message, type="message", duration=2)
 
     @reactive.Effect
@@ -151,9 +168,9 @@ def register_edits(ctx: ServerContext):
             except Exception as e:
                 print(f"Warning: Could not track edited cell: {e}")
 
-            save_log_to_file(updated_log, modifications_log_path)
+            _save_log(updated_log)
             if not is_lazy_loading():
-                updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+                _save_data_state(updated_df)
             elif target_col != col:
                 _table_reload_trigger.set(_table_reload_trigger.get() + 1)
             col_label = f"{col} → {target_col}" if target_col != col else col
@@ -212,9 +229,9 @@ def register_edits(ctx: ServerContext):
         except Exception as e:
             print(f"Warning: Could not clear edited cell tracking: {e}")
 
-        save_log_to_file(updated_log, modifications_log_path)
+        _save_log(updated_log)
         if not is_lazy_loading():
-            updated_df.to_json(data_dir / "data_state.json", orient="records", indent=2, default_handler=str)
+            _save_data_state(updated_df)
         ui.notification_show(f"Reset Row {row + 1}, {col} to original value", type="message", duration=2)
 
     @reactive.Effect
@@ -224,7 +241,8 @@ def register_edits(ctx: ServerContext):
             return
         message = save_modifications_to_file(
             data.get(), mods_log.get(),
-            modifications_log_path, data_dir / "data_state.json"
+            modifications_log_path, data_dir / "data_state.json",
+            database_enabled=_database_enabled()
         )
         ui.notification_show(message, type="message", duration=3)
 
@@ -267,7 +285,7 @@ def register_edits(ctx: ServerContext):
 
         log = mods_log.get().copy()
         log.append(create_approval_entry(selected_pks, len(current_df), len(log)))
-        save_log_to_file(log, modifications_log_path)
+        _save_log(log)
 
         if app_config.database.enabled:
             row_data_map = {}
@@ -317,7 +335,7 @@ def register_edits(ctx: ServerContext):
 
         log = mods_log.get().copy()
         log.append(create_rejection_entry(selected_pks, len(current_df), len(log)))
-        save_log_to_file(log, modifications_log_path)
+        _save_log(log)
 
         if app_config.database.enabled:
             _save_status_to_db(selected_pks, "rejection")
