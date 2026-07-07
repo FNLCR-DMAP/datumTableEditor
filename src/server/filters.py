@@ -17,6 +17,21 @@ from ..utils import tracker
 from .context import ServerContext
 
 
+def _filter_values_from_stored_value(value):
+    if isinstance(value, dict) and "op" in value:
+        stored_values = value.get("value", [])
+        if isinstance(stored_values, list):
+            return stored_values
+        return [stored_values] if stored_values is not None else []
+    if value and str(value).strip() and value != "all":
+        return [
+            v.strip()
+            for v in str(value).replace('\n', ',').replace('\r', ',').split(",")
+            if v.strip()
+        ]
+    return []
+
+
 def register_filters(ctx: ServerContext):
     """Register all filter-related reactive effects and render outputs."""
     input = ctx.input
@@ -209,16 +224,9 @@ def register_filters(ctx: ServerContext):
             else:
                 existing_values = []
         except (SilentException, SilentCancelOutputException):
-            raise
+            existing_values = _filter_values_from_stored_value(old)
         except Exception:
-            if isinstance(old, dict) and "op" in old:
-                existing_values = old.get("value", [])
-                if not isinstance(existing_values, list):
-                    existing_values = [existing_values] if existing_values is not None else []
-            elif old and str(old).strip() and old != "all":
-                existing_values = [v.strip() for v in str(old).replace('\n', ',').replace('\r', ',').split(",") if v.strip()]
-            else:
-                existing_values = []
+            existing_values = _filter_values_from_stored_value(old)
 
         if op == "in" and not existing_values:
             filters[col_name] = "all"

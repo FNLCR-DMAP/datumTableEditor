@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 603,
-    "fully_annotated_functions": 377,
-    "function_coverage_percent": 62.5,
-    "total_parameters": 803,
-    "annotated_parameters": 699,
-    "parameter_coverage_percent": 87.0,
+    "total_functions": 606,
+    "fully_annotated_functions": 378,
+    "function_coverage_percent": 62.4,
+    "total_parameters": 805,
+    "annotated_parameters": 701,
+    "parameter_coverage_percent": 87.1,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -870,75 +870,75 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 38,
-        "with_return_type": 3,
-        "fully_annotated": 3
+        "total": 40,
+        "with_return_type": 4,
+        "fully_annotated": 4
       },
       "parameters": {
-        "total": 26,
-        "annotated": 8
+        "total": 28,
+        "annotated": 10
       },
       "missing_annotations": [
         {
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 37
+          "line": 47
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 37
+          "line": 47
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 37
+          "line": 47
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 37
+          "line": 47
         },
         {
           "type": "parameter",
           "function": "load_modifications_log",
           "name": "row_pks",
-          "line": 93
+          "line": 103
         },
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 93
+          "line": 103
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 96
+          "line": 106
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 99
+          "line": 109
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 104
+          "line": 114
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 124
+          "line": 134
         }
       ],
-      "missing_annotations_truncated": 43
+      "missing_annotations_truncated": 44
     },
     "src/server/edits.py": {
       "functions": {
-        "total": 15,
+        "total": 16,
         "with_return_type": 1,
         "fully_annotated": 1
       },
@@ -956,51 +956,51 @@
           "type": "parameter",
           "function": "_save_log",
           "name": "updated_log",
-          "line": 55
+          "line": 56
         },
         {
           "type": "return",
           "function": "_save_log",
-          "line": 55
+          "line": 56
         },
         {
           "type": "parameter",
           "function": "_save_data_state",
           "name": "updated_df",
-          "line": 62
+          "line": 63
         },
         {
           "type": "return",
           "function": "_save_data_state",
-          "line": 62
+          "line": 63
         },
         {
           "type": "return",
-          "function": "approval_status_ui",
+          "function": "_refresh_table_view",
           "line": 69
         },
         {
           "type": "return",
+          "function": "approval_status_ui",
+          "line": 76
+        },
+        {
+          "type": "return",
           "function": "modifications_log_ui",
-          "line": 75
+          "line": 82
         },
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 95
+          "line": 102
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 120
-        },
-        {
-          "type": "return",
-          "function": "_handle_cell_reset",
-          "line": 181
+          "line": 127
         }
       ],
-      "missing_annotations_truncated": 6
+      "missing_annotations_truncated": 7
     },
     "src/server/export.py": {
       "functions": {
