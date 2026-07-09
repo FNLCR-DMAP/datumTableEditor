@@ -2,11 +2,11 @@
   "_description": "QC report for server",
   "_generated": true,
   "_summary": {
-    "total_functions": 113,
+    "total_functions": 116,
     "unused_functions": 1,
-    "fully_annotated_functions": 6,
-    "function_coverage_percent": 5.3,
-    "parameter_coverage_percent": 41.0,
+    "fully_annotated_functions": 7,
+    "function_coverage_percent": 6.0,
+    "parameter_coverage_percent": 43.9,
     "mypy_errors": 0
   },
   "files": {},
@@ -22,7 +22,7 @@
       ]
     },
     "src/server/core.py": {
-      "total": 38,
+      "total": 40,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
@@ -40,6 +40,7 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_invalidate_lazy_cache",
         "_is_synthesis_query_in_memory",
         "_lazy_buffer_key",
         "_lazy_filtered_count",
@@ -47,6 +48,7 @@
         "_namespace_holder",
         "_page_row_pks",
         "_require_editor",
+        "_reset_lazy_cache",
         "_review_detail",
         "_save_status_to_db",
         "_status_for_row",
@@ -79,12 +81,14 @@
         "_get_row_status",
         "_get_selected_pks",
         "_get_status_counts",
+        "_invalidate_lazy_cache",
         "_is_synthesis_query_in_memory",
         "_lazy_buffer_key",
         "_lazy_filtered_count",
         "_load_current_page_modifications",
         "_page_row_pks",
         "_require_editor",
+        "_reset_lazy_cache",
         "_save_status_to_db",
         "_status_for_row",
         "create_server",
@@ -109,7 +113,7 @@
       ]
     },
     "src/server/edits.py": {
-      "total": 15,
+      "total": 16,
       "functions": [
         "_approve_data",
         "_clear_approval",
@@ -118,6 +122,7 @@
         "_handle_cell_edit",
         "_handle_cell_reset",
         "_handle_undo",
+        "_refresh_table_view",
         "_reject_data",
         "_reload_data",
         "_save_data_state",
@@ -129,6 +134,7 @@
       ],
       "used": [
         "_database_enabled",
+        "_refresh_table_view",
         "_save_data_state",
         "_save_log",
         "register_edits"
@@ -325,74 +331,74 @@
     },
     "src/server/core.py": {
       "functions": {
-        "total": 38,
-        "with_return_type": 3,
-        "fully_annotated": 3
+        "total": 40,
+        "with_return_type": 4,
+        "fully_annotated": 4
       },
       "parameters": {
-        "total": 26,
-        "annotated": 8
+        "total": 28,
+        "annotated": 10
       },
       "missing": [
         {
           "type": "parameter",
           "function": "create_server",
           "name": "input",
-          "line": 37
+          "line": 47
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "output",
-          "line": 37
+          "line": 47
         },
         {
           "type": "parameter",
           "function": "create_server",
           "name": "session",
-          "line": 37
+          "line": 47
         },
         {
           "type": "return",
           "function": "create_server",
-          "line": 37
+          "line": 47
         },
         {
           "type": "parameter",
           "function": "load_modifications_log",
           "name": "row_pks",
-          "line": 93
+          "line": 103
         },
         {
           "type": "return",
           "function": "load_modifications_log",
-          "line": 93
+          "line": 103
         },
         {
           "type": "return",
           "function": "load_data_from_source",
-          "line": 96
+          "line": 106
         },
         {
           "type": "return",
           "function": "save_ui_state",
-          "line": 99
+          "line": 109
         },
         {
           "type": "return",
           "function": "load_ui_state",
-          "line": 104
+          "line": 114
         },
         {
           "type": "return",
           "function": "is_lazy_loading",
-          "line": 124
+          "line": 134
         }
       ]
     },
     "src/server/edits.py": {
       "functions": {
-        "total": 15,
+        "total": 16,
         "with_return_type": 1,
         "fully_annotated": 1
       },
@@ -410,48 +416,48 @@
           "type": "parameter",
           "function": "_save_log",
           "name": "updated_log",
-          "line": 55
+          "line": 56
         },
         {
           "type": "return",
           "function": "_save_log",
-          "line": 55
+          "line": 56
         },
         {
           "type": "parameter",
           "function": "_save_data_state",
           "name": "updated_df",
-          "line": 62
+          "line": 63
         },
         {
           "type": "return",
           "function": "_save_data_state",
-          "line": 62
+          "line": 63
         },
         {
           "type": "return",
-          "function": "approval_status_ui",
+          "function": "_refresh_table_view",
           "line": 69
         },
         {
           "type": "return",
+          "function": "approval_status_ui",
+          "line": 76
+        },
+        {
+          "type": "return",
           "function": "modifications_log_ui",
-          "line": 75
+          "line": 82
         },
         {
           "type": "return",
           "function": "_handle_undo",
-          "line": 95
+          "line": 102
         },
         {
           "type": "return",
           "function": "_handle_cell_edit",
-          "line": 120
-        },
-        {
-          "type": "return",
-          "function": "_handle_cell_reset",
-          "line": 181
+          "line": 127
         }
       ]
     },
