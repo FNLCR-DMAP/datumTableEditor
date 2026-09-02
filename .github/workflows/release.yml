@@ -1,0 +1,108 @@
+name: datumTableEditor Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: datumTableEditor-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_changed: ${{ steps.release-semantic.outputs.changed }}
+      release_version: ${{ steps.release-semantic.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute semantic version
+        id: release-semantic
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          major_pattern: "breaking"
+          minor_pattern: "feat"
+          bump_each_commit_patch_pattern: "fix"
+          bump_each_commit: true
+          change_path: "."
+          version_format: "${major}.${minor}.${patch}"
+
+      - name: Inject semantic version into metadata
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          VERSION=${{ steps.release-semantic.outputs.version }}
+          sed -i.bak 's/^version = .*/version = "'$VERSION'"/' pyproject.toml
+          cat pyproject.toml | grep version
+
+      - name: Configure git
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version update
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ steps.release-semantic.outputs.version }}"
+
+      - name: Push changes
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          git push
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest tests
+
+      - name: Build distribution
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          python -m pip install --upgrade build
+          python -m build --sdist --wheel
+          VERSION=${{ steps.release-semantic.outputs.version }}
+          WHL=$(ls dist/*.whl | head -n1)
+          TAR=$(ls dist/*.tar.gz | head -n1)
+          DEST_WHL=dist/dmapTableEditor-${VERSION}-py3-none-any.whl
+          DEST_TAR=dist/dmapTableEditor-${VERSION}.tar.gz
+          if [ -f "$DEST_WHL" ] && [ "$WHL" != "$DEST_WHL" ]; then rm -f "$DEST_WHL"; fi
+          if [ -f "$DEST_TAR" ] && [ "$TAR" != "$DEST_TAR" ]; then rm -f "$DEST_TAR"; fi
+          if [ "$WHL" != "$DEST_WHL" ]; then mv "$WHL" "$DEST_WHL"; else echo "wheel already named correctly"; fi
+          if [ "$TAR" != "$DEST_TAR" ]; then mv "$TAR" "$DEST_TAR"; else echo "tarball already named correctly"; fi
+
+      - name: Create GitHub Release
+        if: steps.release-semantic.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.release-semantic.outputs.version }}
+          name: dmapTableEditor v${{ steps.release-semantic.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/dmapTableEditor-${{ steps.release-semantic.outputs.version }}-py3-none-any.whl
+            dist/dmapTableEditor-${{ steps.release-semantic.outputs.version }}.tar.gz
