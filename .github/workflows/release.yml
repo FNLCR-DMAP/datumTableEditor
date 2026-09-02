@@ -43,6 +43,23 @@ jobs:
           sed -i.bak 's/^version = .*/version = "'$VERSION'"/' pyproject.toml
           cat pyproject.toml | grep version
 
+      - name: Configure git
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version update
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ steps.release-semantic.outputs.version }}"
+
+      - name: Push changes
+        if: steps.release-semantic.outputs.changed == 'true'
+        run: |
+          git push
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -72,8 +89,8 @@ jobs:
           VERSION=${{ steps.release-semantic.outputs.version }}
           WHL=$(ls dist/*.whl | head -n1)
           TAR=$(ls dist/*.tar.gz | head -n1)
-          DEST_WHL=dist/datumTableEditor-${VERSION}-py3-none-any.whl
-          DEST_TAR=dist/datumTableEditor-${VERSION}.tar.gz
+          DEST_WHL=dist/dmapTableEditor-${VERSION}-py3-none-any.whl
+          DEST_TAR=dist/dmapTableEditor-${VERSION}.tar.gz
           if [ -f "$DEST_WHL" ] && [ "$WHL" != "$DEST_WHL" ]; then rm -f "$DEST_WHL"; fi
           if [ -f "$DEST_TAR" ] && [ "$TAR" != "$DEST_TAR" ]; then rm -f "$DEST_TAR"; fi
           if [ "$WHL" != "$DEST_WHL" ]; then mv "$WHL" "$DEST_WHL"; else echo "wheel already named correctly"; fi
@@ -84,8 +101,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.release-semantic.outputs.version }}
-          name: datumTableEditor v${{ steps.release-semantic.outputs.version }}
+          name: dmapTableEditor v${{ steps.release-semantic.outputs.version }}
           generate_release_notes: true
           files: |
-            dist/datumTableEditor-${{ steps.release-semantic.outputs.version }}-py3-none-any.whl
-            dist/datumTableEditor-${{ steps.release-semantic.outputs.version }}.tar.gz
+            dist/dmapTableEditor-${{ steps.release-semantic.outputs.version }}-py3-none-any.whl
+            dist/dmapTableEditor-${{ steps.release-semantic.outputs.version }}.tar.gz
