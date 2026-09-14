@@ -803,14 +803,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             """
         )
 
-    @render.ui
-    def selection_mode_ui():
-        if app_config.review_detail_multi_select:
-            return ui.div()
-        return ui.tags.style(
-            "#select_all_page { display: none !important; }"
-        )
-
     @render.text
     def data_summary():
         if is_lazy_loading():

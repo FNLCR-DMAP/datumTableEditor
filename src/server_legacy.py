@@ -798,18 +798,6 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
             """
         )
 
-    # Output: Single-select mode — hide Select All header checkbox
-    @render.ui
-    def selection_mode_ui():
-        if app_config.review_detail_multi_select:
-            return ui.div()
-        return ui.tags.style(
-            """
-            /* === Single-select mode: hide select-all checkbox === */
-            #select_all_page { display: none !important; }
-            """
-        )
-
     # Output: Data summary text
     @render.text
     def data_summary():

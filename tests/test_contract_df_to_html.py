@@ -334,6 +334,17 @@ class TestTableHeader:
         assert "select_all_page" in html
         assert 'type="checkbox"' in html
 
+    def test_select_all_checkbox_follows_multi_select(self, default_widths):
+        multi_select_html = _render_html(
+            build_table_header(["gene"], default_widths, multi_select=True)
+        )
+        single_select_html = _render_html(
+            build_table_header(["gene"], default_widths, multi_select=False)
+        )
+
+        assert "select_all_page" in multi_select_html
+        assert "select_all_page" not in single_select_html
+
     def test_row_number_header(self, default_widths):
         thead = build_table_header(["gene"], default_widths)
         html = _render_html(thead)
