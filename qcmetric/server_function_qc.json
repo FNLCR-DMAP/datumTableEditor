@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 606,
+    "total_functions": 607,
     "total_unused": 118,
-    "unused_percentage": 19.5
+    "unused_percentage": 19.4
   },
   "modules": {
     "clipboard_utils.py": {
@@ -1451,12 +1451,13 @@
     "filters.py": {
       "description": "Server filters \u2014 facet panels, dynamic filters, apply/reset.",
       "path": "src/server/filters.py",
-      "total_functions": 14,
+      "total_functions": 15,
       "functions": [
         "_add_filter",
         "_apply_filter_value",
         "_apply_filters",
         "_fetch_filter_values",
+        "_filter_values_from_stored_value",
         "_handle_facet_filter",
         "_remove_filter",
         "_reset_pending_filters",
@@ -1469,6 +1470,7 @@
         "register_filters"
       ],
       "used_internally": [
+        "_filter_values_from_stored_value",
         "register_filters"
       ],
       "unused": [

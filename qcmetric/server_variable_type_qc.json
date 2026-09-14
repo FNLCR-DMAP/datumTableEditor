@@ -2,12 +2,12 @@
   "_description": "Type annotation coverage and mypy type checking results",
   "_generated": true,
   "_summary": {
-    "total_functions": 606,
+    "total_functions": 607,
     "fully_annotated_functions": 378,
-    "function_coverage_percent": 62.4,
-    "total_parameters": 805,
+    "function_coverage_percent": 62.3,
+    "total_parameters": 806,
     "annotated_parameters": 701,
-    "parameter_coverage_percent": 87.1,
+    "parameter_coverage_percent": 87.0,
     "mypy_errors": 0,
     "mypy_available": true
   },
@@ -1037,67 +1037,68 @@
     },
     "src/server/filters.py": {
       "functions": {
-        "total": 14,
+        "total": 15,
         "with_return_type": 0,
         "fully_annotated": 0
       },
       "parameters": {
-        "total": 1,
+        "total": 2,
         "annotated": 1
       },
       "missing_annotations": [
         {
-          "type": "return",
-          "function": "register_filters",
+          "type": "parameter",
+          "function": "_filter_values_from_stored_value",
+          "name": "value",
           "line": 20
         },
         {
           "type": "return",
+          "function": "_filter_values_from_stored_value",
+          "line": 20
+        },
+        {
+          "type": "return",
+          "function": "register_filters",
+          "line": 35
+        },
+        {
+          "type": "return",
           "function": "facet_panels_ui",
-          "line": 39
+          "line": 54
         },
         {
           "type": "return",
           "function": "_handle_facet_filter",
-          "line": 89
+          "line": 104
         },
         {
           "type": "return",
           "function": "dynamic_filters",
-          "line": 112
+          "line": 127
         },
         {
           "type": "return",
           "function": "add_filter_btn_ui",
-          "line": 142
+          "line": 157
         },
         {
           "type": "return",
           "function": "available_filter_columns",
-          "line": 154
+          "line": 169
         },
         {
           "type": "return",
           "function": "_add_filter",
-          "line": 168
+          "line": 183
         },
         {
           "type": "return",
           "function": "_remove_filter",
-          "line": 180
-        },
-        {
-          "type": "return",
-          "function": "_set_filter_operator",
-          "line": 191
-        },
-        {
-          "type": "return",
-          "function": "_apply_filter_value",
-          "line": 236
+          "line": 195
         }
       ],
-      "missing_annotations_truncated": 4
+      "missing_annotations_truncated": 6
     },
     "src/server/pagination.py": {
       "functions": {

@@ -303,9 +303,6 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
             # Viewer mode CSS injection (hides edit controls for viewer role)
             ui.output_ui("viewer_mode_ui"),
             
-            # Selection mode CSS injection (hides select-all for single-select)
-            ui.output_ui("selection_mode_ui"),
-            
             # Clean slate mode is applied via .clean-slate class on main-container
             # (scoped so it doesn't leak into other tabs)
             
