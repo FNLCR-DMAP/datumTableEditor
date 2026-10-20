@@ -37,7 +37,9 @@ def register_synthesis(ctx: ServerContext):
     _synthesis_auto_triggered = {"done": False}
 
     def _is_lazy_query_mode():
-        return app_config.synthesis.mode == "query" and config.is_lazy_loading
+        return (app_config.synthesis.run_synthesis
+            and app_config.synthesis.mode == "query"
+            and config.is_lazy_loading)
 
     def _result_row_count(result_df: pd.DataFrame) -> int:
         return config.total_row_count if _is_lazy_query_mode() else len(result_df)
@@ -53,7 +55,7 @@ def register_synthesis(ctx: ServerContext):
         synthesis_running.set(True)
         synthesis_error.set("")
         try:
-            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            result_df, was_cached = await asyncio.to_thread(config.get_synthesis_data)
             synthesis_data.set(result_df)
             synthesis_cached.set(was_cached)
             synthesis_active.set(True)
@@ -62,7 +64,7 @@ def register_synthesis(ctx: ServerContext):
             total_rows.set(row_count)
             filtered_row_count.set(row_count)
             current_page.set(1)
-            if app_config.synthesis.mode != "query":
+            if not app_config.synthesis.run_synthesis or app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             else:
                 # Query mode: populate columns from result DataFrame
@@ -139,7 +141,10 @@ def register_synthesis(ctx: ServerContext):
         if synthesis_active.get():
             synth_df = synthesis_data.get()
             was_cached = synthesis_cached.get()
-            cache_note = " (served from cache)" if was_cached else " (freshly generated)"
+            if not app_config.synthesis.run_synthesis:
+                cache_note = " (loaded from existing view)"
+            else:
+                cache_note = " (served from cache)" if was_cached else " (freshly generated)"
             ttl = app_config.synthesis.ttl_minutes
             countdown_html = ""
             try:
@@ -226,6 +231,29 @@ def register_synthesis(ctx: ServerContext):
             try:
                 table_exists = config.check_synthesis_table_exists()
                 ttl = app_config.synthesis.ttl_minutes
+                if not app_config.synthesis.run_synthesis:
+                    result_table = config.get_synthesis_table_name()
+                    if table_exists:
+                        return ui.div(
+                            _btn_reset,
+                            ui.p(
+                                ui.tags.i(class_="fa fa-database", style="margin-right: 6px; color: #28a745;"),
+                                f"Existing synthesis view available: {result_table}",
+                                style="color: #28a745; font-size: 13px; font-weight: 500;"
+                            ),
+                            ui.p('Click "Load View" to read it.', style="color: #666; font-size: 13px;"),
+                            class_="synthesis-status-area"
+                        )
+                    return ui.div(
+                        _btn_reset,
+                        ui.p(
+                            ui.tags.i(class_="fa fa-exclamation-circle", style="margin-right: 6px; color: #dc3545;"),
+                            f"Synthesis view not found: {result_table}",
+                            style="color: #dc3545; font-size: 13px; font-weight: 500;"
+                        ),
+                        ui.p("Automatic synthesis execution is disabled.", style="color: #666; font-size: 13px;"),
+                        class_="synthesis-status-area"
+                    )
                 if table_exists:
                     age = config._get_synthesis_age_minutes()
                     if age is not None:
@@ -290,7 +318,7 @@ def register_synthesis(ctx: ServerContext):
         synthesis_running.set(True)
         synthesis_error.set("")
         try:
-            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            result_df, was_cached = await asyncio.to_thread(config.get_synthesis_data)
             synthesis_data.set(result_df)
             synthesis_cached.set(was_cached)
             synthesis_active.set(True)
@@ -299,7 +327,7 @@ def register_synthesis(ctx: ServerContext):
             total_rows.set(row_count)
             filtered_row_count.set(row_count)
             current_page.set(1)
-            if app_config.synthesis.mode != "query":
+            if not app_config.synthesis.run_synthesis or app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             else:
                 if len(result_df.columns) > 0:
@@ -330,7 +358,7 @@ def register_synthesis(ctx: ServerContext):
         synthesis_running.set(True)
         synthesis_error.set("")
         try:
-            result_df, _ = await asyncio.to_thread(config.run_synthesis, force=True)
+            result_df, _ = await asyncio.to_thread(config.get_synthesis_data, force=True)
             synthesis_data.set(result_df)
             synthesis_cached.set(False)
             synthesis_active.set(True)
@@ -339,7 +367,7 @@ def register_synthesis(ctx: ServerContext):
             total_rows.set(row_count)
             filtered_row_count.set(row_count)
             current_page.set(1)
-            if app_config.synthesis.mode != "query":
+            if not app_config.synthesis.run_synthesis or app_config.synthesis.mode != "query":
                 config.activate_synthesis_fetcher(config.get_synthesis_table_name())
             else:
                 if len(result_df.columns) > 0:

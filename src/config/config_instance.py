@@ -2342,7 +2342,8 @@ class ConfigInstance:
         # entirely.  The server layer will load the synthesis result table or
         # trigger generation instead.
         if (getattr(self.app_config, 'enable_synthesis', False)
-                and getattr(self.app_config.synthesis, 'query', '')):
+            and (getattr(self.app_config.synthesis, 'query', '')
+                 or not getattr(self.app_config.synthesis, 'run_synthesis', True))):
             self.df = pd.DataFrame()
             self.all_columns = []
             self.display_columns = []
@@ -3481,6 +3482,18 @@ class ConfigInstance:
         print(f"[Synthesis] View created in {elapsed:.1f}s")
 
         return self._read_synthesis_table(result_table), False
+
+    def get_synthesis_data(self, force: bool = False):
+        """Run synthesis or read its externally managed result view."""
+        if self.app_config.synthesis.run_synthesis:
+            return self.run_synthesis(force=force)
+
+        result_table = self.get_synthesis_table_name()
+        if not self.check_synthesis_table_exists():
+            raise RuntimeError(
+                f"Synthesis view {result_table!r} does not exist and synthesis execution is disabled"
+            )
+        return self._read_synthesis_table(result_table), True
 
     def _stamp_synthesis_comment(self, result_table_sql, epoch: float):
         """Store creation timestamp as COMMENT ON VIEW for TTL checking."""

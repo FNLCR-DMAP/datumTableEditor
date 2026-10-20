@@ -251,6 +251,9 @@ class SynthesisConfig:
     # Synthesis execution mode: "view" (create DB view) or "query" (direct query)
     mode: str = "view"
 
+    # When False, only read an existing result view; never execute the synthesis query.
+    run_synthesis: bool = True
+
     # Name prefix for the materialised result table (only used in "view" mode).
     # Final name: {schema}.{result_table_prefix} (shared across users)
     result_table_prefix: str = "_synthesis_result"
@@ -548,6 +551,7 @@ def _merge_config(config: AppConfig, file_config: dict, username: Optional[str] 
         syn = file_config["synthesis"]
         config.synthesis.query = syn.get("query", config.synthesis.query)
         config.synthesis.mode = syn.get("mode", config.synthesis.mode)
+        config.synthesis.run_synthesis = syn.get("run_synthesis", config.synthesis.run_synthesis)
         config.synthesis.result_table_prefix = syn.get("result_table_prefix", config.synthesis.result_table_prefix)
         config.synthesis.ttl_minutes = syn.get("ttl_minutes", config.synthesis.ttl_minutes)
         config.synthesis.label = syn.get("label", config.synthesis.label)

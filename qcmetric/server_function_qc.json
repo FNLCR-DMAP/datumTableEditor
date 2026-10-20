@@ -2,9 +2,9 @@
   "_description": "QC report: function definitions, usage, and unused function detection",
   "_generated": true,
   "_summary": {
-    "total_functions": 607,
-    "total_unused": 118,
-    "unused_percentage": 19.4
+    "total_functions": 606,
+    "total_unused": 117,
+    "unused_percentage": 19.3
   },
   "modules": {
     "clipboard_utils.py": {
@@ -1298,7 +1298,7 @@
     "core.py": {
       "description": "Server core \u2014 create_server() setup, reactive values, and sub-module wiring.",
       "path": "src/server/core.py",
-      "total_functions": 40,
+      "total_functions": 39,
       "functions": [
         "_build_query_params",
         "_cached_page_data",
@@ -1336,7 +1336,6 @@
         "load_modifications_log",
         "load_ui_state",
         "save_ui_state",
-        "selection_mode_ui",
         "stats_histogram",
         "table_container",
         "viewer_mode_ui"
@@ -1380,7 +1379,6 @@
         "_review_detail",
         "_sync_lazy_page_modifications",
         "data_summary",
-        "selection_mode_ui",
         "stats_histogram",
         "table_container",
         "viewer_mode_ui"
@@ -1717,7 +1715,6 @@
       "_review_detail",
       "_sync_lazy_page_modifications",
       "data_summary",
-      "selection_mode_ui",
       "stats_histogram",
       "table_container",
       "viewer_mode_ui"

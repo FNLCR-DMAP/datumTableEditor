@@ -405,7 +405,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         synthesis_running.set(True)
         synthesis_error.set("")
         try:
-            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            result_df, was_cached = await asyncio.to_thread(config.get_synthesis_data)
             synthesis_data.set(result_df)
             synthesis_cached.set(was_cached)
             synthesis_active.set(True)
@@ -2313,7 +2313,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         synthesis_error.set("")
         try:
             # run_synthesis returns (df, was_cached)
-            result_df, was_cached = await asyncio.to_thread(config.run_synthesis)
+            result_df, was_cached = await asyncio.to_thread(config.get_synthesis_data)
             synthesis_data.set(result_df)
             synthesis_cached.set(was_cached)
             synthesis_active.set(True)
@@ -2359,7 +2359,7 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
         synthesis_running.set(True)
         synthesis_error.set("")
         try:
-            result_df, _ = await asyncio.to_thread(config.run_synthesis, force=True)
+            result_df, _ = await asyncio.to_thread(config.get_synthesis_data, force=True)
             synthesis_data.set(result_df)
             synthesis_cached.set(False)
             synthesis_active.set(True)

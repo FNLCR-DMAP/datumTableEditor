@@ -253,6 +253,17 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   color: var(--text-secondary);
 }
 .section-banner strong { color: var(--text-primary); }
+.managed-process-reminder {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-left: 3px solid #d97706;
+  border-radius: 4px;
+  background: rgba(217,119,6,.08);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.managed-process-reminder strong { color: var(--text-primary); }
 </style>
 </head>
 <body>
@@ -972,6 +983,13 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
         <input type="text" id="syn_label" value="Synthesis" data-path="synthesis.label">
       </div>
       <div class="field">
+        <label><span class="checkbox-label"><input type="checkbox" id="syn_run_synthesis" data-path="synthesis.run_synthesis" checked> Run synthesis query</span></label>
+        <div class="hint">Turn off to only read an existing result view created elsewhere.</div>
+        <div class="managed-process-reminder" id="syn-managed-process-reminder" hidden>
+          <strong>Managed process required:</strong> View creation and refresh must be handled by the managed process. This app will only read the existing result view.
+        </div>
+      </div>
+      <div class="field">
         <label for="syn_query">SQL Query</label>
         <textarea id="syn_query" rows="5" placeholder="SELECT ... FROM ..." data-path="synthesis.query"></textarea>
         <div class="hint">The SQL transform to run. Result is materialised into a PostgreSQL table.</div>
@@ -1286,6 +1304,14 @@ document.getElementById('db_lazy').addEventListener('change', function() {
   document.getElementById('lazy-page-buf-field').style.display = this.checked ? '' : 'none';
 });
 
+function syncSynthesisRunReminder() {
+  const runSynthesis = document.getElementById('syn_run_synthesis');
+  document.getElementById('syn-managed-process-reminder').hidden = runSynthesis.checked;
+}
+
+document.getElementById('syn_run_synthesis').addEventListener('change', syncSynthesisRunReminder);
+syncSynthesisRunReminder();
+
 // ─── Presets ───────────────────────────────────────────────────
 const PRESETS = {
   scratch: {},
@@ -1364,6 +1390,7 @@ function resetToDefaults() {
   });
   // Clear tags
   document.querySelectorAll('.tag').forEach(t => t.remove());
+  syncSynthesisRunReminder();
 }
 
 function setFieldValue(path, value) {
@@ -1482,6 +1509,7 @@ function buildConfig() {
   if (cb('f_synthesis')) {
     cfg.synthesis = {
       query: v('syn_query') || '',
+      run_synthesis: cb('syn_run_synthesis'),
       result_table_prefix: v('syn_prefix') || '_synthesis_result',
       ttl_minutes: nv('syn_ttl') || 10,
       label: v('syn_label') || 'Synthesis'
@@ -1577,7 +1605,7 @@ function updateNavDots() {
     query: () => getTagValues(document.getElementById('search-cols-tags')).length > 0 || v('default_filters'),
     state: () => !cb('st_persist'), // non-default
     features: () => !cb('f_approval') || !cb('f_status') || cb('f_synthesis') || cb('f_review'),
-    synthesis: () => cb('f_synthesis') && v('syn_query'),
+    synthesis: () => cb('f_synthesis') && (!cb('syn_run_synthesis') || v('syn_query')),
     permissions: () => Object.keys(getKvValues('user-roles-editor')).length > 0,
     status: () => v('sl_unprocessed') !== 'Unprocessed' || v('sv_approved') !== 'approved',
     review: () => cb('f_review'),

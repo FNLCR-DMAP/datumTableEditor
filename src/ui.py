@@ -132,6 +132,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
     enable_export = app_config.enable_export
     enable_status_filter = app_config.enable_status_filter
     enable_synthesis = app_config.enable_synthesis
+    run_synthesis = app_config.synthesis.run_synthesis
     enable_search = app_config.query.enable_search
     enable_review_detail = app_config.enable_review_detail
     review_detail_label = app_config.review_detail_label or "Review Detail"
@@ -685,7 +686,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                             ),
                             ui.input_action_button(
                                 "synthesis_run_btn",
-                                "Run Transform",
+                                "Run Transform" if run_synthesis else "Load View",
                                 class_="btn btn-warning"
                             ),
                             ui.input_action_button(
@@ -693,7 +694,7 @@ def create_app_ui(config_path: str = "app_config.json") -> ui.Tag:
                                 "Regenerate",
                                 class_="btn btn-outline-warning",
                                 style="display: none; margin-left: 8px;"
-                            ),
+                            ) if run_synthesis else None,
                             style="display: flex; justify-content: flex-end; padding: 10px 20px; border-top: 1px solid #dee2e6;",
                             id="synthesis-modal-footer"
                         ),
