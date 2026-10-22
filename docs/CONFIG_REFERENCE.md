@@ -267,6 +267,8 @@ SQL transform feature. When enabled, a button appears in the toolbar that runs a
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `query` | string | `""` | SQL SELECT query to execute. Result is materialised via `CREATE TABLE AS` |
+| `mode` | string | `"view"` | `view` creates/reads a database view; `query` executes SQL directly |
+| `run_synthesis` | bool | `true` | When `false`, only read the existing result view; the managed process must create and refresh it |
 | `result_table_prefix` | string | `"_synthesis_result"` | Name for the materialised result table (shared across users) |
 | `ttl_minutes` | int | `10` | Cache lifetime in minutes. `0` = always regenerate |
 | `label` | string | `"Synthesis"` | Button and modal title text |

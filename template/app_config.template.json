@@ -186,6 +186,8 @@
     "_query_comment": "The SQL SELECT query to execute. Result is materialised via CREATE TABLE AS. Not user-editable at runtime.",
     "mode": "view",
     "_mode_comment": "Execution mode: 'view' creates a DB view with TTL caching; 'query' executes SQL directly and returns rows in-memory (no view, sorting/filtering on the fly).",
+    "run_synthesis": true,
+    "_run_synthesis_comment": "When false, never executes the synthesis query or creates/refreshes the view; the managed process must create and refresh the existing result view that this app reads.",
     "result_table_prefix": "_synthesis_result",
     "_result_table_prefix_comment": "Name for the materialised result table (only used in view mode, shared across users)",
     "ttl_minutes": 10,

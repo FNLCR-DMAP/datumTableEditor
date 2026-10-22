@@ -1337,6 +1337,52 @@ class TestRunSynthesisDirectQuery:
             ci.run_synthesis()
 
 
+class TestGetSynthesisData:
+    """Tests for guarded synthesis execution versus external-view reads."""
+
+    def _make_ci(self, run_synthesis):
+        from src.config.config_instance import ConfigInstance
+
+        ci = ConfigInstance.__new__(ConfigInstance)
+        ci.app_config = MagicMock()
+        ci.app_config.synthesis.run_synthesis = run_synthesis
+        ci.run_synthesis = MagicMock(return_value=(pd.DataFrame({"id": [1]}), False))
+        ci.get_synthesis_table_name = MagicMock(return_value="external_synthesis")
+        ci.check_synthesis_table_exists = MagicMock(return_value=True)
+        ci._read_synthesis_table = MagicMock(return_value=pd.DataFrame({"id": [2]}))
+        return ci
+
+    def test_enabled_runs_synthesis(self):
+        ci = self._make_ci(True)
+
+        result, was_cached = ci.get_synthesis_data(force=True)
+
+        ci.run_synthesis.assert_called_once_with(force=True)
+        ci._read_synthesis_table.assert_not_called()
+        assert result["id"].tolist() == [1]
+        assert was_cached is False
+
+    def test_disabled_reads_existing_view_without_running_synthesis(self):
+        ci = self._make_ci(False)
+
+        result, was_cached = ci.get_synthesis_data(force=True)
+
+        ci.run_synthesis.assert_not_called()
+        ci._read_synthesis_table.assert_called_once_with("external_synthesis")
+        assert result["id"].tolist() == [2]
+        assert was_cached is True
+
+    def test_disabled_missing_view_does_not_run_synthesis(self):
+        ci = self._make_ci(False)
+        ci.check_synthesis_table_exists.return_value = False
+
+        with pytest.raises(RuntimeError, match="does not exist"):
+            ci.get_synthesis_data()
+
+        ci.run_synthesis.assert_not_called()
+        ci._read_synthesis_table.assert_not_called()
+
+
 class TestPostgresFullFunctionRouting:
     """Pin postgres mode away from SQLAlchemy-only feature branches."""
 
@@ -1409,6 +1455,7 @@ class TestSynthesisConfigMode:
         from src.config.app_config_schema import SynthesisConfig
         config = SynthesisConfig()
         assert config.mode == "view"
+        assert config.run_synthesis is True
 
     def test_mode_parsed_from_config(self, tmp_path):
         """mode should be loaded from JSON config."""
@@ -1440,6 +1487,22 @@ class TestSynthesisConfigMode:
 
         config = load_config(str(config_file))
         assert config.synthesis.mode == "view"
+
+    def test_run_synthesis_switch_parsed_from_config(self, tmp_path):
+        """run_synthesis=false should enable external-view read-only mode."""
+        import json
+        from src.config.app_config_schema import load_config
+
+        config_file = tmp_path / "app_config.json"
+        config_file.write_text(json.dumps({
+            "synthesis": {
+                "run_synthesis": False,
+                "result_table_prefix": "external_synthesis"
+            }
+        }))
+
+        config = load_config(str(config_file))
+        assert config.synthesis.run_synthesis is False
 
 
 # =============================================================================

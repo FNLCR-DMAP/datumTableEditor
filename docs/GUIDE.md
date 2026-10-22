@@ -183,12 +183,15 @@ Results are cached for `synthesis.ttl_minutes`. Subsequent clicks within the TTL
   "enable_synthesis": true,
   "synthesis": {
     "query": "SELECT * FROM my_view WHERE score > 0.5",
+    "run_synthesis": true,
     "result_table_prefix": "_synthesis_result",
     "ttl_minutes": 10,
     "label": "Run Analysis"
   }
 }
 ```
+
+Set `run_synthesis` to `false` when the managed process creates the result view. In that mode the managed process must create and refresh `result_table_prefix`; the app only reads it and never executes `query`.
 
 ### Permissions
 

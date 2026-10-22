@@ -177,6 +177,8 @@
     "_comment": "Long-running SQL transform. mode=view creates a DB view with TTL caching; mode=query executes SQL directly (no view, on-the-fly).",
     "query": "",
     "mode": "view",
+    "run_synthesis": true,
+    "_run_synthesis_comment": "When false, the managed process must create and refresh the existing result view; this app only reads it.",
     "result_table_prefix": "_synthesis_result",
     "ttl_minutes": 10,
     "label": "Synthesis"

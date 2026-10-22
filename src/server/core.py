@@ -137,8 +137,26 @@ def create_server(input, output, session, config_path: str = "app_config.json"):
     # ----- Auto-synthesis: try cached synthesis table on startup -----
     _synthesis_autoloaded = False
     _synthesis_needs_generate = False
-    if app_config.enable_synthesis and app_config.synthesis.query:
-        if app_config.synthesis.mode == "query":
+    if (app_config.enable_synthesis
+            and (app_config.synthesis.query or not app_config.synthesis.run_synthesis)):
+        if not app_config.synthesis.run_synthesis:
+            try:
+                result_table = config.get_synthesis_table_name()
+                if config.check_synthesis_table_exists():
+                    initial_df = config._read_synthesis_table(result_table)
+                    total_row_count = len(initial_df)
+                    _synthesis_autoloaded = True
+                    if not all_columns and len(initial_df.columns) > 0:
+                        all_columns = list(initial_df.columns)
+                        display_columns = list(initial_df.columns)
+                        config.all_columns = all_columns
+                        config.display_columns = display_columns
+                    print(f"[Synthesis] Loaded externally managed view — {total_row_count} rows")
+                else:
+                    print(f"[Synthesis] External view {result_table} is missing; execution is disabled")
+            except Exception as e:
+                print(f"[Synthesis] External view load failed: {e}")
+        elif app_config.synthesis.mode == "query":
             # Direct query mode — no view caching, always generate on startup
             print("[Synthesis] Direct query mode — will auto-generate after startup")
             _synthesis_needs_generate = True
